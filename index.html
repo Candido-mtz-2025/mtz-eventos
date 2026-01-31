@@ -1460,37 +1460,38 @@ Fico no aguardo!`;
 
         
         // 1. Registra o Service Worker
+        // 1. Registra o Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
                 .then(() => console.log('SW Registrado!'))
                 .catch((err) => console.error('Erro SW:', err));
         }
 
-        // 2. Botão Flutuante Bonito
+        // 2. Botão Flutuante de Instalação
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             
-            // Cria o botão estilo "Cápsula Flutuante"
+            // Cria o botão
             const btn = document.createElement('div');
             btn.id = 'btnInstalarApp';
-            btn.innerHTML = '<i class="bi bi-phone"></i> Instalar App';
+            btn.innerHTML = '<i class="bi bi-phone"></i> INSTALAR APP';
             
-            // Estilo CSS direto no JS
+            // Estilo CSS (Bonito e Flutuante)
             btn.style.cssText = `
                 position: fixed;
                 bottom: 30px;
                 left: 50%;
-                transform: translateX(-50%) translateY(100px);
+                transform: translateX(-50%) translateY(100px); /* Começa escondido embaixo */
                 background: linear-gradient(135deg, #2563eb, #1d4ed8);
                 color: white;
-                padding: 12px 25px;
+                padding: 12px 30px;
                 border-radius: 50px;
                 font-family: sans-serif;
                 font-weight: bold;
                 font-size: 14px;
-                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5);
                 cursor: pointer;
                 z-index: 9999;
                 display: flex;
@@ -1500,31 +1501,30 @@ Fico no aguardo!`;
                 opacity: 0;
             `;
             
-            // Adiciona ao site
             document.body.appendChild(btn);
 
-            // Animação de entrada (sobe suavemente)
+            // Animação de entrada (Sobe suave)
             setTimeout(() => {
                 btn.style.transform = 'translateX(-50%) translateY(0)';
                 btn.style.opacity = '1';
             }, 1000);
             
-            // Ação de Clique
+            // Clique no botão
             btn.onclick = () => {
-                // Efeito de clique
-                btn.style.transform = 'translateX(-50%) scale(0.95)';
-                setTimeout(() => btn.style.transform = 'translateX(-50%) scale(1)', 150);
-
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        btn.style.opacity = '0';
-                        setTimeout(() => btn.remove(), 500);
-                    }
-                    deferredPrompt = null;
-                });
+                btn.style.transform = 'translateX(-50%) scale(0.9)'; // Efeito de clique
+                setTimeout(() => {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            btn.style.opacity = '0';
+                            setTimeout(() => btn.remove(), 500);
+                        }
+                        deferredPrompt = null;
+                    });
+                }, 150);
             };
-        })
+        });
+    
     </script>
 </body>
 </html>
