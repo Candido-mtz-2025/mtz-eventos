@@ -1459,69 +1459,37 @@ Fico no aguardo!`;
         }
 
         
-        // 1. Registra o Service Worker
-        // 1. Registra o Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js')
-                .then(() => console.log('SW Registrado!'))
-                .catch((err) => console.error('Erro SW:', err));
+       if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
         }
 
-        // 2. Botão Flutuante de Instalação
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             
-            // Cria o botão
             const btn = document.createElement('div');
-            btn.id = 'btnInstalarApp';
             btn.innerHTML = '<i class="bi bi-phone"></i> INSTALAR APP';
-            
-            // Estilo CSS (Bonito e Flutuante)
             btn.style.cssText = `
-                position: fixed;
-                bottom: 30px;
-                left: 50%;
-                transform: translateX(-50%) translateY(100px); /* Começa escondido embaixo */
-                background: linear-gradient(135deg, #2563eb, #1d4ed8);
-                color: white;
-                padding: 12px 30px;
-                border-radius: 50px;
-                font-family: sans-serif;
-                font-weight: bold;
-                font-size: 14px;
-                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5);
-                cursor: pointer;
-                z-index: 9999;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                opacity: 0;
+                position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+                background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white;
+                padding: 12px 30px; border-radius: 50px; font-weight: bold;
+                box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5); cursor: pointer; z-index: 9999;
+                display: flex; align-items: center; gap: 10px; font-family: sans-serif;
             `;
             
             document.body.appendChild(btn);
 
-            // Animação de entrada (Sobe suave)
-            setTimeout(() => {
-                btn.style.transform = 'translateX(-50%) translateY(0)';
-                btn.style.opacity = '1';
-            }, 1000);
-            
-            // Clique no botão
             btn.onclick = () => {
-                btn.style.transform = 'translateX(-50%) scale(0.9)'; // Efeito de clique
-                setTimeout(() => {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            btn.style.opacity = '0';
-                            setTimeout(() => btn.remove(), 500);
-                        }
-                        deferredPrompt = null;
-                    });
-                }, 150);
+                // CHAMA A INSTALAÇÃO NA HORA (Sem atrasos!)
+                deferredPrompt.prompt();
+                
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        btn.style.display = 'none';
+                    }
+                    deferredPrompt = null;
+                });
             };
         });
     
