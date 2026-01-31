@@ -1458,7 +1458,7 @@ Fico no aguardo!`;
                 .catch((err) => console.error('Erro no SW:', err));
         }
 
-        <script>
+        
         // 1. Registra o Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
@@ -1524,8 +1524,7 @@ Fico no aguardo!`;
                     deferredPrompt = null;
                 });
             };
-        });
-    </script>
+        })
     </script>
 </body>
 </html>
