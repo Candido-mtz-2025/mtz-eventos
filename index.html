@@ -1013,11 +1013,11 @@
     }
 
     // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
-    function getHeaderMTZ() { 
-        const logoSrc = config.logo ? config.logo : 'https://placehold.co/150x80/ffffff/000000?text=LOGO'; 
-        // Removemos as bordas pretas flutuantes aqui:
-        return `<div style="width:100%; margin-bottom: 30px; font-family: 'Inter', sans-serif;"> 
-            <div style="text-align: center; padding: 10px;"> <img src="${logoSrc}" style="height: 90px; object-fit: contain; display: block; margin: 0 auto;"> </div> 
+    function getHeaderMTZ() {
+        // Ajuste o 'height' (50px) para mudar o tamanho do logo
+        return `
+        <div style="background:#000000; color:white; padding:15px; text-align:center; display:flex; align-items:center; justify-content:center; gap:15px; border-bottom: 4px solid #f59e0b;">
+            <img src="./logo-mtz.png" alt="MTZ Eventos" style="height: 60px; object-fit: contain;">
         </div>`;
     }
     
