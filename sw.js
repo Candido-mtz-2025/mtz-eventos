@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mtz-eventos-v11'; // Mude este nome (v12, v13...) sempre que atualizar o código
+const CACHE_NAME = 'mtz-eventos-v12'; // Mude este nome (v12, v13...) sempre que atualizar o código
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
