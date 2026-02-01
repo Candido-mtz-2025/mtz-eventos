@@ -1,10 +1,11 @@
 {
-  "name": "MTZ Eventos",
-  "short_name": "MTZ App",
+  "name": "Sistema MTZ Eventos",
+  "short_name": "MTZ Eventos",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e2e8f0",
-  "theme_color": "#000000",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "./logo.png",
