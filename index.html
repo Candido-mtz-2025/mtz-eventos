@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
@@ -647,18 +648,18 @@
             
             /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
             #printArea { 
-                position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
-                background-color: #ffffff !important;
-                color: #000000 !important; 
-                box-shadow: none !important; 
-                margin: 0 auto !important; 
-                width: 100% !important;
-                /* Padding inferior maior (30mm) para o texto não ficar atrás da barra preta */
-                padding: 15mm 15mm 30mm 15mm !important; 
-                min-height: 297mm !important; /* Força altura total A4 */
-                display: flex;
-                flex-direction: column;
-            }
+    position: relative !important; /* SEGURA O RODAPÉ */
+    background-color: #ffffff !important;
+    color: #000000 !important; 
+    box-shadow: none !important; 
+    margin: 0 auto !important; 
+    width: 100% !important;
+    /* 15mm nas laterais e 30mm em baixo pro texto não bater no rodapé preto */
+    padding: 15mm 15mm 30mm 15mm !important; 
+    min-height: 297mm !important; /* FORÇA O TAMANHO A4 */
+    display: flex;
+    flex-direction: column;
+}
             #printArea * { color: #000000 !important; border-color: #000000 !important; }
             #printArea thead { background-color: #000000 !important; }
             #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
@@ -1023,14 +1024,16 @@
     // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
    function getHeaderMTZ() {
         return `
-        <div style="background:#ffffff; color:#000000; padding:20px; text-align:center; border-bottom: 2px solid #2563eb; margin-bottom: 20px;">
-            <img src="./logo.png" alt="MTZ Eventos" style="height: 140px; object-fit: contain;">
+        <div style="background:#ffffff; color:#000000; padding:20px; text-align:center; border-bottom: 2px solid #2563eb; margin-bottom: 30px;">
+            <img src="./logo.png" alt="MTZ Eventos" style="height: 150px; object-fit: contain;">
         </div>`;
     }
     
     function getFooterMTZ() { 
-        return `<div style="margin-top: auto; width: 100%;" class="footer-bar"> 
-            <div style="background-color: #000000 !important; color: #ffffff !important; text-align: center; padding: 12px 20px; font-size: 10px; font-family: 'Inter', sans-serif;"> ${config.rodape} | ${config.tel} | ${config.email} </div> 
+        return `<div style="position: absolute; bottom: 0; left: 0; width: 100%; background-color: #000000; text-align: center; padding: 15px 0; z-index: 10;"> 
+            <div style="color: #ffffff !important; font-size: 10px; font-family: 'Inter', sans-serif;"> 
+                ${config.rodape} | ${config.tel} | ${config.email} 
+            </div> 
         </div>`;
     }
     
