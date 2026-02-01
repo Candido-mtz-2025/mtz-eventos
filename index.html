@@ -26,26 +26,26 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
         :root {
-            --primary: #2563eb; /* Azul um pouco mais forte */
-            --primary-hover: #1d4ed8;
-            
-            /* MUDANÇA PRINCIPAL AQUI: Fundo mais escuro para destacar os cartões */
-            --bg: #e2e8f0; 
-            
-            --surface: #ffffff; /* Cartões continuam brancos */
-            --surface-hover: #f8fafc;
-            
-            --text: #0f172a; /* Texto quase preto para leitura nítida */
-            --text-light: #64748b;
-            
-            --border: #cbd5e1; /* Bordas mais visíveis */
-            --input-bg: #f1f5f9;
-            
-            /* Sombra mais forte para dar efeito 3D */
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --radius: 12px;
-        }
-
+    --primary: #2563eb;       /* Azul padrão */
+    --primary-hover: #1d4ed8;
+    
+    /* MUDANÇA: Fundo mais "fechado" para não ofuscar */
+    --bg: #cbd5e1;            /* Era #e2e8f0 (muito claro), agora é um cinza médio */
+    
+    /* MUDANÇA: Cartões não são mais 100% brancos */
+    --surface: #f8fafc;       /* Um branco "gelo" muito suave */
+    --surface-hover: #e2e8f0; /* Destaca ao passar o mouse */
+    
+    --text: #0f172a;          /* Texto escuro (mantido para leitura) */
+    --text-light: #475569;    /* Texto secundário um pouco mais visível */
+    
+    --border: #94a3b8;        /* Bordas mais definidas */
+    --input-bg: #e2e8f0;      /* Inputs mais escurinhos para destacar do cartão */
+    
+    /* Sombra mais suave */
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --radius: 12px;
+}
         /* === MELHORIA DO MODAL (CABEÇALHO E BOTÃO X) === */
         .modal-header {
             display: flex;
