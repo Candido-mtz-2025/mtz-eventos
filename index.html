@@ -645,15 +645,17 @@
         style.innerHTML = `
             @media print { @page { margin: 0; } body { background: white; } }
             
-            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA - SEM BORDAS PRETAS */
+            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
             #printArea { 
+                position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
                 background-color: #ffffff !important;
                 color: #000000 !important; 
                 box-shadow: none !important; 
                 margin: 0 auto !important; 
                 width: 100% !important;
-                padding: 15mm !important; 
-                min-height: 270mm !important;
+                /* Padding inferior maior (30mm) para o texto não ficar atrás da barra preta */
+                padding: 15mm 15mm 30mm 15mm !important; 
+                min-height: 297mm !important; /* Força altura total A4 */
                 display: flex;
                 flex-direction: column;
             }
