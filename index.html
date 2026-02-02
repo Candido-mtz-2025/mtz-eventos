@@ -788,7 +788,7 @@
         tbody.innerHTML = tipos.map(t => `<tr><td><b>${t.nome}</b></td><td>${t.desc || '-'}</td><td class="col-actions"><div class="actions-cell"><button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="removerItem('tipos',${t.id})"><i class="bi bi-trash"></i></button></div></td></tr>`).join('');
     }
 
-    function renderTudo() { recalcularDisponibilidade(); renderLocadores(); renderEstoque(); renderLocacoes(); renderTipos(); renderDevolucoes(); renderStats(); updateSelects(); }
+    function renderTudo() { recalcularDisponibilidade(); renderLocadores(); renderEstoque(); renderLocacoes(); renderTipos(); renderDevolucoes(); renderStats(); updateSelects(); verificarStatusBackup(); }
 
     function renderStats() {
         const elC = document.getElementById('dashClientes');
