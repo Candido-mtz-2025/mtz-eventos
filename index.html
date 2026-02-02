@@ -318,6 +318,12 @@
                         <div class="stat-info"><h3 id="dashClientes">0</h3><p>Clientes</p></div>
                         <div class="stat-icon"><i class="bi bi-people"></i></div>
                     </div>
+                    <div id="tab-dashboard" class="tab-content active">
+    <div id="alertBackup" style="display:none; background:#ef4444; color:white; padding:15px; border-radius:12px; margin-bottom:20px; text-align:center; cursor:pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);" onclick="abrirTab('config')">
+        <i class="bi bi-exclamation-triangle-fill"></i> <b>ATENÇÃO:</b> Faz tempo que você não salva! <br>Clique aqui para baixar o Backup.
+    </div>
+    <div class="dashboard-grid">
+    ...
                     <div class="stat-card card-orange" onclick="irParaLocacoes('todos')">
                         <div class="stat-info"><h3 id="dashLocacoes">0</h3><p>Locações Ativas</p></div>
                         <div class="stat-icon"><i class="bi bi-cart"></i></div>
@@ -1262,18 +1268,24 @@
     function converterLogo() { const input = document.getElementById('confLogo'); if (input.files[0]) { const reader = new FileReader();
     reader.onloadend = function() { config.logo = reader.result; document.getElementById('previewLogo').innerHTML = `<img src="${config.logo}" style="height:50px">`; }; reader.readAsDataURL(input.files[0]); } }
     
-    // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
         const dados = JSON.stringify({locadores, pecas, locacoes, devolucoes, tipos, config});
         const blob = new Blob([dados], {type: "application/json"});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
+        // Adiciona a data no nome do arquivo
         a.download = `MTZ_Backup_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        mostrarToast("Backup baixado!");
+        
+        // --- ATUALIZAÇÃO DO LEMBRETE ---
+        localStorage.setItem('mtzUltimoBackup', Date.now()); // Salva a data de hoje
+        verificarStatusBackup(); // Remove o aviso da tela na hora
+        // -------------------------------
+
+        mostrarToast("Backup salvo com sucesso!");
     }
 
     function restaurarBackup(input) {
@@ -1300,7 +1312,28 @@
         };
         reader.readAsText(input.files[0]);
     }
+// --- SISTEMA DE SEGURANÇA DE BACKUP ---
+    function verificarStatusBackup() {
+        const ultimoBackup = localStorage.getItem('mtzUltimoBackup');
+        const alerta = document.getElementById('alertBackup');
+        
+        if (!alerta) return;
 
+        // Se nunca fez backup OU faz mais de 5 dias (432000000 ms)
+        if (!ultimoBackup || (Date.now() - parseInt(ultimoBackup)) > 432000000) {
+            alerta.style.display = 'block'; // Mostra o aviso
+            
+            // Destaque visual também no botão de Config
+            const btnConfig = document.querySelector('button[onclick="abrirTab(\'config\')"]');
+            if(btnConfig) btnConfig.style.color = '#ef4444';
+        } else {
+            alerta.style.display = 'none'; // Esconde
+            
+            // Volta a cor normal do botão
+            const btnConfig = document.querySelector('button[onclick="abrirTab(\'config\')"]');
+            if(btnConfig) btnConfig.style.color = '';
+        }
+    }
     // --- FUNÇÕES DO SCANNER ---
     let scannerAtivo = false;
     function iniciarScanner(modo) {
