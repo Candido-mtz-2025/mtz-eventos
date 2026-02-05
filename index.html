@@ -934,12 +934,46 @@
         
         salvarLocal(); renderTudo(); mostrarToast("Locação Concluída!"); sincronizar('salvar');
     }
-    function recalcularDisponibilidade() { 
-        pecas.forEach(p=>{ 
-            let alug=0; locacoes.forEach(l=>{ if(l.status!=='devolvido') l.items.forEach(i=>{ if(i.pecaId==p.id) alug+=((i.quantidade||0)-(i.devolvidos||0)); }); }); 
-            p.disponivel=(p.quantidade||0)-alug; 
-        });
-    }
+    // === NOVA FUNÇÃO: VERIFICA DISPONIBILIDADE POR DATA ===
+function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
+    // 1. Pega a peça e seu estoque total físico
+    const peca = pecas.find(p => p.id == pecaId);
+    if (!peca) return 0;
+    
+    let estoqueTotal = peca.quantidade || 0;
+    let quantidadeAlugadaNoPeriodo = 0;
+
+    // Datas do novo pedido convertidas para objeto Date (zera horas para não dar erro)
+    const inicioDesejado = new Date(dataInicio + "T00:00:00");
+    const fimDesejado = new Date(dataFim + "T00:00:00");
+
+    // 2. Varre todas as locações para achar conflitos
+    locacoes.forEach(loc => {
+        // Ignora locações já devolvidas
+        if (loc.status === 'devolvido') return;
+
+        // Datas da locação existente
+        const locInicio = new Date(loc.dataAluguel + "T00:00:00");
+        // Se não tiver data de fim (erro), assume que volta no dia seguinte
+        const locFim = loc.dataDevolucaoPrevisao ? new Date(loc.dataDevolucaoPrevisao + "T00:00:00") : new Date(locInicio);
+
+        // 3. A Lógica de Interseção (O Pulo do Gato)
+        // Se o pedido novo começa ANTES de acabar o velho E termina DEPOIS de começar o velho
+        // Então as datas se cruzam!
+        if (inicioDesejado <= locFim && fimDesejado >= locInicio) {
+            // Tem conflito! Soma os itens dessa locação
+            const itemNaLocacao = loc.items.find(i => i.pecaId == pecaId);
+            if (itemNaLocacao) {
+                // Subtrai o que já voltou (parcial)
+                const pendente = (itemNaLocacao.quantidade || 0) - (itemNaLocacao.devolvidos || 0);
+                quantidadeAlugadaNoPeriodo += pendente;
+            }
+        }
+    });
+
+    // 4. Retorna quanto sobra pra alugar NESSE PERÍODO
+    return estoqueTotal - quantidadeAlugadaNoPeriodo;
+}
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
