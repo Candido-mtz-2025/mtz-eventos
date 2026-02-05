@@ -239,7 +239,7 @@
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
         /* ABAS */
-        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
+        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border);justify-content: flex-start; }
         .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
         .tab-btn.active { background: var(--primary); color: white; }
         .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
@@ -523,19 +523,19 @@
 <!-- ===== ABA AUDITORIA ===== -->
 <div id="tab-auditoria" class="tab-content">
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
-            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Auditoria do Sistema</h3>
-            <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
+            <div style="display:flex; gap:10px">
                 <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
-                    <i class="bi bi-download"></i> CSV
+                    <i class="bi bi-download"></i> Exportar
                 </button>
-                <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos (90+ dias)?')) limparLogsAntigos()">
+                <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
                     <i class="bi bi-trash"></i> Limpar
                 </button>
             </div>
         </div>
         
-        <div style="display:flex; gap:8px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px">
+        <div style="display:flex; gap:8px; margin-bottom:20px; overflow-x:auto; padding-bottom:5px">
             <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
             <button class="btn btn-sm btn-primary" onclick="renderLogs('cliente')">Clientes</button>
             <button class="btn btn-sm btn-success" onclick="renderLogs('item')">Itens</button>
@@ -548,25 +548,26 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th style="width:110px">Data/Hora</th>
-                        <th style="width:90px">Tipo</th>
-                        <th style="width:80px">Ação</th>
+                        <th>Data/Hora</th>
+                        <th>Tipo</th>
+                        <th>Ação</th>
                         <th>Descrição</th>
-                        <th style="width:100px">Usuário</th>
+                        <th>Usuário</th>
                     </tr>
                 </thead>
                 <tbody id="tblLogs"></tbody>
             </table>
         </div>
         
-        <div style="margin-top:10px; padding:10px; background:var(--bg); border-radius:8px; font-size:0.85rem">
-            <i class="bi bi-info-circle"></i> 
-            <b>Logs:</b> <span id="totalLogs">0</span> / 1000 | 
-            <b>Retenção:</b> 90 dias
+        <div style="margin-top:15px; padding:12px; background:var(--bg); border-radius:8px">
+            <small style="color:var(--text-light)">
+                <i class="bi bi-info-circle"></i> 
+                <b>Total:</b> <span id="totalLogs">0</span> / 1000 | 
+                <b>Retenção:</b> 90 dias
+            </small>
         </div>
     </div>
 </div>
-
 
     <div id="modalEditarLocador" class="modal">
         <div class="modal-content">
