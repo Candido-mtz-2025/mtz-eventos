@@ -935,45 +935,136 @@
         salvarLocal(); renderTudo(); mostrarToast("Locação Concluída!"); sincronizar('salvar');
     }
     // === NOVA FUNÇÃO: VERIFICA DISPONIBILIDADE POR DATA ===
-function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
-    // 1. Pega a peça e seu estoque total físico
-    const peca = pecas.find(p => p.id == pecaId);
-    if (!peca) return 0;
-    
-    let estoqueTotal = peca.quantidade || 0;
-    let quantidadeAlugadaNoPeriodo = 0;
+// === NOVA FUNÇÃO CORRIGIDA ===
+    function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
+        const peca = pecas.find(p => p.id == pecaId);
+        if (!peca) return 0;
+        
+        let estoqueTotal = peca.quantidade || 0;
+        let quantidadeAlugadaNoPeriodo = 0;
 
-    // Datas do novo pedido convertidas para objeto Date (zera horas para não dar erro)
-    const inicioDesejado = new Date(dataInicio + "T00:00:00");
-    const fimDesejado = new Date(dataFim + "T00:00:00");
+        const inicioDesejado = new Date(dataInicio + "T00:00:00");
+        const fimDesejado = new Date(dataFim + "T00:00:00");
 
-    // 2. Varre todas as locações para achar conflitos
-    locacoes.forEach(loc => {
-        // Ignora locações já devolvidas
-        if (loc.status === 'devolvido') return;
+        locacoes.forEach(loc => {
+            if (loc.status === 'devolvido') return;
 
-        // Datas da locação existente
-        const locInicio = new Date(loc.dataAluguel + "T00:00:00");
-        // Se não tiver data de fim (erro), assume que volta no dia seguinte
-        const locFim = loc.dataDevolucaoPrevisao ? new Date(loc.dataDevolucaoPrevisao + "T00:00:00") : new Date(locInicio);
+            const locInicio = new Date(loc.dataAluguel + "T00:00:00");
+            const locFim = loc.dataDevolucaoPrevisao ? new Date(loc.dataDevolucaoPrevisao + "T00:00:00") : new Date(locInicio);
 
-        // 3. A Lógica de Interseção (O Pulo do Gato)
-        // Se o pedido novo começa ANTES de acabar o velho E termina DEPOIS de começar o velho
-        // Então as datas se cruzam!
-        if (inicioDesejado <= locFim && fimDesejado >= locInicio) {
-            // Tem conflito! Soma os itens dessa locação
-            const itemNaLocacao = loc.items.find(i => i.pecaId == pecaId);
-            if (itemNaLocacao) {
-                // Subtrai o que já voltou (parcial)
-                const pendente = (itemNaLocacao.quantidade || 0) - (itemNaLocacao.devolvidos || 0);
-                quantidadeAlugadaNoPeriodo += pendente;
+            if (inicioDesejado <= locFim && fimDesejado >= locInicio) {
+                const itemNaLocacao = loc.items.find(i => i.pecaId == pecaId);
+                if (itemNaLocacao) {
+                    const pendente = (itemNaLocacao.quantidade || 0) - (itemNaLocacao.devolvidos || 0);
+                    quantidadeAlugadaNoPeriodo += pendente;
+                }
             }
-        }
-    });
+        });
 
-    // 4. Retorna quanto sobra pra alugar NESSE PERÍODO
-    return estoqueTotal - quantidadeAlugadaNoPeriodo;
-}
+        return estoqueTotal - quantidadeAlugadaNoPeriodo;
+    }
+
+    // === FUNÇÃO DO RELATÓRIO/PDF CORRIGIDA ===
+    function prepararModalRelatorio(id, titulo) {
+        const l = locacoes.find(x => x.id === id);
+        if(!l) return;
+        const c = locadores.find(x => x.id === l.locadorId) || { nome: 'Removido', email: '-', telefone: '-' };
+
+        const isRomaneio = titulo.includes("ROMANEIO");
+        
+        let totalItens = 0;
+        let totalQtd = 0;
+        
+        const linhasItens = l.items.map(item => { 
+            const sub = item.valor * item.quantidade; 
+            totalItens += sub; 
+            totalQtd += parseInt(item.quantidade||0);
+
+            if (isRomaneio) {
+                return `<tr style="border-bottom:1px solid #e5e7eb;"> 
+                    <td style="padding:10px; font-size:12px; color:#000000 !important;">${item.nome}</td> 
+                    <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidade}</td> 
+                    <td style="padding:10px; text-align:center; font-size:12px; color:#cccccc !important;">[ ___ ]</td> 
+                </tr>`; 
+            }
+            
+            return `<tr style="border-bottom:1px solid #e5e7eb;"> 
+                <td style="padding:10px; font-size:12px; color:#000000 !important;">${item.nome}</td> 
+                <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidade}</td> 
+                <td style="padding:10px; text-align:right; font-size:12px; color:#000000 !important;">R$ ${item.valor.toFixed(2)}</td> 
+                <td style="padding:10px; text-align:right; font-size:12px; color:#000000 !important;">R$ ${sub.toFixed(2)}</td> 
+                <td style="padding:10px; text-align:center; font-size:12px; color:#cccccc !important;">[ ]</td> 
+            </tr>`; 
+        }).join('');
+
+        let div = parseFloat(l.divisorFatura || 1); if(div <= 0) div = 1;
+        const totalFinal = totalItens / div;
+        const valorImposto = totalFinal - totalItens;
+
+        let cabecalhoTabela = '';
+        let rodapeValores = '';
+        let termosJuridicos = '';
+
+        if(isRomaneio) {
+            cabecalhoTabela = `<tr><th style="padding:10px; text-align:left; font-size:11px; color:white !important;">ITEM</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">QTD</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">CONFERÊNCIA</th></tr>`;
+            rodapeValores = `<h3 style="margin:0; font-size:16px; color:#000000 !important;">TOTAL DE VOLUMES: ${totalQtd}</h3>`;
+        } else {
+            cabecalhoTabela = `<tr><th style="padding:10px; text-align:left; font-size:11px; color:white !important;">ITEM</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">QTD</th><th style="padding:10px; text-align:right; font-size:11px; color:white !important;">UNIT.</th><th style="padding:10px; text-align:right; font-size:11px; color:white !important;">TOTAL</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">CHECK</th></tr>`;
+            
+            rodapeValores = `${div < 1 ? `<div style="margin-bottom:10px; font-size:12px; color:#444;">Itens: R$ ${totalItens.toFixed(2)} | Taxas: R$ ${valorImposto.toFixed(2)}</div>` : ''}
+                             <h3 style="margin:0; font-size:22px; color:#000000 !important;">TOTAL A PAGAR: R$ ${totalFinal.toFixed(2)}</h3>`;
+
+            termosJuridicos = `
+            <div style="margin-top: 20px; padding: 10px; border: 1px solid #000; font-size: 8px; text-align: justify; background: #f9f9f9;">
+                <strong>RECIBO DE LOCAÇÃO DE BENS MÓVEIS - NÃO SUJEITO AO ISSQN</strong><br>
+                Documento emitido amparado pela <strong>Súmula Vinculante nº 31 do STF</strong>: "É inconstitucional a incidência do Imposto sobre Serviços de Qualquer Natureza (ISS) sobre operações de locação de bens móveis".<br>
+                <br>
+                <strong>TERMOS E CONDIÇÕES:</strong><br>
+                1. O LOCATÁRIO declara receber os itens em perfeito estado e compromete-se a devolvê-los na data estipulada.<br>
+                2. Em caso de dano ou perda, será cobrado o valor de reposição de mercado.<br>
+                3. A não devolução na data gera cobrança automática de novas diárias.
+            </div>`;
+        }
+
+        const layout = `<div style="background:#ffffff !important; min-height:100%; width:100%; position:relative; display:flex; flex-direction:column; padding:0; color: #000000 !important;"> 
+            <div style="flex: 1;"> 
+                ${getHeaderMTZ()} 
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:30px; border-bottom: 2px solid #000000; padding-bottom:15px;"> 
+                    <h2 style="margin:0; font-size:24px; color:#000000 !important; text-transform:uppercase;">${titulo}</h2> 
+                    <div style="text-align:right; font-size:12px;"> <strong>Nº:</strong> #${l.id.toString().slice(-4)}<br> <strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')} </div> 
+                </div> 
+                <div style="display:flex; gap:40px; margin-bottom:30px;"> 
+                    <div style="flex:1;"> 
+                        <div style="font-size:10px; color:#666 !important; font-weight:bold; border-bottom:1px solid #eee; margin-bottom:5px;">CLIENTE</div> 
+                        <div style="font-weight:bold;">${c.nome}</div> 
+                        <div style="font-size:12px;">${c.telefone}</div> 
+                    </div> 
+                    <div style="flex:1; text-align:right;"> 
+                        <div style="font-size:10px; color:#666 !important; font-weight:bold; border-bottom:1px solid #eee; margin-bottom:5px;">PERÍODO</div> 
+                        <div style="font-size:13px;">De: <strong>${formatarData(l.dataAluguel).replace(/<[^>]*>/g, '')}</strong></div> 
+                        <div style="font-size:13px;">Até: <strong>${formatarData(l.dataDevolucaoPrevisao).replace(/<[^>]*>/g, '')}</strong></div> 
+                    </div> 
+                </div> 
+
+                <table style="width:100%; border-collapse:collapse; margin-bottom:30px;"> 
+                    <thead style="background:#000000 !important; color:white !important;">${cabecalhoTabela}</thead> 
+                    <tbody>${linhasItens}</tbody> 
+                </table> 
+                
+                <div style="text-align:right; margin-bottom:20px;">${rodapeValores}</div> 
+
+                ${termosJuridicos}
+
+                <div style="display:flex; justify-content:space-between; margin-top:60px;"> 
+                    <div style="text-align:center; width:40%;"> <div style="border-top:1px solid #000; padding-top:10px; font-size:11px;">MTZ EVENTOS</div> </div> 
+                    <div style="text-align:center; width:40%;"> <div style="border-top:1px solid #000; padding-top:10px; font-size:11px;">${c.nome.toUpperCase()}</div> </div> 
+                </div> 
+            </div> 
+            ${getFooterMTZ()} 
+        </div>`;
+        
+        const printArea = document.getElementById('printArea'); if(printArea) { printArea.innerHTML = layout; document.getElementById('modalRelatorio').classList.add('active'); }
+    }
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
@@ -1171,6 +1262,7 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
         
         const printArea = document.getElementById('printArea'); if(printArea) { printArea.innerHTML = layout; document.getElementById('modalRelatorio').classList.add('active'); }
     }
+        }
     function gerarRomaneio(id) { prepararModalRelatorio(id, "ROMANEIO DE SEPARAÇÃO"); }
     function gerarRecibo(id) { prepararModalRelatorio(id, "RECIBO DE DEVOLUÇÃO"); }
     function gerarRelatorio(id) { prepararModalRelatorio(id, "CONTRATO DE LOCAÇÃO"); }
