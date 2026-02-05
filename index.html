@@ -263,52 +263,6 @@
         .invoice-table th { background: #000 !important; color: #fff !important; }
         .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
         #interactive video { width: 100%; height: 100%; object-fit: cover; }
-        /* ===== TABELA DE AUDITORIA - LARGURAS FIXAS ===== */
-#tblLogs th:nth-child(1),
-#tblLogs td:nth-child(1) {
-    width: 120px;
-    min-width: 120px;
-}
-
-#tblLogs th:nth-child(2),
-#tblLogs td:nth-child(2) {
-    width: 100px;
-    min-width: 100px;
-}
-
-#tblLogs th:nth-child(3),
-#tblLogs td:nth-child(3) {
-    width: 90px;
-    min-width: 90px;
-}
-
-#tblLogs th:nth-child(4),
-#tblLogs td:nth-child(4) {
-    width: auto;
-    max-width: 400px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-#tblLogs th:nth-child(5),
-#tblLogs td:nth-child(5) {
-    width: 120px;
-    min-width: 120px;
-}
-
-/* Ajuste para mobile */
-@media (max-width: 768px) {
-    #tblLogs th:nth-child(4),
-    #tblLogs td:nth-child(4) {
-        max-width: 150px;
-    }
-    
-    #tblLogs th:nth-child(1),
-    #tblLogs td:nth-child(1) {
-        width: 90px;
-        min-width: 90px;
-        font-size: 0.75rem;
     }
 }
 
@@ -353,8 +307,9 @@
                 <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
                 <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
                 <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-                <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
                 <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
+                <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+                
             </div>
 
             <div id="tab-dashboard" class="tab-content active">
@@ -565,55 +520,53 @@
         </div>
     </div>
 
-    <!-- ===== ABA AUDITORIA ===== -->
+<!-- ===== ABA AUDITORIA ===== -->
 <div id="tab-auditoria" class="tab-content">
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
-            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
-            <div style="display:flex; gap:10px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
+            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Auditoria do Sistema</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
                 <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
-                    <i class="bi bi-download"></i> Exportar CSV
+                    <i class="bi bi-download"></i> CSV
                 </button>
                 <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos (90+ dias)?')) limparLogsAntigos()">
-                    <i class="bi bi-trash"></i> Limpar Antigos
+                    <i class="bi bi-trash"></i> Limpar
                 </button>
             </div>
         </div>
         
-        <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto">
+        <div style="display:flex; gap:8px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px">
             <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-            <button class="btn btn-sm" style="background:#3b82f6; color:white" onclick="renderLogs('cliente')">Clientes</button>
-            <button class="btn btn-sm" style="background:#10b981; color:white" onclick="renderLogs('item')">Itens</button>
-            <button class="btn btn-sm" style="background:#f59e0b; color:white" onclick="renderLogs('locacao')">Locações</button>
-            <button class="btn btn-sm" style="background:#8b5cf6; color:white" onclick="renderLogs('devolucao')">Devoluções</button>
-            <button class="btn btn-sm" style="background:#6366f1; color:white" onclick="renderLogs('sistema')">Sistema</button>
+            <button class="btn btn-sm btn-primary" onclick="renderLogs('cliente')">Clientes</button>
+            <button class="btn btn-sm btn-success" onclick="renderLogs('item')">Itens</button>
+            <button class="btn btn-sm btn-warning" onclick="renderLogs('locacao')">Locações</button>
+            <button class="btn btn-sm btn-info" onclick="renderLogs('devolucao')">Devoluções</button>
+            <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
         </div>
         
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Data/Hora</th>
-                        <th>Tipo</th>
-                        <th>Ação</th>
+                        <th style="width:110px">Data/Hora</th>
+                        <th style="width:90px">Tipo</th>
+                        <th style="width:80px">Ação</th>
                         <th>Descrição</th>
-                        <th>Usuário</th>
+                        <th style="width:100px">Usuário</th>
                     </tr>
                 </thead>
                 <tbody id="tblLogs"></tbody>
             </table>
         </div>
         
-        <div style="margin-top:15px; padding:15px; background:var(--bg); border-radius:8px">
-            <small style="color:var(--text-light)">
-                <i class="bi bi-info-circle"></i> 
-                <b>Total de logs:</b> <span id="totalLogs">0</span> | 
-                <b>Limite:</b> 1000 registros | 
-                <b>Retenção:</b> 90 dias
-            </small>
+        <div style="margin-top:10px; padding:10px; background:var(--bg); border-radius:8px; font-size:0.85rem">
+            <i class="bi bi-info-circle"></i> 
+            <b>Logs:</b> <span id="totalLogs">0</span> / 1000 | 
+            <b>Retenção:</b> 90 dias
         </div>
     </div>
 </div>
+
 
     <div id="modalEditarLocador" class="modal">
         <div class="modal-content">
@@ -835,49 +788,53 @@ function renderLogs(filtro = 'todos') {
     }
     
     if (logsFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6">Nenhum registro encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6">Nenhum registro.</td></tr>';
         return;
     }
     
+    const icones = {
+        'cliente': 'bi-person',
+        'item': 'bi-box',
+        'locacao': 'bi-cart',
+        'devolucao': 'bi-arrow-return-left',
+        'config': 'bi-gear',
+        'sistema': 'bi-cpu'
+    };
+    
+    const cores = {
+        'criar': '#10b981',
+        'editar': '#f59e0b',
+        'deletar': '#ef4444',
+        'visualizar': '#0ea5e9',
+        'exportar': '#8b5cf6'
+    };
+    
     tbody.innerHTML = logsFiltrados.slice(0, 100).map(log => {
         const data = new Date(log.timestamp);
-        const icones = {
-            'cliente': 'bi-person',
-            'item': 'bi-box',
-            'locacao': 'bi-cart',
-            'devolucao': 'bi-arrow-return-left',
-            'config': 'bi-gear',
-            'sistema': 'bi-cpu'
-        };
-        
-        const cores = {
-            'criar': '#10b981',
-            'editar': '#f59e0b',
-            'deletar': '#ef4444',
-            'visualizar': '#0ea5e9',
-            'exportar': '#8b5cf6'
-        };
+        const dataStr = data.toLocaleDateString('pt-BR');
+        const horaStr = data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
         
         return `
             <tr>
                 <td>
-                    <div style="font-size:0.85rem">${data.toLocaleDateString('pt-BR')}</div>
-                    <div style="font-size:0.75rem; opacity:0.7">${data.toLocaleTimeString('pt-BR')}</div>
+                    <div style="font-size:0.85rem; line-height:1.4">${dataStr}</div>
+                    <div style="font-size:0.75rem; opacity:0.7">${horaStr}</div>
                 </td>
                 <td>
-                    <i class="bi ${icones[log.tipo] || 'bi-circle'}" style="color:var(--primary)"></i>
-                    ${log.tipo}
+                    <i class="bi ${icones[log.tipo] || 'bi-circle'}" style="color:var(--primary); margin-right:4px"></i>
+                    <span style="font-size:0.85rem">${log.tipo}</span>
                 </td>
                 <td>
-                    <span style="color:${cores[log.acao]}; font-weight:600">${log.acao}</span>
+                    <span style="color:${cores[log.acao]}; font-weight:600; font-size:0.85rem">${log.acao}</span>
                 </td>
-                <td>${log.descricao}</td>
+                <td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                    ${log.descricao}
+                </td>
                 <td style="font-size:0.85rem; opacity:0.8">${log.usuario}</td>
             </tr>
         `;
     }).join('');
 }
-
 
 const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
 const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6d-PIdnzFi-Ejnl3gAUB-l9mGnBJt0BpyBErzMI_GFuZuhA/exec';
