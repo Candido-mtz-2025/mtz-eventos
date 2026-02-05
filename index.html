@@ -1155,8 +1155,182 @@ function verInfoBackup() {
 }
 
     
-    function salvarLocal() { localStorage.setItem('mtzBackup', JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})); }
-    function carregarLocal() { try { const j=JSON.parse(localStorage.getItem('mtzBackup')); if(j) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes; tipos=j.tipos; config=j.config; } } catch(e){} }
+    // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
+function salvarLocal() {
+    try {
+        const dados = {
+            locadores, 
+            pecas, 
+            locacoes, 
+            devolucoes, 
+            tipos, 
+            config,
+            versao: 'V11',
+            ultimaSalvamento: Date.now()
+        };
+
+        const json = JSON.stringify(dados);
+        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
+        const tamanhoMB = (tamanhoKB / 1024).toFixed(2);
+
+        console.log(`💾 Salvando ${tamanhoKB} KB no localStorage...`);
+
+        // Verificar se está próximo do limite (5MB = 5120 KB)
+        if (parseFloat(tamanhoKB) > 4500) {
+            console.warn(`⚠️ ALERTA: LocalStorage usando ${tamanhoMB} MB de 5 MB!`);
+            mostrarToast(`⚠️ Armazenamento em ${Math.round((tamanhoKB/5120)*100)}%! Faça backup e arquive dados antigos.`, 'erro');
+        }
+
+        localStorage.setItem('mtzBackup', json);
+        return true;
+
+    } catch (erro) {
+        console.error('❌ Erro ao salvar:', erro);
+
+        if (erro.name === 'QuotaExceededError') {
+            alert(
+                '🔴 ERRO CRÍTICO: LocalStorage cheio!\n\n' +
+                'O sistema não pode salvar mais dados.\n\n' +
+                'SOLUÇÕES:\n' +
+                '1. Vá em Config → Baixar JSON (fazer backup)\n' +
+                '2. Depois vá em Config → Arquivar (Limpeza)\n' +
+                '3. Ou delete locações antigas manualmente\n\n' +
+                '⚠️ Novos dados NÃO serão salvos até liberar espaço!'
+            );
+            return false;
+        }
+
+        // Outros erros
+        alert('❌ Erro ao salvar dados: ' + erro.message);
+        return false;
+    }
+}
+
+    // === CARREGAR COM VALIDAÇÃO E RECUPERAÇÃO ===
+function carregarLocal() {
+    try {
+        const json = localStorage.getItem('mtzBackup');
+        
+        if (!json) {
+            console.log('📭 Nenhum dado local encontrado (primeira vez)');
+            return;
+        }
+
+        const dados = JSON.parse(json);
+
+        // Validação de integridade
+        if (!dados.locadores || !Array.isArray(dados.locadores)) {
+            throw new Error('Dados corrompidos: estrutura inválida');
+        }
+
+        // Carregar dados
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+
+        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
+        
+        console.log('✅ Dados locais carregados:', {
+            tamanho: `${tamanhoKB} KB`,
+            clientes: locadores.length,
+            itens: pecas.length,
+            locacoes: locacoes.length,
+            versao: dados.versao || 'antiga'
+        });
+
+        // Alerta se estiver usando mais de 80% do storage
+        if (parseFloat(tamanhoKB) > 4000) {
+            console.warn('⚠️ LocalStorage usando mais de 80%');
+        }
+
+    } catch (erro) {
+        console.error('❌ Erro ao carregar dados:', erro);
+        
+        // Tentar recuperar backup automático
+        const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+        const backupEmergencia = localStorage.getItem('mtzBackupEmergencia');
+        
+        if (backupEmergencia || backupAuto) {
+            const restaurar = confirm(
+                '⚠️ ERRO ao carregar dados locais!\n\n' +
+                'Possível corrupção detectada.\n\n' +
+                '✅ Backups disponíveis encontrados!\n\n' +
+                'Deseja tentar restaurar automaticamente?'
+            );
+
+            if (restaurar) {
+                tentarRecuperacaoAutomatica();
+            }
+        } else {
+            alert(
+                '🔴 ERRO CRÍTICO: Dados corrompidos e sem backup!\n\n' +
+                'Causas possíveis:\n' +
+                '- Fechamento abrupto do navegador\n' +
+                '- Falta de espaço no disco\n' +
+                '- Extensão do navegador interferindo\n\n' +
+                'O sistema será reiniciado vazio.'
+            );
+            
+            // Resetar para dados vazios
+            locadores = [];
+            pecas = [];
+            locacoes = [];
+            devolucoes = [];
+            tipos = [];
+        }
+    }
+}
+
+// === RECUPERAÇÃO AUTOMÁTICA ===
+function tentarRecuperacaoAutomatica() {
+    try {
+        // Tentar backup de emergência primeiro
+        let backup = localStorage.getItem('mtzBackupEmergencia');
+        let fonte = 'Emergência';
+        
+        // Se não tiver, tentar backup automático
+        if (!backup) {
+            backup = localStorage.getItem('mtzBackupAutomatico');
+            fonte = 'Automático';
+        }
+        
+        if (!backup) {
+            throw new Error('Nenhum backup disponível');
+        }
+
+        const dados = JSON.parse(backup);
+        
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+
+        salvarLocal();
+        renderTudo();
+        
+        alert(
+            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
+            `Fonte: Backup ${fonte}\n` +
+            `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
+            `Registros recuperados:\n` +
+            `- ${locadores.length} clientes\n` +
+            `- ${pecas.length} itens\n` +
+            `- ${locacoes.length} locações\n\n` +
+            `💡 Recomendação: Faça um backup JSON agora!`
+        );
+        
+        console.log('✅ Dados recuperados de:', dados.data);
+        
+    } catch (erro) {
+        alert('❌ Falha na recuperação automática: ' + erro.message);
+    }
+}
+
     function updStatus(s) { const b=document.getElementById('syncBadge'), t=document.getElementById('syncText'); if(s==='online'){b.className="sync-badge sync-online";t.innerText="Online";} else if(s==='saving'){b.className="sync-badge sync-saving";t.innerText="Salvando...";} else {b.className="sync-badge sync-offline";t.innerText="Offline";} }
 
     // --- FUNÇÕES DE EDIÇÃO ---
