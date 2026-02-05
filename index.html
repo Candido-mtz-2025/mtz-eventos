@@ -201,7 +201,7 @@
         input:focus, select:focus { background: var(--surface); border-color: var(--primary); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
 
         /* TABELAS CLEAN */
-        .table-responsive { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .table-responsive { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); justify-content: flex-start; }
         .table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .table th { background: var(--surface-hover); color: var(--text-light); padding: 14px 20px; text-transform: uppercase; font-size: 0.75rem; font-weight: 700; border-bottom: 1px solid var(--border); text-align: left; }
         .table td { padding: 16px 20px; vertical-align: middle; color: var(--text); border-bottom: 1px solid var(--border); }
@@ -239,7 +239,18 @@
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
         /* ABAS */
-        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border);justify-content: flex-start; }
+       .tabs {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding: 5px;
+    background: var(--surface);
+    border-radius: 12px;
+    margin-bottom: 25px;
+    border: 1px solid var(--border);
+    justify-content: flex-start;
+}
+
         .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
         .tab-btn.active { background: var(--primary); color: white; }
         .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
