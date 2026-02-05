@@ -1093,16 +1093,17 @@
             rodapeValores = `${div < 1 ? `<div style="margin-bottom:10px; font-size:12px; color:#444;">Itens: R$ ${totalItens.toFixed(2)} | Taxas: R$ ${valorImposto.toFixed(2)}</div>` : ''}
                              <h3 style="margin:0; font-size:22px; color:#000000 !important;">TOTAL A PAGAR: R$ ${totalFinal.toFixed(2)}</h3>`;
 
-            // AQUI ESTÁ A MÁGICA: OS TERMOS JURÍDICOS (Só aparecem no contrato)
+           // AQUI ESTÁ A MÁGICA: OS TERMOS JURÍDICOS (Atualizado com Súmula 31 STF)
             termosJuridicos = `
-            <div style="margin-top: 30px; padding: 10px; border: 1px solid #000; font-size: 9px; text-align: justify; background: #f9f9f9;">
-                <strong>TERMOS E CONDIÇÕES DE LOCAÇÃO:</strong><br>
-                1. O LOCATÁRIO declara receber os materiais acima listados em perfeito estado de conservação e funcionamento.<br>
-                2. Compromete-se a devolvê-los na data estipulada. O atraso na devolução implicará em cobrança de novas diárias.<br>
-                3. Em caso de perda, roubo ou danos aos equipamentos, o LOCATÁRIO arcará com o custo total de reposição ou reparo dos mesmos, conforme valor de mercado.<br>
-                4. O transporte e manuseio dos itens são de responsabilidade do LOCATÁRIO, salvo acordo contrário descrito neste documento.
+            <div style="margin-top: 20px; padding: 10px; border: 1px solid #000; font-size: 8px; text-align: justify; background: #f9f9f9;">
+                <strong>RECIBO DE LOCAÇÃO DE BENS MÓVEIS - NÃO SUJEITO AO ISSQN</strong><br>
+                Documento emitido amparado pela <strong>Súmula Vinculante nº 31 do STF</strong>: "É inconstitucional a incidência do Imposto sobre Serviços de Qualquer Natureza (ISS) sobre operações de locação de bens móveis".<br>
+                <br>
+                <strong>TERMOS E CONDIÇÕES:</strong><br>
+                1. O LOCATÁRIO declara receber os itens em perfeito estado e compromete-se a devolvê-los na data estipulada.<br>
+                2. Em caso de dano ou perda, será cobrado o valor de reposição de mercado.<br>
+                3. A não devolução na data gera cobrança automática de novas diárias.
             </div>`;
-        }
 
         // 2. MONTAGEM FINAL
         const layout = `<div style="background:#ffffff !important; min-height:100%; width:100%; position:relative; display:flex; flex-direction:column; padding:0; color: #000000 !important;"> 
@@ -1460,23 +1461,42 @@ Fico no aguardo!`;
         window.open(`https://wa.me/${fone}?text=${encodeURIComponent(msg)}`, '_blank');
     }
         // --- FUNÇÕES DE TRAVA DE ESTOQUE ---
-    function atualizarLimiteEstoque() {
-        var select = document.getElementById('aluguelItemSelect');
-        var inputQtd = document.getElementById('aluguelQtd');
-        var aviso = document.getElementById('avisoEstoque');
-        
-        var id = select.value;
-        var p = pecas.find(x => x.id == id);
+   function atualizarLimiteEstoque() {
+    var select = document.getElementById('aluguelItemSelect');
+    var inputQtd = document.getElementById('aluguelQtd');
+    var aviso = document.getElementById('avisoEstoque');
+    
+    // Pega as datas da tela
+    var dtIni = document.getElementById('aluguelIni').value;
+    var dtFim = document.getElementById('aluguelFim').value;
 
-        if (p) {
-            inputQtd.max = p.disponivel; // Define o máximo
-            inputQtd.value = 1; 
-            aviso.innerText = `(Máx: ${p.disponivel})`; // Mostra o aviso vermelho
+    var id = select.value;
+    var p = pecas.find(x => x.id == id);
+
+    if (p) {
+        // Se o usuário não preencheu data, usa o estoque de "hoje" (padrão antigo)
+        // Se preencheu, usa o "Motor de Futuro"
+        let disponivelReal = p.disponivel; // Padrão
+        
+        if (dtIni && dtFim) {
+            disponivelReal = verificarEstoqueFuturo(p.id, dtIni, dtFim);
+            aviso.innerHTML = `<span style="color:${disponivelReal > 0 ? 'green':'red'}"> (Disp. no período: ${disponivelReal})</span>`;
         } else {
-            aviso.innerText = "";
-            inputQtd.removeAttribute("max");
+             aviso.innerHTML = `<span style="color:orange"> (Selecione as datas!)</span>`;
         }
+
+        inputQtd.max = disponivelReal; 
+        inputQtd.value = 1;
+        
+        if (disponivelReal <= 0) {
+            mostrarToast("Atenção: Item sem estoque para essa data!", "erro");
+            inputQtd.value = 0;
+        }
+    } else {
+        aviso.innerText = "";
+        inputQtd.removeAttribute("max");
     }
+}
 
     function validarDigitacao(input) {
         var maximo = parseInt(input.max);
