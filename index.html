@@ -238,9 +238,9 @@
         .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
-        /* ABAS */
-       .tabs {
-    display: flex;
+       /* ABAS */
+.tabs {
+    display: inline-flex; /* ← MUDOU DE flex PARA inline-flex */
     gap: 5px;
     overflow-x: auto;
     padding: 5px;
@@ -248,7 +248,7 @@
     border-radius: 12px;
     margin-bottom: 25px;
     border: 1px solid var(--border);
-    justify-content: flex-start;
+    max-width: fit-content; /* ← NOVO */
 }
 
         .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
