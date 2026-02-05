@@ -639,13 +639,10 @@ function debounce(func, delay) {
 const buscarComDebounce = debounce(function(tipo) {
     if (tipo === 'locadores') renderLocadores();
     if (tipo === 'estoque') renderEstoque();
-}, 300); // Aguarda 300ms após parar de digitar
+}, 300);
 
 const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
-    
-
-    const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwc1A4nivRQoJLTn5Ex9WZEGns4c9RHM9z-Pmquxg05XrpG4WfiKqkYs0zvwpf_AcQo6w/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwc1A4nivRQoJLTn5Ex9WZEGns4c9RHM9z-Pmquxg05XrpG4WfiKqkYs0zvwpfAcQo6w/exec';
     
     // --- FORMATAÇÃO DE DATA ---
     function formatarData(dataString) {
