@@ -666,6 +666,9 @@
         if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
         if(window.google) gisLoaded();
         if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+        iniciarBackupAutomatico();
+        setInterval(salvarLocal, 60000); // Auto-salva a cada 1 minuto
+        console.log('✅ Sistema de backup ativado');
     };
 
     function toggleTheme() { 
@@ -957,18 +960,200 @@
     function entrarApp() { document.getElementById('loginArea').style.display='none'; document.getElementById('appArea').style.display='block'; renderTudo(); }
     function sair() { localStorage.removeItem('gToken'); location.reload(); }
     
-    async function sincronizar(modo) { 
-        if(!navigator.onLine) { updStatus('offline'); return; } updStatus('saving');
-        try { 
-            if(modo==='carregar') { 
-                const r = await fetch(`${API_URL}?action=carregar`); const t = await r.text(); 
-                if(!t.startsWith('<')) { const j=JSON.parse(t); if(j.locadores) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes||[]; tipos=j.tipos||[]; config=j.config||config; salvarLocal(); renderTudo(); } } 
-            } else { 
-                await fetch(API_URL, {method:'POST', body:new URLSearchParams({dados:JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})})});
-            } 
-            updStatus('online'); 
-        } catch(e){ updStatus('offline'); } 
+    // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
+
+// Backup de emergência antes de sobrescrever dados
+function criarBackupEmergencia() {
+    const timestamp = new Date().toISOString();
+    const backup = {
+        data: timestamp,
+        locadores, pecas, locacoes, devolucoes, tipos, config
+    };
+    localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
+    console.log('✅ Backup de emergência criado:', timestamp);
+    return backup;
+}
+
+// Sincronização com proteção contra perda de dados
+async function sincronizar(modo) {
+    if (!navigator.onLine) {
+        updStatus('offline');
+        return;
     }
+
+    updStatus('saving');
+
+    try {
+        if (modo === 'carregar') {
+            // Carregar dados da nuvem
+            const response = await fetch(`${API_URL}?action=carregar`);
+            const texto = await response.text();
+
+            // Validação de resposta
+            if (texto.startsWith('<')) {
+                console.warn('⚠️ Resposta inválida do servidor');
+                updStatus('offline');
+                return;
+            }
+
+            const dadosNuvem = JSON.parse(texto);
+
+            // Verificar se há dados locais
+            const temDadosLocais = locadores.length > 0 || pecas.length > 0 || locacoes.length > 0;
+
+            if (temDadosLocais) {
+                // Detectar conflito de timestamps
+                const timestampLocal = localStorage.getItem('mtzUltimaEdicao') || 0;
+                const timestampNuvem = dadosNuvem.ultimaEdicao || 0;
+
+                console.log('📅 Local:', new Date(Number(timestampLocal)).toLocaleString());
+                console.log('☁️ Nuvem:', new Date(Number(timestampNuvem)).toLocaleString());
+
+                // Se nuvem for mais recente, perguntar
+                if (timestampNuvem > timestampLocal) {
+                    const confirmar = confirm(
+                        '⚠️ ATENÇÃO: Dados na nuvem são mais recentes!\n\n' +
+                        `📅 Seus dados locais: ${new Date(Number(timestampLocal)).toLocaleString()}\n` +
+                        `☁️ Dados na nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
+                        '✅ Clique OK para CARREGAR da nuvem (backup automático será criado)\n' +
+                        '❌ Clique CANCELAR para manter seus dados locais'
+                    );
+
+                    if (!confirmar) {
+                        console.log('🚫 Usuário cancelou sincronização');
+                        updStatus('offline');
+                        mostrarToast('Sincronização cancelada. Dados locais mantidos.');
+                        return;
+                    }
+
+                    // Criar backup antes de sobrescrever
+                    criarBackupEmergencia();
+                }
+            }
+
+            // Carregar dados
+            if (dadosNuvem.locadores) {
+                locadores = dadosNuvem.locadores || [];
+                pecas = dadosNuvem.pecas || [];
+                locacoes = dadosNuvem.locacoes || [];
+                devolucoes = dadosNuvem.devolucoes || [];
+                tipos = dadosNuvem.tipos || [];
+                config = dadosNuvem.config || config;
+
+                salvarLocal();
+                renderTudo();
+                mostrarToast('✅ Dados carregados da nuvem!');
+            }
+
+        } else {
+            // Enviar dados para nuvem
+            const timestamp = Date.now();
+            const dadosParaEnviar = {
+                locadores, pecas, locacoes, devolucoes, tipos, config,
+                ultimaEdicao: timestamp
+            };
+
+            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    dados: JSON.stringify(dadosParaEnviar)
+                })
+            });
+
+            if (response.ok) {
+                mostrarToast('☁️ Dados salvos na nuvem!');
+                console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
+            }
+        }
+
+        updStatus('online');
+
+    } catch (erro) {
+        console.error('❌ Erro na sincronização:', erro);
+        updStatus('offline');
+        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
+    }
+}
+
+// Backup automático diário
+function iniciarBackupAutomatico() {
+    const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
+    const agora = Date.now();
+    const umDia = 24 * 60 * 60 * 1000;
+
+    if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
+        const backup = {
+            data: new Date().toISOString(),
+            versao: 'V11',
+            locadores, pecas, locacoes, devolucoes, tipos, config
+        };
+
+        localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
+        localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
+        
+        console.log('💾 Backup automático criado:', new Date().toLocaleString());
+    }
+}
+
+// Restaurar backup de emergência
+function restaurarBackupEmergencia() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    if (!backup) {
+        alert('❌ Nenhum backup de emergência encontrado.');
+        return;
+    }
+
+    const confirmar = confirm(
+        '⚠️ Deseja restaurar o BACKUP DE EMERGÊNCIA?\n\n' +
+        'Isso irá substituir todos os dados atuais.'
+    );
+
+    if (confirmar) {
+        const dados = JSON.parse(backup);
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+
+        salvarLocal();
+        renderTudo();
+        mostrarToast('✅ Backup de emergência restaurado!');
+        console.log('✅ Dados restaurados de:', dados.data);
+    }
+}
+
+// Ver informações de backup
+function verInfoBackup() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+    
+    let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
+    
+    if (backup) {
+        const dados = JSON.parse(backup);
+        msg += `🆘 Backup de Emergência:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+        msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações\n\n`;
+    } else {
+        msg += '❌ Nenhum backup de emergência\n\n';
+    }
+    
+    if (backupAuto) {
+        const dados = JSON.parse(backupAuto);
+        msg += `💾 Backup Automático:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+    } else {
+        msg += '❌ Nenhum backup automático';
+    }
+    
+    alert(msg);
+}
+
     
     function salvarLocal() { localStorage.setItem('mtzBackup', JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})); }
     function carregarLocal() { try { const j=JSON.parse(localStorage.getItem('mtzBackup')); if(j) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes; tipos=j.tipos; config=j.config; } } catch(e){} }
