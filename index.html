@@ -1071,23 +1071,21 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
     }
     
     function prepararModalRelatorio(id, titulo) {
-        const l = locacoes.find(x => x.id === id); if(!l) return;
+        const l = locacoes.find(x => x.id === id);
+        if(!l) return;
         const c = locadores.find(x => x.id === l.locadorId) || { nome: 'Removido', email: '-', telefone: '-' };
-        
-        // VERIFICA SE É ROMANEIO
-        const isRomaneio = titulo.includes("ROMANEIO");
 
-        // 1. GERA AS LINHAS
+        const isRomaneio = titulo.includes("ROMANEIO");
+        
         let totalItens = 0;
         let totalQtd = 0;
-
+        
         const linhasItens = l.items.map(item => { 
             const sub = item.valor * item.quantidade; 
             totalItens += sub; 
             totalQtd += parseInt(item.quantidade||0);
 
             if (isRomaneio) {
-                // VISUAL DO ROMANEIO (Simples)
                 return `<tr style="border-bottom:1px solid #e5e7eb;"> 
                     <td style="padding:10px; font-size:12px; color:#000000 !important;">${item.nome}</td> 
                     <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidade}</td> 
@@ -1095,7 +1093,6 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
                 </tr>`; 
             }
             
-            // VISUAL DO CONTRATO (Completo)
             return `<tr style="border-bottom:1px solid #e5e7eb;"> 
                 <td style="padding:10px; font-size:12px; color:#000000 !important;">${item.nome}</td> 
                 <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidade}</td> 
@@ -1105,18 +1102,13 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
             </tr>`; 
         }).join('');
 
-        // CÁLCULOS
         let div = parseFloat(l.divisorFatura || 1); if(div <= 0) div = 1;
         const totalFinal = totalItens / div;
         const valorImposto = totalFinal - totalItens;
-        const porcentagemImposto = (1 - div) * 100;
 
-        // CABEÇALHOS DIFERENTES
         let cabecalhoTabela = '';
         let rodapeValores = '';
-        
-        // VARIÁVEL PARA OS TERMOS DE USO
-        let termosJuridicos = '';
+        let termosJuridicos = ''; // Variável inicializada vazia para evitar erro
 
         if(isRomaneio) {
             cabecalhoTabela = `<tr><th style="padding:10px; text-align:left; font-size:11px; color:white !important;">ITEM</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">QTD</th><th style="padding:10px; text-align:center; font-size:11px; color:white !important;">CONFERÊNCIA</th></tr>`;
@@ -1127,7 +1119,7 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
             rodapeValores = `${div < 1 ? `<div style="margin-bottom:10px; font-size:12px; color:#444;">Itens: R$ ${totalItens.toFixed(2)} | Taxas: R$ ${valorImposto.toFixed(2)}</div>` : ''}
                              <h3 style="margin:0; font-size:22px; color:#000000 !important;">TOTAL A PAGAR: R$ ${totalFinal.toFixed(2)}</h3>`;
 
-           // AQUI ESTÁ A MÁGICA: OS TERMOS JURÍDICOS (Atualizado com Súmula 31 STF)
+            // === AQUI ESTÁ A CORREÇÃO DOS TERMOS ===
             termosJuridicos = `
             <div style="margin-top: 20px; padding: 10px; border: 1px solid #000; font-size: 8px; text-align: justify; background: #f9f9f9;">
                 <strong>RECIBO DE LOCAÇÃO DE BENS MÓVEIS - NÃO SUJEITO AO ISSQN</strong><br>
@@ -1138,8 +1130,8 @@ function verificarEstoqueFuturo(pecaId, dataInicio, dataFim) {
                 2. Em caso de dano ou perda, será cobrado o valor de reposição de mercado.<br>
                 3. A não devolução na data gera cobrança automática de novas diárias.
             </div>`;
+        }
 
-        // 2. MONTAGEM FINAL
         const layout = `<div style="background:#ffffff !important; min-height:100%; width:100%; position:relative; display:flex; flex-direction:column; padding:0; color: #000000 !important;"> 
             <div style="flex: 1;"> 
                 ${getHeaderMTZ()} 
