@@ -357,7 +357,7 @@
                     <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="renderLocadores()" style="margin-bottom: 15px;">
+                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -409,7 +409,7 @@
                     <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="renderEstoque()">
+                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
                     <div class="table-responsive"><table class="table"><thead><tr><th>Img</th><th>Cód</th><th>Tipo</th><th>Nome</th><th>Valor</th><th>Estoque</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblEstoque"></tbody></table></div>
                 </div>
             </div>
@@ -615,6 +615,35 @@
     let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
     let tokenClient, filtroAtual = 'todos';
+    let paginaAtual = {
+    locadores: 1,
+    pecas: 1,
+    locacoes: 1
+    };
+    const ITENS_POR_PAGINA = 50;
+
+    // Cache para otimizar buscas
+    let cacheDisponibilidade = null;
+    let ultimaAtualizacaoCache = 0;
+
+    // === DEBOUNCE: EVITA LAG AO DIGITAR ===
+function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+// === BUSCA COM DEBOUNCE (ANTI-LAG) ===
+const buscarComDebounce = debounce(function(tipo) {
+    if (tipo === 'locadores') renderLocadores();
+    if (tipo === 'estoque') renderEstoque();
+}, 300); // Aguarda 300ms após parar de digitar
+
+const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
+    
+
     const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
     const API_URL = 'https://script.google.com/macros/s/AKfycbwc1A4nivRQoJLTn5Ex9WZEGns4c9RHM9z-Pmquxg05XrpG4WfiKqkYs0zvwpf_AcQo6w/exec';
     
@@ -690,46 +719,107 @@
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
 
     // --- RENDERIZAÇÃO DAS TABELAS ---
-    function renderLocacoes() {
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        const tbody = document.getElementById('tblLocacoes'); if(!tbody) return;
+    // === RENDERIZAR LOCAÇÕES COM PAGINAÇÃO ===
+function renderLocacoes() {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    const tbody = document.getElementById('tblLocacoes'); 
+    if(!tbody) return;
+    
+    // Filtrar e processar
+    const lista = locacoes.map(l => {
+        let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
+        let st = l.status;
+        if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
         
-        const lista = locacoes.map(l => {
-            let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
-            let st = l.status;
-            if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
-            let total = 0; 
-            (l.items||[]).forEach(i => total += (parseFloat(i.valor||0)*parseInt(i.quantidade||1)));
-            let div = parseFloat(l.divisorFatura||1); if(div<=0) div=1;
-            return { ...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false };
-        });
-        const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
-        filtrados.sort((a,b) => b.id - a.id);
-        if (!filtrados.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>'; return; }
-
-        tbody.innerHTML = filtrados.map(l => {
-            const c = locadores.find(x => x.id === l.locadorId);
-            let badgeClass = 'badge-success';
-            if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
-            if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
-            
-            // --- NOVO BOTÃO WHATSAPP ---
-            const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'};" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
-            const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white;" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
-            const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
-            const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
-            const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
-            
-            return `<tr>
-                <td><div style="font-weight:600;">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
-                <td><div style="font-size:0.85rem;">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600;">Até: ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
-                <td><div style="font-weight:700;">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
-                <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
-                <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
-            </tr>`;
-        }).join('');
+        let total = 0; 
+        (l.items||[]).forEach(i => total += (parseFloat(i.valor)||0) * (parseInt(i.quantidade)||1));
+        let div = parseFloat(l.divisorFatura)||1;
+        if(div<=0) div=1;
+        
+        return {...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false};
+    });
+    
+    const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
+    filtrados.sort((a,b) => b.id - a.id);
+    
+    // === PAGINAÇÃO ===
+    const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+    const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
+    const fim = inicio + ITENS_POR_PAGINA;
+    const itensPagina = filtrados.slice(inicio, fim);
+    
+    if (!itensPagina.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>';
+        return;
     }
+    
+    // Renderizar apenas os itens da página atual
+    tbody.innerHTML = itensPagina.map(l => {
+        const c = locadores.find(x => x.id === l.locadorId);
+        let badgeClass = 'badge-success';
+        if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
+        if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
+        
+        const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
+        const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
+        const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
+        const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
+        const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
+        
+        return `<tr>
+            <td><div style="font-weight:600">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
+            <td><div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600">Até ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
+            <td><div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
+            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
+            <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
+        </tr>`;
+    }).join('');
+    
+    // === CONTROLES DE PAGINAÇÃO ===
+    criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
+}
+        
+// === CRIAR BOTÕES DE PAGINAÇÃO ===
+function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
+    if (totalPaginas <= 1) return; // Não precisa de paginação
+    
+    const tbody = document.getElementById(`tbl${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+    if (!tbody) return;
+    
+    const paginaAtualTipo = paginaAtual[tipo];
+    
+    const controles = `
+        <tr style="background: var(--surface-hover);">
+            <td colspan="10" style="text-align: center; padding: 15px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
+                        <i class="bi bi-chevron-left"></i> Anterior
+                    </button>
+                    <span style="font-weight: 600; color: var(--text);">
+                        Página ${paginaAtualTipo} de ${totalPaginas} 
+                        <span style="opacity: 0.6; font-size: 0.85rem;">(${totalItens} itens)</span>
+                    </span>
+                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
+                        Próxima <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    tbody.insertAdjacentHTML('beforeend', controles);
+}
+
+// === NAVEGAÇÃO DE PÁGINAS ===
+function irParaPagina(tipo, novaPagina) {
+    paginaAtual[tipo] = novaPagina;
+    
+    if (tipo === 'locacoes') renderLocacoes();
+    if (tipo === 'pecas') renderEstoque();
+    if (tipo === 'locadores') renderLocadores();
+}
+
 
     function renderLocadores() {
         const termo = document.getElementById('buscaCliente')?.value.toLowerCase() || "";
@@ -934,12 +1024,44 @@
         
         salvarLocal(); renderTudo(); mostrarToast("Locação Concluída!"); sincronizar('salvar');
     }
-    function recalcularDisponibilidade() { 
-        pecas.forEach(p=>{ 
-            let alug=0; locacoes.forEach(l=>{ if(l.status!=='devolvido') l.items.forEach(i=>{ if(i.pecaId==p.id) alug+=((i.quantidade||0)-(i.devolvidos||0)); }); }); 
-            p.disponivel=(p.quantidade||0)-alug; 
-        });
+    // === RECALCULAR DISPONIBILIDADE COM CACHE ===
+function recalcularDisponibilidade(forcar = false) {
+    const agora = Date.now();
+    
+    // Se já calculou há menos de 5 segundos, usa o cache
+    if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
+        console.log('📦 Usando cache de disponibilidade');
+        return;
     }
+    
+    console.log('🔄 Recalculando disponibilidade...');
+    
+    // Criar mapa de aluguéis ativos para busca O(1) ao invés de O(n)
+    const aluguelPorPeca = new Map();
+    
+    locacoes.forEach(l => {
+        if (l.status !== 'devolvido') {
+            l.items.forEach(i => {
+                const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
+                const atual = aluguelPorPeca.get(i.pecaId) || 0;
+                aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
+            });
+        }
+    });
+    
+    // Atualizar disponibilidade de cada peça
+    pecas.forEach(p => {
+        const alugado = aluguelPorPeca.get(p.id) || 0;
+        p.disponivel = (p.quantidade || 0) - alugado;
+    });
+    
+    // Atualizar cache
+    cacheDisponibilidade = true;
+    ultimaAtualizacaoCache = agora;
+    
+    console.log('✅ Disponibilidade recalculada');
+}
+
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
@@ -1157,6 +1279,7 @@ function verInfoBackup() {
     
     // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
 function salvarLocal() {
+    cacheDisponibilidade = null;
     try {
         const dados = {
             locadores, 
@@ -1857,7 +1980,33 @@ Fico no aguardo!`;
                 });
             };
         });
-    
+// === MONITOR DE ARMAZENAMENTO ===
+function verificarEspacoStorage() {
+    try {
+        const backup = localStorage.getItem('mtzBackup');
+        if (!backup) return;
+        
+        const tamanhoKB = (new Blob([backup]).size / 1024).toFixed(2);
+        const percentual = Math.round((tamanhoKB / 5120) * 100);
+        
+        console.log(`📊 Storage: ${tamanhoKB} KB (${percentual}% de 5 MB)`);
+        
+        if (percentual >= 90) {
+            mostrarToast('🔴 CRÍTICO: Storage em ' + percentual + '%! FAÇA BACKUP AGORA!', 'erro');
+        } else if (percentual >= 75) {
+            mostrarToast('⚠️ ALERTA: Storage em ' + percentual + '%!', 'erro');
+        }
+    } catch (erro) {
+        console.error('Erro ao verificar storage:', erro);
+    }
+}
+
+// Executar verificação ao carregar
+window.addEventListener('load', function() {
+    setTimeout(verificarEspacoStorage, 2000);
+});
+
+        
     </script>
 </body>
 </html>
