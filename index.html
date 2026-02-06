@@ -2039,7 +2039,7 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-  // --- EXCEL INTELIGENTE (COM FORMATAÇÃO DE MEDIDAS AUTOMÁTICA) ---
+ // --- EXCEL INTELIGENTE (VERSÃO CORRIGIDA PARA NOMES IGUAIS EM CATEGORIAS DIFERENTES) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
@@ -2051,7 +2051,6 @@ function tentarRecuperacaoAutomatica() {
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
                 
-                // Lê como matriz para processar linha por linha
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(rows.length) {
@@ -2062,7 +2061,6 @@ function tentarRecuperacaoAutomatica() {
                     let itensImportados = 0;
                     let categoriasCriadas = 0;
 
-                    // Garante categoria Geral
                     let catGeral = tipos.find(t => t.nome === "Geral");
                     if (!catGeral) {
                         catGeral = { id: Date.now(), nome: "Geral", desc: "Itens sem categoria" };
@@ -2075,15 +2073,13 @@ function tentarRecuperacaoAutomatica() {
                     rows.forEach(row => {
                         if (!row || row.length === 0) return;
 
-                        let col0 = row[0] ? String(row[0]).trim() : ""; // Nome do Item
-                        const col1 = row[1]; // Ano ou Qtd
-                        const col3 = row[3]; // Coluna Soma (Qtd Principal)
+                        let col0 = row[0] ? String(row[0]).trim() : ""; 
+                        const col1 = row[1]; 
+                        const col3 = row[3]; 
 
-                        // 1. Detectar Categoria (Procura pelo ano 2026 na coluna B)
+                        // 1. Detectar Categoria
                         if (col1 == 2026 || String(col1).includes("2026")) {
-                            categoriaAtualNome = col0;
-                            // Remove espaços extras e deixa bonito
-                            categoriaAtualNome = categoriaAtualNome.replace(/[\r\n]+/g, "").trim();
+                            categoriaAtualNome = col0.replace(/[\r\n]+/g, "").trim();
 
                             let catExiste = tipos.find(t => t.nome.toUpperCase() === categoriaAtualNome.toUpperCase());
                             
@@ -2094,38 +2090,33 @@ function tentarRecuperacaoAutomatica() {
                                 tipos.push({ id: categoriaAtualId, nome: categoriaAtualNome, desc: "Importado Excel" });
                                 categoriasCriadas++;
                             }
-                            return; // É cabeçalho, passa pro próximo
+                            return; 
                         }
 
                         // 2. Detectar Quantidade
                         let quantidade = parseInt(col3);
-                        if (isNaN(quantidade)) quantidade = parseInt(col1); // Tenta coluna B se D falhar
-                        if (isNaN(quantidade)) quantidade = 0; // Se não tiver, assume 0
+                        if (isNaN(quantidade)) quantidade = parseInt(col1); 
+                        if (isNaN(quantidade)) quantidade = 0; 
 
-                        // 3. Cadastrar Item (se tiver nome e não for linha de total)
+                        // 3. Cadastrar Item
                         if (col0 && col0 !== "TOTAL EM METROS") {
                             
-                            // === LÓGICA DE MEDIDAS INTELIGENTE ===
-                            // Verifica se o texto é APENAS números, pontos ou vírgulas
-                            // Ex: "0.85", "1,5", "2", "0.01" passam. "MESA 2" não passa.
+                            // Lógica de Medidas (m/cm)
                             if (/^[\d.,]+$/.test(col0)) {
-                                let valor = parseFloat(col0.replace(',', '.')); // Garante formato numérico
-
+                                let valor = parseFloat(col0.replace(',', '.')); 
                                 if (!isNaN(valor)) {
                                     if (valor < 1) {
-                                        // REGRA CENTÍMETROS (ex: 0.85 vira 85cm)
-                                        // Multiplica por 100 e arredonda para evitar dízimas (ex: 30.00004)
                                         let cm = Math.round(valor * 100);
                                         col0 = cm + 'cm';
                                     } else {
-                                        // REGRA METROS (ex: 1.5 vira 1.5m)
                                         col0 = valor + 'm';
                                     }
                                 }
                             }
-                            // ======================================
 
-                            const itemExiste = pecas.find(p => p.nome === col0);
+                            // --- A CORREÇÃO ESTÁ AQUI EMBAIXO ---
+                            // Agora ele verifica se existe o nome DENTRO DA MESMA CATEGORIA (tipoId)
+                            const itemExiste = pecas.find(p => p.nome === col0 && p.tipoId === categoriaAtualId);
                             
                             if (!itemExiste) {
                                 pecas.push({
@@ -2135,7 +2126,7 @@ function tentarRecuperacaoAutomatica() {
                                     quantidade: quantidade,
                                     disponivel: quantidade,
                                     valor: 0,
-                                    tipoId: categoriaAtualId, // Vincula à categoria certa
+                                    tipoId: categoriaAtualId, 
                                     medida: ''
                                 });
                                 itensImportados++;
@@ -2146,7 +2137,7 @@ function tentarRecuperacaoAutomatica() {
                     salvarLocal(); 
                     renderTudo(); 
                     sincronizar('salvar'); 
-                    mostrarToast(`Sucesso! ${itensImportados} itens importados e medidas formatadas.`);
+                    mostrarToast(`Sucesso! ${itensImportados} itens importados.`);
                 }
             } catch(err) { 
                 console.error(err);
