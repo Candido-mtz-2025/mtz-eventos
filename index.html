@@ -1275,38 +1275,43 @@ function renderLocadores() {
     tbody.appendChild(fragment);
 }
 
-   // ========================================
-// 🔥 RENDERIZAR ESTOQUE OTIMIZADA
-// ========================================
-// --- RENDERIZAR ESTOQUE (COM BUSCA INTELIGENTE) ---
+// --- RENDERIZAR ESTOQUE (COM ORDEM ALFABÉTICA) ---
 function renderEstoque() {
   const termoRaw = DOM.get('buscaEstoque')?.value || '';
   
-  // Função interna para limpar acentos (Ex: 'Não' vira 'nao')
   const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
   const termo = normalizar(termoRaw);
   const tbody = DOM.get('tblEstoque');
   if (!tbody) return;
 
-  const itensFiltrados = pecas.filter(p => {
-    // 1. Pega os dados do item
+  let itensFiltrados = pecas.filter(p => {
     const nome = normalizar(p.nome || '');
     const codigo = normalizar(p.codigo || '');
     const medida = normalizar(p.medida || '');
-
-    // 2. Pega o nome da Categoria (Tipo) para pesquisar também
     const tipo = tipos.find(t => t.id === p.tipoId);
     const categoria = tipo ? normalizar(tipo.nome) : '';
 
-    // 3. Verifica se o termo pesquisado está em QUALQUER um desses lugares
     return nome.includes(termo) || 
            codigo.includes(termo) || 
            categoria.includes(termo) ||
            medida.includes(termo);
   });
 
-  // Se não encontrar nada
+  // --- PARTE NOVA: ORDENAÇÃO ---
+  itensFiltrados.sort((a, b) => {
+      const tipoA = tipos.find(t => t.id === a.tipoId)?.nome || "ZZZ"; 
+      const tipoB = tipos.find(t => t.id === b.tipoId)?.nome || "ZZZ";
+
+      // 1. Compara Categorias
+      const comparacaoCategoria = tipoA.localeCompare(tipoB, undefined, {numeric: true});
+      if (comparacaoCategoria !== 0) return comparacaoCategoria;
+
+      // 2. Compara Nomes (se for mesma categoria)
+      return (a.nome || "").localeCompare(b.nome || "", undefined, {numeric: true});
+  });
+  // -----------------------------
+
   if (itensFiltrados.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoRaw}".</td></tr>`;
     return;
@@ -1359,33 +1364,6 @@ function renderEstoque() {
   tbody.innerHTML = '';
   tbody.appendChild(fragment);
 }
-
-    // --- DEVOLUÇÕES (RECOLOCAR) ---
-function renderDevolucoes() {
-    const tbody = document.getElementById('tblDevolucoes'); 
-    if(!tbody) return;
-    
-    // Pega as últimas 20 devoluções
-    const lista = devolucoes.slice().reverse().slice(0, 20);
-    
-    tbody.innerHTML = lista.map(d => {
-        const l = locacoes.find(x => x.id === d.locacaoId);
-        // Tenta achar o cliente no contrato ou usa ID 0
-        const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
-        
-        return `<tr>
-            <td><div style="font-weight:600;">${c ? c.nome : '-'}</div></td>
-            <td>${formatarData(d.dataDevolucao)}</td>
-            <td><span class="badge badge-success">Concluído</span></td>
-            <td class="col-actions">
-                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})">
-                    <i class="bi bi-printer"></i>
-                </button>
-            </td>
-        </tr>`;
-    }).join('');
-}
-
 // --- TIPOS (RECOLOCAR) ---
 function renderTipos() {
     const tbody = document.getElementById('tblTipos');
