@@ -2555,7 +2555,7 @@ window.addEventListener('load', function() {
    let estoqueSelecionados = new Set();
 
 function onSelectEstoque(id, checked){
-  id = parseInt(id);
+  id = Number(id);
   if (checked) estoqueSelecionados.add(id);
   else estoqueSelecionados.delete(id);
 }
