@@ -239,9 +239,11 @@
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
        /* ABAS */
+/* ABAS - VERSÃO CORRIGIDA E ALINHADA */
 .tabs {
   display: flex;
   align-items: center;
+  justify-content: center; /* Centraliza os botões */
   gap: 5px;
   overflow-x: auto;
   padding: 5px;
@@ -249,43 +251,119 @@
   border-radius: 12px;
   margin-bottom: 25px;
   border: 1px solid var(--border);
-}
-.tabs-spacer{
-  flex: 1;
-  min-width: 24px;
-  pointer-events: none;
-  background: linear-gradient(to right, rgba(255,255,255,0.00), rgba(255,255,255,0.06));
+  width: fit-content;      /* Faz a barra envolver apenas os botões */
+  margin-left: auto;       /* Auxilia na centralização horizontal */
+  margin-right: auto;      /* Auxilia na centralização horizontal */
 }
 
-[data-theme="dark"] .tabs-spacer{
-  background: linear-gradient(to right, rgba(255,255,255,0.00), rgba(255,255,255,0.04));
+/* O spacer foi desativado para remover o espaço vazio sobrando */
+.tabs-spacer {
+  display: none;
 }
 
-        .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
-        .tab-btn.active { background: var(--primary); color: white; }
-        .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* OUTROS */
-        header .container { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
-        .logo h1 { font-size: 1.6rem; color: var(--text) !important; margin: 0; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
-        .modal.active { display: flex; }
-        .sync-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
-        .sync-online { background: #dcfce7; color: #166534; }
-        .sync-offline { background: #f1f5f9; color: #475569; }
-        .sync-saving { background: #fff7ed; color: #9a3412; }
-        
-        #toast { visibility: hidden; min-width: 250px; background-color: #1f2937; color: #fff; text-align: center; border-radius: 12px; padding: 16px; position: fixed; z-index: 6000; left: 50%; bottom: 30px; transform: translateX(-50%); opacity: 0; transition: 0.3s; }
-        #toast.show { visibility: visible; bottom: 40px; opacity: 1; }
-
-        /* IMPRESSÃO (Mantido para PDF funcionar) */
-        .invoice-box { background: #fff !important; color: #333 !important; padding: 40px; }
-        .invoice-table th { background: #000 !important; color: #fff !important; }
-        .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
-        #interactive video { width: 100%; height: 100%; object-fit: cover; }
-    }
+.tab-btn { 
+  background: transparent; 
+  border: none; 
+  padding: 10px 20px; 
+  color: var(--text-light); 
+  font-weight: 600; 
+  cursor: pointer; 
+  border-radius: 8px; 
+  white-space: nowrap; 
 }
+
+.tab-btn.active { 
+  background: var(--primary); 
+  color: white; 
+}
+
+.tab-content { 
+  display: none; 
+  animation: fadeIn 0.3s; 
+} 
+
+.tab-content.active { 
+  display: block; 
+}
+
+@keyframes fadeIn { 
+  from { opacity: 0; transform: translateY(5px); } 
+  to { opacity: 1; transform: translateY(0); } 
+}
+
+/* OUTROS */
+header .container { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 20px 0; 
+}
+
+.logo h1 { 
+  font-size: 1.6rem; 
+  color: var(--text) !important; 
+  margin: 0; 
+}
+
+.modal { 
+  display: none; 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.6); 
+  backdrop-filter: blur(4px); 
+  z-index: 5000; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 20px; 
+}
+
+.modal.active { 
+  display: flex; 
+}
+
+.sync-badge { 
+  padding: 6px 12px; 
+  border-radius: 20px; 
+  font-size: 0.75rem; 
+  font-weight: 700; 
+  display: flex; 
+  align-items: center; 
+  gap: 6px; 
+  text-transform: uppercase; 
+}
+
+.sync-online { background: #dcfce7; color: #166534; }
+.sync-offline { background: #f1f5f9; color: #475569; }
+.sync-saving { background: #fff7ed; color: #9a3412; }
+
+#toast { 
+  visibility: hidden; 
+  min-width: 250px; 
+  background-color: #1f2937; 
+  color: #fff; 
+  text-align: center; 
+  border-radius: 12px; 
+  padding: 16px; 
+  position: fixed; 
+  z-index: 6000; 
+  left: 50%; 
+  bottom: 30px; 
+  transform: translateX(-50%); 
+  opacity: 0; 
+  transition: 0.3s; 
+}
+
+#toast.show { 
+  visibility: visible; 
+  bottom: 40px; 
+  opacity: 1; 
+}
+
+/* IMPRESSÃO */
+.invoice-box { background: #fff !important; color: #333 !important; padding: 40px; }
+.invoice-table th { background: #000 !important; color: #fff !important; }
+.scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
+#interactive video { width: 100%; height: 100%; object-fit: cover; }
 
     </style>
 </head>
@@ -330,7 +408,6 @@
                 <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
                 <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
                 <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
-                <span class="tabs-spacer" aria-hidden="true"></span>
             </div>
 
             <div id="tab-dashboard" class="tab-content active">
