@@ -2554,7 +2554,7 @@ function onSelectEstoque(id, checked){
   else estoqueSelecionados.delete(id);
 }
 
-function toggleSelecionarTodosEstoque(marcar){
+function toggleSelecionarTodosEstoque(marcar) {
   const checks = document.querySelectorAll('.chk-estoque');
   checks.forEach(chk => {
     chk.checked = marcar;
