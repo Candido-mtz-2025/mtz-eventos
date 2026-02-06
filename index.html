@@ -399,6 +399,37 @@
         .invoice-table th { background: #000 !important; color: #fff !important; }
         .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
         #interactive video { width: 100%; height: 100%; object-fit: cover; }
+    /* LISTA DE SUGESTÕES (AUTOCOMPLETE) */
+.dropdown-sugestoes {
+    display: none;
+    position: absolute;
+    background: var(--surface);
+    width: 100%;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 0 0 10px 10px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.dropdown-sugestoes.ativo {
+    display: block;
+}
+.sugestao-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+}
+.sugestao-item:hover {
+    background: var(--surface-hover);
+}
+.sugestao-estoque {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--primary);
+}
     </style>
 </head>
 <body>
@@ -599,30 +630,33 @@
                         <div class="form-row" style="align-items: flex-end;">
                             <div class="form-group" style="flex: 4;">
                                 <label>Selecionar Item</label>
-                                <select id="aluguelItemSelect" onchange="atualizarLimiteEstoque()"></select>
-                            </div>
-                            
-                            <div class="form-group" style="flex: 1; min-width: 70px;">
-                                <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
-                                <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
-                            </div>
-                            
-                            <div class="form-group" style="flex: 2; display:flex; gap: 5px;">
-                                <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
-                                    <i class="bi bi-plus-lg"></i> Add
-                                </button>
-                                <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
-                                    <i class="bi bi-qr-code"></i>
-                                </button>
-                            </div>
+                               <div class="form-row" style="align-items: flex-end;">
+                        
+                        <div class="form-group" style="flex: 4; position: relative;">
+                            <label>Buscar Item (Digite para filtrar)</label>
+                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
+                            <input type="hidden" id="aluguelItemSelect">
+                            <div id="listaSugestoes" class="dropdown-sugestoes"></div>
                         </div>
 
-                        <div id="carrinhoList">
-                            <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+                        <div class="form-group" style="flex: 1; min-width: 70px;">
+                            <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
+                            <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+                        </div>
+
+                        <div class="form-group" style="flex: 2; display:flex; gap: 5px; flex-direction: row;">
+                            <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
+                                <i class="bi bi-plus-lg"></i> Add
+                            </button>
+                            <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                                <i class="bi bi-qr-code"></i>
+                            </button>
                         </div>
                     </div>
-                    <button class="btn btn-primary" style="width: 100%;" onclick="finalizarLocacao()">Concluir Locação</button>
-                </div>
+
+                    <div id="carrinhoList">
+                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+                    </div>
                 
                 <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
                     <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
@@ -1429,43 +1463,129 @@ function renderTudo() {
         }
     }
 
+   // --- ATUALIZAR LISTAS (CORRIGIDO: SEM LISTA DE PEÇAS GIGANTE) ---
     function updateSelects() { 
+        // 1. Clientes
         const c = document.getElementById('aluguelCliente');
         if(c) c.innerHTML='<option value="">Selecione...</option>'+locadores.map(x=>`<option value="${x.id}">${x.nome}</option>`).join(''); 
         
-        const i = document.getElementById('aluguelItemSelect'); 
-        if(i) i.innerHTML='<option value="">Selecione...</option>'+pecas.map(x=>`<option value="${x.id}">${x.nome} (${x.disponivel} disp)</option>`).join(''); 
+        // 2. PEÇAS: REMOVIDO! (Agora usamos busca inteligente)
         
+        // 3. Devoluções
         const d = document.getElementById('devLocacao');
         if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map(l=>`<option value="${l.id}">#${l.id.toString().slice(-4)} - ${locadores.find(x=>x.id==l.locadorId)?.nome}</option>`).join(''); 
         
+        // 4. Tipos
         const tOpts = '<option value="0">Geral</option>'+tipos.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
-        
-        const t = document.getElementById('pecaTipo'); 
-        if(t) t.innerHTML=tOpts;
-        const tE = document.getElementById('editPecaTipo'); 
-        if(tE) tE.innerHTML=tOpts;
+        const t = document.getElementById('pecaTipo'); if(t) t.innerHTML=tOpts;
+        const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
     } 
 
     // --- LÓGICA E FUNÇÕES GERAIS ---
     function mostrarToast(m,t) { const x=document.getElementById("toast");
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
     
+    // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO ---
     function addItemCarrinho() { 
-        // 1. Pega o item selecionado
-        var select = document.getElementById('aluguelItemSelect');
-        var id = select.value;
-        if (!id) return; 
+        // 1. Pega o ID do input oculto
+        var id = document.getElementById('aluguelItemSelect').value;
+        if (!id) return mostrarToast("Busque e selecione um item!", "erro"); 
         
-        // 2. Trata a quantidade com segurança
+        // 2. Trata a quantidade
         var qtdInput = document.getElementById('aluguelQtd').value;
         var qtd = parseInt(qtdInput);
         if (isNaN(qtd) || qtd < 1) qtd = 1;
 
-        // 3. Busca a peça no banco de dados
+        // 3. Busca a peça
         var p = pecas.find(function(x) { return x.id == id; });
         if (!p) return;
 
+        // --- TRAVA DE ESTOQUE ---
+        var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
+        var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
+        var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
+
+        if (qtdTotalSolicitada > p.disponivel) {
+            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel}.`, "erro");
+        }
+
+        // 4. Adiciona ao carrinho
+        if (itemNoCarrinho) {
+            itemNoCarrinho.quantidade += qtd;
+        } else {
+            carrinhoLocacao.push({
+                pecaId: p.id, 
+                nome: p.nome, 
+                valor: parseFloat(p.valor), 
+                quantidade: qtd
+            });
+        }
+        
+        // 5. Gera HTML
+        var htmlLista = '';
+        for (var i = 0; i < carrinhoLocacao.length; i++) {
+            var item = carrinhoLocacao[i];
+            var totalItem = (item.valor * item.quantidade).toFixed(2);
+            htmlLista += '<div class="item-carrinho">';
+            htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
+            htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
+            htmlLista += '</div>';
+        }
+
+        document.getElementById('carrinhoList').innerHTML = htmlLista;
+        mostrarToast("Item adicionado!");
+
+        // 6. LIMPA E FOCA PARA O PRÓXIMO
+        document.getElementById('inputBuscaPeca').value = ""; 
+        document.getElementById('aluguelItemSelect').value = ""; 
+        document.getElementById('aluguelQtd').value = "1";
+        document.getElementById('avisoEstoque').innerText = "";
+        document.getElementById('inputBuscaPeca').focus();
+    }
+
+    // === NOVAS FUNÇÕES DE BUSCA (ISSO FALTAVA NO SEU ARQUIVO) ===
+    function filtrarItensLocacao() {
+        const termo = document.getElementById('inputBuscaPeca').value.toLowerCase();
+        const listaDiv = document.getElementById('listaSugestoes');
+        
+        if (termo.length < 1) {
+            listaDiv.classList.remove('ativo');
+            return;
+        }
+
+        const filtrados = pecas.filter(p => 
+            (p.nome && p.nome.toLowerCase().includes(termo)) || 
+            (p.codigo && p.codigo.toLowerCase().includes(termo))
+        );
+
+        if (filtrados.length === 0) {
+            listaDiv.innerHTML = '<div class="sugestao-item" style="color:red">Nenhum item encontrado.</div>';
+        } else {
+            listaDiv.innerHTML = filtrados.map(p => `
+                <div class="sugestao-item" onclick="selecionarItemBusca(${p.id}, '${p.nome.replace(/'/g, "\\'")}')">
+                    <span class="sugestao-nome">${p.nome}</span>
+                    <span class="sugestao-detalhe">Disp: ${p.disponivel}</span>
+                </div>
+            `).join('');
+        }
+        listaDiv.classList.add('ativo');
+    }
+
+    function selecionarItemBusca(id, nome) {
+        document.getElementById('inputBuscaPeca').value = nome;
+        document.getElementById('aluguelItemSelect').value = id;
+        document.getElementById('listaSugestoes').classList.remove('ativo');
+        atualizarLimiteEstoque(); 
+    }
+
+    // Fecha a lista ao clicar fora
+    document.addEventListener('click', function(e) {
+        const lista = document.getElementById('listaSugestoes');
+        const input = document.getElementById('inputBuscaPeca');
+        if (lista && e.target !== input && e.target !== lista) {
+            lista.classList.remove('ativo');
+        }
+    });
         // --- TRAVA DE ESTOQUE (NOVO) ---
         // Verifica se já tem esse item no carrinho para somar
         var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
