@@ -1278,103 +1278,86 @@ function renderLocadores() {
    // ========================================
 // 🔥 RENDERIZAR ESTOQUE OTIMIZADA
 // ========================================
+// --- RENDERIZAR ESTOQUE (COM BUSCA INTELIGENTE) ---
 function renderEstoque() {
-  const termo = (DOM.get('buscaEstoque')?.value || '').toLowerCase();
+  const termoRaw = DOM.get('buscaEstoque')?.value || '';
+  
+  // Função interna para limpar acentos (Ex: 'Não' vira 'nao')
+  const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  
+  const termo = normalizar(termoRaw);
   const tbody = DOM.get('tblEstoque');
   if (!tbody) return;
 
   const itensFiltrados = pecas.filter(p => {
-    const nome = (p.nome || '').toLowerCase();
-    const codigo = (p.codigo || '').toLowerCase();
-    return nome.includes(termo) || codigo.includes(termo);
+    // 1. Pega os dados do item
+    const nome = normalizar(p.nome || '');
+    const codigo = normalizar(p.codigo || '');
+    const medida = normalizar(p.medida || '');
+
+    // 2. Pega o nome da Categoria (Tipo) para pesquisar também
+    const tipo = tipos.find(t => t.id === p.tipoId);
+    const categoria = tipo ? normalizar(tipo.nome) : '';
+
+    // 3. Verifica se o termo pesquisado está em QUALQUER um desses lugares
+    return nome.includes(termo) || 
+           codigo.includes(termo) || 
+           categoria.includes(termo) ||
+           medida.includes(termo);
   });
 
-    // se não tiver itens
-if (itensFiltrados.length === 0) {
-  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado.</td></tr>`;
-  return;
-}
+  // Se não encontrar nada
+  if (itensFiltrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoRaw}".</td></tr>`;
+    return;
+  }
 
-const fragment = document.createDocumentFragment();
+  const fragment = document.createDocumentFragment();
 
-itensFiltrados.forEach(p => {
-  const tipo = tipos.find(x => x.id === p.tipoId);
+  itensFiltrados.forEach(p => {
+    const tipo = tipos.find(x => x.id === p.tipoId);
 
-  const thumb = p.foto
-    ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
-    : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
+    const thumb = p.foto
+      ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
+      : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
 
-  let corEstoque =
-    p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
-    p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
+    let corEstoque =
+      p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
+      p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
 
-  const marcado = (typeof estoqueSelecionados !== 'undefined' && estoqueSelecionados.has(p.id)) ? 'checked' : '';
+    const marcado = (typeof estoqueSelecionados !== 'undefined' && estoqueSelecionados.has(p.id)) ? 'checked' : '';
 
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td style="width:40px;">
-      <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
-             onchange="onSelectEstoque(${p.id}, this.checked)">
-    </td>
-    <td>${thumb}</td>
-    <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
-    <td>${tipo ? tipo.nome : '-'}</td>
-    <td>
-      <div style="font-weight:600">${p.nome}</div>
-      <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
-    </td>
-    <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
-    <td>
-      <span style="${corEstoque}">${p.disponivel}</span>
-      <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span>
-    </td>
-    <td class="col-actions">
-      <div class="actions-cell">
-        <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
-      </div>
-    </td>
-  `;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="width:40px;">
+        <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
+               onchange="onSelectEstoque(${p.id}, this.checked)">
+      </td>
+      <td>${thumb}</td>
+      <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
+      <td>${tipo ? tipo.nome : '-'}</td>
+      <td>
+        <div style="font-weight:600">${p.nome}</div>
+        <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
+      </td>
+      <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
+      <td>
+        <span style="${corEstoque}">${p.disponivel}</span>
+        <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span>
+      </td>
+      <td class="col-actions">
+        <div class="actions-cell">
+          <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
+        </div>
+      </td>
+    `;
 
-  fragment.appendChild(tr);
-});
+    fragment.appendChild(tr);
+  });
 
-tbody.innerHTML = '';
-tbody.appendChild(fragment);
-} 
-
-    function renderDevolucoes() {
-        const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
-        const lista = devolucoes.slice().reverse().slice(0, 20);
-        tbody.innerHTML = lista.map(d => {
-            const l = locacoes.find(x => x.id === d.locacaoId);
-            const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
-            return `<tr>
-                <td><div style="font-weight:600;">${c?c.nome:'-'}</div></td><td>${formatarData(d.dataDevolucao)}</td>
-                <td><span class="badge badge-success">Concluído</span></td>
-                <td class="col-actions"><button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l?l.id:0})"><i class="bi bi-printer"></i></button></td>
-            </tr>`;
-        }).join('');
-    }
-
-    function renderTipos() {
-        const tbody = document.getElementById('tblTipos');
-        if(!tbody) return;
-        tbody.innerHTML = tipos.map(t => `<tr><td><b>${t.nome}</b></td><td>${t.desc || '-'}</td><td class="col-actions"><div class="actions-cell"><button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="removerItem('tipos',${t.id})"><i class="bi bi-trash"></i></button></div></td></tr>`).join('');
-    }
-
-    function renderTudo() {
-    recalcularDisponibilidade();
-    renderLocadores();
-    renderEstoque();
-    renderLocacoes();
-    renderTipos();
-    renderDevolucoes();
-    renderStats();
-    updateSelects();
-    renderLogs();
-    const totalLogsEl = document.getElementById('totalLogs');
-    if (totalLogsEl) totalLogsEl.innerText = logsAuditoria.length;
+  tbody.innerHTML = '';
+  tbody.appendChild(fragment);
 }
 
     function renderStats() {
