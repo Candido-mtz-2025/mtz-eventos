@@ -238,29 +238,19 @@
         .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
-/* ABAS - AJUSTE FINAL PARA ALINHAMENTO PERFEITO */
-.tabs {
-  display: inline-flex;    /* Faz o fundo cinza respeitar o tamanho dos botões */
-  align-items: center;
-  gap: 5px;
-  overflow-x: auto;
-  padding: 5px;
-  background: var(--surface);
-  border-radius: 12px;
-  margin-bottom: 25px;
-  border: 1px solid var(--border);
-  white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
-}
-/* ABAS - CENTRALIZADO E AJUSTADO */
+/* === ESTILO DAS ABAS (FINAL E CORRIGIDO) === */
+
+/* 1. Container Centralizado */
 .tabs-container {
   display: flex;
-  justify-content: center; /* Mantém centralizado como você prefere */
+  justify-content: center; /* Mantém centralizado e bonito */
   width: 100%;
   margin-bottom: 25px;
 }
 
+/* 2. Barra de Fundo (Ajustada ao tamanho dos botões) */
 .tabs {
-  display: inline-flex;    /* Faz o fundo cinza envolver apenas os botões */
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 6px;
@@ -271,7 +261,7 @@
   white-space: nowrap;
 }
 
-/* BOTÕES DAS ABAS */
+/* 3. Botões */
 .tab-btn { 
   background: transparent; 
   border: none; 
@@ -281,105 +271,47 @@
   cursor: pointer; 
   border-radius: 10px;
   white-space: nowrap;
-  outline: none !important; /* Remove o contorno azul de vez */
+  outline: none !important; /* Remove borda azul */
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* BOTÃO ATIVO */
+/* 4. Botão Ativo */
 .tab-btn.active { 
   background: var(--primary) !important; 
   color: #ffffff !important; 
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
-/* AJUSTE PARA MODO CLARO (LIGHT MODE) */
+/* 5. Correção para Modo Claro (Light Mode) */
 body:not([data-theme="dark"]) .tabs {
-  background: #f1f5f9; /* Cinza bem claro para destacar do fundo branco */
+  background: #f1f5f9; 
 }
-
 body:not([data-theme="dark"]) .tab-btn {
-  color: #475569; /* Texto escuro para leitura no modo claro */
+  color: #475569; 
 }
 
-/* DESATIVAR QUALQUER ESPAÇADOR ANTIGO */
+/* 6. CORREÇÃO CRÍTICA: LÓGICA DE ESCONDER/MOSTRAR CONTEÚDO */
+.tab-content { 
+  display: none; /* Esconde tudo por padrão */
+  animation: fadeIn 0.3s;
+} 
+
+.tab-content.active { 
+  display: block; /* Mostra só o que tem a classe active */
+}
+
+/* Remove elementos antigos */
 .tabs-spacer {
   display: none !important;
 }
 
+/* Animação */
 @keyframes fadeIn { 
   from { opacity: 0; transform: translateY(5px); } 
   to { opacity: 1; transform: translateY(0); } 
-}
-
-/* OUTROS */
-header .container { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 20px 0; 
-}
-
-.logo h1 { 
-  font-size: 1.6rem; 
-  color: var(--text) !important; 
-  margin: 0; 
-}
-
-.modal { 
-  display: none; 
-  position: fixed; 
-  inset: 0; 
-  background: rgba(0,0,0,0.6); 
-  backdrop-filter: blur(4px); 
-  z-index: 5000; 
-  align-items: center; 
-  justify-content: center; 
-  padding: 20px; 
-}
-
-.modal.active { 
-  display: flex; 
-}
-
-.sync-badge { 
-  padding: 6px 12px; 
-  border-radius: 20px; 
-  font-size: 0.75rem; 
-  font-weight: 700; 
-  display: flex; 
-  align-items: center; 
-  gap: 6px; 
-  text-transform: uppercase; 
-}
-
-.sync-online { background: #dcfce7; color: #166534; }
-.sync-offline { background: #f1f5f9; color: #475569; }
-.sync-saving { background: #fff7ed; color: #9a3412; }
-
-#toast { 
-  visibility: hidden; 
-  min-width: 250px; 
-  background-color: #1f2937; 
-  color: #fff; 
-  text-align: center; 
-  border-radius: 12px; 
-  padding: 16px; 
-  position: fixed; 
-  z-index: 6000; 
-  left: 50%; 
-  bottom: 30px; 
-  transform: translateX(-50%); 
-  opacity: 0; 
-  transition: 0.3s; 
-}
-
-#toast.show { 
-  visibility: visible; 
-  bottom: 40px; 
-  opacity: 1; 
 }
 
 /* IMPRESSÃO */
