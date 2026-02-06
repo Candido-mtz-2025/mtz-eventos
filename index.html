@@ -238,7 +238,7 @@
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
         /* ABAS */
-        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
+        display: inline-flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
         .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
         .tab-btn.active { background: var(--primary); color: white; }
         .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
@@ -663,8 +663,25 @@
 
     
 <script>
-    // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
-    let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
+// ========================================
+// 🔥 CACHE DE DOM - OTIMIZAÇÃO V11.1
+// ========================================
+const DOM = {
+    _cache: {},
+    get(id) {
+        if (!this._cache[id]) {
+            this._cache[id] = document.getElementById(id);
+            if (!this._cache[id]) {
+                console.warn(`⚠️ Elemento #${id} não encontrado`);
+            }
+        }
+        return this._cache[id];
+    }
+};
+
+// === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
+let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
+
     let logsAuditoria = []; // NOVO: Sistema de auditoria
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
     let tokenClient, filtroAtual = 'todos';
@@ -910,63 +927,90 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
 
     // --- RENDERIZAÇÃO DAS TABELAS ---
     // === RENDERIZAR LOCAÇÕES COM PAGINAÇÃO ===
+// ========================================
+// 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
+// ========================================
 function renderLocacoes() {
     const hoje = new Date();
-    hoje.setHours(0,0,0,0);
-    const tbody = document.getElementById('tblLocacoes'); 
-    if(!tbody) return;
+    hoje.setHours(0, 0, 0, 0);
     
-    // Filtrar e processar
+    const tbody = DOM.get('tblLocacoes');
+    if (!tbody) return;
+    
+    // Processar dados
     const lista = locacoes.map(l => {
         let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
         let st = l.status;
         if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
         
-        let total = 0; 
-        (l.items||[]).forEach(i => total += (parseFloat(i.valor)||0) * (parseInt(i.quantidade)||1));
-        let div = parseFloat(l.divisorFatura)||1;
-        if(div<=0) div=1;
+        let total = 0;
+        (l.items || []).forEach(i => total += (parseFloat(i.valor) || 0) * (parseInt(i.quantidade) || 1));
+        let div = parseFloat(l.divisorFatura) || 1;
+        if (div <= 0) div = 1;
         
-        return {...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false};
+        return { ...l, statusVisual: st, valorTotal: total / div, pago: l.pago || false };
     });
     
     const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
-    filtrados.sort((a,b) => b.id - a.id);
+    filtrados.sort((a, b) => b.id - a.id);
     
-    // === PAGINAÇÃO ===
+    // Paginação
     const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
     const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
-    const fim = inicio + ITENS_POR_PAGINA;
-    const itensPagina = filtrados.slice(inicio, fim);
+    const itensPagina = filtrados.slice(inicio, inicio + ITENS_POR_PAGINA);
     
-    if (!itensPagina.length) {
+    if (itensPagina.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>';
         return;
     }
     
-    // Renderizar apenas os itens da página atual
-    tbody.innerHTML = itensPagina.map(l => {
-        const c = locadores.find(x => x.id === l.locadorId);
-        let badgeClass = 'badge-success';
-        if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
-        if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
-        
-        const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
-        const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
-        const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
-        const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
-        const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
-        
-        return `<tr>
-            <td><div style="font-weight:600">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
-            <td><div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600">Até ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
-            <td><div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
-            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
-            <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
-        </tr>`;
-    }).join('');
+    // 🔥 OTIMIZAÇÃO: DocumentFragment (1 reflow)
+    const fragment = document.createDocumentFragment();
     
-    // === CONTROLES DE PAGINAÇÃO ===
+    itensPagina.forEach(l => {
+        const c = locadores.find(x => x.id === l.locadorId);
+        let badgeClass = l.statusVisual === 'atrasado' ? 'badge-danger' : 
+                        l.statusVisual === 'devolvido' ? 'badge-info' : 'badge-success';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div style="font-weight:600">${c ? c.nome : 'Removido'}</div>
+                <div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div>
+            </td>
+            <td>
+                <div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div>
+                <div style="font-size:0.85rem; font-weight:600;">Até ${formatarData(l.dataDevolucaoPrevisao)}</div>
+            </td>
+            <td>
+                <div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>
+                ${l.pago ? '<span class="badge badge-success">PAGO</span>' : '<span class="badge badge-warning">PENDENTE</span>'}
+            </td>
+            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
+            <td class="col-actions">
+                <div class="actions-cell">
+                    <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
+                        <i class="bi bi-currency-dollar"></i>
+                    </button>
+                    <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})">
+                        <i class="bi bi-whatsapp"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})">
+                        <i class="bi bi-truck"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})">
+                        <i class="bi bi-file-text"></i>
+                    </button>
+                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
+                </div>
+            </td>
+        `;
+        fragment.appendChild(tr);
+    });
+    
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment); // 🚀 1 reflow ao invés de 50+
+    
     criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
 }
         
@@ -1011,39 +1055,115 @@ function irParaPagina(tipo, novaPagina) {
 }
 
 
-    function renderLocadores() {
-        const termo = document.getElementById('buscaCliente')?.value.toLowerCase() || "";
-        const tbody = document.getElementById('tblLocadores'); if(!tbody) return;
-        tbody.innerHTML = locadores.filter(c => (c.nome && c.nome.toLowerCase().includes(termo))).map(c => `
-            <tr>
-                <td><div style="font-weight:600;">${c.nome}</div><div style="font-size:0.75rem; opacity:0.7;">${c.documento || ''}</div></td>
-                <td>${c.email || '-'}</td><td>${c.telefone || '-'}</td>
-                <td class="col-actions"><div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})"><i class="bi bi-file-text"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="removerItem('locadores',${c.id})"><i class="bi bi-trash"></i></button>
-                </div></td>
-            </tr>`).join('');
+    // ========================================
+// 🔥 RENDERIZAR LOCADORES OTIMIZADA
+// ========================================
+function renderLocadores() {
+    const termo = (DOM.get('buscaCliente')?.value || '').toLowerCase();
+    const tbody = DOM.get('tblLocadores');
+    if (!tbody) return;
+    
+    const clientesFiltrados = locadores.filter(c => 
+        c.nome.toLowerCase().includes(termo) || 
+        (c.documento && c.documento.toLowerCase().includes(termo))
+    );
+    
+    if (clientesFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhum cliente encontrado.</td></tr>';
+        return;
     }
+    
+    // 🔥 OTIMIZAÇÃO: DocumentFragment
+    const fragment = document.createDocumentFragment();
+    
+    clientesFiltrados.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div style="font-weight:600">${c.nome}</div>
+                <div style="font-size:0.75rem; opacity:0.7;">${c.documento || ''}</div>
+            </td>
+            <td>${c.email || '-'}</td>
+            <td>${c.telefone || '-'}</td>
+            <td class="col-actions">
+                <div class="actions-cell">
+                    <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})">
+                        <i class="bi bi-file-text"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="removerItem('locadores', ${c.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        fragment.appendChild(tr);
+    });
+    
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+}
 
-    function renderEstoque() {
-        const t = document.getElementById('buscaEstoque')?.value.toLowerCase() || "";
-        const tbody = document.getElementById('tblEstoque'); if(!tbody) return;
-        tbody.innerHTML = pecas.filter(p => p.nome.toLowerCase().includes(t) || p.codigo.toLowerCase().includes(t)).map(p => {
-            const tipo = tipos.find(x => x.id === p.tipoId);
-            const thumb = p.foto ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">` : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5"></i></div>`;
-            let cor = p.disponivel <= 0 ? "color:#ef4444; font-weight:bold" : (p.disponivel < 3 ? "color:#f59e0b; font-weight:bold" : "");
-            return `<tr>
-                <td>${thumb}</td><td><span style="font-family:monospace; font-weight:600; color:var(--text-light)">${p.codigo}</span></td>
-                <td>${tipo ? tipo.nome : '-'}</td><td><div style="font-weight:600;">${p.nome}</div><div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div></td>
-                <td>R$ ${p.valor.toFixed(2)}</td><td><span style="${cor}">${p.disponivel}</span> <span style="opacity:0.5; font-size:0.75rem">/ ${p.quantidade}</span></td>
-                <td class="col-actions"><div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="removerItem('pecas',${p.id})"><i class="bi bi-trash"></i></button>
-                </div></td>
-            </tr>`;
-        }).join('');
+   // ========================================
+// 🔥 RENDERIZAR ESTOQUE OTIMIZADA
+// ========================================
+function renderEstoque() {
+    const termo = (DOM.get('buscaEstoque')?.value || '').toLowerCase();
+    const tbody = DOM.get('tblEstoque');
+    if (!tbody) return;
+    
+    const itensFiltrados = pecas.filter(p => 
+        p.nome.toLowerCase().includes(termo) || 
+        p.codigo.toLowerCase().includes(termo)
+    );
+    
+    if (itensFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado.</td></tr>';
+        return;
     }
+    
+    // 🔥 OTIMIZAÇÃO: DocumentFragment
+    const fragment = document.createDocumentFragment();
+    
+    itensFiltrados.forEach(p => {
+        const tipo = tipos.find(x => x.id === p.tipoId);
+        const thumb = p.foto ? 
+            `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">` :
+            `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
+        
+        let corEstoque = p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' : 
+                        p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${thumb}</td>
+            <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
+            <td>${tipo ? tipo.nome : '-'}</td>
+            <td>
+                <div style="font-weight:600">${p.nome}</div>
+                <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
+            </td>
+            <td>R$ ${p.valor.toFixed(2)}</td>
+            <td><span style="${corEstoque}">${p.disponivel}</span> <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span></td>
+            <td class="col-actions">
+                <div class="actions-cell">
+                    <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        fragment.appendChild(tr);
+    });
+    
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+}
 
     function renderDevolucoes() {
         const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
