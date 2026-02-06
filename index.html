@@ -2000,7 +2000,7 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-    // --- EXCEL INTELIGENTE (MODELO CATEGORIZADO) ---
+   // --- EXCEL INTELIGENTE (COM FORMATAÇÃO DE MEDIDAS) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
@@ -2012,18 +2012,18 @@ function tentarRecuperacaoAutomatica() {
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
                 
-                // IMPORTANTE: Lê como matriz de linhas (Array of Arrays) para pegar a estrutura visual
+                // Lê como matriz para pegar a estrutura visual
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(rows.length) {
-                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e organizar categorias automaticamente?`)) return;
+                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e organizar medidas automaticamente?`)) return;
 
-                    let categoriaAtualNome = "Geral"; // Categoria padrão caso não ache nenhuma
+                    let categoriaAtualNome = "Geral";
                     let categoriaAtualId = 0;
                     let itensImportados = 0;
                     let categoriasCriadas = 0;
 
-                    // 1. Identificar ou Criar a Categoria "Geral" se não existir
+                    // Cria categoria Geral se não houver
                     let catGeral = tipos.find(t => t.nome === "Geral");
                     if (!catGeral) {
                         catGeral = { id: Date.now(), nome: "Geral", desc: "Itens sem categoria" };
@@ -2033,58 +2033,67 @@ function tentarRecuperacaoAutomatica() {
                         categoriaAtualId = catGeral.id;
                     }
 
-                    // 2. Varrer linha por linha
                     rows.forEach(row => {
-                        // Verifica se a linha tem dados
                         if (!row || row.length === 0) return;
 
-                        const col0 = row[0] ? String(row[0]).trim() : "";
-                        const col1 = row[1]; // Geralmente o ano "2026" ou a quantidade
-                        const col3 = row[3]; // A coluna "Soma" (Quantidade total)
+                        let col0 = row[0] ? String(row[0]).trim() : "";
+                        const col1 = row[1]; // Ano ou Qtd
+                        const col3 = row[3]; // Coluna Soma (Qtd Principal)
 
-                        // --- LÓGICA DE DETECÇÃO DE CATEGORIA ---
-                        // Na sua planilha, o cabeçalho da categoria tem "2026" na coluna B (índice 1)
-                        // Ex: "MÁQUINAS BAR, 2026, ..."
+                        // 1. Detectar Categoria (Cabeçalhos com 2026)
                         if (col1 == 2026 || String(col1).includes("2026")) {
-                            categoriaAtualNome = col0; // Ex: MÁQUINAS BAR
-                            
-                            // Verifica se essa categoria já existe no sistema
+                            categoriaAtualNome = col0;
                             let catExiste = tipos.find(t => t.nome.toUpperCase() === categoriaAtualNome.toUpperCase());
                             
                             if (catExiste) {
                                 categoriaAtualId = catExiste.id;
                             } else {
-                                // Cria nova categoria
                                 categoriaAtualId = Date.now() + Math.random();
-                                tipos.push({
-                                    id: categoriaAtualId,
-                                    nome: categoriaAtualNome,
-                                    desc: "Importado do Excel"
-                                });
+                                tipos.push({ id: categoriaAtualId, nome: categoriaAtualNome, desc: "Importado" });
                                 categoriasCriadas++;
                             }
-                            return; // Pula para a próxima linha (não cadastra o cabeçalho como peça)
+                            return;
                         }
 
-                        // --- LÓGICA DE DETECÇÃO DE PEÇA ---
-                        // Se não é cabeçalho, e tem nome (col0) e tem quantidade na coluna "Soma" (col3) ou col1
-                        // Prioriza a coluna "Soma" (index 3) conforme sua planilha
+                        // 2. Detectar Quantidade
+                        // Se quiser importar itens zerados também, mantemos só a verificação se é número
                         let quantidade = parseInt(col3);
-                        if (isNaN(quantidade)) quantidade = parseInt(col1); // Tenta pegar da coluna B se a D estiver vazia
+                        if (isNaN(quantidade)) quantidade = parseInt(col1);
+                        if (isNaN(quantidade)) quantidade = 0; // Assume 0 se não tiver número
 
-                        if (col0 && !isNaN(quantidade) && col0 !== "TOTAL EM METROS") {
-                            // Verifica se o item já existe para não duplicar
+                        // Verifica se tem nome e não é cabeçalho de soma
+                        if (col0 && col0 !== "TOTAL EM METROS") {
+                            
+                            // --- LÓGICA DE MEDIDAS (METRO E CENTÍMETRO) ---
+                            // Verifica se o nome é puramente numérico (ex: "1.5", "0.85", "2")
+                            // Substitui vírgula por ponto para testar
+                            let valorNumerico = parseFloat(col0.replace(',', '.'));
+                            const ehApenasNumero = !isNaN(valorNumerico) && !col0.match(/[a-zA-Z]/);
+
+                            if (ehApenasNumero) {
+                                if (valorNumerico < 1) {
+                                    // Regra CM: Se for menor que 1 (ex: 0.85), multiplica por 100 e põe cm
+                                    // 0.85 vira "85cm", 0.5 vira "50cm"
+                                    col0 = (valorNumerico * 100).toFixed(0) + 'cm';
+                                } else {
+                                    // Regra M: Se for maior ou igual a 1 (ex: 1.5), mantém e põe m
+                                    // 1.5 vira "1.5m", 2 vira "2m"
+                                    col0 = valorNumerico + 'm';
+                                }
+                            }
+                            // -----------------------------------------------
+
                             const itemExiste = pecas.find(p => p.nome === col0);
                             
                             if (!itemExiste) {
                                 pecas.push({
                                     id: Date.now() + Math.random(),
                                     codigo: 'IMP-' + Math.floor(Math.random() * 10000),
-                                    nome: col0, // Ex: ALGODÃO DOCE
+                                    nome: col0,
                                     quantidade: quantidade,
                                     disponivel: quantidade,
-                                    valor: 0, // Sua planilha não tem preço, vai zerado
-                                    tipoId: categoriaAtualId, // VINCULA À CATEGORIA DETECTADA
+                                    valor: 0,
+                                    tipoId: categoriaAtualId,
                                     medida: ''
                                 });
                                 itensImportados++;
@@ -2095,7 +2104,7 @@ function tentarRecuperacaoAutomatica() {
                     salvarLocal(); 
                     renderTudo(); 
                     sincronizar('salvar'); 
-                    mostrarToast(`Sucesso! ${itensImportados} itens em ${categoriasCriadas} novas categorias.`);
+                    mostrarToast(`Importação concluída! ${itensImportados} itens formatados.`);
                 }
             } catch(err) { 
                 console.error(err);
@@ -2104,7 +2113,6 @@ function tentarRecuperacaoAutomatica() {
         };
         reader.readAsArrayBuffer(input.files[0]);
     }
-
     // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
     function getHeaderMTZ() {
         return `
