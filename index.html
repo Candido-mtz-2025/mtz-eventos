@@ -2000,9 +2000,10 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-    // --- EXCEL INTELIGENTE ---
+    // --- EXCEL INTELIGENTE (MODELO CATEGORIZADO) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
@@ -2010,23 +2011,96 @@ function tentarRecuperacaoAutomatica() {
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
-                const json = XLSX.utils.sheet_to_json(worksheet);
-                if(json.length) {
-                    if(confirm(`Encontrados ${json.length} itens. Importar?`)) {
-                        json.forEach(row => {
-                            pecas.push({
-                                id: Date.now() + Math.random(),
-                                codigo: row['Codigo'] || row['codigo'] || 'SEM-COD',
-                                nome: row['Nome'] || row['Produto'] || 'Sem Nome',
-                                quantidade: parseInt(row['Qtd'] || row['Quantidade'] || 1),
-                                disponivel: parseInt(row['Qtd'] || row['Quantidade'] || 1),
-                                valor: parseFloat(row['Valor'] || row['Preco'] || 0)
-                            });
-                        });
-                        salvarLocal(); renderTudo(); sincronizar('salvar'); mostrarToast("Importação concluída!");
+                
+                // IMPORTANTE: Lê como matriz de linhas (Array of Arrays) para pegar a estrutura visual
+                const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+                if(rows.length) {
+                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e organizar categorias automaticamente?`)) return;
+
+                    let categoriaAtualNome = "Geral"; // Categoria padrão caso não ache nenhuma
+                    let categoriaAtualId = 0;
+                    let itensImportados = 0;
+                    let categoriasCriadas = 0;
+
+                    // 1. Identificar ou Criar a Categoria "Geral" se não existir
+                    let catGeral = tipos.find(t => t.nome === "Geral");
+                    if (!catGeral) {
+                        catGeral = { id: Date.now(), nome: "Geral", desc: "Itens sem categoria" };
+                        tipos.push(catGeral);
+                        categoriaAtualId = catGeral.id;
+                    } else {
+                        categoriaAtualId = catGeral.id;
                     }
+
+                    // 2. Varrer linha por linha
+                    rows.forEach(row => {
+                        // Verifica se a linha tem dados
+                        if (!row || row.length === 0) return;
+
+                        const col0 = row[0] ? String(row[0]).trim() : "";
+                        const col1 = row[1]; // Geralmente o ano "2026" ou a quantidade
+                        const col3 = row[3]; // A coluna "Soma" (Quantidade total)
+
+                        // --- LÓGICA DE DETECÇÃO DE CATEGORIA ---
+                        // Na sua planilha, o cabeçalho da categoria tem "2026" na coluna B (índice 1)
+                        // Ex: "MÁQUINAS BAR, 2026, ..."
+                        if (col1 == 2026 || String(col1).includes("2026")) {
+                            categoriaAtualNome = col0; // Ex: MÁQUINAS BAR
+                            
+                            // Verifica se essa categoria já existe no sistema
+                            let catExiste = tipos.find(t => t.nome.toUpperCase() === categoriaAtualNome.toUpperCase());
+                            
+                            if (catExiste) {
+                                categoriaAtualId = catExiste.id;
+                            } else {
+                                // Cria nova categoria
+                                categoriaAtualId = Date.now() + Math.random();
+                                tipos.push({
+                                    id: categoriaAtualId,
+                                    nome: categoriaAtualNome,
+                                    desc: "Importado do Excel"
+                                });
+                                categoriasCriadas++;
+                            }
+                            return; // Pula para a próxima linha (não cadastra o cabeçalho como peça)
+                        }
+
+                        // --- LÓGICA DE DETECÇÃO DE PEÇA ---
+                        // Se não é cabeçalho, e tem nome (col0) e tem quantidade na coluna "Soma" (col3) ou col1
+                        // Prioriza a coluna "Soma" (index 3) conforme sua planilha
+                        let quantidade = parseInt(col3);
+                        if (isNaN(quantidade)) quantidade = parseInt(col1); // Tenta pegar da coluna B se a D estiver vazia
+
+                        if (col0 && !isNaN(quantidade) && quantidade > 0 && col0 !== "TOTAL EM METROS") {
+                            // Verifica se o item já existe para não duplicar
+                            const itemExiste = pecas.find(p => p.nome === col0);
+                            
+                            if (!itemExiste) {
+                                pecas.push({
+                                    id: Date.now() + Math.random(),
+                                    codigo: 'IMP-' + Math.floor(Math.random() * 10000),
+                                    nome: col0, // Ex: ALGODÃO DOCE
+                                    quantidade: quantidade,
+                                    disponivel: quantidade,
+                                    valor: 0, // Sua planilha não tem preço, vai zerado
+                                    tipoId: categoriaAtualId, // VINCULA À CATEGORIA DETECTADA
+                                    medida: ''
+                                });
+                                itensImportados++;
+                            }
+                        }
+                    });
+
+                    salvarLocal(); 
+                    renderTudo(); 
+                    sincronizar('salvar'); 
+                    mostrarToast(`Sucesso! ${itensImportados} itens em ${categoriasCriadas} novas categorias.`);
                 }
-            } catch(err) { alert("Erro ao ler Excel: " + err); }
+            } catch(err) { 
+                console.error(err);
+                alert("Erro ao ler Excel: " + err.message);
+            }
         };
         reader.readAsArrayBuffer(input.files[0]);
     }
