@@ -1278,12 +1278,12 @@ function renderEstoque() {
     const tbody = DOM.get('tblEstoque');
     if (!tbody) return;
     
-    const itensFiltrados = pecas.filter(p => {
+   const itensFiltrados = pecas.filter(p => {
   const nome = (p.nome || '').toLowerCase();
   const codigo = (p.codigo || '').toLowerCase();
   return nome.includes(termo) || codigo.includes(termo);
 });
-    
+
     // se não tiver itens
 if (itensFiltrados.length === 0) {
   tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado.</td></tr>`;
