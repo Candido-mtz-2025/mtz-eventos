@@ -2000,7 +2000,7 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-   // --- EXCEL INTELIGENTE (COM FORMATAÇÃO DE MEDIDAS) ---
+  // --- EXCEL INTELIGENTE (COM FORMATAÇÃO DE MEDIDAS AUTOMÁTICA) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
@@ -2012,18 +2012,18 @@ function tentarRecuperacaoAutomatica() {
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
                 
-                // Lê como matriz para pegar a estrutura visual
+                // Lê como matriz para processar linha por linha
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(rows.length) {
-                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e organizar medidas automaticamente?`)) return;
+                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e formatar medidas (m/cm) automaticamente?`)) return;
 
                     let categoriaAtualNome = "Geral";
                     let categoriaAtualId = 0;
                     let itensImportados = 0;
                     let categoriasCriadas = 0;
 
-                    // Cria categoria Geral se não houver
+                    // Garante categoria Geral
                     let catGeral = tipos.find(t => t.nome === "Geral");
                     if (!catGeral) {
                         catGeral = { id: Date.now(), nome: "Geral", desc: "Itens sem categoria" };
@@ -2036,64 +2036,67 @@ function tentarRecuperacaoAutomatica() {
                     rows.forEach(row => {
                         if (!row || row.length === 0) return;
 
-                        let col0 = row[0] ? String(row[0]).trim() : "";
+                        let col0 = row[0] ? String(row[0]).trim() : ""; // Nome do Item
                         const col1 = row[1]; // Ano ou Qtd
                         const col3 = row[3]; // Coluna Soma (Qtd Principal)
 
-                        // 1. Detectar Categoria (Cabeçalhos com 2026)
+                        // 1. Detectar Categoria (Procura pelo ano 2026 na coluna B)
                         if (col1 == 2026 || String(col1).includes("2026")) {
                             categoriaAtualNome = col0;
+                            // Remove espaços extras e deixa bonito
+                            categoriaAtualNome = categoriaAtualNome.replace(/[\r\n]+/g, "").trim();
+
                             let catExiste = tipos.find(t => t.nome.toUpperCase() === categoriaAtualNome.toUpperCase());
                             
                             if (catExiste) {
                                 categoriaAtualId = catExiste.id;
                             } else {
                                 categoriaAtualId = Date.now() + Math.random();
-                                tipos.push({ id: categoriaAtualId, nome: categoriaAtualNome, desc: "Importado" });
+                                tipos.push({ id: categoriaAtualId, nome: categoriaAtualNome, desc: "Importado Excel" });
                                 categoriasCriadas++;
                             }
-                            return;
+                            return; // É cabeçalho, passa pro próximo
                         }
 
                         // 2. Detectar Quantidade
-                        // Se quiser importar itens zerados também, mantemos só a verificação se é número
                         let quantidade = parseInt(col3);
-                        if (isNaN(quantidade)) quantidade = parseInt(col1);
-                        if (isNaN(quantidade)) quantidade = 0; // Assume 0 se não tiver número
+                        if (isNaN(quantidade)) quantidade = parseInt(col1); // Tenta coluna B se D falhar
+                        if (isNaN(quantidade)) quantidade = 0; // Se não tiver, assume 0
 
-                        // Verifica se tem nome e não é cabeçalho de soma
+                        // 3. Cadastrar Item (se tiver nome e não for linha de total)
                         if (col0 && col0 !== "TOTAL EM METROS") {
                             
-                            // --- LÓGICA DE MEDIDAS (METRO E CENTÍMETRO) ---
-                            // Verifica se o nome é puramente numérico (ex: "1.5", "0.85", "2")
-                            // Substitui vírgula por ponto para testar
-                            let valorNumerico = parseFloat(col0.replace(',', '.'));
-                            const ehApenasNumero = !isNaN(valorNumerico) && !col0.match(/[a-zA-Z]/);
+                            // === LÓGICA DE MEDIDAS INTELIGENTE ===
+                            // Verifica se o texto é APENAS números, pontos ou vírgulas
+                            // Ex: "0.85", "1,5", "2", "0.01" passam. "MESA 2" não passa.
+                            if (/^[\d.,]+$/.test(col0)) {
+                                let valor = parseFloat(col0.replace(',', '.')); // Garante formato numérico
 
-                            if (ehApenasNumero) {
-                                if (valorNumerico < 1) {
-                                    // Regra CM: Se for menor que 1 (ex: 0.85), multiplica por 100 e põe cm
-                                    // 0.85 vira "85cm", 0.5 vira "50cm"
-                                    col0 = (valorNumerico * 100).toFixed(0) + 'cm';
-                                } else {
-                                    // Regra M: Se for maior ou igual a 1 (ex: 1.5), mantém e põe m
-                                    // 1.5 vira "1.5m", 2 vira "2m"
-                                    col0 = valorNumerico + 'm';
+                                if (!isNaN(valor)) {
+                                    if (valor < 1) {
+                                        // REGRA CENTÍMETROS (ex: 0.85 vira 85cm)
+                                        // Multiplica por 100 e arredonda para evitar dízimas (ex: 30.00004)
+                                        let cm = Math.round(valor * 100);
+                                        col0 = cm + 'cm';
+                                    } else {
+                                        // REGRA METROS (ex: 1.5 vira 1.5m)
+                                        col0 = valor + 'm';
+                                    }
                                 }
                             }
-                            // -----------------------------------------------
+                            // ======================================
 
                             const itemExiste = pecas.find(p => p.nome === col0);
                             
                             if (!itemExiste) {
                                 pecas.push({
                                     id: Date.now() + Math.random(),
-                                    codigo: 'IMP-' + Math.floor(Math.random() * 10000),
+                                    codigo: 'IMP-' + Math.floor(Math.random() * 100000),
                                     nome: col0,
                                     quantidade: quantidade,
                                     disponivel: quantidade,
                                     valor: 0,
-                                    tipoId: categoriaAtualId,
+                                    tipoId: categoriaAtualId, // Vincula à categoria certa
                                     medida: ''
                                 });
                                 itensImportados++;
@@ -2104,7 +2107,7 @@ function tentarRecuperacaoAutomatica() {
                     salvarLocal(); 
                     renderTudo(); 
                     sincronizar('salvar'); 
-                    mostrarToast(`Importação concluída! ${itensImportados} itens formatados.`);
+                    mostrarToast(`Sucesso! ${itensImportados} itens importados e medidas formatadas.`);
                 }
             } catch(err) { 
                 console.error(err);
