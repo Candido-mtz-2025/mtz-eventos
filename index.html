@@ -1505,6 +1505,7 @@ function renderTudo() {
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
     
   // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO ---
+    // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
     function addItemCarrinho() { 
         // 1. Pega o ID do input oculto
         var id = document.getElementById('aluguelItemSelect').value;
@@ -1518,6 +1519,49 @@ function renderTudo() {
         // 3. Busca a peça
         var p = pecas.find(function(x) { return x.id == id; });
         if (!p) return;
+
+        // --- TRAVA DE ESTOQUE ---
+        var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
+        var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
+        var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
+
+        if (qtdTotalSolicitada > p.disponivel) {
+            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel}.`, "erro");
+        }
+
+        // 4. Adiciona ao carrinho
+        if (itemNoCarrinho) {
+            itemNoCarrinho.quantidade += qtd;
+        } else {
+            carrinhoLocacao.push({
+                pecaId: p.id, 
+                nome: p.nome, 
+                valor: parseFloat(p.valor), 
+                quantidade: qtd
+            });
+        }
+        
+        // 5. Gera HTML
+        var htmlLista = '';
+        for (var i = 0; i < carrinhoLocacao.length; i++) {
+            var item = carrinhoLocacao[i];
+            var totalItem = (item.valor * item.quantidade).toFixed(2);
+            htmlLista += '<div class="item-carrinho">';
+            htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
+            htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
+            htmlLista += '</div>';
+        }
+
+        document.getElementById('carrinhoList').innerHTML = htmlLista;
+        mostrarToast("Item adicionado!");
+
+        // 6. LIMPA E FOCA PARA O PRÓXIMO
+        document.getElementById('inputBuscaPeca').value = ""; 
+        document.getElementById('aluguelItemSelect').value = ""; 
+        document.getElementById('aluguelQtd').value = "1";
+        document.getElementById('avisoEstoque').innerText = "";
+        document.getElementById('inputBuscaPeca').focus();
+    }
 
     // --- FINALIZAR LOCAÇÃO ---
     function finalizarLocacao() { 
