@@ -2149,6 +2149,7 @@ function tentarRecuperacaoAutomatica() {
 
         function cadastrarItemSeNovo(nome, qtd, catId) {
             // AQUI ESTÁ A CORREÇÃO: Verifica nome + categoria
+            // Isso permite ter "2m" no Q15 e "2m" no Q30 sem dar conflito
             const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
 
             if (!existe) {
