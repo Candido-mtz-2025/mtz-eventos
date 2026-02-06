@@ -240,10 +240,10 @@
         
        /* ABAS */
 /* ABAS - VERSÃO CORRIGIDA E ALINHADA */
+/* ABAS - AJUSTE FINAL PARA ALINHAMENTO PERFEITO */
 .tabs {
-  display: flex;
+  display: inline-flex;    /* Faz o fundo cinza respeitar o tamanho dos botões */
   align-items: center;
-  justify-content: center; /* Centraliza os botões */
   gap: 5px;
   overflow-x: auto;
   padding: 5px;
@@ -251,9 +251,18 @@
   border-radius: 12px;
   margin-bottom: 25px;
   border: 1px solid var(--border);
-  width: fit-content;      /* Faz a barra envolver apenas os botões */
-  margin-left: auto;       /* Auxilia na centralização horizontal */
-  margin-right: auto;      /* Auxilia na centralização horizontal */
+  white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
+}
+
+/* Container para centralizar a barra inteira */
+.tabs-container {
+  display: flex;
+  justify-content: center; /* Centraliza a barra .tabs no meio da tela */
+  width: 100%;
+}
+
+.tabs-spacer {
+  display: none !important; /* Remove definitivamente o espaço fantasma */
 }
 
 /* O spacer foi desativado para remover o espaço vazio sobrando */
@@ -399,16 +408,18 @@ header .container {
         </header>
 
         <div class="container">
-                <div class="tabs">
-                <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
-                <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-                <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
-                <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-                <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
-                <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-                <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
-                <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
-            </div>
+               <div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
+        <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
+        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
+        <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
+        <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+        <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
+        <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+    </div>
+</div>
 
             <div id="tab-dashboard" class="tab-content active">
                 <div class="dashboard-grid">
