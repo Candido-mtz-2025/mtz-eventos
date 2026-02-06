@@ -548,11 +548,50 @@
                     <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
-                    <div class="table-responsive"><table class="table"><thead><tr><th>Img</th><th>Cód</th><th>Tipo</th><th>Nome</th><th>Valor</th><th>Estoque</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblEstoque"></tbody></table></div>
-                </div>
-            </div>
+                   <div class="card">
+  <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
 
+  <!-- BOTÃO AQUI (entre o input e a tabela) -->
+  <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+    <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
+      <i class="bi bi-trash"></i> Excluir selecionados
+    </button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:40px;">
+            <input type="checkbox" id="chkAllEstoque"
+                   onchange="toggleSelecionarTodosEstoque(this.checked)">
+          </th>
+          <th>Img</th>
+          <th>Cód</th>
+          <th>Tipo</th>
+          <th>Nome</th>
+          <th>Valor</th>
+          <th>Estoque</th>
+          <th class="col-actions">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tblEstoque"></tbody>
+    </table>
+  </div>
+</div>
+        </th>
+        <th>Img</th>
+        <th>Cód</th>
+        <th>Tipo</th>
+        <th>Nome</th>
+        <th>Valor</th>
+        <th>Estoque</th>
+        <th class="col-actions">Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tblEstoque"></tbody>
+  </table>
+</div>
             <div id="tab-locacoes" class="tab-content">
                 <div class="card">
                     <h3>Nova Locação</h3>
@@ -1257,52 +1296,66 @@ function renderEstoque() {
         p.codigo.toLowerCase().includes(termo)
     );
     
-    if (itensFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado.</td></tr>';
-        return;
-    }
-    
-    // 🔥 OTIMIZAÇÃO: DocumentFragment
-    const fragment = document.createDocumentFragment();
-    
-    itensFiltrados.forEach(p => {
-        const tipo = tipos.find(x => x.id === p.tipoId);
-        const thumb = p.foto ? 
-            `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">` :
-            `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
-        
-        let corEstoque = p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' : 
-                        p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${thumb}</td>
-            <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
-            <td>${tipo ? tipo.nome : '-'}</td>
-            <td>
-                <div style="font-weight:600">${p.nome}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
-            </td>
-            <td>R$ ${p.valor.toFixed(2)}</td>
-            <td><span style="${corEstoque}">${p.disponivel}</span> <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span></td>
-            <td class="col-actions">
-                <div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        fragment.appendChild(tr);
-    });
-    
-    tbody.innerHTML = '';
-    tbody.appendChild(fragment);
+    // se não tiver itens
+if (itensFiltrados.length === 0) {
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado.</td></tr>`;
+  return;
 }
 
+const fragment = document.createDocumentFragment();
+
+itensFiltrados.forEach(p => {
+  const tipo = tipos.find(x => x.id === p.tipoId);
+
+  const thumb = p.foto
+    ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
+    : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
+
+  let corEstoque =
+    p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
+    p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
+
+  const marcado = (typeof estoqueSelecionados !== 'undefined' && estoqueSelecionados.has(p.id)) ? 'checked' : '';
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="width:40px;">
+      <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
+             onchange="onSelectEstoque(${p.id}, this.checked)">
+    </td>
+    <td>${thumb}</td>
+    <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
+    <td>${tipo ? tipo.nome : '-'}</td>
+    <td>
+      <div style="font-weight:600">${p.nome}</div>
+      <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
+    </td>
+    <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
+    <td>
+      <span style="${corEstoque}">${p.disponivel}</span>
+      <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span>
+    </td>
+    <td class="col-actions">
+      <div class="actions-cell">
+        <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
+      </div>
+    </td>
+  `;
+
+  fragment.appendChild(tr);
+});
+
+tbody.innerHTML = '';
+tbody.appendChild(fragment);
+
+// opcional: atualizar o "selecionar todos"
+const all = document.getElementById('chkAllEstoque');
+if (all) {
+  const total = document.querySelectorAll('.chk-estoque').length;
+  const marcados = document.querySelectorAll('.chk-estoque:checked').length;
+  all.checked = (total > 0 && marcados === total);
+}
     function renderDevolucoes() {
         const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
         const lista = devolucoes.slice().reverse().slice(0, 20);
@@ -2512,7 +2565,42 @@ window.addEventListener('load', function() {
     setTimeout(verificarEspacoStorage, 2000);
 });
 
-        
+   let estoqueSelecionados = new Set();
+
+function onSelectEstoque(id, checked){
+  id = parseInt(id);
+  if (checked) estoqueSelecionados.add(id);
+  else estoqueSelecionados.delete(id);
+}
+
+function toggleSelecionarTodosEstoque(marcar){
+  const checks = document.querySelectorAll('.chk-estoque');
+  checks.forEach(chk => {
+    chk.checked = marcar;
+    onSelectEstoque(chk.dataset.id, marcar);
+  });
+
+  const all = document.getElementById('chkAllEstoque');
+  if (all) all.checked = marcar;
+}
+
+function excluirSelecionadosEstoque(){
+  if (estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
+  if (!confirm(`Excluir ${estoqueSelecionados.size} item(ns) do estoque?`)) return;
+
+  const ids = new Set([...estoqueSelecionados].map(Number));
+  const removidos = pecas.filter(p => ids.has(p.id));
+  pecas = pecas.filter(p => !ids.has(p.id));
+
+  removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
+
+  estoqueSelecionados.clear();
+  salvarLocal();
+  renderEstoque();
+  sincronizar('salvar');
+  mostrarToast('Itens excluídos!');
+}
+     
     </script>
 </body>
 </html>
