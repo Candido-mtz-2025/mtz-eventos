@@ -240,24 +240,44 @@
 /* ============================================= */
 /* ALINHAMENTO PERFEITO DAS TABS */
 /* ============================================= */
-
-.tabs-container {
+/* CONTAINER DAS ABAS */
+.tabs-container{
+  width: 100%;
   display: flex;
   justify-content: flex-start;
-  width: 100%;
-  padding-left: 0 !important;  /* Remove padding extra */
-  margin-left: 0 !important;
 }
 
-.tabs {
-  display: inline-flex;
+/* BARRA (igual largura dos cards) */
+.tabs{
+  width: 100%;                 /* <- chave: mesma largura do conteúdo */
+  display: flex;               /* barra pode ser flex sem problema */
+  justify-content: flex-start; /* botões começam na esquerda */
+  align-items: center;
   gap: 5px;
-  padding: 5px;
+
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  padding: 5px;                /* mesmo “respiro” do design */
   background: var(--surface);
   border-radius: 12px;
-  margin-bottom: 25px;
-  margin-left: 20px;  /* ← Mesmo padding do container */
   border: 1px solid var(--border);
+  margin-bottom: 25px;
+
+  box-sizing: border-box;
+}
+
+/* botões */
+.tab-btn{
+  flex: 0 0 auto;              /* não deixa botão esticar */
+  background: transparent;
+  border: none;
+  padding: 10px 20px;
+  color: var(--text-light);
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
     /* FORÇA ALINHAMENTO À ESQUERDA */
