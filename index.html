@@ -1480,7 +1480,7 @@ function renderTudo() {
     function mostrarToast(m,t) { const x=document.getElementById("toast");
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
     
-    // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO ---
+  // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO ---
     function addItemCarrinho() { 
         // 1. Pega o ID do input oculto
         var id = document.getElementById('aluguelItemSelect').value;
@@ -1495,7 +1495,7 @@ function renderTudo() {
         var p = pecas.find(function(x) { return x.id == id; });
         if (!p) return;
 
-        // --- TRAVA DE ESTOQUE ---
+        // --- TRAVA DE ESTOQUE (DENTRO DA FUNÇÃO - CORRETO) ---
         var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
         var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
         var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
@@ -1538,7 +1538,7 @@ function renderTudo() {
         document.getElementById('inputBuscaPeca').focus();
     }
 
-    // === NOVAS FUNÇÕES DE BUSCA (ISSO FALTAVA NO SEU ARQUIVO) ===
+    // === NOVAS FUNÇÕES DE BUSCA ===
     function filtrarItensLocacao() {
         const termo = document.getElementById('inputBuscaPeca').value.toLowerCase();
         const listaDiv = document.getElementById('listaSugestoes');
@@ -1581,131 +1581,87 @@ function renderTudo() {
             lista.classList.remove('ativo');
         }
     });
-        // --- TRAVA DE ESTOQUE (NOVO) ---
-        // Verifica se já tem esse item no carrinho para somar
-        var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
-        var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
-        
-        var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
 
-        if (qtdTotalSolicitada > p.disponivel) {
-            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel} unidades.`, "erro");
-        }
-        // -------------------------------
+    // --- FINALIZAR LOCAÇÃO ---
+    function finalizarLocacao() { 
+        var cli = document.getElementById('aluguelCliente').value;
+        var ini = document.getElementById('aluguelIni').value; 
+        var fim = document.getElementById('aluguelFim').value;
 
-        // 4. Adiciona ou Atualiza o carrinho
-        if (itemNoCarrinho) {
-            itemNoCarrinho.quantidade += qtd; // Se já existe, só aumenta a quantidade
-        } else {
-            carrinhoLocacao.push({
-                pecaId: p.id, 
-                nome: p.nome, 
-                valor: parseFloat(p.valor), 
-                quantidade: qtd
-            });
+        // LÊ O DIVISOR DO CAMPO
+        var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
+        if(isNaN(divInput) || divInput <= 0) divInput = 1;
+
+        if (!cli || carrinhoLocacao.length === 0) {
+            mostrarToast("Preencha cliente e itens!", "erro");
+            return;
         }
         
-        // 5. Gera o HTML da lista
-        var htmlLista = '';
-        for (var i = 0; i < carrinhoLocacao.length; i++) {
-            var item = carrinhoLocacao[i];
-            var totalItem = (item.valor * item.quantidade).toFixed(2);
-            
-            htmlLista += '<div class="item-carrinho">';
-            htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
-            htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
-            htmlLista += '</div>';
+        var itensParaSalvar = [];
+        for (var i = 0; i < carrinhoLocacao.length; i++) { 
+            itensParaSalvar.push(carrinhoLocacao[i]); 
         }
 
-        // 6. Atualiza a tela
-        document.getElementById('carrinhoList').innerHTML = htmlLista;
-        mostrarToast("Item adicionado!");
+        locacoes.push({
+            id: Date.now(), 
+            locadorId: parseInt(cli), 
+            dataAluguel: ini, 
+            dataDevolucaoPrevisao: fim, 
+            items: itensParaSalvar, 
+            status: 'ativo', 
+            divisorFatura: divInput
+        });
+
+        carrinhoLocacao = [];
+        document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
+        document.getElementById('aluguelCliente').value = ""; 
+        document.getElementById('aluguelItemSelect').value = ""; 
+        document.getElementById('aluguelQtd').value = "1";
+        
+        salvarLocal();
+        renderTudo();
+        
+        // Registra no log de auditoria
+        const cliente = locadores.find(x => x.id === parseInt(cli));
+        registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
+        
+        mostrarToast("Locação Concluída!");
+        sincronizar('salvar');
     }
-    
-function finalizarLocacao() { 
-    var cli = document.getElementById('aluguelCliente').value;
-    var ini = document.getElementById('aluguelIni').value; 
-    var fim = document.getElementById('aluguelFim').value;
-
-    // LÊ O DIVISOR DO CAMPO (CORREÇÃO AQUI)
-    var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
-    if(isNaN(divInput) || divInput <= 0) divInput = 1;
-
-    if (!cli || carrinhoLocacao.length === 0) {
-        mostrarToast("Preencha cliente e itens!", "erro");
-        return;
-    }
-    
-    var itensParaSalvar = [];
-    for (var i = 0; i < carrinhoLocacao.length; i++) { 
-        itensParaSalvar.push(carrinhoLocacao[i]); 
-    }
-
-    locacoes.push({
-        id: Date.now(), 
-        locadorId: parseInt(cli), 
-        dataAluguel: ini, 
-        dataDevolucaoPrevisao: fim, 
-        items: itensParaSalvar, 
-        status: 'ativo', 
-        divisorFatura: divInput
-    });
-
-    carrinhoLocacao = [];
-    document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
-    document.getElementById('aluguelCliente').value = ""; 
-    document.getElementById('aluguelItemSelect').value = ""; 
-    document.getElementById('aluguelQtd').value = "1";
-    
-    salvarLocal();
-    renderTudo();
-    
-    // Registra no log de auditoria
-    const cliente = locadores.find(x => x.id === parseInt(cli));
-    registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
-    
-    mostrarToast("Locação Concluída!");
-    sincronizar('salvar');
-}
 
     // === RECALCULAR DISPONIBILIDADE COM CACHE ===
-function recalcularDisponibilidade(forcar = false) {
-    const agora = Date.now();
-    
-    // Se já calculou há menos de 5 segundos, usa o cache
-    if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
-        console.log('📦 Usando cache de disponibilidade');
-        return;
-    }
-    
-    console.log('🔄 Recalculando disponibilidade...');
-    
-    // Criar mapa de aluguéis ativos para busca O(1) ao invés de O(n)
-    const aluguelPorPeca = new Map();
-    
-    locacoes.forEach(l => {
-        if (l.status !== 'devolvido') {
-            l.items.forEach(i => {
-                const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
-                const atual = aluguelPorPeca.get(i.pecaId) || 0;
-                aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
-            });
+    function recalcularDisponibilidade(forcar = false) {
+        const agora = Date.now();
+        
+        if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
+            console.log('📦 Usando cache de disponibilidade');
+            return;
         }
-    });
-    
-    // Atualizar disponibilidade de cada peça
-    pecas.forEach(p => {
-        const alugado = aluguelPorPeca.get(p.id) || 0;
-        p.disponivel = (p.quantidade || 0) - alugado;
-    });
-    
-    // Atualizar cache
-    cacheDisponibilidade = true;
-    ultimaAtualizacaoCache = agora;
-    
-    console.log('✅ Disponibilidade recalculada');
-}
-
+        
+        console.log('🔄 Recalculando disponibilidade...');
+        
+        const aluguelPorPeca = new Map();
+        
+        locacoes.forEach(l => {
+            if (l.status !== 'devolvido') {
+                l.items.forEach(i => {
+                    const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
+                    const atual = aluguelPorPeca.get(i.pecaId) || 0;
+                    aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
+                });
+            }
+        });
+        
+        pecas.forEach(p => {
+            const alugado = aluguelPorPeca.get(p.id) || 0;
+            p.disponivel = (p.quantidade || 0) - alugado;
+        });
+        
+        cacheDisponibilidade = true;
+        ultimaAtualizacaoCache = agora;
+        
+        console.log('✅ Disponibilidade recalculada');
+    }
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
@@ -1714,28 +1670,28 @@ function recalcularDisponibilidade(forcar = false) {
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
     function removerItem(t, id) {
-    if(!confirm("Tem certeza?")) return;
-    
-    if(t === 'locadores') {
-        const item = locadores.find(x => x.id == id);
-        locadores = locadores.filter(x => x.id !== id);
-        registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
+        if(!confirm("Tem certeza?")) return;
+        
+        if(t === 'locadores') {
+            const item = locadores.find(x => x.id == id);
+            locadores = locadores.filter(x => x.id !== id);
+            registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
+        }
+        if(t === 'pecas') {
+            const item = pecas.find(x => x.id == id);
+            pecas = pecas.filter(x => x.id !== id);
+            registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
+        }
+        if(t === 'tipos') {
+            const item = tipos.find(x => x.id == id);
+            tipos = tipos.filter(x => x.id !== id);
+            registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
+        }
+        
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
     }
-    if(t === 'pecas') {
-        const item = pecas.find(x => x.id == id);
-        pecas = pecas.filter(x => x.id !== id);
-        registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
-    }
-    if(t === 'tipos') {
-        const item = tipos.find(x => x.id == id);
-        tipos = tipos.filter(x => x.id !== id);
-        registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
-    }
-    
-    salvarLocal();
-    renderTudo();
-    sincronizar('salvar');
-}
 
     function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
