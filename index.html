@@ -668,15 +668,15 @@
       </div>
     </div>
 
-    <div class="audit-filters">
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
-      <button class="btn btn-sm btn-primary   audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
-      <button class="btn btn-sm btn-success   audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
-      <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
-      <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
-    </div>
-
+   <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+  <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
+  <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
+  <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
+  <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
+  <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
+  <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+</div>
+      
     <div class="table-responsive">
       <table class="table">
         <thead>
