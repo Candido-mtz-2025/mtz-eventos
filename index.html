@@ -927,21 +927,15 @@ function renderLogs(filtro = 'todos') {
   const tbody = document.getElementById('tblLogs');
   if (!tbody) return;
 
-  // Marca o botão ativo (visual)
+  // (opcional) ativa botão
   document.querySelectorAll('.audit-filter').forEach(b => b.classList.remove('active'));
   const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
   if (btnAtivo) btnAtivo.classList.add('active');
 
   let logsFiltrados = logsAuditoria;
-
   if (filtro !== 'todos') {
     logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
-    
-    if (logsFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6">Nenhum registro.</td></tr>';
-        return;
-    }
-    
+  }
     const icones = {
         'cliente': 'bi-person',
         'item': 'bi-box',
