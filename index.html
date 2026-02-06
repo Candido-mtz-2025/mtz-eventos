@@ -1274,15 +1274,15 @@ function renderLocadores() {
 // 🔥 RENDERIZAR ESTOQUE OTIMIZADA
 // ========================================
 function renderEstoque() {
-    const termo = (DOM.get('buscaEstoque')?.value || '').toLowerCase();
-    const tbody = DOM.get('tblEstoque');
-    if (!tbody) return;
-    
-   const itensFiltrados = pecas.filter(p => {
-  const nome = (p.nome || '').toLowerCase();
-  const codigo = (p.codigo || '').toLowerCase();
-  return nome.includes(termo) || codigo.includes(termo);
-});
+  const termo = (DOM.get('buscaEstoque')?.value || '').toLowerCase();
+  const tbody = DOM.get('tblEstoque');
+  if (!tbody) return;
+
+  const itensFiltrados = pecas.filter(p => {
+    const nome = (p.nome || '').toLowerCase();
+    const codigo = (p.codigo || '').toLowerCase();
+    return nome.includes(termo) || codigo.includes(termo);
+  });
 
     // se não tiver itens
 if (itensFiltrados.length === 0) {
@@ -1337,14 +1337,6 @@ itensFiltrados.forEach(p => {
 tbody.innerHTML = '';
 tbody.appendChild(fragment);
 
-// opcional: atualizar o "selecionar todos"
-const all = document.getElementById('chkAllEstoque');
-if (all) {
-  const total = document.querySelectorAll('.chk-estoque').length;
-  const marcados = document.querySelectorAll('.chk-estoque:checked').length;
-  all.checked = (total > 0 && marcados === total);
-}
-}
     function renderDevolucoes() {
         const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
         const lista = devolucoes.slice().reverse().slice(0, 20);
@@ -2568,9 +2560,6 @@ function toggleSelecionarTodosEstoque(marcar){
     chk.checked = marcar;
     onSelectEstoque(chk.dataset.id, marcar);
   });
-
-  const all = document.getElementById('chkAllEstoque');
-  if (all) all.checked = marcar;
 }
 
 function excluirSelecionadosEstoque(){
