@@ -254,36 +254,58 @@
   white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
 }
 
-/* Container para alinhar a barra à esquerda com o conteúdo */
+/* CONTAINER DAS ABAS - ALINHADO COM OS CARDS */
 .tabs-container {
   display: flex;
-  justify-content: flex-start; /* Alinha o início da barra com os cartões abaixo */
   width: 100%;
+  justify-content: flex-start; /* Alinha com o início do Dashboard */
+  margin-bottom: 25px;
 }
 
 .tabs {
-  display: inline-flex;    /* O fundo cinza agora terá apenas a largura dos botões */
+  display: flex;
   align-items: center;
   gap: 5px;
   padding: 5px;
-  background: var(--surface);
+  background: var(--surface); /* Fundo cinza no dark e branco no light */
   border-radius: 12px;
-  margin-bottom: 25px;
   border: 1px solid var(--border);
+  overflow-x: auto;
   white-space: nowrap;
 }
 
-/* Garante que o elemento invisível não empurre o layout */
-.tabs-spacer {
-  display: none !important;
+/* BOTÕES DAS ABAS */
+.tab-btn { 
+  background: transparent; 
+  border: none; 
+  padding: 10px 20px; 
+  color: var(--text-light); 
+  font-weight: 600; 
+  cursor: pointer; 
+  border-radius: 8px;
+  white-space: nowrap;
+  outline: none; /* Remove a borda azul feia */
+  transition: 0.2s;
 }
 
-/* Remove o contorno azul ao clicar nos botões */
-.tab-btn {
-  outline: none;
+/* BOTÃO ATIVO (COR DE DESTAQUE) */
+.tab-btn.active { 
+  background: var(--primary) !important; 
+  color: white !important; 
 }
-.tab-btn:focus {
-  outline: none;
+
+/* AJUSTE PARA O MODO CLARO (LIGHT MODE) */
+body:not([data-theme="dark"]) .tab-btn {
+  color: #64748b; /* Cinza escuro para leitura no fundo branco */
+}
+
+body:not([data-theme="dark"]) .tab-btn:hover {
+  background: #f1f5f9;
+}
+
+/* REMOVE O ESPAÇADOR QUE ESTAVA SOBRANDO */
+.tabs-spacer {
+  display: none !important;
 }
 
 @keyframes fadeIn { 
