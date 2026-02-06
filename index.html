@@ -2038,6 +2038,7 @@ function tentarRecuperacaoAutomatica() {
     function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
+    
     // --- EXCEL INTELIGENTE (COM PROTEÇÃO CONTRA LISTA VAZIA) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
@@ -2173,6 +2174,14 @@ function tentarRecuperacaoAutomatica() {
             }
         }
 
+        function finalizarImportacao(s) {
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+            mostrarToast(`Sucesso! ${s.importados} itens importados.`);
+        }
+
+    } // <--- FECHAMENTO DA FUNÇÃO PRINCIPAL
         function finalizarImportacao(s) {
             salvarLocal();
             renderTudo();
