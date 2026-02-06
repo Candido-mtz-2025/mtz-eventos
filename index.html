@@ -374,6 +374,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.audit-footer-info{
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+}
 
         /* OUTROS */
         header .container { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
@@ -649,52 +655,59 @@
     </div>
 
 <!-- ===== ABA AUDITORIA ===== -->
-<div class="audit-header">
-  <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
+<!-- ABA AUDITORIA -->
+<div id="tab-auditoria" class="tab-content">
+  <div class="card">
 
-  <div class="audit-actions">
-    <button class="btn btn-secondary btn-sm" onclick="exportarLogsCSV()">
-      <i class="bi bi-download"></i> Exportar
-    </button>
+    <div class="audit-header">
+      <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
 
-    <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
-      <i class="bi bi-trash"></i> Limpar
-    </button>
+      <div class="audit-actions">
+        <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
+          <i class="bi bi-download"></i> Exportar
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+          <i class="bi bi-trash"></i> Limpar
+        </button>
+      </div>
+    </div>
+
+    <div class="audit-filters">
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
+      <button class="btn btn-sm btn-primary   audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
+      <button class="btn btn-sm btn-success   audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
+      <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
+      <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>DATA/HORA</th>
+            <th>TIPO</th>
+            <th>AÇÃO</th>
+            <th>DESCRIÇÃO</th>
+            <th>USUÁRIO</th>
+          </tr>
+        </thead>
+        <tbody id="tblLogs"></tbody>
+      </table>
+    </div>
+
+    <div class="audit-footer-info">
+      <small style="color:var(--text-light);">
+        <i class="bi bi-info-circle"></i>
+        <b>Total</b>:
+        <span id="totalLogs">0</span>/1000
+        | <b>Retenção</b>: 90 dias
+      </small>
+    </div>
+
   </div>
 </div>
 
-<div class="filters-row audit-filters">
-  <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
-  <button class="btn btn-sm btn-primary   audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
-  <button class="btn btn-sm btn-success   audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
-  <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
-  <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
-  <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
-</div>
-       <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Data/Hora</th>
-                        <th>Tipo</th>
-                        <th>Ação</th>
-                        <th>Descrição</th>
-                        <th>Usuário</th>
-                    </tr>
-                </thead>
-                <tbody id="tblLogs"></tbody>
-            </table>
-        </div>
-        
-        <div style="margin-top:15px; padding:12px; background:var(--bg); border-radius:8px">
-            <small style="color:var(--text-light)">
-                <i class="bi bi-info-circle"></i> 
-                <b>Total:</b> <span id="totalLogs">0</span> / 1000 | 
-                <b>Retenção:</b> 90 dias
-            </small>
-        </div>
-    </div>
-</div>
 
     <div id="modalEditarLocador" class="modal">
         <div class="modal-content">
