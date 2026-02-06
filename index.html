@@ -254,15 +254,15 @@
   white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
 }
 
-/* ABAS - ALINHADO À ESQUERDA COM O CONTEÚDO */
+/* ABAS - ALINHAMENTO COM O CONTEÚDO E REMOÇÃO DE BORDA AZUL */
 .tabs-container {
   display: flex;
-  justify-content: flex-start; /* Alinha o início da barra com os cartões abaixo */
+  justify-content: flex-start; /* Alinha com o início dos cartões abaixo */
   width: 100%;
 }
 
 .tabs {
-  display: inline-flex;    /* Fundo cinza envolve apenas os botões */
+  display: inline-flex;    /* O fundo cinza "gruda" nos botões */
   align-items: center;
   gap: 5px;
   padding: 5px;
@@ -280,16 +280,15 @@
   color: var(--text-light); 
   font-weight: 600; 
   cursor: pointer; 
-  border-radius: 8px; 
+  border-radius: 8px;
   white-space: nowrap;
-  outline: none; /* REMOVE O CONTORNO AZUL FEIO AO CLICAR */
+  outline: none; /* REMOVE O CONTORNO AZUL DE SELEÇÃO */
 }
 
 .tab-btn:focus {
-  outline: none; /* Garante que não apareça borda de seleção */
+  outline: none; /* Garante que não apareça ao clicar */
 }
 
-/* O spacer deve continuar desativado */
 .tabs-spacer {
   display: none !important;
 }
@@ -971,7 +970,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
         style.innerHTML = `
             @media print { @page { margin: 0; } body { background: white; } }
             
-            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA - SEM BORDAS PRETAS */
            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
             #printArea { 
                 position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
