@@ -22,6 +22,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
+    /* Filtros Auditoria: deixa como “chips” uniformes */
+.audit-filters .btn{
+  border-radius: 10px;
+  padding: 8px 12px;      /* altura consistente */
+  line-height: 1;
+  box-shadow: none;
+  transform: none;        /* evita pular no hover */
+}
+
+/* Dá uma “cara de selecionado” sem mudar a cor do botão */
+.audit-filters .btn.active{
+  outline: 2px solid rgba(255,255,255,0.85);
+  outline-offset: 2px;
+}
+
+/* No tema claro, o outline branco pode sumir; ajusta */
+[data-theme="light"] .audit-filters .btn.active{
+  outline: 2px solid rgba(15, 23, 42, 0.35);
+}
+
         /* === ESTILO V9: CLEAN & MODERN === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -323,6 +343,36 @@
   width: 100%;
   box-sizing: border-box;
 }
+.audit-header{
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.audit-title{
+  margin: 0;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.audit-actions{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+}
+
+.audit-filters{
+  display:flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
 
 
         /* OUTROS */
@@ -599,30 +649,29 @@
     </div>
 
 <!-- ===== ABA AUDITORIA ===== -->
-<div id="tab-auditoria" class="tab-content">
-    <div class="container">
-        <div class="card-header-row">
-            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
-            <div style="display:flex; gap:10px">
-                <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
-                    <i class="bi bi-download"></i> Exportar
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
-                    <i class="bi bi-trash"></i> Limpar
-                </button>
-            </div>
-        </div>
-        
-       <div class="filters-row">
-  <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-  <button class="btn btn-sm btn-primary" onclick="renderLogs('cliente')">Clientes</button>
-  <button class="btn btn-sm btn-success" onclick="renderLogs('item')">Itens</button>
-  <button class="btn btn-sm btn-warning" onclick="renderLogs('locacao')">Locações</button>
-  <button class="btn btn-sm btn-info" onclick="renderLogs('devolucao')">Devoluções</button>
-  <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+<div class="audit-header">
+  <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
+
+  <div class="audit-actions">
+    <button class="btn btn-secondary btn-sm" onclick="exportarLogsCSV()">
+      <i class="bi bi-download"></i> Exportar
+    </button>
+
+    <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+      <i class="bi bi-trash"></i> Limpar
+    </button>
+  </div>
 </div>
-        
-        <div class="table-responsive">
+
+<div class="filters-row audit-filters">
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
+  <button class="btn btn-sm btn-primary   audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
+  <button class="btn btn-sm btn-success   audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
+  <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
+  <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
+</div>
+       <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
@@ -875,14 +924,18 @@ function exportarLogsCSV() {
  * Renderiza a tabela de logs
  */
 function renderLogs(filtro = 'todos') {
-    const tbody = document.getElementById('tblLogs');
-    if (!tbody) return;
-    
-    let logsFiltrados = logsAuditoria;
-    
-    if (filtro !== 'todos') {
-        logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
-    }
+  const tbody = document.getElementById('tblLogs');
+  if (!tbody) return;
+
+  // Marca o botão ativo (visual)
+  document.querySelectorAll('.audit-filter').forEach(b => b.classList.remove('active'));
+  const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
+  if (btnAtivo) btnAtivo.classList.add('active');
+
+  let logsFiltrados = logsAuditoria;
+
+  if (filtro !== 'todos') {
+    logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
     
     if (logsFiltrados.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6">Nenhum registro.</td></tr>';
