@@ -2038,31 +2038,35 @@ function tentarRecuperacaoAutomatica() {
     function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
-    
-    // ==========================================================
-    // INÍCIO DA FUNÇÃO EXCEL INTELIGENTE (COPIE DAQUI)
-    // ==========================================================
+    // --- EXCEL INTELIGENTE (COM PROTEÇÃO CONTRA LISTA VAZIA) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
+        // --- PROTEÇÃO DE SEGURANÇA (Adicione isso!) ---
+        // Se as listas sumiram ao apagar tudo, recria elas como vazias agora.
+        if (typeof pecas === 'undefined' || !Array.isArray(pecas)) pecas = [];
+        if (typeof tipos === 'undefined' || !Array.isArray(tipos)) tipos = [];
+        // --------------------------------------------------
+
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                // 1. Leitura do Arquivo
+                // 1. Configuração Inicial
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
+                
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(!rows.length) return;
-                if(!confirm(`Importar ${rows.length} linhas com organização automática?`)) return;
+                if(!confirm(`Deseja importar ${rows.length} linhas?`)) return;
 
                 // 2. Variáveis de Controle
                 let stats = { importados: 0, categorias: 0 };
-                let catAtualId = garantirCategoriaGeral(); 
+                let catAtualId = garantirCategoriaGeral();
 
-                // 3. Loop linha por linha
+                // 3. Processamento Linha a Linha
                 rows.forEach(row => {
                     if (!row || row.length === 0) return;
                     
@@ -2080,20 +2084,24 @@ function tentarRecuperacaoAutomatica() {
                     if (ehItemValido(dados)) {
                         const nomeFormatado = aplicarRegraMedidas(dados.nome);
                         const quantidade = definirQuantidade(dados);
+                        
                         cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
                     }
                 });
 
+                // 4. Finaliza
                 finalizarImportacao(stats);
 
             } catch(err) { 
                 console.error(err);
-                alert("Erro ao processar: " + err.message);
+                alert("Erro ao ler Excel: " + err.message);
             }
         };
         reader.readAsArrayBuffer(input.files[0]);
 
-        // === FUNÇÕES AJUDANTES INTERNAS ===
+        // ============================================================
+        // === FUNÇÕES AJUDANTES ===
+        // ============================================================
 
         function ehCabecalhoCategoria(d) {
             return d.colAno == 2026 || String(d.colAno).includes("2026");
@@ -2104,6 +2112,9 @@ function tentarRecuperacaoAutomatica() {
         }
 
         function garantirCategoriaGeral() {
+            // Proteção extra aqui também
+            if (!Array.isArray(tipos)) tipos = [];
+            
             let cat = tipos.find(t => t.nome === "Geral");
             if (!cat) {
                 cat = { id: Date.now(), nome: "Geral", desc: "Padrão" };
@@ -2115,6 +2126,7 @@ function tentarRecuperacaoAutomatica() {
         function definirOuCriarCategoria(nomeBruto) {
             const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
             let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
+            
             if (!cat) {
                 cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
                 tipos.push(cat);
@@ -2131,7 +2143,7 @@ function tentarRecuperacaoAutomatica() {
                     return valor + 'm'; 
                 }
             }
-            return nome; 
+            return nome;
         }
 
         function definirQuantidade(d) {
@@ -2141,7 +2153,9 @@ function tentarRecuperacaoAutomatica() {
         }
 
         function cadastrarItemSeNovo(nome, qtd, catId) {
-            // CORREÇÃO: Permite nomes iguais se forem de categorias diferentes
+            // Proteção extra aqui também
+            if (!Array.isArray(pecas)) pecas = [];
+
             const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
 
             if (!existe) {
@@ -2158,6 +2172,15 @@ function tentarRecuperacaoAutomatica() {
                 stats.importados++;
             }
         }
+
+        function finalizarImportacao(s) {
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+            mostrarToast(`Sucesso! ${s.importados} itens importados.`);
+        }
+
+    } // <--- FECHAMENTO DA FUNÇÃO PRINCIPAL
 
         function finalizarImportacao(s) {
             salvarLocal();
