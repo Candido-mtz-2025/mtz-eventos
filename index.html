@@ -11,18 +11,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema MTZ Eventos - V11 Final</title>
-    
+
     <link rel="manifest" href="./manifest.json?v=123">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    
-    
+
     <script src="https://accounts.google.com/gsi/client" async defer></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <style>
+<style>
         /* === ESTILO V9: CLEAN & MODERN === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -297,15 +296,18 @@
         </header>
 
         <div class="container">
-            <div class="tabs">
-                <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
-                <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-                <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
-                <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-                <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
-                <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-                <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
-            </div>
+               <div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
+        <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
+        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
+        <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
+        <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+        <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
+        <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+    </div>
+</div>
 
             <div id="tab-dashboard" class="tab-content active">
                 <div class="dashboard-grid">
@@ -357,7 +359,7 @@
                     <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="renderLocadores()" style="margin-bottom: 15px;">
+                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -409,7 +411,7 @@
                     <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="renderEstoque()">
+                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
                     <div class="table-responsive"><table class="table"><thead><tr><th>Img</th><th>Cód</th><th>Tipo</th><th>Nome</th><th>Valor</th><th>Estoque</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblEstoque"></tbody></table></div>
                 </div>
             </div>
@@ -515,6 +517,55 @@
         </div>
     </div>
 
+<!-- ===== ABA AUDITORIA ===== -->
+<div id="tab-auditoria" class="tab-content">
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+            <h3 style="margin:0"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
+            <div style="display:flex; gap:10px">
+                <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+                    <i class="bi bi-trash"></i> Limpar
+                </button>
+            </div>
+        </div>
+        
+        <div style="display:flex; gap:8px; margin-bottom:20px; overflow-x:auto; padding-bottom:5px">
+            <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
+            <button class="btn btn-sm btn-primary" onclick="renderLogs('cliente')">Clientes</button>
+            <button class="btn btn-sm btn-success" onclick="renderLogs('item')">Itens</button>
+            <button class="btn btn-sm btn-warning" onclick="renderLogs('locacao')">Locações</button>
+            <button class="btn btn-sm btn-info" onclick="renderLogs('devolucao')">Devoluções</button>
+            <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Tipo</th>
+                        <th>Ação</th>
+                        <th>Descrição</th>
+                        <th>Usuário</th>
+                    </tr>
+                </thead>
+                <tbody id="tblLogs"></tbody>
+            </table>
+        </div>
+        
+        <div style="margin-top:15px; padding:12px; background:var(--bg); border-radius:8px">
+            <small style="color:var(--text-light)">
+                <i class="bi bi-info-circle"></i> 
+                <b>Total:</b> <span id="totalLogs">0</span> / 1000 | 
+                <b>Retenção:</b> 90 dias
+            </small>
+        </div>
+    </div>
+</div>
+
     <div id="modalEditarLocador" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -610,13 +661,182 @@
 
     <div id="toast"></div>
 
-    <script>
+    
+<script>
     // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
     let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
+    let logsAuditoria = []; // NOVO: Sistema de auditoria
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
     let tokenClient, filtroAtual = 'todos';
-    const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwc1A4nivRQoJLTn5Ex9WZEGns4c9RHM9z-Pmquxg05XrpG4WfiKqkYs0zvwpf_AcQo6w/exec';
+    let paginaAtual = {
+    locadores: 1,
+    pecas: 1,
+    locacoes: 1
+    };
+    const ITENS_POR_PAGINA = 50;
+
+    // Cache para otimizar buscas
+    let cacheDisponibilidade = null;
+    let ultimaAtualizacaoCache = 0;
+
+    // === DEBOUNCE: EVITA LAG AO DIGITAR ===
+function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+// === BUSCA COM DEBOUNCE (ANTI-LAG) ===
+const buscarComDebounce = debounce(function(tipo) {
+    if (tipo === 'locadores') renderLocadores();
+    if (tipo === 'estoque') renderEstoque();
+}, 300);
+
+        // ============================================
+// SISTEMA DE AUDITORIA - LOGS COMPLETOS
+// ============================================
+
+/**
+ * Registra uma ação no sistema de auditoria
+ */
+function registrarLog(tipo, acao, descricao, dados = null) {
+    const log = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        data: new Date().toLocaleString('pt-BR'),
+        tipo: tipo,        // 'cliente', 'item', 'locacao', 'devolucao', 'config', 'sistema'
+        acao: acao,        // 'criar', 'editar', 'deletar', 'visualizar', 'exportar'
+        descricao: descricao,
+        usuario: localStorage.getItem('usuarioEmail') || 'Offline',
+        dados: dados       // Dados relevantes da ação
+    };
+    
+    logsAuditoria.unshift(log); // Adiciona no início
+    
+    // Limita a 1000 logs (mantém últimos 3 meses aprox.)
+    if (logsAuditoria.length > 1000) {
+        logsAuditoria = logsAuditoria.slice(0, 1000);
+    }
+    
+    console.log('📝 LOG:', log.tipo, '→', log.acao, '→', log.descricao);
+}
+
+/**
+ * Limpa logs antigos (mais de 90 dias)
+ */
+function limparLogsAntigos() {
+    const treseMesesAtras = Date.now() - (90 * 24 * 60 * 60 * 1000);
+    const qtdAntes = logsAuditoria.length;
+    
+    logsAuditoria = logsAuditoria.filter(log => log.id > treseMesesAtras);
+    
+    const removidos = qtdAntes - logsAuditoria.length;
+    if (removidos > 0) {
+        console.log(`🗑️ ${removidos} logs antigos removidos`);
+        registrarLog('sistema', 'limpeza', `${removidos} logs antigos removidos`);
+    }
+    
+    salvarLocal();
+}
+
+/**
+ * Exporta logs como CSV
+ */
+function exportarLogsCSV() {
+    if (logsAuditoria.length === 0) {
+        mostrarToast('Nenhum log para exportar!', 'erro');
+        return;
+    }
+    
+    let csv = 'Data,Hora,Tipo,Ação,Descrição,Usuário\n';
+    
+    logsAuditoria.forEach(log => {
+        const data = new Date(log.timestamp);
+        const dataStr = data.toLocaleDateString('pt-BR');
+        const horaStr = data.toLocaleTimeString('pt-BR');
+        
+        csv += `"${dataStr}","${horaStr}","${log.tipo}","${log.acao}","${log.descricao}","${log.usuario}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `MTZ-Auditoria-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    registrarLog('sistema', 'exportar', 'Logs de auditoria exportados');
+    mostrarToast('Logs exportados com sucesso!');
+}
+
+/**
+ * Renderiza a tabela de logs
+ */
+function renderLogs(filtro = 'todos') {
+    const tbody = document.getElementById('tblLogs');
+    if (!tbody) return;
+    
+    let logsFiltrados = logsAuditoria;
+    
+    if (filtro !== 'todos') {
+        logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
+    }
+    
+    if (logsFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6">Nenhum registro.</td></tr>';
+        return;
+    }
+    
+    const icones = {
+        'cliente': 'bi-person',
+        'item': 'bi-box',
+        'locacao': 'bi-cart',
+        'devolucao': 'bi-arrow-return-left',
+        'config': 'bi-gear',
+        'sistema': 'bi-cpu'
+    };
+    
+    const cores = {
+        'criar': '#10b981',
+        'editar': '#f59e0b',
+        'deletar': '#ef4444',
+        'visualizar': '#0ea5e9',
+        'exportar': '#8b5cf6'
+    };
+    
+    tbody.innerHTML = logsFiltrados.slice(0, 100).map(log => {
+        const data = new Date(log.timestamp);
+        const dataStr = data.toLocaleDateString('pt-BR');
+        const horaStr = data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+        
+        return `
+            <tr>
+                <td>
+                    <div style="font-size:0.85rem; line-height:1.4">${dataStr}</div>
+                    <div style="font-size:0.75rem; opacity:0.7">${horaStr}</div>
+                </td>
+                <td>
+                    <i class="bi ${icones[log.tipo] || 'bi-circle'}" style="color:var(--primary); margin-right:4px"></i>
+                    <span style="font-size:0.85rem">${log.tipo}</span>
+                </td>
+                <td>
+                    <span style="color:${cores[log.acao]}; font-weight:600; font-size:0.85rem">${log.acao}</span>
+                </td>
+                <td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                    ${log.descricao}
+                </td>
+                <td style="font-size:0.85rem; opacity:0.8">${log.usuario}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6d-PIdnzFi-Ejnl3gAUB-l9mGnBJt0BpyBErzMI_GFuZuhA/exec';
     
     // --- FORMATAÇÃO DE DATA ---
     function formatarData(dataString) {
@@ -641,7 +861,6 @@
         style.innerHTML = `
             @media print { @page { margin: 0; } body { background: white; } }
             
-            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA - SEM BORDAS PRETAS */
            /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
             #printArea { 
                 position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
@@ -666,6 +885,9 @@
         if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
         if(window.google) gisLoaded();
         if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+        iniciarBackupAutomatico();
+        setInterval(salvarLocal, 60000); // Auto-salva a cada 1 minuto
+        console.log('✅ Sistema de backup ativado');
     };
 
     function toggleTheme() { 
@@ -687,46 +909,107 @@
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
 
     // --- RENDERIZAÇÃO DAS TABELAS ---
-    function renderLocacoes() {
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        const tbody = document.getElementById('tblLocacoes'); if(!tbody) return;
+    // === RENDERIZAR LOCAÇÕES COM PAGINAÇÃO ===
+function renderLocacoes() {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    const tbody = document.getElementById('tblLocacoes'); 
+    if(!tbody) return;
+    
+    // Filtrar e processar
+    const lista = locacoes.map(l => {
+        let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
+        let st = l.status;
+        if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
         
-        const lista = locacoes.map(l => {
-            let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
-            let st = l.status;
-            if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
-            let total = 0; 
-            (l.items||[]).forEach(i => total += (parseFloat(i.valor||0)*parseInt(i.quantidade||1)));
-            let div = parseFloat(l.divisorFatura||1); if(div<=0) div=1;
-            return { ...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false };
-        });
-        const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
-        filtrados.sort((a,b) => b.id - a.id);
-        if (!filtrados.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>'; return; }
-
-        tbody.innerHTML = filtrados.map(l => {
-            const c = locadores.find(x => x.id === l.locadorId);
-            let badgeClass = 'badge-success';
-            if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
-            if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
-            
-            // --- NOVO BOTÃO WHATSAPP ---
-            const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'};" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
-            const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white;" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
-            const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
-            const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
-            const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
-            
-            return `<tr>
-                <td><div style="font-weight:600;">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
-                <td><div style="font-size:0.85rem;">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600;">Até: ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
-                <td><div style="font-weight:700;">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
-                <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
-                <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
-            </tr>`;
-        }).join('');
+        let total = 0; 
+        (l.items||[]).forEach(i => total += (parseFloat(i.valor)||0) * (parseInt(i.quantidade)||1));
+        let div = parseFloat(l.divisorFatura)||1;
+        if(div<=0) div=1;
+        
+        return {...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false};
+    });
+    
+    const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
+    filtrados.sort((a,b) => b.id - a.id);
+    
+    // === PAGINAÇÃO ===
+    const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+    const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
+    const fim = inicio + ITENS_POR_PAGINA;
+    const itensPagina = filtrados.slice(inicio, fim);
+    
+    if (!itensPagina.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>';
+        return;
     }
+    
+    // Renderizar apenas os itens da página atual
+    tbody.innerHTML = itensPagina.map(l => {
+        const c = locadores.find(x => x.id === l.locadorId);
+        let badgeClass = 'badge-success';
+        if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
+        if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
+        
+        const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
+        const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
+        const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
+        const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
+        const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
+        
+        return `<tr>
+            <td><div style="font-weight:600">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
+            <td><div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600">Até ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
+            <td><div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
+            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
+            <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
+        </tr>`;
+    }).join('');
+    
+    // === CONTROLES DE PAGINAÇÃO ===
+    criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
+}
+        
+// === CRIAR BOTÕES DE PAGINAÇÃO ===
+function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
+    if (totalPaginas <= 1) return; // Não precisa de paginação
+    
+    const tbody = document.getElementById(`tbl${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+    if (!tbody) return;
+    
+    const paginaAtualTipo = paginaAtual[tipo];
+    
+    const controles = `
+        <tr style="background: var(--surface-hover);">
+            <td colspan="10" style="text-align: center; padding: 15px;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
+                        <i class="bi bi-chevron-left"></i> Anterior
+                    </button>
+                    <span style="font-weight: 600; color: var(--text);">
+                        Página ${paginaAtualTipo} de ${totalPaginas} 
+                        <span style="opacity: 0.6; font-size: 0.85rem;">(${totalItens} itens)</span>
+                    </span>
+                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
+                        Próxima <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    tbody.insertAdjacentHTML('beforeend', controles);
+}
+
+// === NAVEGAÇÃO DE PÁGINAS ===
+function irParaPagina(tipo, novaPagina) {
+    paginaAtual[tipo] = novaPagina;
+    
+    if (tipo === 'locacoes') renderLocacoes();
+    if (tipo === 'pecas') renderEstoque();
+    if (tipo === 'locadores') renderLocadores();
+}
+
 
     function renderLocadores() {
         const termo = document.getElementById('buscaCliente')?.value.toLowerCase() || "";
@@ -782,7 +1065,19 @@
         tbody.innerHTML = tipos.map(t => `<tr><td><b>${t.nome}</b></td><td>${t.desc || '-'}</td><td class="col-actions"><div class="actions-cell"><button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="removerItem('tipos',${t.id})"><i class="bi bi-trash"></i></button></div></td></tr>`).join('');
     }
 
-    function renderTudo() { recalcularDisponibilidade(); renderLocadores(); renderEstoque(); renderLocacoes(); renderTipos(); renderDevolucoes(); renderStats(); updateSelects(); }
+    function renderTudo() {
+    recalcularDisponibilidade();
+    renderLocadores();
+    renderEstoque();
+    renderLocacoes();
+    renderTipos();
+    renderDevolucoes();
+    renderStats();
+    updateSelects();
+    renderLogs();
+    const totalLogsEl = document.getElementById('totalLogs');
+    if (totalLogsEl) totalLogsEl.innerText = logsAuditoria.length;
+}
 
     function renderStats() {
         const elC = document.getElementById('dashClientes');
@@ -896,47 +1191,90 @@
         mostrarToast("Item adicionado!");
     }
     
-    function finalizarLocacao() { 
-        var cli = document.getElementById('aluguelCliente').value;
-        var ini = document.getElementById('aluguelIni').value; 
-        var fim = document.getElementById('aluguelFim').value;
+function finalizarLocacao() { 
+    var cli = document.getElementById('aluguelCliente').value;
+    var ini = document.getElementById('aluguelIni').value; 
+    var fim = document.getElementById('aluguelFim').value;
 
-        // LÊ O DIVISOR DO CAMPO (CORREÇÃO AQUI)
-        var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
-        if(isNaN(divInput) || divInput <= 0) divInput = 1;
+    // LÊ O DIVISOR DO CAMPO (CORREÇÃO AQUI)
+    var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
+    if(isNaN(divInput) || divInput <= 0) divInput = 1;
 
-        if (!cli || carrinhoLocacao.length === 0) {
-            mostrarToast("Preencha cliente e itens!", "erro");
-            return;
+    if (!cli || carrinhoLocacao.length === 0) {
+        mostrarToast("Preencha cliente e itens!", "erro");
+        return;
+    }
+    
+    var itensParaSalvar = [];
+    for (var i = 0; i < carrinhoLocacao.length; i++) { 
+        itensParaSalvar.push(carrinhoLocacao[i]); 
+    }
+
+    locacoes.push({
+        id: Date.now(), 
+        locadorId: parseInt(cli), 
+        dataAluguel: ini, 
+        dataDevolucaoPrevisao: fim, 
+        items: itensParaSalvar, 
+        status: 'ativo', 
+        divisorFatura: divInput
+    });
+
+    carrinhoLocacao = [];
+    document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
+    document.getElementById('aluguelCliente').value = ""; 
+    document.getElementById('aluguelItemSelect').value = ""; 
+    document.getElementById('aluguelQtd').value = "1";
+    
+    salvarLocal();
+    renderTudo();
+    
+    // Registra no log de auditoria
+    const cliente = locadores.find(x => x.id === parseInt(cli));
+    registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
+    
+    mostrarToast("Locação Concluída!");
+    sincronizar('salvar');
+}
+
+    // === RECALCULAR DISPONIBILIDADE COM CACHE ===
+function recalcularDisponibilidade(forcar = false) {
+    const agora = Date.now();
+    
+    // Se já calculou há menos de 5 segundos, usa o cache
+    if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
+        console.log('📦 Usando cache de disponibilidade');
+        return;
+    }
+    
+    console.log('🔄 Recalculando disponibilidade...');
+    
+    // Criar mapa de aluguéis ativos para busca O(1) ao invés de O(n)
+    const aluguelPorPeca = new Map();
+    
+    locacoes.forEach(l => {
+        if (l.status !== 'devolvido') {
+            l.items.forEach(i => {
+                const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
+                const atual = aluguelPorPeca.get(i.pecaId) || 0;
+                aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
+            });
         }
-        
-        var itensParaSalvar = [];
-        for (var i = 0; i < carrinhoLocacao.length; i++) { itensParaSalvar.push(carrinhoLocacao[i]); }
+    });
+    
+    // Atualizar disponibilidade de cada peça
+    pecas.forEach(p => {
+        const alugado = aluguelPorPeca.get(p.id) || 0;
+        p.disponivel = (p.quantidade || 0) - alugado;
+    });
+    
+    // Atualizar cache
+    cacheDisponibilidade = true;
+    ultimaAtualizacaoCache = agora;
+    
+    console.log('✅ Disponibilidade recalculada');
+}
 
-        locacoes.push({
-            id: Date.now(), 
-            locadorId: parseInt(cli), 
-            dataAluguel: ini, 
-            dataDevolucaoPrevisao: fim, 
-            items: itensParaSalvar, 
-            status: 'ativo', 
-            divisorFatura: divInput // AGORA SALVA O VALOR CORRETO
-        });
-
-        carrinhoLocacao = [];
-        document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
-        document.getElementById('aluguelCliente').value = ""; 
-        document.getElementById('aluguelItemSelect').value = ""; 
-        document.getElementById('aluguelQtd').value = "1";
-        
-        salvarLocal(); renderTudo(); mostrarToast("Locação Concluída!"); sincronizar('salvar');
-    }
-    function recalcularDisponibilidade() { 
-        pecas.forEach(p=>{ 
-            let alug=0; locacoes.forEach(l=>{ if(l.status!=='devolvido') l.items.forEach(i=>{ if(i.pecaId==p.id) alug+=((i.quantidade||0)-(i.devolvidos||0)); }); }); 
-            p.disponivel=(p.quantidade||0)-alug; 
-        });
-    }
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
@@ -944,7 +1282,30 @@
     
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
-    function removerItem(t,id) { if(!confirm("Tem certeza?")) return; if(t==='locadores') locadores=locadores.filter(x=>x.id!==id); if(t==='pecas') pecas=pecas.filter(x=>x.id!==id); if(t==='tipos') tipos=tipos.filter(x=>x.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
+    function removerItem(t, id) {
+    if(!confirm("Tem certeza?")) return;
+    
+    if(t === 'locadores') {
+        const item = locadores.find(x => x.id == id);
+        locadores = locadores.filter(x => x.id !== id);
+        registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
+    }
+    if(t === 'pecas') {
+        const item = pecas.find(x => x.id == id);
+        pecas = pecas.filter(x => x.id !== id);
+        registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
+    }
+    if(t === 'tipos') {
+        const item = tipos.find(x => x.id == id);
+        tipos = tipos.filter(x => x.id !== id);
+        registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
+    }
+    
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+}
+
     function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
@@ -957,32 +1318,387 @@
     function entrarApp() { document.getElementById('loginArea').style.display='none'; document.getElementById('appArea').style.display='block'; renderTudo(); }
     function sair() { localStorage.removeItem('gToken'); location.reload(); }
     
-    async function sincronizar(modo) { 
-        if(!navigator.onLine) { updStatus('offline'); return; } updStatus('saving');
-        try { 
-            if(modo==='carregar') { 
-                const r = await fetch(`${API_URL}?action=carregar`); const t = await r.text(); 
-                if(!t.startsWith('<')) { const j=JSON.parse(t); if(j.locadores) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes||[]; tipos=j.tipos||[]; config=j.config||config; salvarLocal(); renderTudo(); } } 
-            } else { 
-                await fetch(API_URL, {method:'POST', body:new URLSearchParams({dados:JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})})});
-            } 
-            updStatus('online'); 
-        } catch(e){ updStatus('offline'); } 
+    // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
+
+// Backup de emergência antes de sobrescrever dados
+function criarBackupEmergencia() {
+    const timestamp = new Date().toISOString();
+    const backup = {
+        data: timestamp,
+        locadores, pecas, locacoes, devolucoes, tipos, config
+    };
+    localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
+    console.log('✅ Backup de emergência criado:', timestamp);
+    return backup;
+}
+
+// Sincronização com proteção contra perda de dados
+async function sincronizar(modo) {
+    if (!navigator.onLine) {
+        updStatus('offline');
+        return;
+    }
+
+    updStatus('saving');
+
+    try {
+        if (modo === 'carregar') {
+            // Carregar dados da nuvem
+            const response = await fetch(`${API_URL}?action=carregar`);
+            const texto = await response.text();
+
+            // Validação de resposta
+            if (texto.startsWith('<')) {
+                console.warn('⚠️ Resposta inválida do servidor');
+                updStatus('offline');
+                return;
+            }
+
+            const dadosNuvem = JSON.parse(texto);
+
+            // Verificar se há dados locais
+            const temDadosLocais = locadores.length > 0 || pecas.length > 0 || locacoes.length > 0;
+
+            if (temDadosLocais) {
+                // Detectar conflito de timestamps
+                const timestampLocal = localStorage.getItem('mtzUltimaEdicao') || 0;
+                const timestampNuvem = dadosNuvem.ultimaEdicao || 0;
+
+                console.log('📅 Local:', new Date(Number(timestampLocal)).toLocaleString());
+                console.log('☁️ Nuvem:', new Date(Number(timestampNuvem)).toLocaleString());
+
+                // Se nuvem for mais recente, perguntar
+                if (timestampNuvem > timestampLocal) {
+                    const confirmar = confirm(
+                        '⚠️ ATENÇÃO: Dados na nuvem são mais recentes!\n\n' +
+                        `📅 Seus dados locais: ${new Date(Number(timestampLocal)).toLocaleString()}\n` +
+                        `☁️ Dados na nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
+                        '✅ Clique OK para CARREGAR da nuvem (backup automático será criado)\n' +
+                        '❌ Clique CANCELAR para manter seus dados locais'
+                    );
+
+                    if (!confirmar) {
+                        console.log('🚫 Usuário cancelou sincronização');
+                        updStatus('offline');
+                        mostrarToast('Sincronização cancelada. Dados locais mantidos.');
+                        return;
+                    }
+
+                    // Criar backup antes de sobrescrever
+                    criarBackupEmergencia();
+                }
+            }
+
+            // Carregar dados
+            if (dadosNuvem.locadores) {
+                locadores = dadosNuvem.locadores || [];
+                pecas = dadosNuvem.pecas || [];
+                locacoes = dadosNuvem.locacoes || [];
+                devolucoes = dadosNuvem.devolucoes || [];
+                tipos = dadosNuvem.tipos || [];
+                config = dadosNuvem.config || config;
+
+                salvarLocal();
+                renderTudo();
+                mostrarToast('✅ Dados carregados da nuvem!');
+            }
+
+        } else {
+            // Enviar dados para nuvem
+            const timestamp = Date.now();
+            const dadosParaEnviar = {
+                locadores, pecas, locacoes, devolucoes, tipos, config,
+                ultimaEdicao: timestamp
+            };
+
+            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    dados: JSON.stringify(dadosParaEnviar)
+                })
+            });
+
+            if (response.ok) {
+                mostrarToast('☁️ Dados salvos na nuvem!');
+                console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
+            }
+        }
+
+        updStatus('online');
+
+    } catch (erro) {
+        console.error('❌ Erro na sincronização:', erro);
+        updStatus('offline');
+        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
+    }
+}
+
+// Backup automático diário
+function iniciarBackupAutomatico() {
+    const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
+    const agora = Date.now();
+    const umDia = 24 * 60 * 60 * 1000;
+
+    if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
+        const backup = {
+            data: new Date().toISOString(),
+            versao: 'V11',
+            locadores, pecas, locacoes, devolucoes, tipos, config
+        };
+
+        localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
+        localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
+        
+        console.log('💾 Backup automático criado:', new Date().toLocaleString());
+    }
+}
+
+// Restaurar backup de emergência
+function restaurarBackupEmergencia() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    if (!backup) {
+        alert('❌ Nenhum backup de emergência encontrado.');
+        return;
+    }
+
+    const confirmar = confirm(
+        '⚠️ Deseja restaurar o BACKUP DE EMERGÊNCIA?\n\n' +
+        'Isso irá substituir todos os dados atuais.'
+    );
+
+    if (confirmar) {
+        const dados = JSON.parse(backup);
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+
+        salvarLocal();
+        renderTudo();
+        mostrarToast('✅ Backup de emergência restaurado!');
+        console.log('✅ Dados restaurados de:', dados.data);
+    }
+}
+
+// Ver informações de backup
+function verInfoBackup() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+    
+    let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
+    
+    if (backup) {
+        const dados = JSON.parse(backup);
+        msg += `🆘 Backup de Emergência:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+        msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações\n\n`;
+    } else {
+        msg += '❌ Nenhum backup de emergência\n\n';
     }
     
-    function salvarLocal() { localStorage.setItem('mtzBackup', JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})); }
-    function carregarLocal() { try { const j=JSON.parse(localStorage.getItem('mtzBackup')); if(j) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes; tipos=j.tipos; config=j.config; } } catch(e){} }
+    if (backupAuto) {
+        const dados = JSON.parse(backupAuto);
+        msg += `💾 Backup Automático:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+    } else {
+        msg += '❌ Nenhum backup automático';
+    }
+    
+    alert(msg);
+}
+
+    
+    // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
+function salvarLocal() {
+    cacheDisponibilidade = null;
+    try {
+        const dados = {
+    versao: '11.0',
+    data: new Date().toISOString(),
+    locadores, pecas, locacoes, devolucoes, tipos, config,
+    logsAuditoria  // ← ADICIONE ESTA LINHA
+};
+
+        const json = JSON.stringify(dados);
+        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
+        const tamanhoMB = (tamanhoKB / 1024).toFixed(2);
+
+        console.log(`💾 Salvando ${tamanhoKB} KB no localStorage...`);
+
+        // Verificar se está próximo do limite (5MB = 5120 KB)
+        if (parseFloat(tamanhoKB) > 4500) {
+            console.warn(`⚠️ ALERTA: LocalStorage usando ${tamanhoMB} MB de 5 MB!`);
+            mostrarToast(`⚠️ Armazenamento em ${Math.round((tamanhoKB/5120)*100)}%! Faça backup e arquive dados antigos.`, 'erro');
+        }
+
+        localStorage.setItem('mtzBackup', json);
+        return true;
+
+    } catch (erro) {
+        console.error('❌ Erro ao salvar:', erro);
+
+        if (erro.name === 'QuotaExceededError') {
+            alert(
+                '🔴 ERRO CRÍTICO: LocalStorage cheio!\n\n' +
+                'O sistema não pode salvar mais dados.\n\n' +
+                'SOLUÇÕES:\n' +
+                '1. Vá em Config → Baixar JSON (fazer backup)\n' +
+                '2. Depois vá em Config → Arquivar (Limpeza)\n' +
+                '3. Ou delete locações antigas manualmente\n\n' +
+                '⚠️ Novos dados NÃO serão salvos até liberar espaço!'
+            );
+            return false;
+        }
+
+        // Outros erros
+        alert('❌ Erro ao salvar dados: ' + erro.message);
+        return false;
+    }
+}
+
+    // === CARREGAR COM VALIDAÇÃO E RECUPERAÇÃO ===
+function carregarLocal() {
+    try {
+        const json = localStorage.getItem('mtzBackup');
+        
+        if (!json) {
+            console.log('📭 Nenhum dado local encontrado (primeira vez)');
+            return;
+        }
+
+        const dados = JSON.parse(json);
+
+        // Validação de integridade
+        if (!dados.locadores || !Array.isArray(dados.locadores)) {
+            throw new Error('Dados corrompidos: estrutura inválida');
+        }
+
+        // Carregar dados
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+        logsAuditoria = dados.logsAuditoria || [];
+
+
+        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
+        
+        console.log('✅ Dados locais carregados:', {
+            tamanho: `${tamanhoKB} KB`,
+            clientes: locadores.length,
+            itens: pecas.length,
+            locacoes: locacoes.length,
+            versao: dados.versao || 'antiga'
+        });
+
+        // Alerta se estiver usando mais de 80% do storage
+        if (parseFloat(tamanhoKB) > 4000) {
+            console.warn('⚠️ LocalStorage usando mais de 80%');
+        }
+
+    } catch (erro) {
+        console.error('❌ Erro ao carregar dados:', erro);
+        
+        // Tentar recuperar backup automático
+        const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+        const backupEmergencia = localStorage.getItem('mtzBackupEmergencia');
+        
+        if (backupEmergencia || backupAuto) {
+            const restaurar = confirm(
+                '⚠️ ERRO ao carregar dados locais!\n\n' +
+                'Possível corrupção detectada.\n\n' +
+                '✅ Backups disponíveis encontrados!\n\n' +
+                'Deseja tentar restaurar automaticamente?'
+            );
+
+            if (restaurar) {
+                tentarRecuperacaoAutomatica();
+            }
+        } else {
+            alert(
+                '🔴 ERRO CRÍTICO: Dados corrompidos e sem backup!\n\n' +
+                'Causas possíveis:\n' +
+                '- Fechamento abrupto do navegador\n' +
+                '- Falta de espaço no disco\n' +
+                '- Extensão do navegador interferindo\n\n' +
+                'O sistema será reiniciado vazio.'
+            );
+            
+            // Resetar para dados vazios
+            locadores = [];
+            pecas = [];
+            locacoes = [];
+            devolucoes = [];
+            tipos = [];
+        }
+    }
+}
+
+// === RECUPERAÇÃO AUTOMÁTICA ===
+function tentarRecuperacaoAutomatica() {
+    try {
+        // Tentar backup de emergência primeiro
+        let backup = localStorage.getItem('mtzBackupEmergencia');
+        let fonte = 'Emergência';
+        
+        // Se não tiver, tentar backup automático
+        if (!backup) {
+            backup = localStorage.getItem('mtzBackupAutomatico');
+            fonte = 'Automático';
+        }
+        
+        if (!backup) {
+            throw new Error('Nenhum backup disponível');
+        }
+
+        const dados = JSON.parse(backup);
+        
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+
+        salvarLocal();
+        renderTudo();
+        
+        alert(
+            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
+            `Fonte: Backup ${fonte}\n` +
+            `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
+            `Registros recuperados:\n` +
+            `- ${locadores.length} clientes\n` +
+            `- ${pecas.length} itens\n` +
+            `- ${locacoes.length} locações\n\n` +
+            `💡 Recomendação: Faça um backup JSON agora!`
+        );
+        
+        console.log('✅ Dados recuperados de:', dados.data);
+        
+    } catch (erro) {
+        alert('❌ Falha na recuperação automática: ' + erro.message);
+    }
+}
+
     function updStatus(s) { const b=document.getElementById('syncBadge'), t=document.getElementById('syncText'); if(s==='online'){b.className="sync-badge sync-online";t.innerText="Online";} else if(s==='saving'){b.className="sync-badge sync-saving";t.innerText="Salvando...";} else {b.className="sync-badge sync-offline";t.innerText="Offline";} }
 
     // --- FUNÇÕES DE EDIÇÃO ---
     function abrirEditarLocador(id) { const c = locadores.find(x => x.id === id); if(!c) return; document.getElementById('editLocId').value = c.id; document.getElementById('editLocNome').value = c.nome; document.getElementById('editLocEmail').value = c.email || ''; document.getElementById('editLocTel').value = c.telefone || ''; document.getElementById('modalEditarLocador').classList.add('active'); }
-    function salvarEdicaoLocador() { const id = parseInt(document.getElementById('editLocId').value); const c = locadores.find(x => x.id === id); if(c) { c.nome = document.getElementById('editLocNome').value; c.email = document.getElementById('editLocEmail').value; c.telefone = document.getElementById('editLocTel').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarLocador').classList.remove('active'); mostrarToast("Cliente atualizado!"); } }
+    function salvarEdicaoLocador() { const id = parseInt(document.getElementById('editLocId').value); const c = locadores.find(x => x.id === id); if(c) { c.nome = document.getElementById('editLocNome').value; c.email = document.getElementById('editLocEmail').value; c.telefone = document.getElementById('editLocTel').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarLocador').classList.remove('active');registrarLog('cliente', 'criar', `Cliente cadastrado: ${nome}`);registrarLog('cliente', 'criar', `Cliente cadastrado: ${nome}`); mostrarToast("Cliente atualizado!"); } }
     
     function abrirEditarTipo(id) { const t = tipos.find(x => x.id === id); if(!t) return; document.getElementById('editTipoId').value = t.id; document.getElementById('editTipoNome').value = t.nome; document.getElementById('editTipoDesc').value = t.desc || ''; document.getElementById('modalEditarTipo').classList.add('active'); }
     function salvarEdicaoTipo() { const id = parseInt(document.getElementById('editTipoId').value); const t = tipos.find(x => x.id === id); if(t) { t.nome = document.getElementById('editTipoNome').value; t.desc = document.getElementById('editTipoDesc').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarTipo').classList.remove('active'); mostrarToast("Tipo atualizado!"); } }
 
     function abrirEditarPeca(id) { const p = pecas.find(x => x.id === id); if(!p) return; document.getElementById('editPecaId').value = p.id; document.getElementById('editPecaCod').value = p.codigo; document.getElementById('editPecaNome').value = p.nome; document.getElementById('editPecaValor').value = p.valor; document.getElementById('editPecaQtd').value = p.quantidade; updateSelects(); const sel = document.getElementById('editPecaTipo'); if(sel) sel.value = p.tipoId || 0; document.getElementById('modalEditarPeca').classList.add('active'); }
-    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); mostrarToast("Item atualizado!"); } }
+    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
@@ -1250,11 +1966,30 @@
         div.innerHTML = l.items.map((item) => `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid var(--border);"><span>${item.nome} (${item.quantidade})</span> <span class="badge badge-success">OK</span></div>`).join('');
     }
     function confirmarDevolucao() { 
-        const id = document.getElementById('devLocacao').value; if(!id) return alert("Selecione!");
-        const l = locacoes.find(x => x.id == id); l.status = 'devolvido';
-        devolucoes.push({ id: Date.now(), locacaoId: l.id, dataDevolucao: document.getElementById('devData').value, obs: 'Total' }); 
-        salvarLocal(); renderTudo(); sincronizar('salvar'); mostrarToast("Baixa confirmada!");
-    }
+    const id = document.getElementById('devLocacao').value;
+    if(!id) return alert("Selecione!");
+    
+    const l = locacoes.find(x => x.id == id);
+    l.status = 'devolvido';
+    
+    devolucoes.push({ 
+        id: Date.now(), 
+        locacaoId: l.id, 
+        dataDevolucao: document.getElementById('devData').value, 
+        obs: 'Total' 
+    });
+    
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+    
+    // Registra no log de auditoria
+    const cliente = locadores.find(x => x.id === l.locadorId);
+    registrarLog('devolucao', 'criar', `Devolução registrada: ${cliente?.nome || 'Cliente'}`);
+    
+    mostrarToast("Baixa confirmada!");
+}
+
     function converterLogo() { const input = document.getElementById('confLogo'); if (input.files[0]) { const reader = new FileReader();
     reader.onloadend = function() { config.logo = reader.result; document.getElementById('previewLogo').innerHTML = `<img src="${config.logo}" style="height:50px">`; }; reader.readAsDataURL(input.files[0]); } }
     
@@ -1464,11 +2199,6 @@ Fico no aguardo!`;
                 .catch((err) => console.error('Erro no SW:', err));
         }
 
-        
-       if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js');
-        }
-
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -1498,7 +2228,33 @@ Fico no aguardo!`;
                 });
             };
         });
-    
+// === MONITOR DE ARMAZENAMENTO ===
+function verificarEspacoStorage() {
+    try {
+        const backup = localStorage.getItem('mtzBackup');
+        if (!backup) return;
+        
+        const tamanhoKB = (new Blob([backup]).size / 1024).toFixed(2);
+        const percentual = Math.round((tamanhoKB / 5120) * 100);
+        
+        console.log(`📊 Storage: ${tamanhoKB} KB (${percentual}% de 5 MB)`);
+        
+        if (percentual >= 90) {
+            mostrarToast('🔴 CRÍTICO: Storage em ' + percentual + '%! FAÇA BACKUP AGORA!', 'erro');
+        } else if (percentual >= 75) {
+            mostrarToast('⚠️ ALERTA: Storage em ' + percentual + '%!', 'erro');
+        }
+    } catch (erro) {
+        console.error('Erro ao verificar storage:', erro);
+    }
+}
+
+// Executar verificação ao carregar
+window.addEventListener('load', function() {
+    setTimeout(verificarEspacoStorage, 2000);
+});
+
+        
     </script>
 </body>
 </html>
