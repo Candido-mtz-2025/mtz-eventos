@@ -319,6 +319,148 @@ body:not([data-theme="dark"]) .tab-btn {
 .invoice-table th { background: #000 !important; color: #fff !important; }
 .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
 #interactive video { width: 100%; height: 100%; object-fit: cover; }
+        /* === OTIMIZAÇÃO DE ESPAÇAMENTO === */
+
+/* Reduz padding dos cards */
+.card, .dash-section, .modal-content, .login-box {
+    padding: 15px !important;  /* Era 25px */
+    margin-bottom: 15px !important;  /* Era 24px */
+}
+
+/* Container mais compacto */
+.container { 
+    padding: 15px !important;  /* Era 20px */
+}
+
+/* Form rows mais próximos */
+.form-row { 
+    gap: 10px !important;  /* Era 20px */
+    margin-bottom: 12px !important;  /* Era 20px */
+}
+
+.form-group { 
+    gap: 4px !important;  /* Era 6px */
+}
+
+/* Inputs mais compactos */
+input, select {
+    padding: 10px 12px !important;  /* Era 12px 15px */
+}
+
+/* Tabelas otimizadas */
+.table th { 
+    padding: 10px 12px !important;  /* Era 14px 20px */
+    font-size: 0.7rem !important;  /* Era 0.75rem */
+}
+
+.table td { 
+    padding: 10px 12px !important;  /* Era 16px 20px */
+    font-size: 0.85rem !important;  /* Era 0.9rem */
+}
+
+/* Dashboard cards menores */
+.dashboard-grid { 
+    gap: 12px !important;  /* Era 20px */
+    margin-bottom: 15px !important;  /* Era 25px */
+}
+
+.stat-card { 
+    padding: 15px !important;  /* Era 25px */
+}
+
+.stat-icon { 
+    width: 40px !important;  /* Era 50px */
+    height: 40px !important;
+    font-size: 18px !important;  /* Era 22px */
+}
+
+/* Modal header compacto */
+.modal-header {
+    margin-bottom: 12px !important;  /* Era 20px */
+    padding-bottom: 10px !important;  /* Era 15px */
+}
+
+.modal-header h3 {
+    font-size: 1.1rem !important;  /* Era 1.2rem */
+}
+
+/* Box carrinho otimizado */
+.box-carrinho {
+    padding: 12px !important;  /* Era 20px */
+    margin-bottom: 12px !important;  /* Era 20px */
+}
+
+#carrinhoList {
+    margin-top: 10px !important;  /* Era 15px */
+    padding: 8px !important;  /* Era 10px */
+}
+
+/* Botões menores */
+.btn { 
+    padding: 8px 14px !important;  /* Era 10px 18px */
+    font-size: 0.85rem !important;  /* Era 0.9rem */
+}
+
+.btn-sm { 
+    padding: 5px 10px !important;  /* Era 6px 12px */
+}
+
+/* Tabs mais compactas */
+.tabs {
+    padding: 4px !important;  /* Era 6px */
+    gap: 5px !important;  /* Era 8px */
+    margin-bottom: 15px !important;
+}
+
+.tab-btn { 
+    padding: 8px 16px !important;  /* Era 10px 20px */
+}
+
+/* Labels menores */
+label { 
+    font-size: 0.8rem !important;  /* Era 0.85rem */
+    margin-left: 0 !important;  /* Era 2px */
+}
+
+/* Mobile ainda mais compacto */
+@media (max-width: 768px) {
+    .container { 
+        padding: 10px !important;  /* Era 15px */
+        padding-bottom: 70px !important;  /* Era 80px */
+    }
+    
+    .card, .dash-section, .modal-content {
+        padding: 12px !important;  /* Era padrão */
+        margin-bottom: 10px !important;
+    }
+    
+    .form-row { 
+        gap: 8px !important;
+    }
+    
+    .dashboard-grid { 
+        gap: 10px !important;
+    }
+    
+    .stat-card { 
+        padding: 12px !important;  /* Era 20px */
+    }
+    
+    .table th, .table td { 
+        padding: 8px 6px !important;  /* Era 12px 10px */
+        font-size: 0.8rem !important;
+    }
+}
+
+/* Remove espaços vazios desnecessários */
+h3 {
+    margin: 0 0 10px 0 !important;
+}
+
+/* Reduz altura mínima do modal */
+.modal-content {
+    max-height: 92vh !important;  /* Era 90vh no mobile */
+}
 
     </style>
 </head>
