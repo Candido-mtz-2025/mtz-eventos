@@ -1360,6 +1360,62 @@ function renderEstoque() {
   tbody.appendChild(fragment);
 }
 
+    // --- DEVOLUÇÕES (RECOLOCAR) ---
+function renderDevolucoes() {
+    const tbody = document.getElementById('tblDevolucoes'); 
+    if(!tbody) return;
+    
+    // Pega as últimas 20 devoluções
+    const lista = devolucoes.slice().reverse().slice(0, 20);
+    
+    tbody.innerHTML = lista.map(d => {
+        const l = locacoes.find(x => x.id === d.locacaoId);
+        // Tenta achar o cliente no contrato ou usa ID 0
+        const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
+        
+        return `<tr>
+            <td><div style="font-weight:600;">${c ? c.nome : '-'}</div></td>
+            <td>${formatarData(d.dataDevolucao)}</td>
+            <td><span class="badge badge-success">Concluído</span></td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})">
+                    <i class="bi bi-printer"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// --- TIPOS (RECOLOCAR) ---
+function renderTipos() {
+    const tbody = document.getElementById('tblTipos');
+    if(!tbody) return;
+    
+    tbody.innerHTML = tipos.map(t => `
+        <tr>
+            <td><b>${t.nome}</b></td>
+            <td>${t.desc || '-'}</td>
+            <td class="col-actions">
+                <div class="actions-cell">
+                    <button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// --- FUNÇÃO GERAL (CASO FALTE) ---
+function renderTudo() {
+    if(typeof renderLocacoes === 'function') renderLocacoes();
+    if(typeof renderLocadores === 'function') renderLocadores();
+    if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderDevolucoes === 'function') renderDevolucoes();
+    if(typeof renderTipos === 'function') renderTipos();
+    if(typeof renderStats === 'function') renderStats();
+}
+
     function renderStats() {
         const elC = document.getElementById('dashClientes');
         if(elC) elC.innerText = locadores.length;
