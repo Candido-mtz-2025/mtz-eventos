@@ -2039,35 +2039,29 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-    // --- EXCEL INTELIGENTE (COM PROTEÇÃO CONTRA LISTA VAZIA) ---
+    // --- EXCEL INTELIGENTE (VERSÃO FINAL BLINDADA) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
-        // --- PROTEÇÃO DE SEGURANÇA (Adicione isso!) ---
-        // Se as listas sumiram ao apagar tudo, recria elas como vazias agora.
+        // PROTEÇÃO 1: Recria as listas se elas não existirem (evita o erro ao apagar tudo)
         if (typeof pecas === 'undefined' || !Array.isArray(pecas)) pecas = [];
         if (typeof tipos === 'undefined' || !Array.isArray(tipos)) tipos = [];
-        // --------------------------------------------------
 
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                // 1. Configuração Inicial
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheet];
-                
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(!rows.length) return;
-                if(!confirm(`Deseja importar ${rows.length} linhas?`)) return;
+                if(!confirm(`Importar ${rows.length} linhas?`)) return;
 
-                // 2. Variáveis de Controle
                 let stats = { importados: 0, categorias: 0 };
                 let catAtualId = garantirCategoriaGeral();
 
-                // 3. Processamento Linha a Linha
                 rows.forEach(row => {
                     if (!row || row.length === 0) return;
                     
@@ -2085,12 +2079,10 @@ function tentarRecuperacaoAutomatica() {
                     if (ehItemValido(dados)) {
                         const nomeFormatado = aplicarRegraMedidas(dados.nome);
                         const quantidade = definirQuantidade(dados);
-                        
                         cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
                     }
                 });
 
-                // 4. Finaliza
                 finalizarImportacao(stats);
 
             } catch(err) { 
@@ -2100,9 +2092,7 @@ function tentarRecuperacaoAutomatica() {
         };
         reader.readAsArrayBuffer(input.files[0]);
 
-        // ============================================================
         // === FUNÇÕES AJUDANTES ===
-        // ============================================================
 
         function ehCabecalhoCategoria(d) {
             return d.colAno == 2026 || String(d.colAno).includes("2026");
@@ -2113,9 +2103,7 @@ function tentarRecuperacaoAutomatica() {
         }
 
         function garantirCategoriaGeral() {
-            // Proteção extra aqui também
-            if (!Array.isArray(tipos)) tipos = [];
-            
+            if (!Array.isArray(tipos)) tipos = []; // Proteção Extra
             let cat = tipos.find(t => t.nome === "Geral");
             if (!cat) {
                 cat = { id: Date.now(), nome: "Geral", desc: "Padrão" };
@@ -2127,7 +2115,6 @@ function tentarRecuperacaoAutomatica() {
         function definirOuCriarCategoria(nomeBruto) {
             const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
             let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
-            
             if (!cat) {
                 cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
                 tipos.push(cat);
@@ -2154,9 +2141,9 @@ function tentarRecuperacaoAutomatica() {
         }
 
         function cadastrarItemSeNovo(nome, qtd, catId) {
-            // Proteção extra aqui também
-            if (!Array.isArray(pecas)) pecas = [];
-
+            if (!Array.isArray(pecas)) pecas = []; // Proteção Extra
+            
+            // CORREÇÃO: Verifica nome + categoria para permitir Q15 e Q30 iguais
             const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
 
             if (!existe) {
@@ -2181,7 +2168,7 @@ function tentarRecuperacaoAutomatica() {
             mostrarToast(`Sucesso! ${s.importados} itens importados.`);
         }
 
-    } // <--- FECHAMENTO DA FUNÇÃO PRINCIPAL
+    } // <--- FECHA processarExcelInteligente (Não apague esta chave!)
         function finalizarImportacao(s) {
             salvarLocal();
             renderTudo();
@@ -2198,10 +2185,7 @@ function tentarRecuperacaoAutomatica() {
             mostrarToast(`Concluído! ${s.importados} novos itens em ${s.categorias} novas categorias.`);
         }
     } 
-    // ==========================================================
-    // FIM DA FUNÇÃO (GARANTA QUE ESTA CHAVE } ESTEJA AQUI)
-    // ==========================================================
-    // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
+   
     function getHeaderMTZ() {
         return `
         <div style="background:#ffffff; color:#000000; padding:20px; text-align:center; border-bottom: 2px solid #2563eb; margin-bottom: 20px;">
