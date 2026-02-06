@@ -2039,112 +2039,139 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
- // --- EXCEL INTELIGENTE (VERSÃO CORRIGIDA PARA NOMES IGUAIS EM CATEGORIAS DIFERENTES) ---
+// --- EXCEL INTELIGENTE (VERSÃO ORGANIZADA E MODULAR) ---
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
+                // 1. Leitura do Arquivo
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheet];
-                
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-                if(rows.length) {
-                    if(!confirm(`Encontradas ${rows.length} linhas. Importar e formatar medidas (m/cm) automaticamente?`)) return;
+                if(!rows.length) return;
+                if(!confirm(`Importar ${rows.length} linhas com organização automática?`)) return;
 
-                    let categoriaAtualNome = "Geral";
-                    let categoriaAtualId = 0;
-                    let itensImportados = 0;
-                    let categoriasCriadas = 0;
+                // 2. Variáveis de Controle
+                let stats = { importados: 0, categorias: 0 };
+                let catAtualId = garantirCategoriaGeral(); // Começa com categoria Geral
 
-                    let catGeral = tipos.find(t => t.nome === "Geral");
-                    if (!catGeral) {
-                        catGeral = { id: Date.now(), nome: "Geral", desc: "Itens sem categoria" };
-                        tipos.push(catGeral);
-                        categoriaAtualId = catGeral.id;
-                    } else {
-                        categoriaAtualId = catGeral.id;
+                // 3. Loop linha por linha
+                rows.forEach(row => {
+                    if (!row || row.length === 0) return;
+                    
+                    // Extrai dados brutos da linha
+                    const dados = {
+                        nome: row[0] ? String(row[0]).trim() : "",
+                        colAno: row[1], // Coluna B (geralmente tem o ano 2026 nos títulos)
+                        colQtd: row[3]  // Coluna D (Soma)
+                    };
+
+                    // A) É Cabeçalho de Categoria? (Ex: "BOX Q15", "2026")
+                    if (ehCabecalhoCategoria(dados)) {
+                        catAtualId = definirOuCriarCategoria(dados.nome);
+                        return; // Pula para a próxima linha
                     }
 
-                    rows.forEach(row => {
-                        if (!row || row.length === 0) return;
+                    // B) É um Item para cadastrar?
+                    if (ehItemValido(dados)) {
+                        const nomeFormatado = aplicarRegraMedidas(dados.nome);
+                        const quantidade = definirQuantidade(dados);
+                        
+                        cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
+                    }
+                });
 
-                        let col0 = row[0] ? String(row[0]).trim() : ""; 
-                        const col1 = row[1]; 
-                        const col3 = row[3]; 
+                // 4. Finalização
+                finalizarImportacao(stats);
 
-                        // 1. Detectar Categoria
-                        if (col1 == 2026 || String(col1).includes("2026")) {
-                            categoriaAtualNome = col0.replace(/[\r\n]+/g, "").trim();
-
-                            let catExiste = tipos.find(t => t.nome.toUpperCase() === categoriaAtualNome.toUpperCase());
-                            
-                            if (catExiste) {
-                                categoriaAtualId = catExiste.id;
-                            } else {
-                                categoriaAtualId = Date.now() + Math.random();
-                                tipos.push({ id: categoriaAtualId, nome: categoriaAtualNome, desc: "Importado Excel" });
-                                categoriasCriadas++;
-                            }
-                            return; 
-                        }
-
-                        // 2. Detectar Quantidade
-                        let quantidade = parseInt(col3);
-                        if (isNaN(quantidade)) quantidade = parseInt(col1); 
-                        if (isNaN(quantidade)) quantidade = 0; 
-
-                        // 3. Cadastrar Item
-                        if (col0 && col0 !== "TOTAL EM METROS") {
-                            
-                            // Lógica de Medidas (m/cm)
-                            if (/^[\d.,]+$/.test(col0)) {
-                                let valor = parseFloat(col0.replace(',', '.')); 
-                                if (!isNaN(valor)) {
-                                    if (valor < 1) {
-                                        let cm = Math.round(valor * 100);
-                                        col0 = cm + 'cm';
-                                    } else {
-                                        col0 = valor + 'm';
-                                    }
-                                }
-                            }
-
-                            // --- A CORREÇÃO ESTÁ AQUI EMBAIXO ---
-                            // Agora ele verifica se existe o nome DENTRO DA MESMA CATEGORIA (tipoId)
-                            const itemExiste = pecas.find(p => p.nome === col0 && p.tipoId === categoriaAtualId);
-                            
-                            if (!itemExiste) {
-                                pecas.push({
-                                    id: Date.now() + Math.random(),
-                                    codigo: 'IMP-' + Math.floor(Math.random() * 100000),
-                                    nome: col0,
-                                    quantidade: quantidade,
-                                    disponivel: quantidade,
-                                    valor: 0,
-                                    tipoId: categoriaAtualId, 
-                                    medida: ''
-                                });
-                                itensImportados++;
-                            }
-                        }
-                    });
-
-                    salvarLocal(); 
-                    renderTudo(); 
-                    sincronizar('salvar'); 
-                    mostrarToast(`Sucesso! ${itensImportados} itens importados.`);
-                }
             } catch(err) { 
                 console.error(err);
-                alert("Erro ao ler Excel: " + err.message);
+                alert("Erro ao processar: " + err.message);
             }
         };
         reader.readAsArrayBuffer(input.files[0]);
+
+        // ============================================================
+        // === FUNÇÕES AJUDANTES (Aqui está a organização lógica) ===
+        // ============================================================
+
+        function ehCabecalhoCategoria(d) {
+            // Se tiver "2026" na coluna B, é um título de categoria
+            return d.colAno == 2026 || String(d.colAno).includes("2026");
+        }
+
+        function ehItemValido(d) {
+            return d.nome && d.nome !== "TOTAL EM METROS";
+        }
+
+        function garantirCategoriaGeral() {
+            let cat = tipos.find(t => t.nome === "Geral");
+            if (!cat) {
+                cat = { id: Date.now(), nome: "Geral", desc: "Padrão" };
+                tipos.push(cat);
+            }
+            return cat.id;
+        }
+
+        function definirOuCriarCategoria(nomeBruto) {
+            const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
+            let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
+            
+            if (!cat) {
+                cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
+                tipos.push(cat);
+                stats.categorias++;
+            }
+            return cat.id;
+        }
+
+        function aplicarRegraMedidas(nome) {
+            // Verifica se é apenas número/ponto/vírgula (ex: "0.85", "1.5")
+            if (/^[\d.,]+$/.test(nome)) {
+                let valor = parseFloat(nome.replace(',', '.'));
+                if (!isNaN(valor)) {
+                    if (valor < 1) return Math.round(valor * 100) + 'cm'; // Ex: 0.85 vira 85cm
+                    return valor + 'm'; // Ex: 1.5 vira 1.5m
+                }
+            }
+            return nome; // Se for texto (ex: "Parafuso"), devolve igual
+        }
+
+        function definirQuantidade(d) {
+            let q = parseInt(d.colQtd);       // Tenta coluna D
+            if (isNaN(q)) q = parseInt(d.colAno); // Tenta coluna B
+            return isNaN(q) ? 0 : q;
+        }
+
+        function cadastrarItemSeNovo(nome, qtd, catId) {
+            // AQUI ESTÁ A CORREÇÃO: Verifica nome + categoria
+            const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
+
+            if (!existe) {
+                pecas.push({
+                    id: Date.now() + Math.random(),
+                    codigo: 'IMP-' + Math.floor(Math.random() * 100000),
+                    nome: nome,
+                    quantidade: qtd,
+                    disponivel: qtd,
+                    valor: 0,
+                    tipoId: catId,
+                    medida: ''
+                });
+                stats.importados++;
+            }
+        }
+
+        function finalizarImportacao(s) {
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+            mostrarToast(`Concluído! ${s.importados} novos itens em ${s.categorias} novas categorias.`);
+        }
     }
     // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
     function getHeaderMTZ() {
