@@ -579,19 +579,6 @@
     </table>
   </div>
 </div>
-        </th>
-        <th>Img</th>
-        <th>Cód</th>
-        <th>Tipo</th>
-        <th>Nome</th>
-        <th>Valor</th>
-        <th>Estoque</th>
-        <th class="col-actions">Ações</th>
-      </tr>
-    </thead>
-    <tbody id="tblEstoque"></tbody>
-  </table>
-</div>
             <div id="tab-locacoes" class="tab-content">
                 <div class="card">
                     <h3>Nova Locação</h3>
@@ -1291,10 +1278,11 @@ function renderEstoque() {
     const tbody = DOM.get('tblEstoque');
     if (!tbody) return;
     
-    const itensFiltrados = pecas.filter(p => 
-        p.nome.toLowerCase().includes(termo) || 
-        p.codigo.toLowerCase().includes(termo)
-    );
+    const itensFiltrados = pecas.filter(p => {
+  const nome = (p.nome || '').toLowerCase();
+  const codigo = (p.codigo || '').toLowerCase();
+  return nome.includes(termo) || codigo.includes(termo);
+});
     
     // se não tiver itens
 if (itensFiltrados.length === 0) {
@@ -1355,6 +1343,7 @@ if (all) {
   const total = document.querySelectorAll('.chk-estoque').length;
   const marcados = document.querySelectorAll('.chk-estoque:checked').length;
   all.checked = (total > 0 && marcados === total);
+}
 }
     function renderDevolucoes() {
         const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
