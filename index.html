@@ -254,15 +254,15 @@
   white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
 }
 
-/* ABAS - ALINHAMENTO COM O CONTEÚDO E REMOÇÃO DE BORDA AZUL */
+/* Container para alinhar a barra à esquerda com o conteúdo */
 .tabs-container {
   display: flex;
-  justify-content: flex-start; /* Alinha com o início dos cartões abaixo */
+  justify-content: flex-start; /* Alinha o início da barra com os cartões abaixo */
   width: 100%;
 }
 
 .tabs {
-  display: inline-flex;    /* O fundo cinza "gruda" nos botões */
+  display: inline-flex;    /* O fundo cinza agora terá apenas a largura dos botões */
   align-items: center;
   gap: 5px;
   padding: 5px;
@@ -273,24 +273,17 @@
   white-space: nowrap;
 }
 
-.tab-btn { 
-  background: transparent; 
-  border: none; 
-  padding: 10px 20px; 
-  color: var(--text-light); 
-  font-weight: 600; 
-  cursor: pointer; 
-  border-radius: 8px;
-  white-space: nowrap;
-  outline: none; /* REMOVE O CONTORNO AZUL DE SELEÇÃO */
-}
-
-.tab-btn:focus {
-  outline: none; /* Garante que não apareça ao clicar */
-}
-
+/* Garante que o elemento invisível não empurre o layout */
 .tabs-spacer {
   display: none !important;
+}
+
+/* Remove o contorno azul ao clicar nos botões */
+.tab-btn {
+  outline: none;
+}
+.tab-btn:focus {
+  outline: none;
 }
 
 @keyframes fadeIn { 
