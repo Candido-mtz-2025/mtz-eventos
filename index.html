@@ -238,8 +238,6 @@
         .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
-       /* ABAS */
-/* ABAS - VERSÃO CORRIGIDA E ALINHADA */
 /* ABAS - AJUSTE FINAL PARA ALINHAMENTO PERFEITO */
 .tabs {
   display: inline-flex;    /* Faz o fundo cinza respeitar o tamanho dos botões */
@@ -253,22 +251,21 @@
   border: 1px solid var(--border);
   white-space: nowrap;     /* Impede quebra de linha em telas pequenas */
 }
-
-/* CONTAINER DAS ABAS - ALINHADO COM OS CARDS */
+/* ABAS - CENTRALIZADO E AJUSTADO */
 .tabs-container {
   display: flex;
+  justify-content: center; /* Mantém centralizado como você prefere */
   width: 100%;
-  justify-content: flex-start; /* Alinha com o início do Dashboard */
   margin-bottom: 25px;
 }
 
 .tabs {
-  display: flex;
+  display: inline-flex;    /* Faz o fundo cinza envolver apenas os botões */
   align-items: center;
-  gap: 5px;
-  padding: 5px;
-  background: var(--surface); /* Fundo cinza no dark e branco no light */
-  border-radius: 12px;
+  gap: 8px;
+  padding: 6px;
+  background: var(--surface);
+  border-radius: 14px;
   border: 1px solid var(--border);
   overflow-x: auto;
   white-space: nowrap;
@@ -282,28 +279,32 @@
   color: var(--text-light); 
   font-weight: 600; 
   cursor: pointer; 
-  border-radius: 8px;
+  border-radius: 10px;
   white-space: nowrap;
-  outline: none; /* Remove a borda azul feia */
-  transition: 0.2s;
+  outline: none !important; /* Remove o contorno azul de vez */
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* BOTÃO ATIVO (COR DE DESTAQUE) */
+/* BOTÃO ATIVO */
 .tab-btn.active { 
   background: var(--primary) !important; 
-  color: white !important; 
+  color: #ffffff !important; 
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
-/* AJUSTE PARA O MODO CLARO (LIGHT MODE) */
+/* AJUSTE PARA MODO CLARO (LIGHT MODE) */
+body:not([data-theme="dark"]) .tabs {
+  background: #f1f5f9; /* Cinza bem claro para destacar do fundo branco */
+}
+
 body:not([data-theme="dark"]) .tab-btn {
-  color: #64748b; /* Cinza escuro para leitura no fundo branco */
+  color: #475569; /* Texto escuro para leitura no modo claro */
 }
 
-body:not([data-theme="dark"]) .tab-btn:hover {
-  background: #f1f5f9;
-}
-
-/* REMOVE O ESPAÇADOR QUE ESTAVA SOBRANDO */
+/* DESATIVAR QUALQUER ESPAÇADOR ANTIGO */
 .tabs-spacer {
   display: none !important;
 }
