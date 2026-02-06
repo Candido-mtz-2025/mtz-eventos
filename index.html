@@ -11,18 +11,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema MTZ Eventos - V11 Final</title>
-    
+
     <link rel="manifest" href="./manifest.json?v=123">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    
-    
+
     <script src="https://accounts.google.com/gsi/client" async defer></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <style>
+<style>
         /* === ESTILO V9: CLEAN & MODERN === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -238,230 +237,31 @@
         .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
-/* === ESTILO DAS ABAS (FINAL E CORRIGIDO) === */
+        /* ABAS */
+        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
+        .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-/* 1. Container Centralizado */
-.tabs-container {
-  display: flex;
-  justify-content: flex-start; /* ALINHA A ESQUERDA, JUNTO COM O DASHBOARD */
-  width: 100%;
-  margin-bottom: 25px;
-}
+        /* OUTROS */
+        header .container { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
+        .logo h1 { font-size: 1.6rem; color: var(--text) !important; margin: 0; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .sync-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
+        .sync-online { background: #dcfce7; color: #166534; }
+        .sync-offline { background: #f1f5f9; color: #475569; }
+        .sync-saving { background: #fff7ed; color: #9a3412; }
+        
+        #toast { visibility: hidden; min-width: 250px; background-color: #1f2937; color: #fff; text-align: center; border-radius: 12px; padding: 16px; position: fixed; z-index: 6000; left: 50%; bottom: 30px; transform: translateX(-50%); opacity: 0; transition: 0.3s; }
+        #toast.show { visibility: visible; bottom: 40px; opacity: 1; }
 
-/* 2. Barra de Fundo (Ajustada ao tamanho dos botões) */
-.tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px;
-  background: var(--surface);
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-/* 3. Botões */
-.tab-btn { 
-  background: transparent; 
-  border: none; 
-  padding: 10px 20px; 
-  color: var(--text-light); 
-  font-weight: 600; 
-  cursor: pointer; 
-  border-radius: 10px;
-  white-space: nowrap;
-  outline: none !important; /* Remove borda azul */
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 4. Botão Ativo */
-.tab-btn.active { 
-  background: var(--primary) !important; 
-  color: #ffffff !important; 
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-}
-
-/* 5. Correção para Modo Claro (Light Mode) */
-body:not([data-theme="dark"]) .tabs {
-  background: #f1f5f9; 
-}
-body:not([data-theme="dark"]) .tab-btn {
-  color: #475569; 
-}
-
-/* 6. CORREÇÃO CRÍTICA: LÓGICA DE ESCONDER/MOSTRAR CONTEÚDO */
-.tab-content { 
-  display: none; /* Esconde tudo por padrão */
-  animation: fadeIn 0.3s;
-} 
-
-.tab-content.active { 
-  display: block; /* Mostra só o que tem a classe active */
-}
-
-/* Remove elementos antigos */
-.tabs-spacer {
-  display: none !important;
-}
-
-/* Animação */
-@keyframes fadeIn { 
-  from { opacity: 0; transform: translateY(5px); } 
-  to { opacity: 1; transform: translateY(0); } 
-}
-
-/* IMPRESSÃO */
-.invoice-box { background: #fff !important; color: #333 !important; padding: 40px; }
-.invoice-table th { background: #000 !important; color: #fff !important; }
-.scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
-#interactive video { width: 100%; height: 100%; object-fit: cover; }
-        /* === OTIMIZAÇÃO DE ESPAÇAMENTO === */
-
-/* Reduz padding dos cards */
-.card, .dash-section, .modal-content, .login-box {
-    padding: 15px !important;  /* Era 25px */
-    margin-bottom: 15px !important;  /* Era 24px */
-}
-
-/* Container mais compacto */
-.container { 
-    padding: 15px !important;  /* Era 20px */
-}
-
-/* Form rows mais próximos */
-.form-row { 
-    gap: 10px !important;  /* Era 20px */
-    margin-bottom: 12px !important;  /* Era 20px */
-}
-
-.form-group { 
-    gap: 4px !important;  /* Era 6px */
-}
-
-/* Inputs mais compactos */
-input, select {
-    padding: 10px 12px !important;  /* Era 12px 15px */
-}
-
-/* Tabelas otimizadas */
-.table th { 
-    padding: 10px 12px !important;  /* Era 14px 20px */
-    font-size: 0.7rem !important;  /* Era 0.75rem */
-}
-
-.table td { 
-    padding: 10px 12px !important;  /* Era 16px 20px */
-    font-size: 0.85rem !important;  /* Era 0.9rem */
-}
-
-/* Dashboard cards menores */
-.dashboard-grid { 
-    gap: 12px !important;  /* Era 20px */
-    margin-bottom: 15px !important;  /* Era 25px */
-}
-
-.stat-card { 
-    padding: 15px !important;  /* Era 25px */
-}
-
-.stat-icon { 
-    width: 40px !important;  /* Era 50px */
-    height: 40px !important;
-    font-size: 18px !important;  /* Era 22px */
-}
-
-/* Modal header compacto */
-.modal-header {
-    margin-bottom: 12px !important;  /* Era 20px */
-    padding-bottom: 10px !important;  /* Era 15px */
-}
-
-.modal-header h3 {
-    font-size: 1.1rem !important;  /* Era 1.2rem */
-}
-
-/* Box carrinho otimizado */
-.box-carrinho {
-    padding: 12px !important;  /* Era 20px */
-    margin-bottom: 12px !important;  /* Era 20px */
-}
-
-#carrinhoList {
-    margin-top: 10px !important;  /* Era 15px */
-    padding: 8px !important;  /* Era 10px */
-}
-
-/* Botões menores */
-.btn { 
-    padding: 8px 14px !important;  /* Era 10px 18px */
-    font-size: 0.85rem !important;  /* Era 0.9rem */
-}
-
-.btn-sm { 
-    padding: 5px 10px !important;  /* Era 6px 12px */
-}
-
-/* Tabs mais compactas */
-.tabs {
-    padding: 4px !important;  /* Era 6px */
-    gap: 5px !important;  /* Era 8px */
-    margin-bottom: 15px !important;
-}
-
-.tab-btn { 
-    padding: 8px 16px !important;  /* Era 10px 20px */
-}
-
-/* Labels menores */
-label { 
-    font-size: 0.8rem !important;  /* Era 0.85rem */
-    margin-left: 0 !important;  /* Era 2px */
-}
-
-/* Mobile ainda mais compacto */
-@media (max-width: 768px) {
-    .container { 
-        padding: 10px !important;  /* Era 15px */
-        padding-bottom: 70px !important;  /* Era 80px */
-    }
-    
-    .card, .dash-section, .modal-content {
-        padding: 12px !important;  /* Era padrão */
-        margin-bottom: 10px !important;
-    }
-    
-    .form-row { 
-        gap: 8px !important;
-    }
-    
-    .dashboard-grid { 
-        gap: 10px !important;
-    }
-    
-    .stat-card { 
-        padding: 12px !important;  /* Era 20px */
-    }
-    
-    .table th, .table td { 
-        padding: 8px 6px !important;  /* Era 12px 10px */
-        font-size: 0.8rem !important;
-    }
-}
-
-/* Remove espaços vazios desnecessários */
-h3 {
-    margin: 0 0 10px 0 !important;
-}
-
-/* Reduz altura mínima do modal */
-.modal-content {
-    max-height: 92vh !important;  /* Era 90vh no mobile */
-}
-
+        /* IMPRESSÃO (Mantido para PDF funcionar) */
+        .invoice-box { background: #fff !important; color: #333 !important; padding: 40px; }
+        .invoice-table th { background: #000 !important; color: #fff !important; }
+        .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
+        #interactive video { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
@@ -861,7 +661,8 @@ h3 {
 
     <div id="toast"></div>
 
-    <script>
+    
+<script>
     // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
     let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
     let logsAuditoria = []; // NOVO: Sistema de auditoria
