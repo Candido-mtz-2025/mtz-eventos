@@ -1123,9 +1123,6 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
 
-    // --- RENDERIZAÇÃO DAS TABELAS ---
-    // === RENDERIZAR LOCAÇÕES COM PAGINAÇÃO ===
-// ========================================
 // 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
 // ========================================
 function renderLocacoes() {
@@ -1393,6 +1390,33 @@ function renderEstoque() {
   tbody.innerHTML = '';
   tbody.appendChild(fragment);
 }
+
+// --- RENDERIZAR DEVOLUÇÕES (HISTÓRICO) ---
+function renderDevolucoes() {
+    const tbody = document.getElementById('tblDevolucoes'); 
+    if(!tbody) return;
+    
+    // Pega as últimas 20 devoluções (do mais recente pro mais antigo)
+    const lista = devolucoes.slice().reverse().slice(0, 20);
+    
+    tbody.innerHTML = lista.map(d => {
+        const l = locacoes.find(x => x.id === d.locacaoId);
+        // Tenta achar o cliente no contrato ou usa ID 0
+        const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
+        
+        return `<tr>
+            <td><div style="font-weight:600;">${c ? c.nome : 'Cliente Removido'}</div></td>
+            <td>${formatarData(d.dataDevolucao)}</td>
+            <td><span class="badge badge-success">Concluído</span></td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})">
+                    <i class="bi bi-printer"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+    
 // --- TIPOS (RECOLOCAR) ---
 function renderTipos() {
     const tbody = document.getElementById('tblTipos');
@@ -1494,93 +1518,6 @@ function renderTudo() {
         // 3. Busca a peça
         var p = pecas.find(function(x) { return x.id == id; });
         if (!p) return;
-
-        // --- TRAVA DE ESTOQUE (DENTRO DA FUNÇÃO - CORRETO) ---
-        var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
-        var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
-        var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
-
-        if (qtdTotalSolicitada > p.disponivel) {
-            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel}.`, "erro");
-        }
-
-        // 4. Adiciona ao carrinho
-        if (itemNoCarrinho) {
-            itemNoCarrinho.quantidade += qtd;
-        } else {
-            carrinhoLocacao.push({
-                pecaId: p.id, 
-                nome: p.nome, 
-                valor: parseFloat(p.valor), 
-                quantidade: qtd
-            });
-        }
-        
-        // 5. Gera HTML
-        var htmlLista = '';
-        for (var i = 0; i < carrinhoLocacao.length; i++) {
-            var item = carrinhoLocacao[i];
-            var totalItem = (item.valor * item.quantidade).toFixed(2);
-            htmlLista += '<div class="item-carrinho">';
-            htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
-            htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
-            htmlLista += '</div>';
-        }
-
-        document.getElementById('carrinhoList').innerHTML = htmlLista;
-        mostrarToast("Item adicionado!");
-
-        // 6. LIMPA E FOCA PARA O PRÓXIMO
-        document.getElementById('inputBuscaPeca').value = ""; 
-        document.getElementById('aluguelItemSelect').value = ""; 
-        document.getElementById('aluguelQtd').value = "1";
-        document.getElementById('avisoEstoque').innerText = "";
-        document.getElementById('inputBuscaPeca').focus();
-    }
-
-    // === NOVAS FUNÇÕES DE BUSCA ===
-    function filtrarItensLocacao() {
-        const termo = document.getElementById('inputBuscaPeca').value.toLowerCase();
-        const listaDiv = document.getElementById('listaSugestoes');
-        
-        if (termo.length < 1) {
-            listaDiv.classList.remove('ativo');
-            return;
-        }
-
-        const filtrados = pecas.filter(p => 
-            (p.nome && p.nome.toLowerCase().includes(termo)) || 
-            (p.codigo && p.codigo.toLowerCase().includes(termo))
-        );
-
-        if (filtrados.length === 0) {
-            listaDiv.innerHTML = '<div class="sugestao-item" style="color:red">Nenhum item encontrado.</div>';
-        } else {
-            listaDiv.innerHTML = filtrados.map(p => `
-                <div class="sugestao-item" onclick="selecionarItemBusca(${p.id}, '${p.nome.replace(/'/g, "\\'")}')">
-                    <span class="sugestao-nome">${p.nome}</span>
-                    <span class="sugestao-detalhe">Disp: ${p.disponivel}</span>
-                </div>
-            `).join('');
-        }
-        listaDiv.classList.add('ativo');
-    }
-
-    function selecionarItemBusca(id, nome) {
-        document.getElementById('inputBuscaPeca').value = nome;
-        document.getElementById('aluguelItemSelect').value = id;
-        document.getElementById('listaSugestoes').classList.remove('ativo');
-        atualizarLimiteEstoque(); 
-    }
-
-    // Fecha a lista ao clicar fora
-    document.addEventListener('click', function(e) {
-        const lista = document.getElementById('listaSugestoes');
-        const input = document.getElementById('inputBuscaPeca');
-        if (lista && e.target !== input && e.target !== lista) {
-            lista.classList.remove('ativo');
-        }
-    });
 
     // --- FINALIZAR LOCAÇÃO ---
     function finalizarLocacao() { 
