@@ -2039,7 +2039,9 @@ function tentarRecuperacaoAutomatica() {
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-// --- EXCEL INTELIGENTE (VERSÃO ORGANIZADA E MODULAR) ---
+    // ==========================================================
+    // INÍCIO DA FUNÇÃO EXCEL INTELIGENTE (COPIE DAQUI)
+    // ==========================================================
     function processarExcelInteligente(input) {
         if(!input.files || !input.files[0]) return;
         
@@ -2049,7 +2051,8 @@ function tentarRecuperacaoAutomatica() {
                 // 1. Leitura do Arquivo
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
                 const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
                 if(!rows.length) return;
@@ -2057,35 +2060,30 @@ function tentarRecuperacaoAutomatica() {
 
                 // 2. Variáveis de Controle
                 let stats = { importados: 0, categorias: 0 };
-                let catAtualId = garantirCategoriaGeral(); // Começa com categoria Geral
+                let catAtualId = garantirCategoriaGeral(); 
 
                 // 3. Loop linha por linha
                 rows.forEach(row => {
                     if (!row || row.length === 0) return;
                     
-                    // Extrai dados brutos da linha
                     const dados = {
                         nome: row[0] ? String(row[0]).trim() : "",
-                        colAno: row[1], // Coluna B (geralmente tem o ano 2026 nos títulos)
-                        colQtd: row[3]  // Coluna D (Soma)
+                        colAno: row[1], 
+                        colQtd: row[3]  
                     };
 
-                    // A) É Cabeçalho de Categoria? (Ex: "BOX Q15", "2026")
                     if (ehCabecalhoCategoria(dados)) {
                         catAtualId = definirOuCriarCategoria(dados.nome);
-                        return; // Pula para a próxima linha
+                        return; 
                     }
 
-                    // B) É um Item para cadastrar?
                     if (ehItemValido(dados)) {
                         const nomeFormatado = aplicarRegraMedidas(dados.nome);
                         const quantidade = definirQuantidade(dados);
-                        
                         cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
                     }
                 });
 
-                // 4. Finalização
                 finalizarImportacao(stats);
 
             } catch(err) { 
@@ -2095,12 +2093,9 @@ function tentarRecuperacaoAutomatica() {
         };
         reader.readAsArrayBuffer(input.files[0]);
 
-        // ============================================================
-        // === FUNÇÕES AJUDANTES (Aqui está a organização lógica) ===
-        // ============================================================
+        // === FUNÇÕES AJUDANTES INTERNAS ===
 
         function ehCabecalhoCategoria(d) {
-            // Se tiver "2026" na coluna B, é um título de categoria
             return d.colAno == 2026 || String(d.colAno).includes("2026");
         }
 
@@ -2120,7 +2115,6 @@ function tentarRecuperacaoAutomatica() {
         function definirOuCriarCategoria(nomeBruto) {
             const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
             let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
-            
             if (!cat) {
                 cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
                 tipos.push(cat);
@@ -2130,26 +2124,24 @@ function tentarRecuperacaoAutomatica() {
         }
 
         function aplicarRegraMedidas(nome) {
-            // Verifica se é apenas número/ponto/vírgula (ex: "0.85", "1.5")
             if (/^[\d.,]+$/.test(nome)) {
                 let valor = parseFloat(nome.replace(',', '.'));
                 if (!isNaN(valor)) {
-                    if (valor < 1) return Math.round(valor * 100) + 'cm'; // Ex: 0.85 vira 85cm
-                    return valor + 'm'; // Ex: 1.5 vira 1.5m
+                    if (valor < 1) return Math.round(valor * 100) + 'cm'; 
+                    return valor + 'm'; 
                 }
             }
-            return nome; // Se for texto (ex: "Parafuso"), devolve igual
+            return nome; 
         }
 
         function definirQuantidade(d) {
-            let q = parseInt(d.colQtd);       // Tenta coluna D
-            if (isNaN(q)) q = parseInt(d.colAno); // Tenta coluna B
+            let q = parseInt(d.colQtd);       
+            if (isNaN(q)) q = parseInt(d.colAno); 
             return isNaN(q) ? 0 : q;
         }
 
         function cadastrarItemSeNovo(nome, qtd, catId) {
-            // AQUI ESTÁ A CORREÇÃO: Verifica nome + categoria
-            // Isso permite ter "2m" no Q15 e "2m" no Q30 sem dar conflito
+            // CORREÇÃO: Permite nomes iguais se forem de categorias diferentes
             const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
 
             if (!existe) {
@@ -2173,7 +2165,10 @@ function tentarRecuperacaoAutomatica() {
             sincronizar('salvar');
             mostrarToast(`Concluído! ${s.importados} novos itens em ${s.categorias} novas categorias.`);
         }
-    }
+    } 
+    // ==========================================================
+    // FIM DA FUNÇÃO (GARANTA QUE ESTA CHAVE } ESTEJA AQUI)
+    // ==========================================================
     // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
     function getHeaderMTZ() {
         return `
