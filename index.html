@@ -896,7 +896,75 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
     locacoes: 1
     };
     const ITENS_POR_PAGINA = 50;
+// === FUNÇÃO DE BUSCA/AUTOCOMPLETE (CORRIGIDA E MOVIDA PARA O TOPO) ===
+function filtrarItensLocacao() {
+    const termoInput = document.getElementById('inputBuscaPeca');
+    const lista = document.getElementById('listaSugestoes');
+    
+    if (!termoInput || !lista) return;
 
+    const termo = termoInput.value.toLowerCase();
+    lista.innerHTML = '';
+
+    if (termo.length < 2) {
+        lista.classList.remove('ativo');
+        return;
+    }
+
+    // Filtra pecas
+    const filtrados = pecas.filter(p => 
+        (p.nome && p.nome.toLowerCase().includes(termo)) || 
+        (p.codigo && p.codigo.toLowerCase().includes(termo))
+    );
+
+    if (filtrados.length === 0) {
+        lista.classList.remove('ativo');
+        return;
+    }
+
+    filtrados.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'sugestao-item';
+        const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
+        item.innerHTML = `
+            <span>${p.nome}</span>
+            <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
+                (Disp: ${p.disponivel})
+            </span>
+        `;
+        item.onclick = function() {
+            document.getElementById('inputBuscaPeca').value = p.nome;
+            document.getElementById('aluguelItemSelect').value = p.id;
+            document.getElementById('aluguelQtd').focus();
+            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
+            lista.classList.remove('ativo');
+        };
+        lista.appendChild(item);
+    });
+
+    lista.classList.add('ativo');
+}
+
+// Fecha a lista se clicar fora
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.form-group')) {
+        const lista = document.getElementById('listaSugestoes');
+        if(lista) lista.classList.remove('ativo');
+    }
+});
+
+// === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
+function renderTudo() {
+    if(typeof renderLocacoes === 'function') renderLocacoes();
+    if(typeof renderLocadores === 'function') renderLocadores();
+    if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderDevolucoes === 'function') renderDevolucoes();
+    if(typeof renderTipos === 'function') renderTipos();
+    if(typeof renderStats === 'function') renderStats();
+    if(typeof updateSelects === 'function') updateSelects();
+    if(typeof renderLogs === 'function') renderLogs();
+    if(typeof renderConfig === 'function') renderConfig();
+}
     // Cache para otimizar buscas
     let cacheDisponibilidade = null;
     let ultimaAtualizacaoCache = 0;
@@ -1442,19 +1510,6 @@ function renderTipos() {
     `).join('');
 }
 
-// --- FUNÇÃO GERAL (CASO FALTE) ---
-function renderTudo() {
-    if(typeof renderLocacoes === 'function') renderLocacoes();
-    if(typeof renderLocadores === 'function') renderLocadores();
-    if(typeof renderEstoque === 'function') renderEstoque();
-    if(typeof renderDevolucoes === 'function') renderDevolucoes();
-    if(typeof renderTipos === 'function') renderTipos();
-    if(typeof renderStats === 'function') renderStats();
-    if(typeof updateSelects === 'function') updateSelects();
-    if(typeof renderLogs === 'function') renderLogs();     // Corrige aba Auditoria
-    if(typeof renderConfig === 'function') renderConfig(); // Corrige aba Config
-}
-
     function renderStats() {
         const elC = document.getElementById('dashClientes');
         if(elC) elC.innerText = locadores.length;
@@ -1527,59 +1582,6 @@ function renderTudo() {
     // --- LÓGICA E FUNÇÕES GERAIS ---
     function mostrarToast(m,t) { const x=document.getElementById("toast");
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
-
-    // === FUNÇÃO QUE FALTAVA: FILTRAR ITENS (AUTOCOMPLETE) ===
-function filtrarItensLocacao() {
-    const termo = document.getElementById('inputBuscaPeca').value.toLowerCase();
-    const lista = document.getElementById('listaSugestoes');
-    lista.innerHTML = '';
-
-    if (termo.length < 2) {
-        lista.classList.remove('ativo');
-        return;
-    }
-
-    const filtrados = pecas.filter(p => 
-        p.nome.toLowerCase().includes(termo) || 
-        p.codigo.toLowerCase().includes(termo)
-    );
-
-    if (filtrados.length === 0) {
-        lista.classList.remove('ativo');
-        return;
-    }
-
-    filtrados.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'sugestao-item';
-        // Mostra Nome e Estoque
-        const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
-        item.innerHTML = `
-            <span>${p.nome}</span>
-            <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
-                (Disp: ${p.disponivel})
-            </span>
-        `;
-        item.onclick = function() {
-            document.getElementById('inputBuscaPeca').value = p.nome;
-            document.getElementById('aluguelItemSelect').value = p.id;
-            document.getElementById('aluguelQtd').focus(); // Pula para quantidade
-            atualizarLimiteEstoque(); // Atualiza maximo permitido
-            lista.classList.remove('ativo');
-        };
-        lista.appendChild(item);
-    });
-
-    lista.classList.add('ativo');
-}
-
-// Fecha a lista se clicar fora
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.form-group')) {
-        const lista = document.getElementById('listaSugestoes');
-        if(lista) lista.classList.remove('ativo');
-    }
-});
     
     // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
     function addItemCarrinho() { 
