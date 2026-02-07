@@ -1451,6 +1451,8 @@ function renderTudo() {
     if(typeof renderTipos === 'function') renderTipos();
     if(typeof renderStats === 'function') renderStats();
     if(typeof updateSelects === 'function') updateSelects();
+    if(typeof renderLogs === 'function') renderLogs();     // Corrige aba Auditoria
+    if(typeof renderConfig === 'function') renderConfig(); // Corrige aba Config
 }
 
     function renderStats() {
@@ -1504,6 +1506,23 @@ function renderTudo() {
         const t = document.getElementById('pecaTipo'); if(t) t.innerHTML=tOpts;
         const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
     } 
+
+    function renderConfig() {
+    // Preenche os inputs com os dados da memória
+    const elRodape = document.getElementById('confRodape');
+    const elTel = document.getElementById('confTel');
+    const elEmail = document.getElementById('confEmail');
+    const elLogo = document.getElementById('previewLogo');
+
+    if (elRodape) elRodape.value = config.rodape || '';
+    if (elTel) elTel.value = config.tel || '';
+    if (elEmail) elEmail.value = config.email || '';
+    
+    // Mostra a logo se existir
+    if (elLogo && config.logo) {
+        elLogo.innerHTML = `<img src="${config.logo}" style="height:50px; border:1px solid #ccc; padding:2px; border-radius:4px;">`;
+    }
+}
 
     // --- LÓGICA E FUNÇÕES GERAIS ---
     function mostrarToast(m,t) { const x=document.getElementById("toast");
