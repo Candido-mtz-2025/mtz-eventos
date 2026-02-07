@@ -1463,44 +1463,7 @@ function renderEstoque() {
   tbody.appendChild(fragment);
 }
 
-function renderDevolucoes() {
-    const tbody = document.getElementById('tblDevolucoes'); 
-    if(!tbody) return;
-    
-    const lista = devolucoes.slice().reverse().slice(0, 20);
-    
-    // ✅ Mostrar mensagem quando vazio
-    if (lista.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" style="text-align:center; padding:30px; color:var(--text-light);">
-                    <i class="bi bi-inbox" style="font-size:3rem; opacity:0.3; display:block; margin-bottom:10px;"></i>
-                    <div style="font-size:1.1rem;">Nenhuma devolução registrada ainda</div>
-                    <small>As devoluções aparecerão aqui quando forem concluídas</small>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    tbody.innerHTML = lista.map(d => {
-        // ... resto do código continua igual
-        const l = locacoes.find(x => x.id === d.locacaoId);
-        // Tenta achar o cliente no contrato ou usa ID 0
-        const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
-        
-        return `<tr>
-            <td><div style="font-weight:600;">${c ? c.nome : 'Cliente Removido'}</div></td>
-            <td>${formatarData(d.dataDevolucao)}</td>
-            <td><span class="badge badge-success">Concluído</span></td>
-            <td class="col-actions">
-                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})">
-                    <i class="bi bi-printer"></i>
-                </button>
-            </td>
-        </tr>`;
-    }).join('');
-}
+function renderDevolucoes() { // 1. Verifica se o elemento existe const tbody = document.getElementById('tblDevolucoes'); if(!tbody) { console.error('❌ Elemento tblDevolucoes não encontrado!'); return; } // 2. Verifica se o array existe if(!Array.isArray(devolucoes)) { console.error('❌ Array devolucoes não existe!'); tbody.innerHTML = '<tr><td colspan="4" style="color:red; text-align:center; padding:20px;">ERRO: Dados não carregados</td></tr>'; return; } // 3. Pega as últimas 20 devoluções const lista = devolucoes.slice().reverse().slice(0, 20); console.log('📋 Devoluções encontradas:', lista.length); // 4. Se estiver vazio, mostra mensagem amigável if (lista.length === 0) { tbody.innerHTML = ` <tr> <td colspan="4" style="text-align:center; padding:30px; color:var(--text-light);"> <i class="bi bi-inbox" style="font-size:3rem; opacity:0.3; display:block; margin-bottom:10px;"></i> <div style="font-size:1.1rem;">Nenhuma devolução registrada ainda</div> <small>As devoluções aparecerão aqui quando forem concluídas</small> </td> </tr> `; return; } // 5. Renderiza as devoluções tbody.innerHTML = lista.map(d => { const l = locacoes.find(x => x.id === d.locacaoId); const c = locadores.find(x => x.id === (l ? l.locadorId : 0)); return `<tr> <td><div style="font-weight:600;">${c ? c.nome : 'Cliente Removido'}</div></td> <td>${formatarData(d.dataDevolucao)}</td> <td><span class="badge badge-success">Concluído</span></td> <td class="col-actions"> <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})"> <i class="bi bi-printer"></i> </button> </td> </tr>`; }).join(''); console.log('✅ Devoluções renderizadas com sucesso!'); }
     
 // --- TIPOS (RECOLOCAR) ---
 function renderTipos() {
