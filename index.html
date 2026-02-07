@@ -1235,7 +1235,7 @@ function renderLocacoes() {
     const fragment = document.createDocumentFragment();
     
     itensPagina.forEach(l => {
-        const c = locadores.find(x => x.id === l.locadorId);
+     const c = locadores.find(x => x.id === l.locadorId);
         let badgeClass = l.statusVisual === 'atrasado' ? 'badge-danger' : 
                         l.statusVisual === 'devolvido' ? 'badge-info' : 'badge-success';
         
