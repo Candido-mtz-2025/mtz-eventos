@@ -468,7 +468,7 @@
     <div class="tabs">
         <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
         <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags\"></i> Tipos</button>
+        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
         <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
         <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
         <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
@@ -2137,7 +2137,27 @@ function tentarRecuperacaoAutomatica() {
 
     // --- FUNÇÕES DE EDIÇÃO ---
     function abrirEditarLocador(id) { const c = locadores.find(x => x.id === id); if(!c) return; document.getElementById('editLocId').value = c.id; document.getElementById('editLocNome').value = c.nome; document.getElementById('editLocEmail').value = c.email || ''; document.getElementById('editLocTel').value = c.telefone || ''; document.getElementById('modalEditarLocador').classList.add('active'); }
-    function salvarEdicaoLocador() { const id = parseInt(document.getElementById('editLocId').value); const c = locadores.find(x => x.id === id); if(c) { c.nome = document.getElementById('editLocNome').value; c.email = document.getElementById('editLocEmail').value; c.telefone = document.getElementById('editLocTel').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarLocador').classList.remove('active');registrarLog('cliente', 'criar', `Cliente cadastrado: ${nome}`);registrarLog('cliente', 'criar', `Cliente cadastrado: ${nome}`); mostrarToast("Cliente atualizado!"); } }
+    function salvarEdicaoLocador() { 
+    const id = parseInt(document.getElementById('editLocId').value); 
+    const c = locadores.find(x => x.id === id); 
+    
+    if(c) { 
+        c.nome = document.getElementById('editLocNome').value; 
+        c.email = document.getElementById('editLocEmail').value; 
+        c.telefone = document.getElementById('editLocTel').value; 
+        
+        salvarLocal(); 
+        renderTudo(); 
+        sincronizar('salvar'); 
+        
+        document.getElementById('modalEditarLocador').classList.remove('active');
+        
+        // CORREÇÃO: Usar o nome correto 'c.nome'
+        registrarLog('cliente', 'editar', `Cliente editado: ${c.nome}`);
+        
+        mostrarToast("Cliente atualizado!"); 
+    } 
+}
     
     function abrirEditarTipo(id) { const t = tipos.find(x => x.id === id); if(!t) return; document.getElementById('editTipoId').value = t.id; document.getElementById('editTipoNome').value = t.nome; document.getElementById('editTipoDesc').value = t.desc || ''; document.getElementById('modalEditarTipo').classList.add('active'); }
     function salvarEdicaoTipo() { const id = parseInt(document.getElementById('editTipoId').value); const t = tipos.find(x => x.id === id); if(t) { t.nome = document.getElementById('editTipoNome').value; t.desc = document.getElementById('editTipoDesc').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarTipo').classList.remove('active'); mostrarToast("Tipo atualizado!"); } }
