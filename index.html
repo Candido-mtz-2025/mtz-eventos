@@ -1508,8 +1508,60 @@ function renderTudo() {
     // --- LÓGICA E FUNÇÕES GERAIS ---
     function mostrarToast(m,t) { const x=document.getElementById("toast");
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
+
+    // === FUNÇÃO QUE FALTAVA: FILTRAR ITENS (AUTOCOMPLETE) ===
+function filtrarItensLocacao() {
+    const termo = document.getElementById('inputBuscaPeca').value.toLowerCase();
+    const lista = document.getElementById('listaSugestoes');
+    lista.innerHTML = '';
+
+    if (termo.length < 2) {
+        lista.classList.remove('ativo');
+        return;
+    }
+
+    const filtrados = pecas.filter(p => 
+        p.nome.toLowerCase().includes(termo) || 
+        p.codigo.toLowerCase().includes(termo)
+    );
+
+    if (filtrados.length === 0) {
+        lista.classList.remove('ativo');
+        return;
+    }
+
+    filtrados.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'sugestao-item';
+        // Mostra Nome e Estoque
+        const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
+        item.innerHTML = `
+            <span>${p.nome}</span>
+            <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
+                (Disp: ${p.disponivel})
+            </span>
+        `;
+        item.onclick = function() {
+            document.getElementById('inputBuscaPeca').value = p.nome;
+            document.getElementById('aluguelItemSelect').value = p.id;
+            document.getElementById('aluguelQtd').focus(); // Pula para quantidade
+            atualizarLimiteEstoque(); // Atualiza maximo permitido
+            lista.classList.remove('ativo');
+        };
+        lista.appendChild(item);
+    });
+
+    lista.classList.add('ativo');
+}
+
+// Fecha a lista se clicar fora
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.form-group')) {
+        const lista = document.getElementById('listaSugestoes');
+        if(lista) lista.classList.remove('ativo');
+    }
+});
     
-  // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO ---
     // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
     function addItemCarrinho() { 
         // 1. Pega o ID do input oculto
