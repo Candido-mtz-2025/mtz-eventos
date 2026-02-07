@@ -1463,15 +1463,28 @@ function renderEstoque() {
   tbody.appendChild(fragment);
 }
 
-// --- RENDERIZAR DEVOLUÇÕES (HISTÓRICO) ---
 function renderDevolucoes() {
     const tbody = document.getElementById('tblDevolucoes'); 
     if(!tbody) return;
     
-    // Pega as últimas 20 devoluções (do mais recente pro mais antigo)
     const lista = devolucoes.slice().reverse().slice(0, 20);
     
+    // ✅ Mostrar mensagem quando vazio
+    if (lista.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align:center; padding:30px; color:var(--text-light);">
+                    <i class="bi bi-inbox" style="font-size:3rem; opacity:0.3; display:block; margin-bottom:10px;"></i>
+                    <div style="font-size:1.1rem;">Nenhuma devolução registrada ainda</div>
+                    <small>As devoluções aparecerão aqui quando forem concluídas</small>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     tbody.innerHTML = lista.map(d => {
+        // ... resto do código continua igual
         const l = locacoes.find(x => x.id === d.locacaoId);
         // Tenta achar o cliente no contrato ou usa ID 0
         const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
