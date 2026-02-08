@@ -421,6 +421,25 @@
 .dropdown-sugestoes.ativo {
     display: block;
 }
+    /* ===== FIX: dropdown abaixo do input (Locações) ===== */
+#tab-locacoes .form-group { 
+  position: relative; 
+}
+
+#listaSugestoes.dropdown-sugestoes{
+  position: absolute;
+  top: calc(100% + 6px); /* joga pra baixo do input */
+  left: 0;
+  right: 0;
+  z-index: 9999;         /* garante ficar acima de outros elementos */
+}
+
+/* evita que algum container “corte” o dropdown */
+#tab-locacoes .card,
+#tab-locacoes .box-carrinho{
+  overflow: visible;
+}
+
 .sugestao-item {
     padding: 10px 15px;
     cursor: pointer;
@@ -942,16 +961,52 @@ function filtrarItensLocacao() {
         return;
     }
 
-    const filtrados = pecas.filter(p => {
-        const nome = normalizar(p.nome);
-        const codigo = normalizar(p.codigo);
-        const medida = normalizar(p.medida);
-        const tipo = tipos.find(t => t.id === p.tipoId);
-        const categoria = tipo ? normalizar(tipo.nome) : '';
-        
-        return nome.includes(termo) || codigo.includes(termo) || 
-               categoria.includes(termo) || medida.includes(termo);
-    });
+    const termos = termo.split(/\s+/).filter(Boolean);
+
+const scorePeca = (p) => {
+  const nome = normalizar(p.nome);
+  const codigo = normalizar(p.codigo);
+  const medida = normalizar(p.medida);
+  const tipo = tipos.find(t => t.id === p.tipoId);
+  const categoria = tipo ? normalizar(tipo.nome) : '';
+
+  // junta tudo numa frase pra pesquisar
+  const alvo = `${nome} ${codigo} ${categoria} ${medida}`.trim();
+
+  // precisa bater TODOS os termos digitados
+  const ok = termos.every(t => alvo.includes(t));
+  if (!ok) return -1;
+
+  // ranking (quanto maior, melhor)
+  let score = 0;
+
+  // prioridade forte: começa com o termo inteiro
+  if (nome.startsWith(termo)) score += 100;
+  if (codigo.startsWith(termo)) score += 90;
+
+  // depois: contém o termo inteiro
+  if (nome.includes(termo)) score += 60;
+  if (codigo.includes(termo)) score += 50;
+
+  // bônus: termos individuais começando
+  termos.forEach(t => {
+    if (nome.startsWith(t)) score += 15;
+    if (codigo.startsWith(t)) score += 10;
+  });
+
+  // bônus: tem estoque
+  score += (p.disponivel > 0 ? 5 : 0);
+
+  return score;
+};
+
+const filtrados = pecas
+  .map(p => ({ p, s: scorePeca(p) }))
+  .filter(x => x.s >= 0)
+  .sort((a,b) => b.s - a.s)
+  .slice(0, 20)   // limita pra não pesar
+  .map(x => x.p);
+
 
     if (filtrados.length === 0) {
         lista.innerHTML = '<div class="sugestao-item"><span>Nenhum item encontrado</span></div>';
