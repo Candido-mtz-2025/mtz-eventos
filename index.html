@@ -22,18 +22,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
-    /* Força a tabela a alinhar com as bordas dos cards acima */
-#tab-locacoes .card {
-    padding: 25px !important; /* Mantém o padrão de respiro dos outros cards */
-}
-
-.table-responsive {
-    width: 100% !important;
-    margin: 0 !important;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-}
 
 .table {
     width: 100% !important;
@@ -447,6 +435,18 @@
     font-size: 0.8rem;
     font-weight: bold;
     color: var(--primary);
+}
+        /* Força a tabela a alinhar com as bordas dos cards acima */
+#tab-locacoes .card {
+    padding: 25px !important; /* Mantém o padrão de respiro dos outros cards */
+}
+
+.table-responsive {
+    width: 100% !important;
+    margin: 0 !important;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
 }
     </style>
 </head>
@@ -933,19 +933,15 @@ function filtrarItensLocacao() {
     const lista = document.getElementById('listaSugestoes');
     if (!termoInput || !lista) return;
 
-    // Normalização para ignorar acentos e maiúsculas [cite: 307]
     const normalizar = (t) => t ? t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const termo = normalizar(termoInput.value);
     
     lista.innerHTML = '';
-    
-    // Busca a partir de 1 caractere para não ignorar códigos curtos [cite: 217]
-    if (termo.length < 1) {
+    if (termo.length < 1) { // Busca a partir da 1ª letra [cite: 217]
         lista.classList.remove('ativo');
         return;
     }
 
-    // Filtra pecas comparando Nome, Código, Medida e o Nome da Categoria [cite: 308, 309]
     const filtrados = pecas.filter(p => {
         const nome = normalizar(p.nome);
         const codigo = normalizar(p.codigo);
@@ -953,10 +949,9 @@ function filtrarItensLocacao() {
         const tipo = tipos.find(t => t.id === p.tipoId);
         const categoria = tipo ? normalizar(tipo.nome) : '';
 
-        return nome.includes(termo) || 
-               codigo.includes(termo) || 
-               categoria.includes(termo) ||
-               medida.includes(termo);
+        // Procura em todas as referências possíveis [cite: 218, 308]
+        return nome.includes(termo) || codigo.includes(termo) || 
+               categoria.includes(termo) || medida.includes(termo);
     });
 
     if (filtrados.length === 0) {
@@ -965,30 +960,21 @@ function filtrarItensLocacao() {
         return;
     }
 
-    // Cria os itens da lista [cite: 220]
     filtrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
-        const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
-        
-        item.innerHTML = `
-            <span>${p.nome} <small style="opacity:0.6">[${p.codigo || 'S/C'}]</small></span>
-            <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
-                (Disp: ${p.disponivel})
-            </span>
-        `;
-        
+        item.innerHTML = `<span>${p.nome} <small style="opacity:0.6">[${p.codigo}]</small></span>
+                          <span class="sugestao-estoque">(Disp: ${p.disponivel})</span>`;
         item.onclick = function() {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
             document.getElementById('aluguelQtd').focus();
-            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque(); [cite: 221]
-            lista.classList.remove('ativo'); [cite: 222]
+            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
+            lista.classList.remove('ativo');
         };
         lista.appendChild(item);
     });
-
-    lista.classList.add('ativo'); [cite: 223]
+    lista.classList.add('ativo'); [cite: 222]
 }
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
@@ -1021,13 +1007,6 @@ const buscarComDebounce = debounce(function(tipo) {
     if (tipo === 'estoque') renderEstoque();
 }, 300);
 
-        // ============================================
-// SISTEMA DE AUDITORIA - LOGS COMPLETOS
-// ============================================
-
-/**
- * Registra uma ação no sistema de auditoria
- */
 function registrarLog(tipo, acao, descricao, dados = null) {
     const log = {
         id: Date.now(),
@@ -2916,6 +2895,7 @@ document.addEventListener('keydown', function(e) {
         if (lista) lista.classList.remove('ativo');
     }
 });
+
     </script>
 </body>
 </html>
