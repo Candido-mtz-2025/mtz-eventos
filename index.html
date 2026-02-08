@@ -552,12 +552,15 @@
             </div>
 
             <div id="tab-estoque" class="tab-content">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0;">Stock de Peças</h2>
-                    <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
-                </div>
-                <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
-                
+               <div class="card" style="display:flex; justify-content: space-between; align-items:center; gap:12px;">
+  <h3 style="margin:0;">Stock de Peças</h3>
+
+  <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()">
+    <i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel
+  </button>
+
+  <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
+</div>
                 <div class="card">
                     <h3>Novo Item</h3>
                     <div class="form-row">
