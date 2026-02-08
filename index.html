@@ -948,8 +948,7 @@ function filtrarItensLocacao() {
         const medida = normalizar(p.medida);
         const tipo = tipos.find(t => t.id === p.tipoId);
         const categoria = tipo ? normalizar(tipo.nome) : '';
-
-        // Procura em todas as referências possíveis [cite: 218, 308]
+        
         return nome.includes(termo) || codigo.includes(termo) || 
                categoria.includes(termo) || medida.includes(termo);
     });
@@ -974,7 +973,7 @@ function filtrarItensLocacao() {
         };
         lista.appendChild(item);
     });
-    lista.classList.add('ativo'); [cite: 222]
+    lista.classList.add('ativo');
 }
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
