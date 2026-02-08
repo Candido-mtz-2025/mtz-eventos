@@ -5,7 +5,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#3b82f6">
-    <link rel="manifest" href="./manifest.json">
+   <link rel="manifest" href="./manifest.json?v=123">
     <link rel="icon" type="image/png" href="./logo.png">
     <link rel="apple-touch-icon" href="./logo.png">
     <meta charset="UTF-8">
@@ -433,321 +433,440 @@
     </style>
 </head>
 <body>
-    <!-- LOGIN (necessário porque o JS usa #loginArea) -->
-<div id="loginArea">
-  <div class="login-box">
-    <h2 style="margin-top:0;">Sistema MTZ Eventos</h2>
-    <p style="opacity:.8; margin-top:6px;">Escolha como entrar:</p>
 
-    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:15px;">
-      <button class="btn btn-primary" onclick="fazerLoginGoogle()">
-        <i class="bi bi-google"></i> Entrar com Google
-      </button>
-      <button class="btn btn-secondary" onclick="entrarOffline()">
-        <i class="bi bi-wifi-off"></i> Entrar Offline
-      </button>
+    <div id="loginArea">
+        <div class="login-box">
+            <h1 style="color:var(--primary); margin-bottom:5px;">MTZ Eventos</h1>
+            <p style="margin-bottom: 30px; color:var(--text-light);">Sistema de Gestão & Locação V11</p>
+            
+            <button id="btnLoginGoogle" class="btn" style="width: 100%; margin-bottom: 15px; background-color: #1e293b; color: white; justify-content: center; padding: 14px;" onclick="fazerLoginGoogle()">
+                <i class="bi bi-google"></i> Entrar com Google
+            </button>
+            <button class="btn" style="width: 100%; background-color: var(--primary); color: white; justify-content: center; padding: 14px;" onclick="entrarOffline()">
+                <i class="bi bi-hdd"></i> Usar Offline (Local)
+            </button>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- APP (necessário porque o JS usa #appArea) -->
-<div id="appArea" style="display:none;">
-  <header>
-    <div class="container" style="padding: 20px 0;">
-      <div class="logo">
-        <h1>MTZ Eventos</h1>
-      </div>
+    <div id="appArea" style="display: none;">
+        <header>
+            <div class="container">
+                <div class="logo">
+                    <h1>MTZ Eventos</h1>
+                    <p style="font-size:0.85rem; color:var(--text-light);">Painel de Controle</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="bi bi-moon"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="sair()"><i class="bi bi-box-arrow-right"></i></button>
+                </div>
+            </div>
+        </header>
 
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-        <span id="syncBadge" class="sync-badge sync-offline">
-          <i class="bi bi-cloud"></i> <span id="syncText">Offline</span>
-        </span>
-
-        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()">
-          <i class="bi bi-moon-stars"></i> Tema
-        </button>
-
-        <button class="btn btn-danger btn-sm" onclick="sair()">
-          <i class="bi bi-box-arrow-right"></i> Sair
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <div class="container">
-    <!-- Barra de abas -->
-    <div class="tabs-container">
-      <div class="tabs">
-        <button class="tab-btn active" onclick="abrirTab('estoque')"><i class="bi bi-box"></i> Estoque</button>
+        <div class="container">
+               <div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
+        <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
+        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
+        <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
         <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
         <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+        <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
         <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
-      </div>
     </div>
-  </div>
 </div>
 
-<!-- Toast (necessário porque mostrarToast usa #toast) -->
-<div id="toast"></div>
+            <div id="tab-dashboard" class="tab-content active">
+                <div class="dashboard-grid">
+                    <div class="stat-card card-blue" onclick="abrirTab('locadores')">
+                        <div class="stat-info"><h3 id="dashClientes">0</h3><p>Clientes</p></div>
+                        <div class="stat-icon"><i class="bi bi-people"></i></div>
+                    </div>
+                    <div class="stat-card card-orange" onclick="irParaLocacoes('todos')">
+                        <div class="stat-info"><h3 id="dashLocacoes">0</h3><p>Locações Ativas</p></div>
+                        <div class="stat-icon"><i class="bi bi-cart"></i></div>
+                    </div>
+                    <div class="stat-card card-green">
+                        <div class="stat-info"><h3 id="dashFaturamento" style="font-size:1.4rem;">R$ 0,00</h3><p>Receita</p></div>
+                        <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
+                    </div>
+                    <div class="stat-card card-purple" onclick="irParaLocacoes('atrasado')">
+                        <div class="stat-info"><h3 id="dashAtrasos">0</h3><p>Atrasos</p></div>
+                        <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                    </div>
+                </div>
+                <div class="dashboard-lower">
+                    <div class="dash-section">
+                        <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
+                        <div class="table-responsive">
+                            <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th style="text-align:center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
+                        </div>
+                    </div>
+                    <div class="dash-section">
+                        <h3><i class="bi bi-box-seam"></i> Avisos</h3>
+                        <div id="listEstoqueBaixo"><small style="color:var(--text-light)">Sistema operando normalmente.</small></div>
+                    </div>
+                </div>
+            </div>
 
-<!-- Modais mínimos que seu JS chama (evita erro se você já tem em outro trecho) -->
-<div id="modalRelatorio" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Documento</h3>
-      <button class="btn-close-modal" onclick="fecharModal('modalRelatorio')"><i class="bi bi-x"></i></button>
-    </div>
-    <div id="printArea"></div>
-    <div style="display:flex; gap:10px; margin-top:15px; justify-content:flex-end;">
-      <button class="btn btn-secondary" onclick="fecharModal('modalRelatorio')">Fechar</button>
-      <button class="btn btn-primary" onclick="gerarPDF()"><i class="bi bi-filetype-pdf"></i> PDF</button>
-    </div>
-  </div>
-</div>
+            <div id="tab-locadores" class="tab-content">
+                <div class="card">
+                    <h3>Novo Cliente</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Nome Completo</label><input type="text" id="locNome" placeholder="Ex: João Silva"></div>
+                        <div class="form-group"><label>CPF / CNPJ</label><input type="text" id="locDoc" placeholder="Documento"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Endereço</label><input type="text" id="locEnd"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Email</label><input type="email" id="locEmail"></div>
+                        <div class="form-group"><label>Telefone</label><input type="tel" id="locTel"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
+                </div>
+                <div class="card">
+                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
+                            <tbody id="tblLocadores"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-<div id="modalScanner" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Scanner</h3>
-      <button class="btn-close-modal" onclick="fecharScanner()"><i class="bi bi-x"></i></button>
-    </div>
-    <div class="scanner-box" id="interactive"></div>
-    <div style="display:flex; justify-content:flex-end; margin-top:15px;">
-      <button class="btn btn-secondary" onclick="fecharScanner()">Fechar</button>
-    </div>
-  </div>
-</div>
+            <div id="tab-tipos" class="tab-content">
+                <div class="card">
+                    <h3>Novo Tipo</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Nome</label><input type="text" id="tipoNome"></div>
+                        <div class="form-group"><label>Descrição</label><input type="text" id="tipoDesc"></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="salvarTipo()">Salvar Tipo</button>
+                </div>
+                <div class="card">
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Nome</th><th>Descrição</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblTipos"></tbody></table></div>
+                </div>
+            </div>
 
-<!-- ===================== -->
-<!-- ABA ESTOQUE (CORRIGIDA) -->
-<!-- ===================== -->
-<div id="tab-estoque" class="tab-content">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-    <h2 style="margin:0;">Stock de Peças</h2>
-    <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()">
-      <i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel
+            <div id="tab-estoque" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">Stock de Peças</h2>
+                    <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
+                </div>
+                <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
+                
+                <div class="card">
+                    <h3>Novo Item</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
+                        <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
+                        <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
+                        <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
+                        <div class="form-group"><label>Cód Barras</label><div style="display:flex; gap:5px;"><input type="text" id="pecaBar"><button class="btn btn-secondary" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button></div></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+                </div>
+                   <div class="card">
+  <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
+
+  <!-- BOTÃO AQUI (entre o input e a tabela) -->
+  <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+    <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
+      <i class="bi bi-trash"></i> Excluir selecionados
     </button>
   </div>
 
-  <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:40px;">
+            <input type="checkbox" id="chkAllEstoque"
+                   onchange="toggleSelecionarTodosEstoque(this.checked)">
+          </th>
+          <th>Img</th>
+          <th>Cód</th>
+          <th>Tipo</th>
+          <th>Nome</th>
+          <th>Valor</th>
+          <th>Estoque</th>
+          <th class="col-actions">Ações</th>
+        </tr>
+      </thead>
+    <tbody id="tblEstoque"></tbody>
+            </table>
+          </div>
+        </div> 
+      </div> 
+    </div> <div id="tab-locacoes" class="tab-content">
+        <div class="card">
+            <h3>Nova Locação</h3>
+            <div class="form-row">
+                <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
+                <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
+                <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+            </div>
+                    <div class="box-carrinho">
+                        <h4 style="margin-top:0; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
+                            <i class="bi bi-cart-plus" style="color:var(--primary)"></i> Itens do Pedido
+                        </h4>
+                        
+                        <div class="form-row" style="align-items: flex-end;">
+                        
+                        <div class="form-group" style="flex: 4; position: relative;">
+                            <label>Buscar Item (Digite para filtrar)</label>
+                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
+                            <input type="hidden" id="aluguelItemSelect">
+                            <div id="listaSugestoes" class="dropdown-sugestoes"></div>
+                        </div>
 
+                        <div class="form-group" style="flex: 1; min-width: 70px;">
+                            <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
+                            <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+                        </div>
+
+                        <div class="form-group" style="flex: 2; display:flex; gap: 5px; flex-direction: row;">
+                            <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
+                                <i class="bi bi-plus-lg"></i> Add
+                            </button>
+                            <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                                <i class="bi bi-qr-code"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="carrinhoList">
+                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+                    </div>
+                </div>
+
+                
+               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+                    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
+                    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
+                    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
+                    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
+                </div> 
+
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblLocacoes"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div> <div id="tab-devolucoes" class="tab-content">
+                <div class="card">
+                    <h3>Registrar Devolução</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
+                        <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
+                    </div>
+                    <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
+                        <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
+                    </div>
+                    <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Confirmar Baixa</button>
+                </div>
+                <div class="card">
+                    <h3>Histórico Recente</h3>
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Cliente</th><th>Data</th><th>Status</th><th class="col-actions">Recibo</th></tr></thead><tbody id="tblDevolucoes"></tbody></table></div>
+                </div>
+            </div>
+
+            <div id="tab-config" class="tab-content">
+                <div class="card">
+                    <h3>Personalização</h3>
+                    <div class="form-row"><div class="form-group"><label>Rodapé PDF</label><input type="text" id="confRodape"></div></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Telefone</label><input type="text" id="confTel"></div>
+                        <div class="form-group"><label>Email</label><input type="email" id="confEmail"></div>
+                    </div>
+                    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
+                    <div id="previewLogo" style="margin: 10px 0;"></div>
+                    <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
+                </div>
+                
+                <div class="card">
+                    <h3>Dados & Backup</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
+                        <button class="btn btn-warning" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
+                        <button class="btn btn-danger" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
+                        
+                        <input type="file" id="fileRestore" style="display: none;" onchange="restaurarBackup(this)">
+                    </div>
+                </div>
+            </div>
+<!-- ABA AUDITORIA -->
+<div id="tab-auditoria" class="tab-content">
   <div class="card">
-    <h3>Novo Item</h3>
 
-    <div class="form-row">
-      <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
-      <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
-    </div>
+    <div class="audit-header">
+      <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
 
-    <div class="form-row">
-      <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
-      <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
-      <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
-      <div class="form-group">
-        <label>Cód Barras</label>
-        <div style="display:flex; gap:5px;">
-          <input type="text" id="pecaBar">
-          <button class="btn btn-secondary" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button>
-        </div>
+      <div class="audit-actions">
+        <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
+          <i class="bi bi-download"></i> Exportar
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+          <i class="bi bi-trash"></i> Limpar
+        </button>
       </div>
     </div>
 
-    <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+  <div class="audit-filters">
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos"     onclick="renderLogs('todos')">Todos</button>
+  <button class="btn btn-sm btn-success   audit-filter" data-filter="cliente"   onclick="renderLogs('cliente')">Clientes</button>
+  <button class="btn btn-sm btn-success   audit-filter" data-filter="item"      onclick="renderLogs('item')">Itens</button>
+  <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao"   onclick="renderLogs('locacao')">Locações</button>
+  <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema"   onclick="renderLogs('sistema')">Sistema</button>
+</div>
+
+      
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>DATA/HORA</th>
+            <th>TIPO</th>
+            <th>AÇÃO</th>
+            <th>DESCRIÇÃO</th>
+            <th>USUÁRIO</th>
+          </tr>
+        </thead>
+        <tbody id="tblLogs"></tbody>
+      </table>
+    </div>
+
+    <div class="audit-footer-info">
+      <small style="color:var(--text-light);">
+        <i class="bi bi-info-circle"></i>
+        <b>Total</b>:
+        <span id="totalLogs">0</span>/1000
+        | <b>Retenção</b>: 90 dias
+      </small>
+    </div>
+
   </div>
+</div>
 
-  <div class="card">
-    <input
-      type="text"
-      id="buscaEstoque"
-      placeholder="🔍 Buscar item..."
-      onkeyup="buscarComDebounce('estoque')"
-      style="margin-bottom:12px;"
-    >
-
-    <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-      <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
-        <i class="bi bi-trash"></i> Excluir selecionados
+    <div id="modalEditarLocador" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Editar Cliente</h3>
+      <button class="btn-close-modal" onclick="fecharModal('modalEditarLocador')">
+        <i class="bi bi-x-lg"></i>
       </button>
     </div>
 
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="width:40px;">
-              <input type="checkbox" id="chkAllEstoque" onchange="toggleSelecionarTodosEstoque(this.checked)">
-            </th>
-            <th>Img</th>
-            <th>Cód</th>
-            <th>Tipo</th>
-            <th>Nome</th>
-            <th>Valor</th>
-            <th>Estoque</th>
-            <th class="col-actions">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tblEstoque"></tbody>
-      </table>
+    <input type="hidden" id="editLocId">
+    <div class="form-group"><label>Nome</label><input type="text" id="editLocNome"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
+    <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
+
+    <div style="margin-top:20px">
+      <button class="btn btn-primary" onclick="salvarEdicaoLocador()" style="width:100%">
+        <i class="bi bi-check-lg"></i> Salvar Alterações
+      </button>
     </div>
   </div>
 </div>
-<!-- /tab-estoque -->
 
-
-<!-- ===================== -->
-<!-- ABA LOCAÇÕES (CORRIGIDA) -->
-<!-- ===================== -->
-<div id="tab-locacoes" class="tab-content">
-  <div class="card">
-    <h3>Nova Locação</h3>
-
-    <div class="form-row">
-      <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
-      <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
-      <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
-    </div>
-
-    <div class="box-carrinho">
-      <h4 style="margin-top:0; margin-bottom:15px; display:flex; align-items:center; gap:8px;">
-        <i class="bi bi-cart-plus" style="color:var(--primary)"></i> Itens do Pedido
-      </h4>
-
-      <div class="form-row" style="align-items:flex-end;">
-        <div class="form-group" style="flex:4; position:relative;">
-          <label>Buscar Item (Digite para filtrar)</label>
-          <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
-          <input type="hidden" id="aluguelItemSelect">
-          <div id="listaSugestoes" class="dropdown-sugestoes"></div>
+    <div id="modalEditarTipo" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Tipo</h3>
+                <button class="btn-close-modal" onclick="fecharModal('modalEditarTipo')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="editTipoId">
+            <div class="form-group"><label>Nome</label><input type="text" id="editTipoNome"></div>
+            <div class="form-group"><label>Descrição</label><input type="text" id="editTipoDesc"></div>
+            <div style="margin-top:20px">
+                <button class="btn btn-primary" onclick="salvarEdicaoTipo()" style="width:100%">Salvar</button>
+            </div>
         </div>
-
-        <div class="form-group" style="flex:1; min-width:70px;">
-          <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
-          <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+    </div>
+    
+    <div id="modalEditarPeca" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Item</h3>
+                <button class="btn-close-modal" onclick="fecharModal('modalEditarPeca')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="editPecaId">
+            <div class="form-row">
+                <div class="form-group"><label>Código</label><input type="text" id="editPecaCod"></div>
+                <div class="form-group"><label>Tipo</label><select id="editPecaTipo"></select></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Nome</label><input type="text" id="editPecaNome"></div>
+                <div class="form-group"><label>Medida</label><input type="text" id="editPecaMedida"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Valor</label><input type="number" id="editPecaValor" step="0.01"></div>
+                <div class="form-group"><label>Qtd</label><input type="number" id="editPecaQtd"></div>
+            </div>
+            <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
+            <div style="margin-top:20px">
+                <button class="btn btn-primary" onclick="salvarEdicaoPeca()" style="width:100%">Salvar</button>
+            </div>
         </div>
+    </div>
 
-        <div class="form-group" style="flex:2; display:flex; gap:5px; flex-direction:row;">
-          <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
-            <i class="bi bi-plus-lg"></i> Add
-          </button>
-          <button class="btn btn-secondary" style="width:50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
-            <i class="bi bi-qr-code"></i>
-          </button>
+    <div id="modalScanner" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Leitor QR</h3>
+                <button class="btn-close-modal" onclick="fecharScanner()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="scanner-box"><div id="interactive" class="viewport"></div></div>
+            <p style="text-align:center;">Aponte a câmera</p>
         </div>
-      </div>
-
-      <div id="carrinhoList">
-        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
-      </div>
+    </div>
+    
+    <div id="modalRelatorio" class="modal">
+        <div class="modal-content" style="max-width: 900px; padding: 0; background: #525659; height: 95vh; display: flex; flex-direction: column;">
+            <div style="padding: 10px 20px; background: #323639; color: white; display: flex; justify-content: space-between; align-items: center;">
+                <span>Visualização de Impressão</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary btn-sm" onclick="gerarPDF()"><i class="bi bi-printer"></i> Salvar PDF</button>
+                    <button class="btn btn-danger btn-sm" onclick="fecharModal('modalRelatorio')">Fechar</button>
+                </div>
+            </div>
+            <div style="flex: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; background: #525659;">
+                <div id="printArea" class="invoice-box"></div>
+            </div>
+        </div>
     </div>
 
-    <button class="btn btn-primary" style="width:100%;" onclick="finalizarLocacao()">
-      Concluir Locação
-    </button>
-  </div>
+    <div id="toast"></div>
 
-  <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
-    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
-    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
-    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
-    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
-  </div>
-
-  <div class="card">
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tblLocacoes"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-<!-- /tab-locacoes -->
-
-
-<!-- ===================== -->
-<!-- ABA DEVOLUÇÕES (ÚNICA - CORRIGIDA) -->
-<!-- ===================== -->
-<div id="tab-devolucoes" class="tab-content">
-  <div class="card">
-    <h3>Registrar Devolução</h3>
-    <div class="form-row">
-      <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
-      <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
-    </div>
-
-    <div id="divItensDevolucao" style="margin:15px 0; background:var(--bg); padding:15px; border-radius:8px;">
-      <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
-    </div>
-
-    <button class="btn btn-primary" onclick="confirmarDevolucao()">
-      <i class="bi bi-check-lg"></i> Confirmar Baixa
-    </button>
-  </div>
-
-  <div class="card">
-    <h3>Histórico Recente</h3>
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr><th>Cliente</th><th>Data</th><th>Status</th><th class="col-actions">Recibo</th></tr>
-        </thead>
-        <tbody id="tblDevolucoes"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-<!-- /tab-devolucoes -->
-
-
-<!-- ===================== -->
-<!-- ABA CONFIG (CORRIGIDA) -->
-<!-- ===================== -->
-<div id="tab-config" class="tab-content">
-  <div class="card">
-    <h3>Personalização</h3>
-
-    <div class="form-row">
-      <div class="form-group"><label>Rodapé PDF</label><input type="text" id="confRodape"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group"><label>Telefone</label><input type="text" id="confTel"></div>
-      <div class="form-group"><label>Email</label><input type="email" id="confEmail"></div>
-    </div>
-
-    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
-    <div id="previewLogo" style="margin:10px 0;"></div>
-
-    <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
-  </div>
-
-  <div class="card">
-    <h3>Dados & Backup</h3>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
-      <button class="btn btn-warning" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
-      <button class="btn btn-danger" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
-      <input type="file" id="fileRestore" style="display:none;" onchange="restaurarBackup(this)">
-    </div>
-  </div>
-</div>
-<!-- /tab-config -->    
+    
 <script>
 // ========================================
 // 🔥 CACHE DE DOM - OTIMIZAÇÃO V11.1
@@ -1651,35 +1770,8 @@ function renderTipos() {
     // --- AUTENTICAÇÃO E SYNC ---
     function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: (resp) => { if(resp.error) return alert(JSON.stringify(resp)); localStorage.setItem('gToken', resp.access_token); entrarApp(); sincronizar('carregar'); } }); }
     function fazerLoginGoogle() { if(tokenClient) tokenClient.requestAccessToken({prompt: 'consent'}); else if(window.google) gisLoaded(); }
-    function entrarOffline() {
-  entrarApp();
-  const t = document.getElementById('syncText');
-  const b = document.getElementById('syncBadge');
-  if (t) t.innerText = "Offline";
-  if (b) b.className = "sync-badge sync-offline";
-}
-
-function updStatus(s) {
-  const b = document.getElementById('syncBadge');
-  const t = document.getElementById('syncText');
-  if(!b || !t) return;
-
-  if (s === 'online') { b.className="sync-badge sync-online"; t.innerText="Online"; }
-  else if (s === 'saving') { b.className="sync-badge sync-saving"; t.innerText="Salvando..."; }
-  else { b.className="sync-badge sync-offline"; t.innerText="Offline"; }
-}
-
-    function entrarApp() {
-  const login = document.getElementById('loginArea');
-  const app = document.getElementById('appArea');
-
-  if (login) login.style.display = 'none';
-  if (app) app.style.display = 'block';
-
-  abrirTab('estoque'); // ou 'locacoes' se preferir abrir direto nela
-  renderTudo();
-}
-
+    function entrarOffline() { entrarApp(); document.getElementById('syncText').innerText="Offline"; document.getElementById('syncBadge').className="sync-badge sync-offline"; }
+    function entrarApp() { document.getElementById('loginArea').style.display='none'; document.getElementById('appArea').style.display='block'; renderTudo(); }
     function sair() { localStorage.removeItem('gToken'); location.reload(); }
     
     // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
@@ -2773,4 +2865,3 @@ function excluirSelecionadosEstoque(){
     </script>
 </body>
 </html>
-
