@@ -11,37 +11,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema MTZ Eventos - V11 Final</title>
-
+    
     <link rel="manifest" href="./manifest.json?v=123">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-
+    
+    
     <script src="https://accounts.google.com/gsi/client" async defer></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-<style>
-    /* Filtros Auditoria: deixa como “chips” uniformes */
-.audit-filters .btn{
-  border-radius: 10px;
-  padding: 8px 12px;      /* altura consistente */
-  line-height: 1;
-  box-shadow: none;
-  transform: none;        /* evita pular no hover */
-}
-
-/* Dá uma “cara de selecionado” sem mudar a cor do botão */
-.audit-filters .btn.active{
-  outline: 2px solid rgba(255,255,255,0.85);
-  outline-offset: 2px;
-}
-
-/* No tema claro, o outline branco pode sumir; ajusta */
-[data-theme="light"] .audit-filters .btn.active{
-  outline: 2px solid rgba(15, 23, 42, 0.35);
-}
-
+    <style>
         /* === ESTILO V9: CLEAN & MODERN === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -257,129 +238,12 @@
         .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
         .stat-info h3 { font-size: 1.8rem; margin: 0; }
         
-/* ============================================= */
-/* ALINHAMENTO PERFEITO DAS TABS */
-/* ============================================= */
-/* CONTAINER DAS ABAS */
-.tabs-container{
-  width: 100%;
-  display: flex;
-  justify-content: flex-start;
-}
-
-/* BARRA (igual largura dos cards) */
-.tabs{
-  width: 100%;                 /* <- chave: mesma largura do conteúdo */
-  display: flex;               /* barra pode ser flex sem problema */
-  justify-content: flex-start; /* botões começam na esquerda */
-  align-items: center;
-  gap: 5px;
-
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-
-  padding: 5px;                /* mesmo “respiro” do design */
-  background: var(--surface);
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  margin-bottom: 25px;
-
-  box-sizing: border-box;
-}
-
-/* botões */
-.tab-btn{
-  flex: 0 0 auto;              /* não deixa botão esticar */
-  background: transparent;
-  border: none;
-  padding: 10px 20px;
-  color: var(--text-light);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
-  white-space: nowrap;
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  padding: 10px 20px;
-  color: var(--text-light);
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
-  white-space: nowrap;
-}
-
-.tab-btn.active {
-  background: var(--primary);
-  color: white;
-}
-
-.tab-content {
-  display: none;
-  animation: fadeIn 0.3s;
-}
-
-.tab-content.active {
-  display: block;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-    /* Linha de filtros (Auditoria e outras áreas) */
-.filters-row{
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  overflow-x: auto;
-  padding-bottom: 5px;
-
-  justify-content: flex-start;
-  align-items: center;
-
-  width: 100%;
-  box-sizing: border-box;
-}
-.audit-header{
-  display:flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.audit-title{
-  margin: 0;
-  display:flex;
-  align-items:center;
-  gap: 8px;
-}
-
-.audit-actions{
-  display:flex;
-  gap: 10px;
-  align-items:center;
-}
-
-.audit-filters{
-  display:flex;
-  gap: 8px;
-  margin-bottom: 18px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.audit-footer-info{
-  margin-top: 14px;
-  padding: 12px;
-  background: var(--bg);
-  border-radius: 8px;
-}
+        /* ABAS */
+        .tabs { display: flex; gap: 5px; overflow-x: auto; padding: 5px; background: var(--surface); border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border); }
+        .tab-btn { background: transparent; border: none; padding: 10px 20px; color: var(--text-light); font-weight: 600; cursor: pointer; border-radius: 8px; white-space: nowrap; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; animation: fadeIn 0.3s; } .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
         /* OUTROS */
         header .container { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
@@ -399,37 +263,6 @@
         .invoice-table th { background: #000 !important; color: #fff !important; }
         .scanner-box { background: #000; height: 250px; overflow: hidden; position: relative; }
         #interactive video { width: 100%; height: 100%; object-fit: cover; }
-    /* LISTA DE SUGESTÕES (AUTOCOMPLETE) */
-.dropdown-sugestoes {
-    display: none;
-    position: absolute;
-    background: var(--surface);
-    width: 100%;
-    max-height: 250px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 0 0 10px 10px;
-    z-index: 1000;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-.dropdown-sugestoes.ativo {
-    display: block;
-}
-.sugestao-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-}
-.sugestao-item:hover {
-    background: var(--surface-hover);
-}
-.sugestao-estoque {
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: var(--primary);
-}
     </style>
 </head>
 <body>
@@ -464,18 +297,15 @@
         </header>
 
         <div class="container">
-               <div class="tabs-container">
-    <div class="tabs">
-        <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
-        <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
-        <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-        <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
-        <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-        <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
-        <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
-    </div>
-</div>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
+                <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
+                <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
+                <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
+                <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
+                <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+                <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+            </div>
 
             <div id="tab-dashboard" class="tab-content active">
                 <div class="dashboard-grid">
@@ -527,7 +357,7 @@
                     <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
+                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="renderLocadores()" style="margin-bottom: 15px;">
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -578,103 +408,69 @@
                     </div>
                     <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
                 </div>
-                   <div class="card">
-  <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
-
-  <!-- BOTÃO AQUI (entre o input e a tabela) -->
-  <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-    <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
-      <i class="bi bi-trash"></i> Excluir selecionados
-    </button>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th style="width:40px;">
-            <input type="checkbox" id="chkAllEstoque"
-                   onchange="toggleSelecionarTodosEstoque(this.checked)">
-          </th>
-          <th>Img</th>
-          <th>Cód</th>
-          <th>Tipo</th>
-          <th>Nome</th>
-          <th>Valor</th>
-          <th>Estoque</th>
-          <th class="col-actions">Ações</th>
-        </tr>
-      </thead>
-    <tbody id="tblEstoque"></tbody>
-            </table>
-          </div>
-        </div> 
-      </div> 
-    
-   <div id="tab-locacoes" class="tab-content">
-        <div class="card">
-            <h3>Nova Locação</h3>
-            <div class="form-row">
-                <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
-                <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                <div class="card">
+                    <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="renderEstoque()">
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Img</th><th>Cód</th><th>Tipo</th><th>Nome</th><th>Valor</th><th>Estoque</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblEstoque"></tbody></table></div>
+                </div>
             </div>
-            <div class="form-row">
-                <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
-                <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
-            </div>
+
+            <div id="tab-locacoes" class="tab-content">
+                <div class="card">
+                    <h3>Nova Locação</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
+                        <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
+                        <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+                    </div>
+                    
                     <div class="box-carrinho">
                         <h4 style="margin-top:0; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
                             <i class="bi bi-cart-plus" style="color:var(--primary)"></i> Itens do Pedido
                         </h4>
                         
                         <div class="form-row" style="align-items: flex-end;">
-                        
-                        <div class="form-group" style="flex: 4; position: relative;">
-                            <label>Buscar Item (Digite para filtrar)</label>
-                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
-                            <input type="hidden" id="aluguelItemSelect">
-                            <div id="listaSugestoes" class="dropdown-sugestoes"></div>
+                            <div class="form-group" style="flex: 4;">
+                                <label>Selecionar Item</label>
+                                <select id="aluguelItemSelect" onchange="atualizarLimiteEstoque()"></select>
+                            </div>
+                            
+                            <div class="form-group" style="flex: 1; min-width: 70px;">
+                                <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
+                                <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+                            </div>
+                            
+                            <div class="form-group" style="flex: 2; display:flex; gap: 5px;">
+                                <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
+                                    <i class="bi bi-plus-lg"></i> Add
+                                </button>
+                                <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                                    <i class="bi bi-qr-code"></i>
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-group" style="flex: 1; min-width: 70px;">
-                            <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
-                            <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
-                        </div>
-
-                        <div class="form-group" style="flex: 2; display:flex; gap: 5px; flex-direction: row;">
-                            <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
-                                <i class="bi bi-plus-lg"></i> Add
-                            </button>
-                            <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
-                                <i class="bi bi-qr-code"></i>
-                            </button>
+                        <div id="carrinhoList">
+                            <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
                         </div>
                     </div>
-                    <div id="carrinhoList">
-                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
-                    </div>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="finalizarLocacao()">Concluir Locação</button>
                 </div>
-
                 
-               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
                     <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
                     <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
                     <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
                     <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
-                </div> 
-
-                <div class="card">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
-                            </thead>
-                            <tbody id="tblLocacoes"></tbody>
-                        </table>
-                    </div>
                 </div>
+                <div class="card">
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblLocacoes"></tbody></table></div>
+                </div>
+            </div>
 
-          <div id="tab-devolucoes" class="tab-content">
+            <div id="tab-devolucoes" class="tab-content">
                 <div class="card">
                     <h3>Registrar Devolução</h3>
                     <div class="form-row">
@@ -716,81 +512,29 @@
                     </div>
                 </div>
             </div>
-<!-- ABA AUDITORIA -->
-<div id="tab-auditoria" class="tab-content">
-  <div class="card">
-
-    <div class="audit-header">
-      <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
-
-      <div class="audit-actions">
-        <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
-          <i class="bi bi-download"></i> Exportar
-        </button>
-        <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
-          <i class="bi bi-trash"></i> Limpar
-        </button>
-      </div>
+        </div>
     </div>
-
-   <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
-  <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-  <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
-  <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
-  <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
-  <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
-  <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
-</div>
-      
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>DATA/HORA</th>
-            <th>TIPO</th>
-            <th>AÇÃO</th>
-            <th>DESCRIÇÃO</th>
-            <th>USUÁRIO</th>
-          </tr>
-        </thead>
-        <tbody id="tblLogs"></tbody>
-      </table>
-    </div>
-
-    <div class="audit-footer-info">
-      <small style="color:var(--text-light);">
-        <i class="bi bi-info-circle"></i>
-        <b>Total</b>:
-        <span id="totalLogs">0</span>/1000
-        | <b>Retenção</b>: 90 dias
-      </small>
-    </div>
-
-  </div>
-</div>
 
     <div id="modalEditarLocador" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Editar Cliente</h3>
-      <button class="btn-close-modal" onclick="fecharModal('modalEditarLocador')">
-        <i class="bi bi-x-lg"></i>
-      </button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Cliente</h3>
+                <button class="btn-close-modal" onclick="fecharModal('modalEditarLocador')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="editLocId">
+            <div class="form-group"><label>Nome</label><input type="text" id="editLocNome"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
+            <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
+            <div style="margin-top:20px">
+                <button class="btn btn-primary" onclick="salvarEdicaoLocador()" style="width:100%">
+                    <i class="bi bi-check-lg"></i> Salvar Alterações
+                </button>
+            </div>
+        </div>
     </div>
-
-    <input type="hidden" id="editLocId">
-    <div class="form-group"><label>Nome</label><input type="text" id="editLocNome"></div>
-    <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
-    <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
-
-    <div style="margin-top:20px">
-      <button class="btn btn-primary" onclick="salvarEdicaoLocador()" style="width:100%">
-        <i class="bi bi-check-lg"></i> Salvar Alterações
-      </button>
-    </div>
-  </div>
-</div>
-
+    
     <div id="modalEditarTipo" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -866,335 +610,20 @@
 
     <div id="toast"></div>
 
-    
-<script>
-// ========================================
-// 🔥 CACHE DE DOM - OTIMIZAÇÃO V11.1
-// ========================================
-const DOM = {
-    _cache: {},
-    get(id) {
-        if (!this._cache[id]) {
-            this._cache[id] = document.getElementById(id);
-            if (!this._cache[id]) {
-                console.warn(`⚠️ Elemento #${id} não encontrado`);
-            }
-        }
-        return this._cache[id];
-    }
-};
-
-// === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
-let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
-
-    let logsAuditoria = []; // NOVO: Sistema de auditoria
+    <script>
+    // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
+    let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
     let tokenClient, filtroAtual = 'todos';
-    let paginaAtual = {
-    locadores: 1,
-    pecas: 1,
-    locacoes: 1
-    };
-    const ITENS_POR_PAGINA = 50;
-// === FUNÇÃO DE BUSCA/AUTOCOMPLETE (CORRIGIDA E MOVIDA PARA O TOPO) ===
-function filtrarItensLocacao() {
-    const termoInput = document.getElementById('inputBuscaPeca');
-    const lista = document.getElementById('listaSugestoes');
+    const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwc1A4nivRQoJLTn5Ex9WZEGns4c9RHM9z-Pmquxg05XrpG4WfiKqkYs0zvwpf_AcQo6w/exec';
+
+// === LocalStorage seguro (Edge/Tracking Prevention pode bloquear) ===
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); return true; } catch(e){ return false; } }
+function lsRemove(k){ try { localStorage.removeItem(k); } catch(e){} }
     
-    if (!termoInput || !lista) return;
-
-    const termo = termoInput.value.toLowerCase();
-    lista.innerHTML = '';
-
-    if (termo.length < 2) {
-        lista.classList.remove('ativo');
-        return;
-    }
-
-    // Filtra pecas
-    const filtrados = pecas.filter(p => 
-        (p.nome && p.nome.toLowerCase().includes(termo)) || 
-        (p.codigo && p.codigo.toLowerCase().includes(termo))
-    );
-
-    if (filtrados.length === 0) {
-        lista.classList.remove('ativo');
-        return;
-    }
-
-    filtrados.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'sugestao-item';
-        const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
-        item.innerHTML = `
-            <span>${p.nome}</span>
-            <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
-                (Disp: ${p.disponivel})
-            </span>
-        `;
-        item.onclick = function() {
-            document.getElementById('inputBuscaPeca').value = p.nome;
-            document.getElementById('aluguelItemSelect').value = p.id;
-            document.getElementById('aluguelQtd').focus();
-            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
-            lista.classList.remove('ativo');
-        };
-        lista.appendChild(item);
-    });
-
-    lista.classList.add('ativo');
-}
-
-// Fecha a lista se clicar fora
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.form-group')) {
-        const lista = document.getElementById('listaSugestoes');
-        if(lista) lista.classList.remove('ativo');
-    }
-});
-
-// === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
-function renderTudo() {
-    if(typeof renderLocacoes === 'function') renderLocacoes();
-    if(typeof renderLocadores === 'function') renderLocadores();
-    if(typeof renderEstoque === 'function') renderEstoque();
-    if(typeof renderDevolucoes === 'function') renderDevolucoes();
-    if(typeof renderTipos === 'function') renderTipos();
-    if(typeof renderStats === 'function') renderStats();
-    if(typeof updateSelects === 'function') updateSelects();
-    if(typeof renderLogs === 'function') renderLogs();
-    if(typeof renderConfig === 'function') renderConfig();
-}
-    // Cache para otimizar buscas
-    let cacheDisponibilidade = null;
-    let ultimaAtualizacaoCache = 0;
-
-    // === DEBOUNCE: EVITA LAG AO DIGITAR ===
-function debounce(func, delay) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), delay);
-    };
-}
-
-// === BUSCA COM DEBOUNCE (ANTI-LAG) ===
-const buscarComDebounce = debounce(function(tipo) {
-    if (tipo === 'locadores') renderLocadores();
-    if (tipo === 'estoque') renderEstoque();
-}, 300);
-
-        // ============================================
-// SISTEMA DE AUDITORIA - LOGS COMPLETOS
-// ============================================
-
-/**
- * Registra uma ação no sistema de auditoria
- */
-function registrarLog(tipo, acao, descricao, dados = null) {
-    const log = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        data: new Date().toLocaleString('pt-BR'),
-        tipo: tipo,        // 'cliente', 'item', 'locacao', 'devolucao', 'config', 'sistema'
-        acao: acao,        // 'criar', 'editar', 'deletar', 'visualizar', 'exportar'
-        descricao: descricao,
-        usuario: localStorage.getItem('usuarioEmail') || 'Offline',
-        dados: dados       // Dados relevantes da ação
-    };
-    
-    logsAuditoria.unshift(log); // Adiciona no início
-    
-    // Limita a 1000 logs (mantém últimos 3 meses aprox.)
-    if (logsAuditoria.length > 1000) {
-        logsAuditoria = logsAuditoria.slice(0, 1000);
-    }
-    
-    console.log('📝 LOG:', log.tipo, '→', log.acao, '→', log.descricao);
-}
-
-/**
- * Limpa logs antigos (mais de 90 dias)
- */
-function limparLogsAntigos() {
-    const treseMesesAtras = Date.now() - (90 * 24 * 60 * 60 * 1000);
-    const qtdAntes = logsAuditoria.length;
-    
-    logsAuditoria = logsAuditoria.filter(log => log.id > treseMesesAtras);
-    
-    const removidos = qtdAntes - logsAuditoria.length;
-    if (removidos > 0) {
-        console.log(`🗑️ ${removidos} logs antigos removidos`);
-        registrarLog('sistema', 'limpeza', `${removidos} logs antigos removidos`);
-    }
-    
-    salvarLocal();
-}
-
-/**
- * Exporta logs como CSV
- */
-function exportarLogsCSV() {
-    if (logsAuditoria.length === 0) {
-        mostrarToast('Nenhum log para exportar!', 'erro');
-        return;
-    }
-    
-    let csv = 'Data,Hora,Tipo,Ação,Descrição,Usuário\n';
-    
-    logsAuditoria.forEach(log => {
-        const data = new Date(log.timestamp);
-        const dataStr = data.toLocaleDateString('pt-BR');
-        const horaStr = data.toLocaleTimeString('pt-BR');
-        
-        csv += `"${dataStr}","${horaStr}","${log.tipo}","${log.acao}","${log.descricao}","${log.usuario}"\n`;
-    });
-    
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `MTZ-Auditoria-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    registrarLog('sistema', 'exportar', 'Logs de auditoria exportados');
-    mostrarToast('Logs exportados com sucesso!');
-}
-
-/**
- * Renderiza a tabela de logs
- */
-function renderLogs(filtro = 'todos') {
-  const tbody = document.getElementById('tblLogs');
-  if (!tbody) return;
-
-  // (opcional) ativa botão
-  document.querySelectorAll('.audit-filter').forEach(b => b.classList.remove('active'));
-  const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
-  if (btnAtivo) btnAtivo.classList.add('active');
-
-  let logsFiltrados = logsAuditoria;
-  if (filtro !== 'todos') {
-    logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
-  }
-    const icones = {
-        'cliente': 'bi-person',
-        'item': 'bi-box',
-        'locacao': 'bi-cart',
-        'devolucao': 'bi-arrow-return-left',
-        'config': 'bi-gear',
-        'sistema': 'bi-cpu'
-    };
-    
-    const cores = {
-        'criar': '#10b981',
-        'editar': '#f59e0b',
-        'deletar': '#ef4444',
-        'visualizar': '#0ea5e9',
-        'exportar': '#8b5cf6'
-    };
-    
-    tbody.innerHTML = logsFiltrados.slice(0, 100).map(log => {
-        const data = new Date(log.timestamp);
-        const dataStr = data.toLocaleDateString('pt-BR');
-        const horaStr = data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
-        
-        return `
-            <tr>
-                <td>
-                    <div style="font-size:0.85rem; line-height:1.4">${dataStr}</div>
-                    <div style="font-size:0.75rem; opacity:0.7">${horaStr}</div>
-                </td>
-                <td>
-                    <i class="bi ${icones[log.tipo] || 'bi-circle'}" style="color:var(--primary); margin-right:4px"></i>
-                    <span style="font-size:0.85rem">${log.tipo}</span>
-                </td>
-                <td>
-                    <span style="color:${cores[log.acao]}; font-weight:600; font-size:0.85rem">${log.acao}</span>
-                </td>
-                <td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
-                    ${log.descricao}
-                </td>
-                <td style="font-size:0.85rem; opacity:0.8">${log.usuario}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-const GOOGLE_CLIENT_ID = '981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
-const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6d-PIdnzFi-Ejnl3gAUB-l9mGnBJt0BpyBErzMI_GFuZuhA/exec';
-    
-    
-    // === HELPERS DE ROBUSTEZ (FIX PARA DOM QUEBRADO / ABAS ANINHADAS) ===
-    const $ = (id) => document.getElementById(id);
-
-    function ensureCoreDom() {
-        // Se alguém colou só um pedaço do HTML ou fechou DIVs errado, essas peças somem do DOM e tudo quebra.
-        let login = $('loginArea');
-        let app = $('appArea');
-
-        if (!login) {
-            login = document.createElement('div');
-            login.id = 'loginArea';
-            login.innerHTML = `
-                <div class="login-box">
-                    <h1 style="color:var(--primary); margin-bottom:5px;">MTZ Eventos</h1>
-                    <p style="margin-bottom: 30px; color:var(--text-light);">Sistema de Gestão & Locação V11</p>
-
-                    <button id="btnLoginGoogle" class="btn" style="width: 100%; margin-bottom: 15px; background-color: #1e293b; color: white; justify-content: center; padding: 14px;" onclick="fazerLoginGoogle()">
-                        <i class="bi bi-google"></i> Entrar com Google
-                    </button>
-                    <button class="btn" style="width: 100%; background-color: var(--primary); color: white; justify-content: center; padding: 14px;" onclick="entrarOffline()">
-                        <i class="bi bi-hdd"></i> Usar Offline (Local)
-                    </button>
-                </div>
-            `;
-            document.body.prepend(login);
-        }
-
-        if (!app) {
-            app = document.createElement('div');
-            app.id = 'appArea';
-            app.style.display = 'none';
-
-            // Move tudo que já estava no body para dentro do appArea (exceto login e scripts)
-            const children = Array.from(document.body.children);
-            children.forEach((el) => {
-                if (el === login) return;
-                if (el.tagName === 'SCRIPT') return;
-                if (el.id === 'toast') return; // toast fica fora ou pode ficar dentro, tanto faz
-                app.appendChild(el);
-            });
-
-            // Insere appArea logo após o loginArea
-            if (login.nextSibling) login.parentNode.insertBefore(app, login.nextSibling);
-            else document.body.appendChild(app);
-        }
-    }
-
-    function fixTabStructure() {
-        // Se alguma aba ficou "dentro" de outra por DIV faltando, ela nunca vai aparecer.
-        const root = document.querySelector('#appArea .container') || document.querySelector('.container');
-        if (!root) return;
-
-        const tabs = Array.from(document.querySelectorAll('.tab-content'));
-        tabs.forEach(tab => {
-            if (tab.parentElement !== root) {
-                root.appendChild(tab); // traz as abas para o mesmo nível
-            }
-        });
-    }
-
-    function safeLocalGet(key) {
-        try { return localStorage.getItem(key); } catch (e) { return null; }
-    }
-    function safeLocalSet(key, val) {
-        try { localStorage.setItem(key, val); } catch (e) {}
-    }
-
-// --- FORMATAÇÃO DE DATA ---
+    // --- FORMATAÇÃO DE DATA ---
     function formatarData(dataString) {
         if (!dataString) return '<span style="color:#999">---</span>';
         const data = new Date(dataString);
@@ -1204,55 +633,32 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
     }
 
     // --- INICIALIZAÇÃO ---
-    window.onload = function() {
-        ensureCoreDom();
-        fixTabStructure();
-        carregarLocal();
-        const hoje = new Date().toISOString().split('T')[0];
-        const elIni = document.getElementById('aluguelIni');
-        const elDev = document.getElementById('devData');
-        if(elIni) elIni.value = hoje;
-        if(elDev) elDev.value = hoje;
+    window.addEventListener('load', function(){
+    carregarLocal();
 
-        // INJEÇÃO DE ESTILO FORÇADO PARA O PDF FICAR PERFEITO
-        const style = document.createElement('style');
-        style.innerHTML = `
-            @media print { @page { margin: 0; } body { background: white; } }
-            
-           /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
-            #printArea { 
-                position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
-                background-color: #ffffff !important;
-                color: #000000 !important; 
-                box-shadow: none !important; 
-                margin: 0 auto !important; 
-                width: 100% !important;
-                /* Padding inferior maior (30mm) para o texto não ficar atrás da barra preta */
-                padding: 15mm 15mm 30mm 15mm !important; 
-                min-height: 297mm !important; /* Força altura total A4 */
-                display: flex;
-                flex-direction: column;
-            }
-            #printArea * { color: #000000 !important; border-color: #000000 !important; }
-            #printArea thead { background-color: #000000 !important; }
-            #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
-            #printArea .footer-bar, #printArea .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
-        `;
-        document.head.appendChild(style);
-        
-        if(safeLocalGet('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
-        if(window.google) gisLoaded();
-        if(safeLocalGet('gToken')) { entrarApp(); sincronizar('carregar'); }
-        iniciarBackupAutomatico();
-        setInterval(salvarLocal, 60000); // Auto-salva a cada 1 minuto
-        console.log('✅ Sistema de backup ativado');
-    };
+    const hoje = new Date().toISOString().split('T')[0];
+    const i = document.getElementById('aluguelIni');
+    const d = document.getElementById('devData');
+    if(i) i.value = hoje;
+    if(d) d.value = hoje;
+
+    if(lsGet('theme') === 'dark') document.body.setAttribute('data-theme','dark');
+
+    // Google Identity Services
+    if(window.google) gisLoaded();
+
+    // Auto-login se já existe token salvo
+    if(lsGet('gToken')) entrarApp();
+
+    // Auto-save
+    setInterval(function(){ try{ salvarLocal(); } catch(e){} }, 60000);
+});;
 
     function toggleTheme() { 
         const body = document.body;
         const isDark = body.getAttribute('data-theme') === 'dark'; 
         body.setAttribute('data-theme', isDark ? 'light' : 'dark'); 
-        safeLocalSet('theme', isDark ? 'light' : 'dark');
+        lsSet('theme', isDark ? 'light' : 'dark');
     }
 
     function abrirTab(id) { 
@@ -1266,329 +672,103 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
 
-// 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
-// ========================================
-function renderLocacoes() {
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    
-    const tbody = DOM.get('tblLocacoes');
-    if (!tbody) return;
-    
-    // Processar dados
-    const lista = locacoes.map(l => {
-        let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
-        let st = l.status;
-        if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
+    // --- RENDERIZAÇÃO DAS TABELAS ---
+    function renderLocacoes() {
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        const tbody = document.getElementById('tblLocacoes'); if(!tbody) return;
         
-        let total = 0;
-        (l.items || []).forEach(i => total += (parseFloat(i.valor) || 0) * (parseInt(i.quantidade) || 1));
-        let div = parseFloat(l.divisorFatura) || 1;
-        if (div <= 0) div = 1;
-        
-        return { ...l, statusVisual: st, valorTotal: total / div, pago: l.pago || false };
-    });
-    
-    const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
-    filtrados.sort((a, b) => b.id - a.id);
-    
-    // Paginação
-    const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
-    const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
-    const itensPagina = filtrados.slice(inicio, inicio + ITENS_POR_PAGINA);
-    
-    if (itensPagina.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>';
-        return;
+        const lista = locacoes.map(l => {
+            let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
+            let st = l.status;
+            if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
+            let total = 0; 
+            (l.items||[]).forEach(i => total += (parseFloat(i.valor||0)*parseInt(i.quantidade||1)));
+            let div = parseFloat(l.divisorFatura||1); if(div<=0) div=1;
+            return { ...l, statusVisual: st, valorTotal: total/div, pago: l.pago||false };
+        });
+        const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
+        filtrados.sort((a,b) => b.id - a.id);
+        if (!filtrados.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>'; return; }
+
+        tbody.innerHTML = filtrados.map(l => {
+            const c = locadores.find(x => x.id === l.locadorId);
+            let badgeClass = 'badge-success';
+            if(l.statusVisual === 'atrasado') badgeClass = 'badge-danger';
+            if(l.statusVisual === 'devolvido') badgeClass = 'badge-info';
+            
+            // --- NOVO BOTÃO WHATSAPP ---
+            const btnPagar = `<button class="btn btn-sm" style="${l.pago?'background:var(--border); color:var(--text-light)':'background:#10b981; color:white'};" onclick="alternarPagamento(${l.id})" title="Financeiro"><i class="bi bi-currency-dollar"></i></button>`;
+            const btnZap = `<button class="btn btn-sm" style="background:#25D366; color:white;" onclick="enviarZap(${l.id})" title="Enviar no WhatsApp"><i class="bi bi-whatsapp"></i></button>`;
+            const btnRomaneio = `<button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})" title="Romaneio"><i class="bi bi-truck"></i></button>`;
+            const btnPDF = `<button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})" title="Contrato"><i class="bi bi-file-text"></i></button>`;
+            const btnDel = l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : '';
+            
+            return `<tr>
+                <td><div style="font-weight:600;">${c ? c.nome : 'Removido'}</div><div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div></td>
+                <td><div style="font-size:0.85rem;">${formatarData(l.dataAluguel)}</div><div style="font-size:0.85rem; font-weight:600;">Até: ${formatarData(l.dataDevolucaoPrevisao)}</div></td>
+                <td><div style="font-weight:700;">R$ ${l.valorTotal.toFixed(2)}</div>${l.pago?'<span class="badge badge-success">PAGO</span>':'<span class="badge badge-warning">PENDENTE</span>'}</td>
+                <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
+                <td class="col-actions"><div class="actions-cell">${btnZap}${btnPagar}${btnRomaneio}${btnPDF}${btnDel}</div></td>
+            </tr>`;
+        }).join('');
     }
-    
-    // 🔥 OTIMIZAÇÃO: DocumentFragment (1 reflow)
-    const fragment = document.createDocumentFragment();
-    
-    itensPagina.forEach(l => {
-     const c = locadores.find(x => x.id === l.locadorId);
-        let badgeClass = l.statusVisual === 'atrasado' ? 'badge-danger' : 
-                        l.statusVisual === 'devolvido' ? 'badge-info' : 'badge-success';
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>
-                <div style="font-weight:600">${c ? c.nome : 'Removido'}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div>
-            </td>
-            <td>
-                <div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div>
-                <div style="font-size:0.85rem; font-weight:600;">Até ${formatarData(l.dataDevolucaoPrevisao)}</div>
-            </td>
-            <td>
-                <div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>
-                ${l.pago ? '<span class="badge badge-success">PAGO</span>' : '<span class="badge badge-warning">PENDENTE</span>'}
-            </td>
-            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
-            <td class="col-actions">
-                <div class="actions-cell">
-                    <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
-                        <i class="bi bi-currency-dollar"></i>
-                    </button>
-                    <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})">
-                        <i class="bi bi-whatsapp"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})">
-                        <i class="bi bi-truck"></i>
-                    </button>
-                    <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})">
-                        <i class="bi bi-file-text"></i>
-                    </button>
-                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
-                </div>
-            </td>
-        `;
-        fragment.appendChild(tr);
-    });
-    
-    tbody.innerHTML = '';
-    tbody.appendChild(fragment); // 🚀 1 reflow ao invés de 50+
-    
-    criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
-}
-        
-// === CRIAR BOTÕES DE PAGINAÇÃO ===
-function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
-    if (totalPaginas <= 1) return; // Não precisa de paginação
-    
-    const tbody = document.getElementById(`tbl${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
-    if (!tbody) return;
-    
-    const paginaAtualTipo = paginaAtual[tipo];
-    
-    const controles = `
-        <tr style="background: var(--surface-hover);">
-            <td colspan="10" style="text-align: center; padding: 15px;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
-                        <i class="bi bi-chevron-left"></i> Anterior
-                    </button>
-                    <span style="font-weight: 600; color: var(--text);">
-                        Página ${paginaAtualTipo} de ${totalPaginas} 
-                        <span style="opacity: 0.6; font-size: 0.85rem;">(${totalItens} itens)</span>
-                    </span>
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
-                        Próxima <i class="bi bi-chevron-right"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
-    
-    tbody.insertAdjacentHTML('beforeend', controles);
-}
 
-// === NAVEGAÇÃO DE PÁGINAS ===
-function irParaPagina(tipo, novaPagina) {
-    paginaAtual[tipo] = novaPagina;
-    
-    if (tipo === 'locacoes') renderLocacoes();
-    if (tipo === 'pecas') renderEstoque();
-    if (tipo === 'locadores') renderLocadores();
-}
-
-
-    // ========================================
-// 🔥 RENDERIZAR LOCADORES OTIMIZADA
-// ========================================
-function renderLocadores() {
-    const termo = (DOM.get('buscaCliente')?.value || '').toLowerCase();
-    const tbody = DOM.get('tblLocadores');
-    if (!tbody) return;
-    
-    const clientesFiltrados = locadores.filter(c => 
-        c.nome.toLowerCase().includes(termo) || 
-        (c.documento && c.documento.toLowerCase().includes(termo))
-    );
-    
-    if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhum cliente encontrado.</td></tr>';
-        return;
+    function renderLocadores() {
+        const termo = document.getElementById('buscaCliente')?.value.toLowerCase() || "";
+        const tbody = document.getElementById('tblLocadores'); if(!tbody) return;
+        tbody.innerHTML = locadores.filter(c => (c.nome && c.nome.toLowerCase().includes(termo))).map(c => `
+            <tr>
+                <td><div style="font-weight:600;">${c.nome}</div><div style="font-size:0.75rem; opacity:0.7;">${c.documento || ''}</div></td>
+                <td>${c.email || '-'}</td><td>${c.telefone || '-'}</td>
+                <td class="col-actions"><div class="actions-cell">
+                    <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})"><i class="bi bi-file-text"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="removerItem('locadores',${c.id})"><i class="bi bi-trash"></i></button>
+                </div></td>
+            </tr>`).join('');
     }
-    
-    // 🔥 OTIMIZAÇÃO: DocumentFragment
-    const fragment = document.createDocumentFragment();
-    
-    clientesFiltrados.forEach(c => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>
-                <div style="font-weight:600">${c.nome}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">${c.documento || ''}</div>
-            </td>
-            <td>${c.email || '-'}</td>
-            <td>${c.telefone || '-'}</td>
-            <td class="col-actions">
-                <div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})">
-                        <i class="bi bi-file-text"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="removerItem('locadores', ${c.id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        fragment.appendChild(tr);
-    });
-    
-    tbody.innerHTML = '';
-    tbody.appendChild(fragment);
-}
 
-// --- RENDERIZAR ESTOQUE (COM ORDEM ALFABÉTICA) ---
-function renderEstoque() {
-  const termoRaw = DOM.get('buscaEstoque')?.value || '';
-  
-  const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  
-  const termo = normalizar(termoRaw);
-  const tbody = DOM.get('tblEstoque');
-  if (!tbody) return;
+    function renderEstoque() {
+        const t = document.getElementById('buscaEstoque')?.value.toLowerCase() || "";
+        const tbody = document.getElementById('tblEstoque'); if(!tbody) return;
+        tbody.innerHTML = pecas.filter(p => p.nome.toLowerCase().includes(t) || p.codigo.toLowerCase().includes(t)).map(p => {
+            const tipo = tipos.find(x => x.id === p.tipoId);
+            const thumb = p.foto ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">` : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5"></i></div>`;
+            let cor = p.disponivel <= 0 ? "color:#ef4444; font-weight:bold" : (p.disponivel < 3 ? "color:#f59e0b; font-weight:bold" : "");
+            return `<tr>
+                <td>${thumb}</td><td><span style="font-family:monospace; font-weight:600; color:var(--text-light)">${p.codigo}</span></td>
+                <td>${tipo ? tipo.nome : '-'}</td><td><div style="font-weight:600;">${p.nome}</div><div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div></td>
+                <td>R$ ${p.valor.toFixed(2)}</td><td><span style="${cor}">${p.disponivel}</span> <span style="opacity:0.5; font-size:0.75rem">/ ${p.quantidade}</span></td>
+                <td class="col-actions"><div class="actions-cell">
+                    <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="removerItem('pecas',${p.id})"><i class="bi bi-trash"></i></button>
+                </div></td>
+            </tr>`;
+        }).join('');
+    }
 
-  let itensFiltrados = pecas.filter(p => {
-    const nome = normalizar(p.nome || '');
-    const codigo = normalizar(p.codigo || '');
-    const medida = normalizar(p.medida || '');
-    const tipo = tipos.find(t => t.id === p.tipoId);
-    const categoria = tipo ? normalizar(tipo.nome) : '';
+    function renderDevolucoes() {
+        const tbody = document.getElementById('tblDevolucoes'); if(!tbody) return;
+        const lista = devolucoes.slice().reverse().slice(0, 20);
+        tbody.innerHTML = lista.map(d => {
+            const l = locacoes.find(x => x.id === d.locacaoId);
+            const c = locadores.find(x => x.id === (l ? l.locadorId : 0));
+            return `<tr>
+                <td><div style="font-weight:600;">${c?c.nome:'-'}</div></td><td>${formatarData(d.dataDevolucao)}</td>
+                <td><span class="badge badge-success">Concluído</span></td>
+                <td class="col-actions"><button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l?l.id:0})"><i class="bi bi-printer"></i></button></td>
+            </tr>`;
+        }).join('');
+    }
 
-    return nome.includes(termo) || 
-           codigo.includes(termo) || 
-           categoria.includes(termo) ||
-           medida.includes(termo);
-  });
+    function renderTipos() {
+        const tbody = document.getElementById('tblTipos');
+        if(!tbody) return;
+        tbody.innerHTML = tipos.map(t => `<tr><td><b>${t.nome}</b></td><td>${t.desc || '-'}</td><td class="col-actions"><div class="actions-cell"><button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="removerItem('tipos',${t.id})"><i class="bi bi-trash"></i></button></div></td></tr>`).join('');
+    }
 
-  // --- PARTE NOVA: ORDENAÇÃO ---
-  itensFiltrados.sort((a, b) => {
-      const tipoA = tipos.find(t => t.id === a.tipoId)?.nome || "ZZZ"; 
-      const tipoB = tipos.find(t => t.id === b.tipoId)?.nome || "ZZZ";
-
-      // 1. Compara Categorias
-      const comparacaoCategoria = tipoA.localeCompare(tipoB, undefined, {numeric: true});
-      if (comparacaoCategoria !== 0) return comparacaoCategoria;
-
-      // 2. Compara Nomes (se for mesma categoria)
-      return (a.nome || "").localeCompare(b.nome || "", undefined, {numeric: true});
-  });
-  // -----------------------------
-
-  if (itensFiltrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoRaw}".</td></tr>`;
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-
-  itensFiltrados.forEach(p => {
-    const tipo = tipos.find(x => x.id === p.tipoId);
-
-    const thumb = p.foto
-      ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
-      : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
-
-    let corEstoque =
-      p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
-      p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
-
-    const marcado = (typeof estoqueSelecionados !== 'undefined' && estoqueSelecionados.has(p.id)) ? 'checked' : '';
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="width:40px;">
-        <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
-               onchange="onSelectEstoque(${p.id}, this.checked)">
-      </td>
-      <td>${thumb}</td>
-      <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
-      <td>${tipo ? tipo.nome : '-'}</td>
-      <td>
-        <div style="font-weight:600">${p.nome}</div>
-        <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
-      </td>
-      <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
-      <td>
-        <span style="${corEstoque}">${p.disponivel}</span>
-        <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span>
-      </td>
-      <td class="col-actions">
-        <div class="actions-cell">
-          <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
-        </div>
-      </td>
-    `;
-
-    fragment.appendChild(tr);
-  });
-
-  tbody.innerHTML = '';
-  tbody.appendChild(fragment);
-}
-
-function renderDevolucoes() {
-    // 1. Verifica se o elemento existe
-    const tbody = document.getElementById('tblDevolucoes'); 
-    if(!tbody) return; 
-
-    // 2. Verifica se o array existe
-    if(!Array.isArray(devolucoes)) { 
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Dados não carregados</td></tr>'; 
-        return; 
-    } 
-
-    // 3. Pega as últimas 20 devoluções
-    const lista = devolucoes.slice().reverse().slice(0, 20); 
-
-    // 4. Se estiver vazio, mostra mensagem
-    if (lista.length === 0) { 
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhuma devolução registrada.</td></tr>`; 
-        return; 
-    } 
-
-    // 5. Renderiza as linhas
-    tbody.innerHTML = lista.map(d => { 
-        const l = locacoes.find(x => x.id === d.locacaoId); 
-        const c = locadores.find(x => x.id === (l ? l.locadorId : 0)); 
-        return `<tr> 
-            <td><div style="font-weight:600;">${c ? c.nome : 'Removido'}</div></td> 
-            <td>${formatarData(d.dataDevolucao)}</td> 
-            <td><span class="badge badge-success">Concluído</span></td> 
-            <td class="col-actions"> 
-                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})"> 
-                    <i class="bi bi-printer"></i> 
-                </button> 
-            </td> 
-        </tr>`; 
-    }).join(''); 
-}
-// --- TIPOS (RECOLOCAR) ---
-function renderTipos() {
-    const tbody = document.getElementById('tblTipos');
-    if(!tbody) return;
-    
-    tbody.innerHTML = tipos.map(t => `
-        <tr>
-            <td><b>${t.nome}</b></td>
-            <td>${t.desc || '-'}</td>
-            <td class="col-actions">
-                <div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
-}
+    function renderTudo() { recalcularDisponibilidade(); renderLocadores(); renderEstoque(); renderLocacoes(); renderTipos(); renderDevolucoes(); renderStats(); updateSelects(); }
 
     function renderStats() {
         const elC = document.getElementById('dashClientes');
@@ -1624,72 +804,58 @@ function renderTipos() {
         }
     }
 
-   // --- ATUALIZAR LISTAS (CORRIGIDO: SEM LISTA DE PEÇAS GIGANTE) ---
     function updateSelects() { 
-        // 1. Clientes
         const c = document.getElementById('aluguelCliente');
         if(c) c.innerHTML='<option value="">Selecione...</option>'+locadores.map(x=>`<option value="${x.id}">${x.nome}</option>`).join(''); 
         
-        // 2. PEÇAS: REMOVIDO! (Agora usamos busca inteligente)
+        const i = document.getElementById('aluguelItemSelect'); 
+        if(i) i.innerHTML='<option value="">Selecione...</option>'+pecas.map(x=>`<option value="${x.id}">${x.nome} (${x.disponivel} disp)</option>`).join(''); 
         
-        // 3. Devoluções
         const d = document.getElementById('devLocacao');
         if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map(l=>`<option value="${l.id}">#${l.id.toString().slice(-4)} - ${locadores.find(x=>x.id==l.locadorId)?.nome}</option>`).join(''); 
         
-        // 4. Tipos
         const tOpts = '<option value="0">Geral</option>'+tipos.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
-        const t = document.getElementById('pecaTipo'); if(t) t.innerHTML=tOpts;
-        const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
+        
+        const t = document.getElementById('pecaTipo'); 
+        if(t) t.innerHTML=tOpts;
+        const tE = document.getElementById('editPecaTipo'); 
+        if(tE) tE.innerHTML=tOpts;
     } 
-
-    function renderConfig() {
-    // Preenche os inputs com os dados da memória
-    const elRodape = document.getElementById('confRodape');
-    const elTel = document.getElementById('confTel');
-    const elEmail = document.getElementById('confEmail');
-    const elLogo = document.getElementById('previewLogo');
-
-    if (elRodape) elRodape.value = config.rodape || '';
-    if (elTel) elTel.value = config.tel || '';
-    if (elEmail) elEmail.value = config.email || '';
-    
-    // Mostra a logo se existir
-    if (elLogo && config.logo) {
-        elLogo.innerHTML = `<img src="${config.logo}" style="height:50px; border:1px solid #ccc; padding:2px; border-radius:4px;">`;
-    }
-}
 
     // --- LÓGICA E FUNÇÕES GERAIS ---
     function mostrarToast(m,t) { const x=document.getElementById("toast");
     x.innerText=m; x.style.background=t==='erro'?'#ef4444':'#1f2937'; x.className="show"; setTimeout(()=>x.className="",3000); }
     
-    // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
     function addItemCarrinho() { 
-        // 1. Pega o ID do input oculto
-        var id = document.getElementById('aluguelItemSelect').value;
-        if (!id) return mostrarToast("Busque e selecione um item!", "erro"); 
+        // 1. Pega o item selecionado
+        var select = document.getElementById('aluguelItemSelect');
+        var id = select.value;
+        if (!id) return; 
         
-        // 2. Trata a quantidade
+        // 2. Trata a quantidade com segurança
         var qtdInput = document.getElementById('aluguelQtd').value;
         var qtd = parseInt(qtdInput);
         if (isNaN(qtd) || qtd < 1) qtd = 1;
 
-        // 3. Busca a peça
+        // 3. Busca a peça no banco de dados
         var p = pecas.find(function(x) { return x.id == id; });
         if (!p) return;
 
-        // --- TRAVA DE ESTOQUE ---
+        // --- TRAVA DE ESTOQUE (NOVO) ---
+        // Verifica se já tem esse item no carrinho para somar
         var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
         var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
+        
         var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
 
         if (qtdTotalSolicitada > p.disponivel) {
-            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel}.`, "erro");
+            return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel} unidades.`, "erro");
         }
+        // -------------------------------
 
-        // 4. Adiciona ao carrinho
+        // 4. Adiciona ou Atualiza o carrinho
         if (itemNoCarrinho) {
-            itemNoCarrinho.quantidade += qtd;
+            itemNoCarrinho.quantidade += qtd; // Se já existe, só aumenta a quantidade
         } else {
             carrinhoLocacao.push({
                 pecaId: p.id, 
@@ -1699,35 +865,29 @@ function renderTipos() {
             });
         }
         
-        // 5. Gera HTML
+        // 5. Gera o HTML da lista
         var htmlLista = '';
         for (var i = 0; i < carrinhoLocacao.length; i++) {
             var item = carrinhoLocacao[i];
             var totalItem = (item.valor * item.quantidade).toFixed(2);
+            
             htmlLista += '<div class="item-carrinho">';
             htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
             htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
             htmlLista += '</div>';
         }
 
+        // 6. Atualiza a tela
         document.getElementById('carrinhoList').innerHTML = htmlLista;
         mostrarToast("Item adicionado!");
-
-        // 6. LIMPA E FOCA PARA O PRÓXIMO
-        document.getElementById('inputBuscaPeca').value = ""; 
-        document.getElementById('aluguelItemSelect').value = ""; 
-        document.getElementById('aluguelQtd').value = "1";
-        document.getElementById('avisoEstoque').innerText = "";
-        document.getElementById('inputBuscaPeca').focus();
     }
-
-    // --- FINALIZAR LOCAÇÃO ---
+    
     function finalizarLocacao() { 
         var cli = document.getElementById('aluguelCliente').value;
         var ini = document.getElementById('aluguelIni').value; 
         var fim = document.getElementById('aluguelFim').value;
 
-        // LÊ O DIVISOR DO CAMPO
+        // LÊ O DIVISOR DO CAMPO (CORREÇÃO AQUI)
         var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
         if(isNaN(divInput) || divInput <= 0) divInput = 1;
 
@@ -1737,9 +897,7 @@ function renderTipos() {
         }
         
         var itensParaSalvar = [];
-        for (var i = 0; i < carrinhoLocacao.length; i++) { 
-            itensParaSalvar.push(carrinhoLocacao[i]); 
-        }
+        for (var i = 0; i < carrinhoLocacao.length; i++) { itensParaSalvar.push(carrinhoLocacao[i]); }
 
         locacoes.push({
             id: Date.now(), 
@@ -1748,7 +906,7 @@ function renderTipos() {
             dataDevolucaoPrevisao: fim, 
             items: itensParaSalvar, 
             status: 'ativo', 
-            divisorFatura: divInput
+            divisorFatura: divInput // AGORA SALVA O VALOR CORRETO
         });
 
         carrinhoLocacao = [];
@@ -1757,49 +915,13 @@ function renderTipos() {
         document.getElementById('aluguelItemSelect').value = ""; 
         document.getElementById('aluguelQtd').value = "1";
         
-        salvarLocal();
-        renderTudo();
-        
-        // Registra no log de auditoria
-        const cliente = locadores.find(x => x.id === parseInt(cli));
-        registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
-        
-        mostrarToast("Locação Concluída!");
-        sincronizar('salvar');
+        salvarLocal(); renderTudo(); mostrarToast("Locação Concluída!"); sincronizar('salvar');
     }
-
-    // === RECALCULAR DISPONIBILIDADE COM CACHE ===
-    function recalcularDisponibilidade(forcar = false) {
-        const agora = Date.now();
-        
-        if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
-            console.log('📦 Usando cache de disponibilidade');
-            return;
-        }
-        
-        console.log('🔄 Recalculando disponibilidade...');
-        
-        const aluguelPorPeca = new Map();
-        
-        locacoes.forEach(l => {
-            if (l.status !== 'devolvido') {
-                l.items.forEach(i => {
-                    const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
-                    const atual = aluguelPorPeca.get(i.pecaId) || 0;
-                    aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
-                });
-            }
+    function recalcularDisponibilidade() { 
+        pecas.forEach(p=>{ 
+            let alug=0; locacoes.forEach(l=>{ if(l.status!=='devolvido') l.items.forEach(i=>{ if(i.pecaId==p.id) alug+=((i.quantidade||0)-(i.devolvidos||0)); }); }); 
+            p.disponivel=(p.quantidade||0)-alug; 
         });
-        
-        pecas.forEach(p => {
-            const alugado = aluguelPorPeca.get(p.id) || 0;
-            p.disponivel = (p.quantidade || 0) - alugado;
-        });
-        
-        cacheDisponibilidade = true;
-        ultimaAtualizacaoCache = agora;
-        
-        console.log('✅ Disponibilidade recalculada');
     }
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
@@ -1808,610 +930,116 @@ function renderTipos() {
     
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
-    function removerItem(t, id) {
-        if(!confirm("Tem certeza?")) return;
-        
-        if(t === 'locadores') {
-            const item = locadores.find(x => x.id == id);
-            locadores = locadores.filter(x => x.id !== id);
-            registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
-        }
-        if(t === 'pecas') {
-            const item = pecas.find(x => x.id == id);
-            pecas = pecas.filter(x => x.id !== id);
-            registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
-        }
-        if(t === 'tipos') {
-            const item = tipos.find(x => x.id == id);
-            tipos = tipos.filter(x => x.id !== id);
-            registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
-        }
-        
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-    }
-
+    function removerItem(t,id) { if(!confirm("Tem certeza?")) return; if(t==='locadores') locadores=locadores.filter(x=>x.id!==id); if(t==='pecas') pecas=pecas.filter(x=>x.id!==id); if(t==='tipos') tipos=tipos.filter(x=>x.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
     function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
     function alternarPagamento(id) { const l = locacoes.find(x => x.id == id); if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); } }
 
     // --- AUTENTICAÇÃO E SYNC ---
-    function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: (resp) => { if(resp.error) return alert(JSON.stringify(resp)); safeLocalSet('gToken', resp.access_token); entrarApp(); sincronizar('carregar'); } }); }
+    function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: (resp) => { if(resp.error) return alert(JSON.stringify(resp)); localStorage.setItem('gToken', resp.access_token); entrarApp(); sincronizar('carregar'); } }); }
     function fazerLoginGoogle() { if(tokenClient) tokenClient.requestAccessToken({prompt: 'consent'}); else if(window.google) gisLoaded(); }
     function entrarOffline() { entrarApp(); document.getElementById('syncText').innerText="Offline"; document.getElementById('syncBadge').className="sync-badge sync-offline"; }
-    function entrarApp() {
-        ensureCoreDom();
-        fixTabStructure();
+    function entrarApp(){
+    const login = document.getElementById('loginArea');
+    const app = document.getElementById('appArea');
 
-        const login = $('loginArea');
-        const app = $('appArea');
-
-        if (!login || !app) {
-            console.error("entrarApp(): #loginArea ou #appArea não encontrado no DOM.", { loginArea: !!login, appArea: !!app });
-            return;
-        }
-
-        login.style.display = 'none';
-        app.style.display = 'block';
-
-        renderTudo();
-    }
-    function sair() { try { localStorage.removeItem('gToken'); } catch(e) {} location.reload(); }
-    
-    // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
-
-// Backup de emergência antes de sobrescrever dados
-function criarBackupEmergencia() {
-    const timestamp = new Date().toISOString();
-    const backup = {
-        data: timestamp,
-        locadores, pecas, locacoes, devolucoes, tipos, config
-    };
-    localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
-    console.log('✅ Backup de emergência criado:', timestamp);
-    return backup;
-}
-
-// Sincronização com proteção contra perda de dados
-async function sincronizar(modo) {
-    if (!navigator.onLine) {
-        updStatus('offline');
-        return;
-    }
-
-    updStatus('saving');
-
-    try {
-        if (modo === 'carregar') {
-            // Carregar dados da nuvem
-            const response = await fetch(`${API_URL}?action=carregar`);
-            const texto = await response.text();
-
-            // Validação de resposta
-            if (texto.startsWith('<')) {
-                console.warn('⚠️ Resposta inválida do servidor');
-                updStatus('offline');
-                return;
-            }
-
-            const dadosNuvem = JSON.parse(texto);
-
-            // Verificar se há dados locais
-            const temDadosLocais = locadores.length > 0 || pecas.length > 0 || locacoes.length > 0;
-
-            if (temDadosLocais) {
-                // Detectar conflito de timestamps
-                const timestampLocal = localStorage.getItem('mtzUltimaEdicao') || 0;
-                const timestampNuvem = dadosNuvem.ultimaEdicao || 0;
-
-                console.log('📅 Local:', new Date(Number(timestampLocal)).toLocaleString());
-                console.log('☁️ Nuvem:', new Date(Number(timestampNuvem)).toLocaleString());
-
-                // Se nuvem for mais recente, perguntar
-                if (timestampNuvem > timestampLocal) {
-                    const confirmar = confirm(
-                        '⚠️ ATENÇÃO: Dados na nuvem são mais recentes!\n\n' +
-                        `📅 Seus dados locais: ${new Date(Number(timestampLocal)).toLocaleString()}\n` +
-                        `☁️ Dados na nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
-                        '✅ Clique OK para CARREGAR da nuvem (backup automático será criado)\n' +
-                        '❌ Clique CANCELAR para manter seus dados locais'
-                    );
-
-                    if (!confirmar) {
-                        console.log('🚫 Usuário cancelou sincronização');
-                        updStatus('offline');
-                        mostrarToast('Sincronização cancelada. Dados locais mantidos.');
-                        return;
-                    }
-
-                    // Criar backup antes de sobrescrever
-                    criarBackupEmergencia();
-                }
-            }
-
-            // Carregar dados
-            if (dadosNuvem.locadores) {
-                locadores = dadosNuvem.locadores || [];
-                pecas = dadosNuvem.pecas || [];
-                locacoes = dadosNuvem.locacoes || [];
-                devolucoes = dadosNuvem.devolucoes || [];
-                tipos = dadosNuvem.tipos || [];
-                config = dadosNuvem.config || config;
-
-                salvarLocal();
+    // Se por algum motivo o DOM ainda não está pronto, tenta novamente
+    if(!login || !app){
+        console.error('entrarApp(): #loginArea ou #appArea não encontrado no DOM', {loginArea: !!login, appArea: !!app});
+        // tenta mais uma vez no próximo frame
+        requestAnimationFrame(function(){
+            const l2=document.getElementById('loginArea');
+            const a2=document.getElementById('appArea');
+            if(l2 && a2){
+                l2.style.display='none';
+                a2.style.display='block';
                 renderTudo();
-                mostrarToast('✅ Dados carregados da nuvem!');
             }
-
-        } else {
-            // Enviar dados para nuvem
-            const timestamp = Date.now();
-            const dadosParaEnviar = {
-                locadores, pecas, locacoes, devolucoes, tipos, config,
-                ultimaEdicao: timestamp
-            };
-
-            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    dados: JSON.stringify(dadosParaEnviar)
-                })
-            });
-
-            if (response.ok) {
-                mostrarToast('☁️ Dados salvos na nuvem!');
-                console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
-            }
-        }
-
-        updStatus('online');
-
-    } catch (erro) {
-        console.error('❌ Erro na sincronização:', erro);
-        updStatus('offline');
-        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
-    }
-}
-
-// Backup automático diário
-function iniciarBackupAutomatico() {
-    const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
-    const agora = Date.now();
-    const umDia = 24 * 60 * 60 * 1000;
-
-    if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
-        const backup = {
-            data: new Date().toISOString(),
-            versao: 'V11',
-            locadores, pecas, locacoes, devolucoes, tipos, config
-        };
-
-        localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
-        localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
-        
-        console.log('💾 Backup automático criado:', new Date().toLocaleString());
-    }
-}
-
-// Restaurar backup de emergência
-function restaurarBackupEmergencia() {
-    const backup = localStorage.getItem('mtzBackupEmergencia');
-    if (!backup) {
-        alert('❌ Nenhum backup de emergência encontrado.');
+        });
         return;
     }
 
-    const confirmar = confirm(
-        '⚠️ Deseja restaurar o BACKUP DE EMERGÊNCIA?\n\n' +
-        'Isso irá substituir todos os dados atuais.'
-    );
-
-    if (confirmar) {
-        const dados = JSON.parse(backup);
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-
-        salvarLocal();
-        renderTudo();
-        mostrarToast('✅ Backup de emergência restaurado!');
-        console.log('✅ Dados restaurados de:', dados.data);
-    }
+    login.style.display='none';
+    app.style.display='block';
+    renderTudo();
 }
-
-// Ver informações de backup
-function verInfoBackup() {
-    const backup = localStorage.getItem('mtzBackupEmergencia');
-    const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+    function sair() { lsRemove('gToken'); location.reload(); }
     
-    let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
-    
-    if (backup) {
-        const dados = JSON.parse(backup);
-        msg += `🆘 Backup de Emergência:\n`;
-        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
-        msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações\n\n`;
-    } else {
-        msg += '❌ Nenhum backup de emergência\n\n';
+    async function sincronizar(modo) { 
+        if(!navigator.onLine) { updStatus('offline'); return; } updStatus('saving');
+        try { 
+            if(modo==='carregar') { 
+                const r = await fetch(`${API_URL}?action=carregar`); const t = await r.text(); 
+                if(!t.startsWith('<')) { const j=JSON.parse(t); if(j.locadores) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes||[]; tipos=j.tipos||[]; config=j.config||config; salvarLocal(); renderTudo(); } } 
+            } else { 
+                await fetch(API_URL, {method:'POST', body:new URLSearchParams({dados:JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})})});
+            } 
+            updStatus('online'); 
+        } catch(e){ updStatus('offline'); } 
     }
     
-    if (backupAuto) {
-        const dados = JSON.parse(backupAuto);
-        msg += `💾 Backup Automático:\n`;
-        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
-    } else {
-        msg += '❌ Nenhum backup automático';
+    function salvarLocal() { lsSet('mtzBackup', JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})); }
+    function carregarLocal() { try { const j=JSON.parse(lsGet('mtzBackup')); if(j) { locadores=j.locadores; pecas=j.pecas; locacoes=j.locacoes; devolucoes=j.devolucoes; tipos=j.tipos; config=j.config; } } catch(e){} }
+    function updStatus(s){
+    const b=document.getElementById('syncBadge');
+    const t=document.getElementById('syncText');
+
+    if(!b || !t){
+        // não derruba a aplicação se badge não existir
+        console.warn('updStatus(): elementos de status não encontrados', {syncBadge: !!b, syncText: !!t});
+        return;
     }
-    
-    alert(msg);
+
+    if(s==='online'){ b.className="sync-badge sync-online"; t.innerText="Online"; }
+    else if(s==='saving'){ b.className="sync-badge sync-saving"; t.innerText="Salvando..."; }
+    else { b.className="sync-badge sync-offline"; t.innerText="Offline"; }
 }
-
-    
-    // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
-function salvarLocal() {
-    cacheDisponibilidade = null;
-    try {
-        const dados = {
-    versao: '11.0',
-    data: new Date().toISOString(),
-    locadores, pecas, locacoes, devolucoes, tipos, config,
-    logsAuditoria  // ← ADICIONE ESTA LINHA
-};
-
-        const json = JSON.stringify(dados);
-        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
-        const tamanhoMB = (tamanhoKB / 1024).toFixed(2);
-
-        console.log(`💾 Salvando ${tamanhoKB} KB no localStorage...`);
-
-        // Verificar se está próximo do limite (5MB = 5120 KB)
-        if (parseFloat(tamanhoKB) > 4500) {
-            console.warn(`⚠️ ALERTA: LocalStorage usando ${tamanhoMB} MB de 5 MB!`);
-            mostrarToast(`⚠️ Armazenamento em ${Math.round((tamanhoKB/5120)*100)}%! Faça backup e arquive dados antigos.`, 'erro');
-        }
-
-        localStorage.setItem('mtzBackup', json);
-        return true;
-
-    } catch (erro) {
-        console.error('❌ Erro ao salvar:', erro);
-
-        if (erro.name === 'QuotaExceededError') {
-            alert(
-                '🔴 ERRO CRÍTICO: LocalStorage cheio!\n\n' +
-                'O sistema não pode salvar mais dados.\n\n' +
-                'SOLUÇÕES:\n' +
-                '1. Vá em Config → Baixar JSON (fazer backup)\n' +
-                '2. Depois vá em Config → Arquivar (Limpeza)\n' +
-                '3. Ou delete locações antigas manualmente\n\n' +
-                '⚠️ Novos dados NÃO serão salvos até liberar espaço!'
-            );
-            return false;
-        }
-
-        // Outros erros
-        alert('❌ Erro ao salvar dados: ' + erro.message);
-        return false;
-    }
-}
-
-    // === CARREGAR COM VALIDAÇÃO E RECUPERAÇÃO ===
-function carregarLocal() {
-    try {
-        const json = localStorage.getItem('mtzBackup');
-        
-        if (!json) {
-            console.log('📭 Nenhum dado local encontrado (primeira vez)');
-            return;
-        }
-
-        const dados = JSON.parse(json);
-
-        // Validação de integridade
-        if (!dados.locadores || !Array.isArray(dados.locadores)) {
-            throw new Error('Dados corrompidos: estrutura inválida');
-        }
-
-        // Carregar dados
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-        logsAuditoria = dados.logsAuditoria || [];
-
-
-        const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
-        
-        console.log('✅ Dados locais carregados:', {
-            tamanho: `${tamanhoKB} KB`,
-            clientes: locadores.length,
-            itens: pecas.length,
-            locacoes: locacoes.length,
-            versao: dados.versao || 'antiga'
-        });
-
-        // Alerta se estiver usando mais de 80% do storage
-        if (parseFloat(tamanhoKB) > 4000) {
-            console.warn('⚠️ LocalStorage usando mais de 80%');
-        }
-
-    } catch (erro) {
-        console.error('❌ Erro ao carregar dados:', erro);
-        
-        // Tentar recuperar backup automático
-        const backupAuto = localStorage.getItem('mtzBackupAutomatico');
-        const backupEmergencia = localStorage.getItem('mtzBackupEmergencia');
-        
-        if (backupEmergencia || backupAuto) {
-            const restaurar = confirm(
-                '⚠️ ERRO ao carregar dados locais!\n\n' +
-                'Possível corrupção detectada.\n\n' +
-                '✅ Backups disponíveis encontrados!\n\n' +
-                'Deseja tentar restaurar automaticamente?'
-            );
-
-            if (restaurar) {
-                tentarRecuperacaoAutomatica();
-            }
-        } else {
-            alert(
-                '🔴 ERRO CRÍTICO: Dados corrompidos e sem backup!\n\n' +
-                'Causas possíveis:\n' +
-                '- Fechamento abrupto do navegador\n' +
-                '- Falta de espaço no disco\n' +
-                '- Extensão do navegador interferindo\n\n' +
-                'O sistema será reiniciado vazio.'
-            );
-            
-            // Resetar para dados vazios
-            locadores = [];
-            pecas = [];
-            locacoes = [];
-            devolucoes = [];
-            tipos = [];
-        }
-    }
-}
-
-// === RECUPERAÇÃO AUTOMÁTICA ===
-function tentarRecuperacaoAutomatica() {
-    try {
-        // Tentar backup de emergência primeiro
-        let backup = localStorage.getItem('mtzBackupEmergencia');
-        let fonte = 'Emergência';
-        
-        // Se não tiver, tentar backup automático
-        if (!backup) {
-            backup = localStorage.getItem('mtzBackupAutomatico');
-            fonte = 'Automático';
-        }
-        
-        if (!backup) {
-            throw new Error('Nenhum backup disponível');
-        }
-
-        const dados = JSON.parse(backup);
-        
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-
-        salvarLocal();
-        renderTudo();
-        
-        alert(
-            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
-            `Fonte: Backup ${fonte}\n` +
-            `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
-            `Registros recuperados:\n` +
-            `- ${locadores.length} clientes\n` +
-            `- ${pecas.length} itens\n` +
-            `- ${locacoes.length} locações\n\n` +
-            `💡 Recomendação: Faça um backup JSON agora!`
-        );
-        
-        console.log('✅ Dados recuperados de:', dados.data);
-        
-    } catch (erro) {
-        alert('❌ Falha na recuperação automática: ' + erro.message);
-    }
-}
-
-    function updStatus(s) {
-        const b = $('syncBadge');
-        const t = $('syncText');
-        if (!b || !t) return; // evita travar o app se o HTML estiver incompleto
-
-        if (s === 'online') {
-            b.className = "sync-badge sync-online";
-            t.innerText = "Online";
-        } else if (s === 'saving') {
-            b.className = "sync-badge sync-saving";
-            t.innerText = "Salvando...";
-        } else {
-            b.className = "sync-badge sync-offline";
-            t.innerText = "Offline";
-        }
-    }
-
-else if(s==='saving'){b.className="sync-badge sync-saving";t.innerText="Salvando...";} else {b.className="sync-badge sync-offline";t.innerText="Offline";} }
 
     // --- FUNÇÕES DE EDIÇÃO ---
     function abrirEditarLocador(id) { const c = locadores.find(x => x.id === id); if(!c) return; document.getElementById('editLocId').value = c.id; document.getElementById('editLocNome').value = c.nome; document.getElementById('editLocEmail').value = c.email || ''; document.getElementById('editLocTel').value = c.telefone || ''; document.getElementById('modalEditarLocador').classList.add('active'); }
-    function salvarEdicaoLocador() { 
-    const id = parseInt(document.getElementById('editLocId').value); 
-    const c = locadores.find(x => x.id === id); 
-    
-    if(c) { 
-        c.nome = document.getElementById('editLocNome').value; 
-        c.email = document.getElementById('editLocEmail').value; 
-        c.telefone = document.getElementById('editLocTel').value; 
-        
-        salvarLocal(); 
-        renderTudo(); 
-        sincronizar('salvar'); 
-        
-        document.getElementById('modalEditarLocador').classList.remove('active');
-        
-        // CORREÇÃO: Aspas corretas e variável c.nome
-        registrarLog('cliente', 'editar', `Cliente editado: ${c.nome}`);
-        
-        mostrarToast("Cliente atualizado!"); 
-    } 
-}
+    function salvarEdicaoLocador() { const id = parseInt(document.getElementById('editLocId').value); const c = locadores.find(x => x.id === id); if(c) { c.nome = document.getElementById('editLocNome').value; c.email = document.getElementById('editLocEmail').value; c.telefone = document.getElementById('editLocTel').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarLocador').classList.remove('active'); mostrarToast("Cliente atualizado!"); } }
     
     function abrirEditarTipo(id) { const t = tipos.find(x => x.id === id); if(!t) return; document.getElementById('editTipoId').value = t.id; document.getElementById('editTipoNome').value = t.nome; document.getElementById('editTipoDesc').value = t.desc || ''; document.getElementById('modalEditarTipo').classList.add('active'); }
     function salvarEdicaoTipo() { const id = parseInt(document.getElementById('editTipoId').value); const t = tipos.find(x => x.id === id); if(t) { t.nome = document.getElementById('editTipoNome').value; t.desc = document.getElementById('editTipoDesc').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarTipo').classList.remove('active'); mostrarToast("Tipo atualizado!"); } }
 
     function abrirEditarPeca(id) { const p = pecas.find(x => x.id === id); if(!p) return; document.getElementById('editPecaId').value = p.id; document.getElementById('editPecaCod').value = p.codigo; document.getElementById('editPecaNome').value = p.nome; document.getElementById('editPecaValor').value = p.valor; document.getElementById('editPecaQtd').value = p.quantidade; updateSelects(); const sel = document.getElementById('editPecaTipo'); if(sel) sel.value = p.tipoId || 0; document.getElementById('modalEditarPeca').classList.add('active'); }
-    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
+    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); mostrarToast("Item atualizado!"); } }
 
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
-   // --- EXCEL INTELIGENTE (CORRIGIDO) ---
-function processarExcelInteligente(input) {
-    if(!input.files || !input.files[0]) return;
-    
-    // 1. DEFINIR STATS NO TOPO (Essencial para não dar erro)
-    let stats = { importados: 0, categorias: 0 };
-
-    // Proteções de segurança
-    if (typeof pecas === 'undefined' || !Array.isArray(pecas)) pecas = [];
-    if (typeof tipos === 'undefined' || !Array.isArray(tipos)) tipos = [];
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheet = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheet];
-            const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-
-            if(!rows.length) return;
-            if(!confirm(`Importar ${rows.length} linhas?`)) return;
-
-            let catAtualId = garantirCategoriaGeral();
-
-            rows.forEach(row => {
-                if (!row || row.length === 0) return;
-                
-                const dados = {
-                    nome: row[0] ? String(row[0]).trim() : "",
-                    colAno: row[1], 
-                    colQtd: row[3]  
-                };
-
-                if (ehCabecalhoCategoria(dados)) {
-                    catAtualId = definirOuCriarCategoria(dados.nome);
-                    return; 
+    // --- EXCEL INTELIGENTE ---
+    function processarExcelInteligente(input) {
+        if(!input.files || !input.files[0]) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                if(json.length) {
+                    if(confirm(`Encontrados ${json.length} itens. Importar?`)) {
+                        json.forEach(row => {
+                            pecas.push({
+                                id: Date.now() + Math.random(),
+                                codigo: row['Codigo'] || row['codigo'] || 'SEM-COD',
+                                nome: row['Nome'] || row['Produto'] || 'Sem Nome',
+                                quantidade: parseInt(row['Qtd'] || row['Quantidade'] || 1),
+                                disponivel: parseInt(row['Qtd'] || row['Quantidade'] || 1),
+                                valor: parseFloat(row['Valor'] || row['Preco'] || 0)
+                            });
+                        });
+                        salvarLocal(); renderTudo(); sincronizar('salvar'); mostrarToast("Importação concluída!");
+                    }
                 }
-
-                if (ehItemValido(dados)) {
-                    const nomeFormatado = aplicarRegraMedidas(dados.nome);
-                    const quantidade = definirQuantidade(dados);
-                    cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
-                }
-            });
-
-            finalizarImportacao(stats);
-
-        } catch(err) { 
-            console.error(err);
-            alert("Erro ao ler Excel: " + err.message);
-        }
-    };
-    reader.readAsArrayBuffer(input.files[0]);
-
-    // === FUNÇÕES AJUDANTES (DENTRO DA PRINCIPAL) ===
-
-    function ehCabecalhoCategoria(d) {
-        return d.colAno == 2026 || String(d.colAno).includes("2026");
+            } catch(err) { alert("Erro ao ler Excel: " + err); }
+        };
+        reader.readAsArrayBuffer(input.files[0]);
     }
 
-    function ehItemValido(d) {
-        return d.nome && d.nome !== "TOTAL EM METROS";
-    }
-
-    function garantirCategoriaGeral() {
-        if (!Array.isArray(tipos)) tipos = [];
-        let cat = tipos.find(t => t.nome === "Geral");
-        if (!cat) {
-            cat = { id: Date.now(), nome: "Geral", desc: "Padrão" };
-            tipos.push(cat);
-        }
-        return cat.id;
-    }
-
-    function definirOuCriarCategoria(nomeBruto) {
-        const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
-        let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
-        if (!cat) {
-            cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
-            tipos.push(cat);
-            stats.categorias++;
-        }
-        return cat.id;
-    }
-
-    function aplicarRegraMedidas(nome) {
-        if (/^[\d.,]+$/.test(nome)) {
-            let valor = parseFloat(nome.replace(',', '.'));
-            if (!isNaN(valor)) {
-                if (valor < 1) return Math.round(valor * 100) + 'cm'; 
-                return valor + 'm'; 
-            }
-        }
-        return nome;
-    }
-
-    function definirQuantidade(d) {
-        let q = parseInt(d.colQtd);       
-        if (isNaN(q)) q = parseInt(d.colAno); 
-        return isNaN(q) ? 0 : q;
-    }
-
-    function cadastrarItemSeNovo(nome, qtd, catId) {
-        if (!Array.isArray(pecas)) pecas = [];
-        const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
-
-        if (!existe) {
-            pecas.push({
-                id: Date.now() + Math.random(),
-                codigo: 'IMP-' + Math.floor(Math.random() * 100000),
-                nome: nome,
-                quantidade: qtd,
-                disponivel: qtd,
-                valor: 0,
-                tipoId: catId,
-                medida: ''
-            });
-            stats.importados++;
-        }
-    }
-
-    function finalizarImportacao(s) {
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        mostrarToast(`Sucesso! ${s.importados} itens importados.`);
-    }
-
-} // <--- FIM DA FUNÇÃO
-   
+    // --- RELATÓRIOS (PDF CLEAN & FULL PAGE CORRIGIDO) ---
     function getHeaderMTZ() {
         return `
         <div style="background:#ffffff; color:#000000; padding:20px; text-align:center; border-bottom: 2px solid #2563eb; margin-bottom: 20px;">
@@ -2644,30 +1272,11 @@ function processarExcelInteligente(input) {
         div.innerHTML = l.items.map((item) => `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid var(--border);"><span>${item.nome} (${item.quantidade})</span> <span class="badge badge-success">OK</span></div>`).join('');
     }
     function confirmarDevolucao() { 
-    const id = document.getElementById('devLocacao').value;
-    if(!id) return alert("Selecione!");
-    
-    const l = locacoes.find(x => x.id == id);
-    l.status = 'devolvido';
-    
-    devolucoes.push({ 
-        id: Date.now(), 
-        locacaoId: l.id, 
-        dataDevolucao: document.getElementById('devData').value, 
-        obs: 'Total' 
-    });
-    
-    salvarLocal();
-    renderTudo();
-    sincronizar('salvar');
-    
-    // Registra no log de auditoria
-    const cliente = locadores.find(x => x.id === l.locadorId);
-    registrarLog('devolucao', 'criar', `Devolução registrada: ${cliente?.nome || 'Cliente'}`);
-    
-    mostrarToast("Baixa confirmada!");
-}
-
+        const id = document.getElementById('devLocacao').value; if(!id) return alert("Selecione!");
+        const l = locacoes.find(x => x.id == id); l.status = 'devolvido';
+        devolucoes.push({ id: Date.now(), locacaoId: l.id, dataDevolucao: document.getElementById('devData').value, obs: 'Total' }); 
+        salvarLocal(); renderTudo(); sincronizar('salvar'); mostrarToast("Baixa confirmada!");
+    }
     function converterLogo() { const input = document.getElementById('confLogo'); if (input.files[0]) { const reader = new FileReader();
     reader.onloadend = function() { config.logo = reader.result; document.getElementById('previewLogo').innerHTML = `<img src="${config.logo}" style="height:50px">`; }; reader.readAsDataURL(input.files[0]); } }
     
@@ -2872,9 +1481,14 @@ Fico no aguardo!`;
     }
       // 1. Registra o Service Worker (Obrigatório para instalar)
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js?v=11.0.1')
+            navigator.serviceWorker.register('./sw.js')
                 .then(() => console.log('Service Worker Registrado!'))
                 .catch((err) => console.error('Erro no SW:', err));
+        }
+
+        
+       if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
         }
 
         let deferredPrompt;
@@ -2906,65 +1520,7 @@ Fico no aguardo!`;
                 });
             };
         });
-// === MONITOR DE ARMAZENAMENTO ===
-function verificarEspacoStorage() {
-    try {
-        const backup = localStorage.getItem('mtzBackup');
-        if (!backup) return;
-        
-        const tamanhoKB = (new Blob([backup]).size / 1024).toFixed(2);
-        const percentual = Math.round((tamanhoKB / 5120) * 100);
-        
-        console.log(`📊 Storage: ${tamanhoKB} KB (${percentual}% de 5 MB)`);
-        
-        if (percentual >= 90) {
-            mostrarToast('🔴 CRÍTICO: Storage em ' + percentual + '%! FAÇA BACKUP AGORA!', 'erro');
-        } else if (percentual >= 75) {
-            mostrarToast('⚠️ ALERTA: Storage em ' + percentual + '%!', 'erro');
-        }
-    } catch (erro) {
-        console.error('Erro ao verificar storage:', erro);
-    }
-}
-
-// Executar verificação ao carregar
-window.addEventListener('load', function() {
-    setTimeout(verificarEspacoStorage, 2000);
-});
-
-   let estoqueSelecionados = new Set();
-
-function onSelectEstoque(id, checked){
-  id = Number(id);
-  if (checked) estoqueSelecionados.add(id);
-  else estoqueSelecionados.delete(id);
-}
-
-function toggleSelecionarTodosEstoque(marcar) {
-  const checks = document.querySelectorAll('.chk-estoque');
-  checks.forEach(chk => {
-    chk.checked = marcar;
-    onSelectEstoque(chk.dataset.id, marcar);
-  });
-}
-
-function excluirSelecionadosEstoque(){
-  if (estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
-  if (!confirm(`Excluir ${estoqueSelecionados.size} item(ns) do estoque?`)) return;
-
-  const ids = new Set([...estoqueSelecionados].map(Number));
-  const removidos = pecas.filter(p => ids.has(p.id));
-  pecas = pecas.filter(p => !ids.has(p.id));
-
-  removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
-
-  estoqueSelecionados.clear();
-  salvarLocal();
-  renderEstoque();
-  sincronizar('salvar');
-  mostrarToast('Itens excluídos!');
-}
-     
+    
     </script>
 </body>
 </html>
