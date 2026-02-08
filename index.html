@@ -937,7 +937,7 @@ function filtrarItensLocacao() {
     const termo = normalizar(termoInput.value);
     
     lista.innerHTML = '';
-    if (termo.length < 1) { // Busca a partir da 1ª letra [cite: 217]
+    if (termo.length < 1) { // Busca a partir da 1ª letra 
         lista.classList.remove('ativo');
         return;
     }
