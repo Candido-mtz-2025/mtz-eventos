@@ -912,25 +912,36 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
 function filtrarItensLocacao() {
     const termoInput = document.getElementById('inputBuscaPeca');
     const lista = document.getElementById('listaSugestoes');
+    
     if (!termoInput || !lista) return;
 
-    // Normalização para ignorar acentos (igual você faz no estoque)
-    const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    // Função de normalização (igual à que você usa no estoque) [cite: 307]
+    const normalizar = (t) => t ? t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const termo = normalizar(termoInput.value);
-
+    
     lista.innerHTML = '';
-
-    // Alterado de < 2 para < 1 para mostrar resultados logo na primeira letra
+    
+    // Mostra resultados a partir do primeiro caractere para ser mais sensível
     if (termo.length < 1) {
         lista.classList.remove('ativo');
         return;
     }
 
-    // Filtra pecas comparando nome e código normalizados
-    const filtrados = pecas.filter(p => 
-        normalizar(p.nome || "").includes(termo) || 
-        normalizar(p.codigo || "").includes(termo)
-    );
+    // Filtra pecas com referências cruzadas (Nome, Código, Medida e Categoria) 
+    const filtrados = pecas.filter(p => {
+        const nome = normalizar(p.nome);
+        const codigo = normalizar(p.codigo);
+        const medida = normalizar(p.medida);
+        
+        // Busca também pelo nome da categoria (tipo) 
+        const tipo = tipos.find(t => t.id === p.tipoId);
+        const categoria = tipo ? normalizar(tipo.nome) : '';
+
+        return nome.includes(termo) || 
+               codigo.includes(termo) || 
+               categoria.includes(termo) ||
+               medida.includes(termo);
+    });
 
     if (filtrados.length === 0) {
         lista.innerHTML = '<div class="sugestao-item"><span>Nenhum item encontrado</span></div>';
@@ -938,22 +949,24 @@ function filtrarItensLocacao() {
         return;
     }
 
-    // Renderiza os itens encontrados
+    // Renderiza a lista de sugestões [cite: 220, 221]
     filtrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
         const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
+        
         item.innerHTML = `
-            <span>${p.nome} <small>(${p.codigo})</small></span>
+            <span>${p.nome} <small style="opacity:0.6">(${p.codigo || 'S/C'})</small></span>
             <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
                 (Disp: ${p.disponivel})
             </span>
         `;
+        
         item.onclick = function() {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
             document.getElementById('aluguelQtd').focus();
-            atualizarLimiteEstoque();
+            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque(); [cite: 642]
             lista.classList.remove('ativo');
         };
         lista.appendChild(item);
