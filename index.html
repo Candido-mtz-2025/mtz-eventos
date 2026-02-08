@@ -5,7 +5,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#3b82f6">
-   <link rel="manifest" href="./manifest.json?v=123">
+    <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" href="./logo.png">
     <link rel="apple-touch-icon" href="./logo.png">
     <meta charset="UTF-8">
@@ -610,7 +610,8 @@
           </div>
         </div> 
       </div> 
-    </div> <div id="tab-locacoes" class="tab-content">
+     </div> 
+   <div id="tab-locacoes" class="tab-content">
         <div class="card">
             <h3>Nova Locação</h3>
             <div class="form-row">
@@ -662,7 +663,7 @@
                     <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
                 </div> 
 
-                <div class="card">
+                 <div class="card">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
@@ -673,24 +674,34 @@
                     </div>
                 </div>
 
-            </div> <div id="tab-devolucoes" class="tab-content">
-                <div class="card">
-                    <h3>Registrar Devolução</h3>
-                    <div class="form-row">
-                        <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
-                        <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
-                    </div>
-                    <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
-                        <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
-                    </div>
-                    <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Confirmar Baixa</button>
-                </div>
-                <div class="card">
-                    <h3>Histórico Recente</h3>
-                    <div class="table-responsive"><table class="table"><thead><tr><th>Cliente</th><th>Data</th><th>Status</th><th class="col-actions">Recibo</th></tr></thead><tbody id="tblDevolucoes"></tbody></table></div>
-                </div>
-            </div>
+        </div> 
+  </div> 
 
+            <div id="tab-devolucoes" class="tab-content">
+        <div class="card">
+            <h3>Registrar Devolução</h3>
+            <div class="form-row">
+                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
+                <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
+            </div>
+            <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
+                <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
+            </div>
+            <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Confirmar Baixa</button>
+        </div>
+        <div class="card">
+            <h3>Histórico Recente</h3>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr><th>Cliente</th><th>Data</th><th>Status</th><th class="col-actions">Recibo</th></tr>
+                </thead>
+                <tbody id="tblDevolucoes"></tbody>
+              </table>
+            </div>
+        </div>
+  </div> 
+        
             <div id="tab-config" class="tab-content">
                 <div class="card">
                     <h3>Personalização</h3>
@@ -715,6 +726,7 @@
                     </div>
                 </div>
             </div>
+        
 <!-- ABA AUDITORIA -->
 <div id="tab-auditoria" class="tab-content">
   <div class="card">
@@ -732,16 +744,15 @@
       </div>
     </div>
 
-  <div class="audit-filters">
-  <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos"     onclick="renderLogs('todos')">Todos</button>
-  <button class="btn btn-sm btn-success   audit-filter" data-filter="cliente"   onclick="renderLogs('cliente')">Clientes</button>
-  <button class="btn btn-sm btn-success   audit-filter" data-filter="item"      onclick="renderLogs('item')">Itens</button>
-  <button class="btn btn-sm btn-warning   audit-filter" data-filter="locacao"   onclick="renderLogs('locacao')">Locações</button>
-  <button class="btn btn-sm btn-info      audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
-  <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema"   onclick="renderLogs('sistema')">Sistema</button>
-</div>
+    <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+      <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
+      <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
+      <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
+      <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
+      <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
+      <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+    </div>
 
-      
     <div class="table-responsive">
       <table class="table">
         <thead>
@@ -768,6 +779,7 @@
 
   </div>
 </div>
+
 
     <div id="modalEditarLocador" class="modal">
   <div class="modal-content">
