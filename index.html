@@ -999,13 +999,11 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
 
-// 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
-// ========================================
+// 🔥 RENDERIZAR LOCAÇÕES (CORRIGIDA - SEM O ERRO DO "1")
 function renderLocacoes() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    
-    const tbody = DOM.get('tblLocacoes');
+    const tbody = document.getElementById('tblLocacoes');
     if (!tbody) return;
     
     // Processar dados
@@ -1021,10 +1019,11 @@ function renderLocacoes() {
         
         return { ...l, statusVisual: st, valorTotal: total / div, pago: l.pago || false };
     });
-    
+
+    // CORREÇÃO AQUI: Trocado '1 =>' por 'l =>'
     const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
     filtrados.sort((a, b) => b.id - a.id);
-    
+
     // Paginação
     const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
     const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
@@ -1035,11 +1034,11 @@ function renderLocacoes() {
         return;
     }
     
-    // 🔥 OTIMIZAÇÃO: DocumentFragment (1 reflow)
     const fragment = document.createDocumentFragment();
     
+    // CORREÇÃO AQUI TAMBÉM: Trocado '1 =>' por 'l =>'
     itensPagina.forEach(l => {
-     const c = locadores.find(x => x.id === l.locadorId);
+        const c = locadores.find(x => x.id === l.locadorId);
         let badgeClass = l.statusVisual === 'atrasado' ? 'badge-danger' : 
                         l.statusVisual === 'devolvido' ? 'badge-info' : 'badge-success';
         
@@ -1060,18 +1059,10 @@ function renderLocacoes() {
             <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
-                        <i class="bi bi-currency-dollar"></i>
-                    </button>
-                    <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})">
-                        <i class="bi bi-whatsapp"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})">
-                        <i class="bi bi-truck"></i>
-                    </button>
-                    <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})">
-                        <i class="bi bi-file-text"></i>
-                    </button>
+                    <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})"><i class="bi bi-currency-dollar"></i></button>
+                    <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})"><i class="bi bi-whatsapp"></i></button>
+                    <button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})"><i class="bi bi-truck"></i></button>
+                    <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})"><i class="bi bi-file-text"></i></button>
                     ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
@@ -1080,8 +1071,7 @@ function renderLocacoes() {
     });
     
     tbody.innerHTML = '';
-    tbody.appendChild(fragment); // 🚀 1 reflow ao invés de 50+
-    
+    tbody.appendChild(fragment);
     criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
 }
         
@@ -1281,13 +1271,11 @@ function renderDevolucoes() {
     // 3. Pega as últimas 20 devoluções
     const lista = devolucoes.slice().reverse().slice(0, 20); 
 
-    // 4. Se estiver vazio, mostra mensagem
     if (lista.length === 0) { 
         tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhuma devolução registrada.</td></tr>`; 
         return; 
     } 
 
-    // 5. Renderiza as linhas
     tbody.innerHTML = lista.map(d => { 
         const l = locacoes.find(x => x.id === d.locacaoId); 
         const c = locadores.find(x => x.id === (l ? l.locadorId : 0)); 
