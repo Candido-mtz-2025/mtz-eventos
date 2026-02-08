@@ -1074,37 +1074,6 @@ function renderLocacoes() {
     tbody.appendChild(fragment);
     criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
 }
-        
-// === CRIAR BOTÕES DE PAGINAÇÃO ===
-function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
-    if (totalPaginas <= 1) return; // Não precisa de paginação
-    
-    const tbody = document.getElementById(`tbl${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
-    if (!tbody) return;
-    
-    const paginaAtualTipo = paginaAtual[tipo];
-    
-    const controles = `
-        <tr style="background: var(--surface-hover);">
-            <td colspan="10" style="text-align: center; padding: 15px;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
-                        <i class="bi bi-chevron-left"></i> Anterior
-                    </button>
-                    <span style="font-weight: 600; color: var(--text);">
-                        Página ${paginaAtualTipo} de ${totalPaginas} 
-                        <span style="opacity: 0.6; font-size: 0.85rem;">(${totalItens} itens)</span>
-                    </span>
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
-                        Próxima <i class="bi bi-chevron-right"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
-    
-    tbody.insertAdjacentHTML('beforeend', controles);
-}
 
 // === NAVEGAÇÃO DE PÁGINAS ===
 function irParaPagina(tipo, novaPagina) {
