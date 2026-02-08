@@ -909,31 +909,31 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
     locacoes: 1
     };
     const ITENS_POR_PAGINA = 50;
+    
 function filtrarItensLocacao() {
     const termoInput = document.getElementById('inputBuscaPeca');
     const lista = document.getElementById('listaSugestoes');
     
     if (!termoInput || !lista) return;
 
-    // Função de normalização (igual à que você usa no estoque) [cite: 307]
+    // Normalização idêntica à do estoque para encontrar "Q30", "Q-30", acentos, etc.
     const normalizar = (t) => t ? t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const termo = normalizar(termoInput.value);
     
     lista.innerHTML = '';
     
-    // Mostra resultados a partir do primeiro caractere para ser mais sensível
+    // Agora busca a partir de 1 único caractere para não ignorar referências curtas
     if (termo.length < 1) {
         lista.classList.remove('ativo');
         return;
     }
 
-    // Filtra pecas com referências cruzadas (Nome, Código, Medida e Categoria) 
+    // Filtra em todas as referências: Nome, Código, Categoria e Medida
     const filtrados = pecas.filter(p => {
         const nome = normalizar(p.nome);
         const codigo = normalizar(p.codigo);
         const medida = normalizar(p.medida);
         
-        // Busca também pelo nome da categoria (tipo) 
         const tipo = tipos.find(t => t.id === p.tipoId);
         const categoria = tipo ? normalizar(tipo.nome) : '';
 
@@ -949,14 +949,14 @@ function filtrarItensLocacao() {
         return;
     }
 
-    // Renderiza a lista de sugestões [cite: 220, 221]
+    // Renderiza as sugestões com destaque para o código da peça
     filtrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
         const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
         
         item.innerHTML = `
-            <span>${p.nome} <small style="opacity:0.6">(${p.codigo || 'S/C'})</small></span>
+            <span>${p.nome} <small style="opacity:0.6">[${p.codigo || 'S/C'}]</small></span>
             <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
                 (Disp: ${p.disponivel})
             </span>
@@ -966,7 +966,7 @@ function filtrarItensLocacao() {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
             document.getElementById('aluguelQtd').focus();
-            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque(); [cite: 642]
+            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
             lista.classList.remove('ativo');
         };
         lista.appendChild(item);
@@ -974,7 +974,6 @@ function filtrarItensLocacao() {
 
     lista.classList.add('ativo');
 }
-
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
     if(typeof renderLocacoes === 'function') renderLocacoes();
