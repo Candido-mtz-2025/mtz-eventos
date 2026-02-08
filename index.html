@@ -968,7 +968,14 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
         
         if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
         if(window.google) gisLoaded();
-        if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+        if (localStorage.getItem('gToken')) {
+  // garante que o DOM já montou mesmo em casos de HTML injetado
+  setTimeout(() => {
+    entrarApp();
+    sincronizar('carregar');
+  }, 0);
+}
+
         iniciarBackupAutomatico();
         setInterval(salvarLocal, 60000); // Auto-salva a cada 1 minuto
         console.log('✅ Sistema de backup ativado');
@@ -1567,7 +1574,31 @@ function renderTipos() {
     function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: (resp) => { if(resp.error) return alert(JSON.stringify(resp)); localStorage.setItem('gToken', resp.access_token); entrarApp(); sincronizar('carregar'); } }); }
     function fazerLoginGoogle() { if(tokenClient) tokenClient.requestAccessToken({prompt: 'consent'}); else if(window.google) gisLoaded(); }
     function entrarOffline() { entrarApp(); document.getElementById('syncText').innerText="Offline"; document.getElementById('syncBadge').className="sync-badge sync-offline"; }
-    function entrarApp() { document.getElementById('loginArea').style.display='none'; document.getElementById('appArea').style.display='block'; renderTudo(); }
+    function entrarApp() {
+  // pega elementos com segurança
+  const login = document.getElementById('loginArea');
+  const app   = document.getElementById('appArea');
+
+  // se não existirem, não deixa quebrar o app e já mostra o motivo
+  if (!login || !app) {
+    console.error('❌ entrarApp(): #loginArea ou #appArea não encontrado no DOM.', {
+      loginArea: !!login,
+      appArea: !!app
+    });
+    // fallback: não tenta mexer em style de null
+    return;
+  }
+
+  login.style.display = 'none';
+  app.style.display = 'block';
+
+  if (typeof renderTudo === 'function') {
+    renderTudo();
+  } else {
+    console.warn('⚠️ renderTudo() não existe (a tela pode ficar vazia).');
+  }
+}
+
     function sair() { localStorage.removeItem('gToken'); location.reload(); }
     
     // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
