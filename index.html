@@ -481,313 +481,313 @@ let paginaAtual={locadores:1,pecas:1,locacoes:1};
 const ITENS_POR_PAGINA=50;
 
 function filtrarItensLocacao(){
-    const t=document.getElementById('inputBuscaPeca'),l=document.getElementById('listaSugestoes');
-    if(!t||!l)return;
-    const term=t.value.toLowerCase();l.innerHTML='';
-    if(term.length<2){l.classList.remove('ativo');return;}
-    const fils=pecas.filter(p=>(p.nome&&p.nome.toLowerCase().includes(term))||(p.codigo&&p.codigo.toLowerCase().includes(term)));
-    if(!fils.length){l.classList.remove('ativo');return;}
-    fils.forEach(p=>{
-        const i=document.createElement('div');i.className='sugestao-item';
-        i.innerHTML=<span>${p.nome}</span><span style="font-size:0.8rem;color:${p.disponivel>0?'var(--primary)':'red'}">(Disp: ${p.disponivel})</span>;
-        i.onclick=()=>{
-            t.value=p.nome;document.getElementById('aluguelItemSelect').value=p.id;
-            document.getElementById('aluguelQtd').focus();atualizarLimiteEstoque();l.classList.remove('ativo');
-        };
-        l.appendChild(i);
-    });
-    l.classList.add('ativo');
-}
-document.addEventListener('click',e=>{if(!e.target.closest('.form-group')){const l=document.getElementById('listaSugestoes');if(l)l.classList.remove('ativo');}});
+  const t = document.getElementById('inputBuscaPeca');
+  const l = document.getElementById('listaSugestoes');
+  if(!t || !l) return;
 
-function renderTudo(){
-    if(typeof renderLocacoes==='function')renderLocacoes();
-    if(typeof renderLocadores==='function')renderLocadores();
-    if(typeof renderEstoque==='function')renderEstoque();
-    if(typeof renderDevolucoes==='function')renderDevolucoes();
-    if(typeof renderTipos==='function')renderTipos();
-    if(typeof renderStats==='function')renderStats();
-    if(typeof updateSelects==='function')updateSelects();
-    if(typeof renderLogs==='function')renderLogs();
-    if(typeof renderConfig==='function')renderConfig();
-}
-let cacheDisponibilidade=null,ultimaAtualizacaoCache=0;
-function debounce(f,d){let t;return function(...a){clearTimeout(t);t=setTimeout(()=>f.apply(this,a),d);}}
-const buscarComDebounce=debounce(function(t){if(t==='locadores')renderLocadores();if(t==='estoque')renderEstoque();},300);
+  const term = t.value.toLowerCase();
+  l.innerHTML = '';
 
-function registrarLog(t,a,d,data=null){
-    const l={id:Date.now(),timestamp:new Date().toISOString(),data:new Date().toLocaleString('pt-BR'),tipo:t,acao:a,descricao:d,usuario:localStorage.getItem('usuarioEmail')||'Offline',dados:data};
-    logsAuditoria.unshift(l);if(logsAuditoria.length>1000)logsAuditoria=logsAuditoria.slice(0,1000);
+  if(term.length < 2){ l.classList.remove('ativo'); return; }
+
+  const fils = pecas.filter(p =>
+    (p.nome && p.nome.toLowerCase().includes(term)) ||
+    (p.codigo && p.codigo.toLowerCase().includes(term))
+  );
+
+  if(!fils.length){ l.classList.remove('ativo'); return; }
+
+  fils.forEach(p=>{
+    const i = document.createElement('div');
+    i.className = 'sugestao-item';
+    i.innerHTML = `<span>${p.nome}</span>
+      <span style="font-size:0.8rem;color:${p.disponivel>0?'var(--primary)':'red'}">
+        (Disp: ${p.disponivel})
+      </span>`;
+
+    i.onclick = ()=>{
+      t.value = p.nome;
+      document.getElementById('aluguelItemSelect').value = p.id;
+      document.getElementById('aluguelQtd').focus();
+      atualizarLimiteEstoque();
+      l.classList.remove('ativo');
+    };
+
+    l.appendChild(i);
+  });
+
+  l.classList.add('ativo');
 }
-function limparLogsAntigos(){
-    const limit=Date.now()-(90*24*60*60*1000);logsAuditoria=logsAuditoria.filter(l=>l.id>limit);salvarLocal();renderLogs();
-}
+
 function exportarLogsCSV(){
-    if(!logsAuditoria.length)return mostrarToast('Sem logs','erro');
-    let csv='Data,Hora,Tipo,Acao,Descricao\n';
-    logsAuditoria.forEach(l=>{
-        const d=new Date(l.timestamp);
-        csv+="${d.toLocaleDateString()}","${d.toLocaleTimeString()}","${l.tipo}","${l.acao}","${l.descricao}"\n;
-    });
-    const b=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-    const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='logs.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  if(!logsAuditoria.length) return mostrarToast('Sem logs','erro');
+
+  let csv = 'Data,Hora,Tipo,Acao,Descricao\n';
+  logsAuditoria.forEach(l=>{
+    const d = new Date(l.timestamp);
+    csv += `"${d.toLocaleDateString()}","${d.toLocaleTimeString()}","${l.tipo}","${l.acao}","${l.descricao}"\n`;
+  });
+
+  const b = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const u = URL.createObjectURL(b);
+  const a = document.createElement('a');
+  a.href = u;
+  a.download = 'logs.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
+
 function renderLogs(f='todos'){
-    const tb=document.getElementById('tblLogs');if(!tb)return;
-    let l=logsAuditoria;if(f!=='todos')l=l.filter(x=>x.tipo===f);
-    tb.innerHTML=l.slice(0,100).map(x=><tr><td>${new Date(x.timestamp).toLocaleString()}</td><td>${x.tipo}</td><td>${x.acao}</td><td>${x.descricao}</td><td>${x.usuario}</td></tr>).join('');
+  const tb = document.getElementById('tblLogs');
+  if(!tb) return;
+
+  let l = logsAuditoria;
+  if(f !== 'todos') l = l.filter(x=>x.tipo===f);
+
+  tb.innerHTML = l.slice(0,100).map(x=>`
+    <tr>
+      <td>${new Date(x.timestamp).toLocaleString()}</td>
+      <td>${x.tipo}</td>
+      <td>${x.acao}</td>
+      <td>${x.descricao}</td>
+      <td>${x.usuario}</td>
+    </tr>
+  `).join('');
 }
-
-const GOOGLE_CLIENT_ID='981345912804-uim8kctqnts15kt6l8odhif3hil6udek.apps.googleusercontent.com';
-const API_URL='https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6d-PIdnzFi-Ejnl3gAUB-l9mGnBJt0BpyBErzMI_GFuZuhA/exec';
-
-function formatarData(s){if(!s)return '---';const d=new Date(s);return isNaN(d)?'Aberta':new Date(d.getTime()+d.getTimezoneOffset()*60000).toLocaleDateString('pt-BR');}
-
-window.onload=function(){
-    carregarLocal();
-    const h=new Date().toISOString().split('T')[0];
-    const i=document.getElementById('aluguelIni'),d=document.getElementById('devData');
-    if(i)i.value=h;if(d)d.value=h;
-    if(localStorage.getItem('theme')==='dark')document.body.setAttribute('data-theme','dark');
-    if(window.google)gisLoaded();
-    if(localStorage.getItem('gToken'))entrarApp();
-    setInterval(salvarLocal,60000);
-};
-
-function toggleTheme(){
-    const b=document.body,d=b.getAttribute('data-theme')==='dark';
-    b.setAttribute('data-theme',d?'light':'dark');localStorage.setItem('theme',d?'light':'dark');
-}
-function abrirTab(id){
-    document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
-    const t=document.getElementById('tab-'+id);if(t)t.classList.add('active');
-    const btns=document.querySelectorAll('.tab-btn');
-    btns.forEach(b=>{if(b.getAttribute('onclick').includes(id))b.classList.add('active');});
-}
-function fecharModal(id){document.getElementById(id).classList.remove('active');}
 
 function renderLocacoes(){
-    const tb=DOM.get('tblLocacoes');if(!tb)return;
-    const lts=locacoes.map(l=>{
-        let st=l.status;
-        if(st==='ativo'&&l.dataDevolucaoPrevisao&&new Date(l.dataDevolucaoPrevisao)<new Date().setHours(0,0,0,0))st='atrasado';
-        let tot=0;(l.items||[]).forEach(i=>tot+=(i.valor||0)*(i.quantidade||1));
-        return {...l,statusVisual:st,valorTotal:tot/(l.divisorFatura||1)};
-    });
-    const fils=lts.filter(l=>filtroAtual==='todos'||l.statusVisual===filtroAtual).sort((a,b)=>b.id-a.id);
-    const pag=fils.slice((paginaAtual.locacoes-1)*ITENS_POR_PAGINA, paginaAtual.locacoes*ITENS_POR_PAGINA);
-    
-    if(!pag.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center">Sem registros.</td></tr>';return;}
-    
-    tb.innerHTML=pag.map(l=>{
-        const c=locadores.find(x=>x.id===l.locadorId);
-        return <tr><td><b>${c?c.nome:'Excluído'}</b><br><small>#${l.id.toString().slice(-4)}</small></td><td>${formatarData(l.dataAluguel)}<br><small>Até ${formatarData(l.dataDevolucaoPrevisao)}</small></td><td>R$ ${l.valorTotal.toFixed(2)}</td><td><span class="badge badge-${l.statusVisual==='ativo'?'success':l.statusVisual==='atrasado'?'danger':'info'}">${l.statusVisual}</span></td><td class="col-actions"><button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})"><i class="bi bi-file-text"></i></button>${l.status!=='devolvido'?<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>:''}</td></tr>;
-    }).join('');
+  const tb = DOM.get('tblLocacoes'); if(!tb) return;
+
+  const lts = locacoes.map(l=>{
+    let st = l.status;
+    if(st==='ativo' && l.dataDevolucaoPrevisao && new Date(l.dataDevolucaoPrevisao) < new Date().setHours(0,0,0,0)) st='atrasado';
+
+    let tot = 0;
+    (l.items||[]).forEach(i=> tot += (i.valor||0)*(i.quantidade||1));
+
+    return {...l, statusVisual: st, valorTotal: tot/(l.divisorFatura||1)};
+  });
+
+  const fils = lts
+    .filter(l=> filtroAtual==='todos' || l.statusVisual===filtroAtual)
+    .sort((a,b)=> b.id - a.id);
+
+  const pag = fils.slice((paginaAtual.locacoes-1)*ITENS_POR_PAGINA, paginaAtual.locacoes*ITENS_POR_PAGINA);
+
+  if(!pag.length){
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center">Sem registros.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = pag.map(l=>{
+    const c = locadores.find(x=>x.id===l.locadorId);
+    return `
+      <tr>
+        <td><b>${c?c.nome:'Excluído'}</b><br><small>#${l.id.toString().slice(-4)}</small></td>
+        <td>${formatarData(l.dataAluguel)}<br><small>Até ${formatarData(l.dataDevolucaoPrevisao)}</small></td>
+        <td>R$ ${l.valorTotal.toFixed(2)}</td>
+        <td>
+          <span class="badge badge-${l.statusVisual==='ativo'?'success':l.statusVisual==='atrasado'?'danger':'info'}">
+            ${l.statusVisual}
+          </span>
+        </td>
+        <td class="col-actions">
+          <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})"><i class="bi bi-file-text"></i></button>
+          ${l.status!=='devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderLocadores(){
-    const tb=DOM.get('tblLocadores'),term=(DOM.get('buscaCliente')?.value||'').toLowerCase();if(!tb)return;
-    const fils=locadores.filter(c=>c.nome.toLowerCase().includes(term));
-    tb.innerHTML=fils.map(c=><tr><td><b>${c.nome}</b><br><small>${c.documento||''}</small></td><td>${c.email||'-'}</td><td>${c.telefone||'-'}</td><td class="col-actions"><button class="btn btn-info btn-sm" onclick="abrirEditarLocador(${c.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-danger btn-sm" onclick="removerItem('locadores',${c.id})"><i class="bi bi-trash"></i></button></td></tr>).join('');
+  const tb = DOM.get('tblLocadores');
+  const term = (DOM.get('buscaCliente')?.value || '').toLowerCase();
+  if(!tb) return;
+
+  const fils = locadores.filter(c => (c.nome||'').toLowerCase().includes(term));
+
+  tb.innerHTML = fils.map(c=>`
+    <tr>
+      <td><b>${c.nome}</b><br><small>${c.documento||''}</small></td>
+      <td>${c.email||'-'}</td>
+      <td>${c.telefone||'-'}</td>
+      <td class="col-actions">
+        <button class="btn btn-info btn-sm" onclick="abrirEditarLocador(${c.id})"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="removerItem('locadores',${c.id})"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function renderEstoque(){
-    const tb=DOM.get('tblEstoque'),term=(DOM.get('buscaEstoque')?.value||'').toLowerCase();if(!tb)return;
-    const fils=pecas.filter(p=>p.nome.toLowerCase().includes(term)||p.codigo.toLowerCase().includes(term));
-    tb.innerHTML=fils.map(p=><tr><td><input type="checkbox" class="chk-estoque" data-id="${p.id}" onchange="onSelectEstoque(${p.id},this.checked)" ${(estoqueSelecionados.has(p.id))?'checked':''}></td><td><i class="bi bi-box"></i></td><td>${p.codigo}</td><td>${tipos.find(t=>t.id===p.tipoId)?.nome||'-'}</td><td><b>${p.nome}</b></td><td>R$ ${Number(p.valor).toFixed(2)}</td><td><span style="color:${p.disponivel<1?'red':'inherit'}">${p.disponivel}</span>/${p.quantidade}</td><td class="col-actions"><button class="btn btn-info btn-sm" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-danger btn-sm" onclick="removerItem('pecas',${p.id})"><i class="bi bi-trash"></i></button></td></tr>).join('');
+  const tb = DOM.get('tblEstoque');
+  const term = (DOM.get('buscaEstoque')?.value || '').toLowerCase();
+  if(!tb) return;
+
+  const fils = pecas.filter(p =>
+    (p.nome||'').toLowerCase().includes(term) ||
+    (p.codigo||'').toLowerCase().includes(term)
+  );
+
+  tb.innerHTML = fils.map(p=>`
+    <tr>
+      <td><input type="checkbox" class="chk-estoque" data-id="${p.id}"
+        onchange="onSelectEstoque(${p.id},this.checked)" ${(estoqueSelecionados.has(p.id))?'checked':''}></td>
+      <td><i class="bi bi-box"></i></td>
+      <td>${p.codigo||''}</td>
+      <td>${tipos.find(t=>t.id===p.tipoId)?.nome||'-'}</td>
+      <td><b>${p.nome||''}</b></td>
+      <td>R$ ${Number(p.valor||0).toFixed(2)}</td>
+      <td><span style="color:${(p.disponivel||0)<1?'red':'inherit'}">${p.disponivel||0}</span>/${p.quantidade||0}</td>
+      <td class="col-actions">
+        <button class="btn btn-info btn-sm" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="removerItem('pecas',${p.id})"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function renderDevolucoes(){
-    const tb=document.getElementById('tblDevolucoes');if(!tb)return;
-    const l=devolucoes.slice().reverse().slice(0,20);
-    if(!l.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center">Nenhuma devolução recente.</td></tr>';return;}
-    tb.innerHTML=l.map(d=>{
-        const loc=locacoes.find(x=>x.id===d.locacaoId),cli=locadores.find(x=>x.id===(loc?loc.locadorId:0));
-        return <tr><td>${cli?cli.nome:'?'}</td><td>${formatarData(d.dataDevolucao)}</td><td><span class="badge badge-success">OK</span></td><td><button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${loc?loc.id:0})"><i class="bi bi-printer"></i></button></td></tr>;
-    }).join('');
+  const tb = document.getElementById('tblDevolucoes'); if(!tb) return;
+
+  const l = devolucoes.slice().reverse().slice(0,20);
+  if(!l.length){
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center">Nenhuma devolução recente.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = l.map(d=>{
+    const loc = locacoes.find(x=>x.id===d.locacaoId);
+    const cli = locadores.find(x=>x.id===(loc?loc.locadorId:0));
+    return `
+      <tr>
+        <td>${cli?cli.nome:'?'}</td>
+        <td>${formatarData(d.dataDevolucao)}</td>
+        <td><span class="badge badge-success">OK</span></td>
+        <td><button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${loc?loc.id:0})"><i class="bi bi-printer"></i></button></td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderTipos(){
-    const tb=document.getElementById('tblTipos');if(!tb)return;
-    tb.innerHTML=tipos.map(t=><tr><td>${t.nome}</td><td>${t.desc||'-'}</td><td class="col-actions"><button class="btn btn-info btn-sm" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button></td></tr>).join('');
+  const tb = document.getElementById('tblTipos'); if(!tb) return;
+  tb.innerHTML = tipos.map(t=>`
+    <tr>
+      <td>${t.nome||''}</td>
+      <td>${t.desc||'-'}</td>
+      <td class="col-actions"><button class="btn btn-info btn-sm" onclick="abrirEditarTipo(${t.id})"><i class="bi bi-pencil"></i></button></td>
+    </tr>
+  `).join('');
 }
 
 function renderStats(){
-    const c=document.getElementById('dashClientes');if(c)c.innerText=locadores.length;
-    const active=locacoes.filter(l=>l.status==='ativo');
-    const l=document.getElementById('dashLocacoes');if(l)l.innerText=active.length;
-    let rec=0;active.forEach(x=>{
-        let sub=0;(x.items||[]).forEach(i=>sub+=(i.valor||0)*(i.quantidade||1));
-        if(x.pago)rec+=sub/(x.divisorFatura||1);
-    });
-    const f=document.getElementById('dashFaturamento');if(f)f.innerText=R$ ${rec.toFixed(2)};
-    let atraso=0;active.forEach(x=>{if(x.dataDevolucaoPrevisao&&new Date(x.dataDevolucaoPrevisao)<new Date().setHours(0,0,0,0))atraso++;});
-    const a=document.getElementById('dashAtrasos');if(a)a.innerText=atraso;
+  const c = document.getElementById('dashClientes'); if(c) c.innerText = locadores.length;
+
+  const active = locacoes.filter(l=>l.status==='ativo');
+  const l = document.getElementById('dashLocacoes'); if(l) l.innerText = active.length;
+
+  let rec = 0;
+  active.forEach(x=>{
+    let sub = 0;
+    (x.items||[]).forEach(i=> sub += (i.valor||0)*(i.quantidade||1));
+    if(x.pago) rec += sub/(x.divisorFatura||1);
+  });
+
+  const f = document.getElementById('dashFaturamento');
+  if(f) f.innerText = `R$ ${rec.toFixed(2)}`;
+
+  let atraso = 0;
+  active.forEach(x=>{
+    if(x.dataDevolucaoPrevisao && new Date(x.dataDevolucaoPrevisao) < new Date().setHours(0,0,0,0)) atraso++;
+  });
+
+  const a = document.getElementById('dashAtrasos'); if(a) a.innerText = atraso;
 }
 
 function updateSelects(){
-    const c=document.getElementById('aluguelCliente');if(c)c.innerHTML='<option value="">Selecione...</option>'+locadores.map(x=><option value="${x.id}">${x.nome}</option>).join('');
-    const d=document.getElementById('devLocacao');if(d)d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map(l=><option value="${l.id}">#${l.id.toString().slice(-4)} - ${locadores.find(x=>x.id==l.locadorId)?.nome}</option>).join('');
-    const tOpts='<option value="0">Geral</option>'+tipos.map(x=><option value="${x.id}">${x.nome}</option>).join('');
-    const tp=document.getElementById('pecaTipo');if(tp)tp.innerHTML=tOpts;
-    const etp=document.getElementById('editPecaTipo');if(etp)etp.innerHTML=tOpts;
+  const c = document.getElementById('aluguelCliente');
+  if(c) c.innerHTML = '<option value="">Selecione...</option>' + locadores.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
+
+  const d = document.getElementById('devLocacao');
+  if(d) d.innerHTML = '<option value="">Selecione...</option>' + locacoes
+    .filter(l=>l.status!=='devolvido')
+    .map(l=>`<option value="${l.id}">#${l.id.toString().slice(-4)} - ${locadores.find(x=>x.id==l.locadorId)?.nome||''}</option>`)
+    .join('');
+
+  const tOpts = '<option value="0">Geral</option>' + tipos.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
+  const tp = document.getElementById('pecaTipo'); if(tp) tp.innerHTML = tOpts;
+  const etp = document.getElementById('editPecaTipo'); if(etp) etp.innerHTML = tOpts;
 }
+
 function renderConfig(){
-    const r=document.getElementById('confRodape'),t=document.getElementById('confTel'),e=document.getElementById('confEmail'),l=document.getElementById('previewLogo');
-    if(r)r.value=config.rodape||'';if(t)t.value=config.tel||'';if(e)e.value=config.email||'';
-    if(l&&config.logo)l.innerHTML=<img src="${config.logo}" style="height:50px">;
-}
+  const r = document.getElementById('confRodape');
+  const t = document.getElementById('confTel');
+  const e = document.getElementById('confEmail');
+  const l = document.getElementById('previewLogo');
 
-function mostrarToast(m,t){const x=document.getElementById("toast");x.innerText=m;x.style.background=t==='erro'?'#ef4444':'#1f2937';x.className="show";setTimeout(()=>x.className="",3000);}
-
-function addItemCarrinho(){
-    const id=document.getElementById('aluguelItemSelect').value,qtd=parseInt(document.getElementById('aluguelQtd').value)||1;
-    if(!id)return mostrarToast('Selecione um item','erro');
-    const p=pecas.find(x=>x.id==id);if(!p)return;
-    const exist=carrinhoLocacao.find(x=>x.pecaId==p.id);
-    const req=qtd+(exist?exist.quantidade:0);
-    if(req>p.disponivel)return mostrarToast('Estoque insuficiente','erro');
-    if(exist)exist.quantidade+=qtd;else carrinhoLocacao.push({pecaId:p.id,nome:p.nome,valor:p.valor,quantidade:qtd});
-    atualizarCarrinhoHTML();mostrarToast('Item adicionado');
-    document.getElementById('inputBuscaPeca').value='';document.getElementById('aluguelItemSelect').value='';document.getElementById('aluguelQtd').value=1;
+  if(r) r.value = config.rodape||'';
+  if(t) t.value = config.tel||'';
+  if(e) e.value = config.email||'';
+  if(l && config.logo) l.innerHTML = `<img src="${config.logo}" style="height:50px">`;
 }
-function atualizarCarrinhoHTML(){
-    const div=document.getElementById('carrinhoList');
-    div.innerHTML=carrinhoLocacao.map(i=><div class="item-carrinho"><span><b>${i.quantidade}x</b> ${i.nome}</span><span>R$ ${(i.valor*i.quantidade).toFixed(2)}</span></div>).join('')||'<i>Vazio</i>';
-}
-function finalizarLocacao(){
-    const cli=document.getElementById('aluguelCliente').value,ini=document.getElementById('aluguelIni').value,fim=document.getElementById('aluguelFim').value;
-    if(!cli||!carrinhoLocacao.length)return mostrarToast('Preencha tudo','erro');
-    locacoes.push({id:Date.now(),locadorId:parseInt(cli),dataAluguel:ini,dataDevolucaoPrevisao:fim,items:[...carrinhoLocacao],status:'ativo',divisorFatura:parseFloat(document.getElementById('aluguelDivisor').value)||1});
-    carrinhoLocacao=[];atualizarCarrinhoHTML();salvarLocal();renderTudo();mostrarToast('Sucesso');
-}
-
-function salvarLocador(){const n=document.getElementById('locNome').value;if(n){locadores.push({id:Date.now(),nome:n,email:document.getElementById('locEmail').value,telefone:document.getElementById('locTel').value,documento:document.getElementById('locDoc').value});salvarLocal();renderTudo();mostrarToast('Salvo');}}
-function salvarPeca(){const n=document.getElementById('pecaNome').value;if(n){pecas.push({id:Date.now(),nome:n,codigo:document.getElementById('pecaCod').value,valor:parseFloat(document.getElementById('pecaValor').value),quantidade:parseInt(document.getElementById('pecaQtd').value),disponivel:parseInt(document.getElementById('pecaQtd').value),tipoId:parseInt(document.getElementById('pecaTipo').value),medida:document.getElementById('pecaMedida').value});salvarLocal();renderTudo();mostrarToast('Salvo');}}
-function salvarTipo(){const n=document.getElementById('tipoNome').value;if(n){tipos.push({id:Date.now(),nome:n,desc:document.getElementById('tipoDesc').value});salvarLocal();renderTudo();mostrarToast('Salvo');}}
-
-function removerItem(t,id){
-    if(!confirm('Certeza?'))return;
-    if(t==='locadores')locadores=locadores.filter(x=>x.id!==id);
-    if(t==='pecas')pecas=pecas.filter(x=>x.id!==id);
-    if(t==='locacoes')locacoes=locacoes.filter(x=>x.id!==id);
-    salvarLocal();renderTudo();mostrarToast('Removido');
-}
-function cancelarLocacao(id){removerItem('locacoes',id);}
-
-function gisLoaded(){tokenClient=google.accounts.oauth2.initTokenClient({client_id:GOOGLE_CLIENT_ID,scope:'https://www.googleapis.com/auth/drive.file',callback:(r)=>{if(r.error)alert(r);localStorage.setItem('gToken',r.access_token);entrarApp();sincronizar('carregar');}});}
-function fazerLoginGoogle(){if(tokenClient)tokenClient.requestAccessToken({prompt:'consent'});else if(window.google)gisLoaded();}
-function entrarOffline(){entrarApp();document.getElementById('syncText').innerText="Offline";}
-function entrarApp(){document.getElementById('loginArea').style.display='none';document.getElementById('appArea').style.display='block';renderTudo();}
-function sair(){localStorage.removeItem('gToken');location.reload();}
 
 async function sincronizar(m){
-    if(!navigator.onLine){updStatus('offline');return;}
-    updStatus('saving');
-    try{
-        if(m==='carregar'){
-            const r=await fetch(${API_URL}?action=carregar),t=await r.text();
-            if(!t.startsWith('{')){updStatus('offline');return;}
-            const d=JSON.parse(t);
-            locadores=d.locadores||[];pecas=d.pecas||[];locacoes=d.locacoes||[];devolucoes=d.devolucoes||[];tipos=d.tipos||[];config=d.config||config;
-            salvarLocal();renderTudo();
-        }else{
-            await fetch(API_URL,{method:'POST',body:new URLSearchParams({dados:JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})})});
-        }
-        updStatus('online');
-    }catch(e){updStatus('offline');}
-}
-function updStatus(s){
-    const b=document.getElementById('syncBadge'),t=document.getElementById('syncText');
-    if(!b)return;
-    if(s==='online'){b.className="sync-badge sync-online";t.innerText="Online";}
-    else if(s==='saving'){b.className="sync-badge sync-saving";t.innerText="Salvando...";}
-    else {b.className="sync-badge sync-offline";t.innerText="Offline";}
+  if(!navigator.onLine){ updStatus('offline'); return; }
+  updStatus('saving');
+
+  try{
+    if(m==='carregar'){
+      const r = await fetch(`${API_URL}?action=carregar`);
+      const t = await r.text();
+
+      if(!t.startsWith('{')){ updStatus('offline'); return; }
+      const d = JSON.parse(t);
+
+      locadores = d.locadores || [];
+      pecas    = d.pecas    || [];
+      locacoes = d.locacoes || [];
+      devolucoes = d.devolucoes || [];
+      tipos    = d.tipos    || [];
+      config   = d.config   || config;
+
+      salvarLocal();
+      renderTudo();
+    } else {
+      await fetch(API_URL, {
+        method:'POST',
+        body: new URLSearchParams({dados: JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})})
+      });
+    }
+
+    updStatus('online');
+  } catch(e){
+    updStatus('offline');
+  }
 }
 
-function salvarLocal(){
-    try{localStorage.setItem('mtzBackup',JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config,logsAuditoria}));}catch(e){alert('Erro ao salvar local (Quota)');}
-}
-function carregarLocal(){
-    try{const j=localStorage.getItem('mtzBackup');if(j){const d=JSON.parse(j);locadores=d.locadores||[];pecas=d.pecas||[];locacoes=d.locacoes||[];devolucoes=d.devolucoes||[];tipos=d.tipos||[];config=d.config||config;logsAuditoria=d.logsAuditoria||[];}}catch(e){console.log('Reset');}
-}
-
-// EDIÇÃO
-function abrirEditarLocador(id){const c=locadores.find(x=>x.id===id);if(c){document.getElementById('editLocId').value=c.id;document.getElementById('editLocNome').value=c.nome;document.getElementById('modalEditarLocador').classList.add('active');}}
-function salvarEdicaoLocador(){const id=parseInt(document.getElementById('editLocId').value),c=locadores.find(x=>x.id===id);if(c){c.nome=document.getElementById('editLocNome').value;salvarLocal();renderTudo();fecharModal('modalEditarLocador');}}
-
-function abrirEditarPeca(id){const p=pecas.find(x=>x.id===id);if(p){document.getElementById('editPecaId').value=p.id;document.getElementById('editPecaNome').value=p.nome;document.getElementById('editPecaQtd').value=p.quantidade;document.getElementById('modalEditarPeca').classList.add('active');}}
-function salvarEdicaoPeca(){const id=parseInt(document.getElementById('editPecaId').value),p=pecas.find(x=>x.id===id);if(p){p.nome=document.getElementById('editPecaNome').value;p.quantidade=parseInt(document.getElementById('editPecaQtd').value);salvarLocal();renderTudo();fecharModal('modalEditarPeca');}}
-
-function abrirEditarTipo(id){const t=tipos.find(x=>x.id===id);if(t){document.getElementById('editTipoId').value=t.id;document.getElementById('editTipoNome').value=t.nome;document.getElementById('modalEditarTipo').classList.add('active');}}
-function salvarEdicaoTipo(){const id=parseInt(document.getElementById('editTipoId').value),t=tipos.find(x=>x.id===id);if(t){t.nome=document.getElementById('editTipoNome').value;salvarLocal();renderTudo();fecharModal('modalEditarTipo');}}
-
-// OUTROS
-function atualizarLimiteEstoque(){
-    const id=document.getElementById('aluguelItemSelect').value,p=pecas.find(x=>x.id==id);
-    if(p)document.getElementById('aluguelQtd').max=p.disponivel;
-}
-function validarDigitacao(i){if(i.max&&parseInt(i.value)>parseInt(i.max))i.value=i.max;}
-
-// ESTOQUE CHECKBOX
-let estoqueSelecionados=new Set();
-function onSelectEstoque(id,chk){chk?estoqueSelecionados.add(id):estoqueSelecionados.delete(id);}
-function toggleSelecionarTodosEstoque(chk){document.querySelectorAll('.chk-estoque').forEach(c=>{c.checked=chk;onSelectEstoque(c.dataset.id,chk)});}
-function excluirSelecionadosEstoque(){
-    if(!estoqueSelecionados.size)return;
-    if(!confirm('Excluir selecionados?'))return;
-    pecas=pecas.filter(p=>!estoqueSelecionados.has(p.id));estoqueSelecionados.clear();salvarLocal();renderEstoque();mostrarToast('Excluídos');
-}
-
-// PDF E BACKUP
-function gerarPDF(){
-    const e=document.getElementById('printArea');
-    html2canvas(e,{scale:2}).then(c=>{
-        const i=c.toDataURL('image/png'),p=new window.jspdf.jsPDF('p','mm','a4');
-        p.addImage(i,'PNG',0,0,210,(c.height*210)/c.width);p.save('doc.pdf');
-    });
-}
-function baixarBackup(){
-    const b=new Blob([JSON.stringify({locadores,pecas,locacoes,devolucoes,tipos,config})],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='backup.json';a.click();
-}
-function restaurarBackup(i){
-    if(!i.files[0])return;
-    const r=new FileReader();
-    r.onload=e=>{
-        const d=JSON.parse(e.target.result);
-        locadores=d.locadores||[];pecas=d.pecas||[];locacoes=d.locacoes||[];tipos=d.tipos||[];config=d.config||config;
-        salvarLocal();renderTudo();alert('Restaurado');
-    };
-    r.readAsText(i.files[0]);
-}
-function arquivarHistorico(){
-    devolucoes=devolucoes.filter(d=>locacoes.some(l=>l.id===d.locacaoId));
-    locacoes=locacoes.filter(l=>l.status!=='devolvido');salvarLocal();renderTudo();mostrarToast('Arquivado');
-}
-
-// SCANNER E PREVIEWS
-function iniciarScanner(m){
-    const md=document.getElementById('modalScanner');md.classList.add('active');
-    Quagga.init({inputStream:{name:"Live",type:"LiveStream",target:document.querySelector('#interactive')},decoder:{readers:["code_128_reader"]}},e=>{
-        if(!e)Quagga.start();
-    });
-    Quagga.onDetected(r=>{
-        const c=r.codeResult.code;
-        if(m==='cadastro')document.getElementById('pecaBar').value=c;
-        if(m==='locacao'){const p=pecas.find(x=>x.codigo===c);if(p){document.getElementById('aluguelItemSelect').value=p.id;mostrarToast('Item: '+p.nome);}}
-        fecharScanner();
-    });
-}
-function fecharScanner(){document.getElementById('modalScanner').classList.remove('active');try{Quagga.stop();}catch(e){}}
-function converterLogo(){const i=document.getElementById('confLogo');if(i.files[0]){const r=new FileReader();r.onload=()=>{config.logo=r.result;renderConfig();};r.readAsDataURL(i.files[0]);}}
 function gerarRelatorio(id){
-    const l=locacoes.find(x=>x.id===id),c=locadores.find(x=>x.id===l.locadorId);
-    if(!l)return;
-    const h=<div style="padding:20px; font-family:sans-serif;"><h2>MTZ Eventos - Contrato #${l.id}</h2><p>Cliente: ${c?c.nome:'-'}</p><hr><h3>Itens:</h3><ul>${l.items.map(i=><li>${i.quantidade}x ${i.nome}</li>).join('')}</ul></div>;
-    document.getElementById('printArea').innerHTML=h;document.getElementById('modalRelatorio').classList.add('active');
+  const l = locacoes.find(x=>x.id===id);
+  if(!l) return;
+
+  const c = locadores.find(x=>x.id===l.locadorId);
+
+  const h = `
+    <div style="padding:20px; font-family:sans-serif;">
+      <h2>MTZ Eventos - Contrato #${l.id}</h2>
+      <p>Cliente: ${c?c.nome:'-'}</p>
+      <hr>
+      <h3>Itens:</h3>
+      <ul>${(l.items||[]).map(i=>`<li>${i.quantidade}x ${i.nome}</li>`).join('')}</ul>
+    </div>
+  `;
+
+  document.getElementById('printArea').innerHTML = h;
+  document.getElementById('modalRelatorio').classList.add('active');
 }
+
 </script>
 </body>
 </html>
