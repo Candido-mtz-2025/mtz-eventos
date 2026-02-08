@@ -909,38 +909,42 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
     locacoes: 1
     };
     const ITENS_POR_PAGINA = 50;
-// === FUNÇÃO DE BUSCA/AUTOCOMPLETE (CORRIGIDA E MOVIDA PARA O TOPO) ===
 function filtrarItensLocacao() {
     const termoInput = document.getElementById('inputBuscaPeca');
     const lista = document.getElementById('listaSugestoes');
-    
     if (!termoInput || !lista) return;
 
-    const termo = termoInput.value.toLowerCase();
+    // Normalização para ignorar acentos (igual você faz no estoque)
+    const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const termo = normalizar(termoInput.value);
+
     lista.innerHTML = '';
 
-    if (termo.length < 2) {
+    // Alterado de < 2 para < 1 para mostrar resultados logo na primeira letra
+    if (termo.length < 1) {
         lista.classList.remove('ativo');
         return;
     }
 
-    // Filtra pecas
+    // Filtra pecas comparando nome e código normalizados
     const filtrados = pecas.filter(p => 
-        (p.nome && p.nome.toLowerCase().includes(termo)) || 
-        (p.codigo && p.codigo.toLowerCase().includes(termo))
+        normalizar(p.nome || "").includes(termo) || 
+        normalizar(p.codigo || "").includes(termo)
     );
 
     if (filtrados.length === 0) {
-        lista.classList.remove('ativo');
+        lista.innerHTML = '<div class="sugestao-item"><span>Nenhum item encontrado</span></div>';
+        lista.classList.add('ativo');
         return;
     }
 
+    // Renderiza os itens encontrados
     filtrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
         const corEstoque = p.disponivel > 0 ? 'var(--primary)' : 'red';
         item.innerHTML = `
-            <span>${p.nome}</span>
+            <span>${p.nome} <small>(${p.codigo})</small></span>
             <span style="font-size:0.8rem; color:${corEstoque}; font-weight:bold;">
                 (Disp: ${p.disponivel})
             </span>
@@ -949,7 +953,7 @@ function filtrarItensLocacao() {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
             document.getElementById('aluguelQtd').focus();
-            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
+            atualizarLimiteEstoque();
             lista.classList.remove('ativo');
         };
         lista.appendChild(item);
@@ -957,14 +961,6 @@ function filtrarItensLocacao() {
 
     lista.classList.add('ativo');
 }
-
-// Fecha a lista se clicar fora
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.form-group')) {
-        const lista = document.getElementById('listaSugestoes');
-        if(lista) lista.classList.remove('ativo');
-    }
-});
 
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
