@@ -433,6 +433,91 @@
     </style>
 </head>
 <body>
+    <!-- LOGIN (necessário porque o JS usa #loginArea) -->
+<div id="loginArea">
+  <div class="login-box">
+    <h2 style="margin-top:0;">Sistema MTZ Eventos</h2>
+    <p style="opacity:.8; margin-top:6px;">Escolha como entrar:</p>
+
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:15px;">
+      <button class="btn btn-primary" onclick="fazerLoginGoogle()">
+        <i class="bi bi-google"></i> Entrar com Google
+      </button>
+      <button class="btn btn-secondary" onclick="entrarOffline()">
+        <i class="bi bi-wifi-off"></i> Entrar Offline
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- APP (necessário porque o JS usa #appArea) -->
+<div id="appArea" style="display:none;">
+  <header>
+    <div class="container" style="padding: 20px 0;">
+      <div class="logo">
+        <h1>MTZ Eventos</h1>
+      </div>
+
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+        <span id="syncBadge" class="sync-badge sync-offline">
+          <i class="bi bi-cloud"></i> <span id="syncText">Offline</span>
+        </span>
+
+        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()">
+          <i class="bi bi-moon-stars"></i> Tema
+        </button>
+
+        <button class="btn btn-danger btn-sm" onclick="sair()">
+          <i class="bi bi-box-arrow-right"></i> Sair
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Barra de abas -->
+    <div class="tabs-container">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="abrirTab('estoque')"><i class="bi bi-box"></i> Estoque</button>
+        <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+        <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast (necessário porque mostrarToast usa #toast) -->
+<div id="toast"></div>
+
+<!-- Modais mínimos que seu JS chama (evita erro se você já tem em outro trecho) -->
+<div id="modalRelatorio" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Documento</h3>
+      <button class="btn-close-modal" onclick="fecharModal('modalRelatorio')"><i class="bi bi-x"></i></button>
+    </div>
+    <div id="printArea"></div>
+    <div style="display:flex; gap:10px; margin-top:15px; justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="fecharModal('modalRelatorio')">Fechar</button>
+      <button class="btn btn-primary" onclick="gerarPDF()"><i class="bi bi-filetype-pdf"></i> PDF</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalScanner" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Scanner</h3>
+      <button class="btn-close-modal" onclick="fecharScanner()"><i class="bi bi-x"></i></button>
+    </div>
+    <div class="scanner-box" id="interactive"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:15px;">
+      <button class="btn btn-secondary" onclick="fecharScanner()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== -->
 <!-- ABA ESTOQUE (CORRIGIDA) -->
 <!-- ===================== -->
@@ -1566,8 +1651,35 @@ function renderTipos() {
     // --- AUTENTICAÇÃO E SYNC ---
     function gisLoaded() { tokenClient = google.accounts.oauth2.initTokenClient({ client_id: GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', callback: (resp) => { if(resp.error) return alert(JSON.stringify(resp)); localStorage.setItem('gToken', resp.access_token); entrarApp(); sincronizar('carregar'); } }); }
     function fazerLoginGoogle() { if(tokenClient) tokenClient.requestAccessToken({prompt: 'consent'}); else if(window.google) gisLoaded(); }
-    function entrarOffline() { entrarApp(); document.getElementById('syncText').innerText="Offline"; document.getElementById('syncBadge').className="sync-badge sync-offline"; }
-    function entrarApp() { document.getElementById('loginArea').style.display='none'; document.getElementById('appArea').style.display='block'; renderTudo(); }
+    function entrarOffline() {
+  entrarApp();
+  const t = document.getElementById('syncText');
+  const b = document.getElementById('syncBadge');
+  if (t) t.innerText = "Offline";
+  if (b) b.className = "sync-badge sync-offline";
+}
+
+function updStatus(s) {
+  const b = document.getElementById('syncBadge');
+  const t = document.getElementById('syncText');
+  if(!b || !t) return;
+
+  if (s === 'online') { b.className="sync-badge sync-online"; t.innerText="Online"; }
+  else if (s === 'saving') { b.className="sync-badge sync-saving"; t.innerText="Salvando..."; }
+  else { b.className="sync-badge sync-offline"; t.innerText="Offline"; }
+}
+
+    function entrarApp() {
+  const login = document.getElementById('loginArea');
+  const app = document.getElementById('appArea');
+
+  if (login) login.style.display = 'none';
+  if (app) app.style.display = 'block';
+
+  abrirTab('estoque'); // ou 'locacoes' se preferir abrir direto nela
+  renderTudo();
+}
+
     function sair() { localStorage.removeItem('gToken'); location.reload(); }
     
     // === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
