@@ -931,27 +931,25 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
 function filtrarItensLocacao() {
     const termoInput = document.getElementById('inputBuscaPeca');
     const lista = document.getElementById('listaSugestoes');
-    
     if (!termoInput || !lista) return;
 
-    // Normalização idêntica à do estoque para encontrar "Q30", "Q-30", acentos, etc.
+    // Normalização para ignorar acentos e maiúsculas [cite: 307]
     const normalizar = (t) => t ? t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const termo = normalizar(termoInput.value);
     
     lista.innerHTML = '';
     
-    // Agora busca a partir de 1 único caractere para não ignorar referências curtas
+    // Busca a partir de 1 caractere para não ignorar códigos curtos [cite: 217]
     if (termo.length < 1) {
         lista.classList.remove('ativo');
         return;
     }
 
-    // Filtra em todas as referências: Nome, Código, Categoria e Medida
+    // Filtra pecas comparando Nome, Código, Medida e o Nome da Categoria [cite: 308, 309]
     const filtrados = pecas.filter(p => {
         const nome = normalizar(p.nome);
         const codigo = normalizar(p.codigo);
         const medida = normalizar(p.medida);
-        
         const tipo = tipos.find(t => t.id === p.tipoId);
         const categoria = tipo ? normalizar(tipo.nome) : '';
 
@@ -967,7 +965,7 @@ function filtrarItensLocacao() {
         return;
     }
 
-    // Renderiza as sugestões com destaque para o código da peça
+    // Cria os itens da lista [cite: 220]
     filtrados.forEach(p => {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
@@ -984,13 +982,13 @@ function filtrarItensLocacao() {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
             document.getElementById('aluguelQtd').focus();
-            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
-            lista.classList.remove('ativo');
+            if(typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque(); [cite: 221]
+            lista.classList.remove('ativo'); [cite: 222]
         };
         lista.appendChild(item);
     });
 
-    lista.classList.add('ativo');
+    lista.classList.add('ativo'); [cite: 223]
 }
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
@@ -2900,7 +2898,24 @@ function excluirSelecionadosEstoque(){
   sincronizar('salvar');
   mostrarToast('Itens excluídos!');
 }
-     
+     // Fecha a lista de sugestões ao clicar fora do campo de busca
+document.addEventListener('click', function(e) {
+    const lista = document.getElementById('listaSugestoes');
+    const input = document.getElementById('inputBuscaPeca');
+    
+    // Se o clique não foi no input nem na lista, fecha a lista 
+    if (lista && !e.target.closest('#inputBuscaPeca') && !e.target.closest('#listaSugestoes')) {
+        lista.classList.remove('ativo');
+    }
+});
+
+// Fecha a lista ao pressionar a tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === "Escape") {
+        const lista = document.getElementById('listaSugestoes');
+        if (lista) lista.classList.remove('ativo');
+    }
+});
     </script>
 </body>
 </html>
