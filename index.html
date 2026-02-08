@@ -22,6 +22,24 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
+    /* Força a tabela a alinhar com as bordas dos cards acima */
+#tab-locacoes .card {
+    padding: 25px !important; /* Mantém o padrão de respiro dos outros cards */
+}
+
+.table-responsive {
+    width: 100% !important;
+    margin: 0 !important;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.table {
+    width: 100% !important;
+    border-collapse: collapse;
+    margin: 0;
+}
     /* Filtros Auditoria: deixa como “chips” uniformes */
 .audit-filters .btn{
   border-radius: 10px;
