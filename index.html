@@ -2247,8 +2247,6 @@ function tentarRecuperacaoAutomatica() {
         }
     }
 
-else if(s==='saving'){b.className="sync-badge sync-saving";t.innerText="Salvando...";} else {b.className="sync-badge sync-offline";t.innerText="Offline";} }
-
     // --- FUNÇÕES DE EDIÇÃO ---
     function abrirEditarLocador(id) { const c = locadores.find(x => x.id === id); if(!c) return; document.getElementById('editLocId').value = c.id; document.getElementById('editLocNome').value = c.nome; document.getElementById('editLocEmail').value = c.email || ''; document.getElementById('editLocTel').value = c.telefone || ''; document.getElementById('modalEditarLocador').classList.add('active'); }
     function salvarEdicaoLocador() { 
