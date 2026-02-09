@@ -418,9 +418,6 @@
     z-index: 1000;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
-.dropdown-sugestoes.ativo {
-    display: block;
-}
     /* ===== FIX: dropdown abaixo do input (Locações) ===== */
 #tab-locacoes .form-group { 
   position: relative; 
@@ -440,6 +437,9 @@
   overflow: visible;
 }
 
+.dropdown-sugestoes.ativo {
+    display: block;
+}
 .sugestao-item {
     padding: 10px 15px;
     cursor: pointer;
@@ -693,25 +693,24 @@
                     </div>
                 </div>
 
-            </div> 
                 
-          <div class="card">
-  <div class="filters-row">
-    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
-    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
-    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
-    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
-  </div>
+               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+                    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
+                    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
+                    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
+                    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
+                </div> 
 
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
-      </thead>
-      <tbody id="tblLocacoes"></tbody>
-    </table>
-  </div>
-</div>
+                 <div class="card">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblLocacoes"></tbody>
+                        </table>
+                    </div>
+                </div>
 
         </div> 
   </div> 
@@ -962,7 +961,7 @@ function filtrarItensLocacao() {
         return;
     }
 
-    const termos = termo.split(/\s+/).filter(Boolean);
+   const termos = termo.split(/\s+/).filter(Boolean);
 
 const scorePeca = (p) => {
   const nome = normalizar(p.nome);
@@ -1007,7 +1006,6 @@ const filtrados = pecas
   .sort((a,b) => b.s - a.s)
   .slice(0, 20)   // limita pra não pesar
   .map(x => x.p);
-
 
     if (filtrados.length === 0) {
         lista.innerHTML = '<div class="sugestao-item"><span>Nenhum item encontrado</span></div>';
