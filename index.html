@@ -607,7 +607,7 @@
                         <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
+                        <div class="form-group"><label>Foto (Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
                     </div>
                     <div class="form-row">
                         <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
@@ -688,13 +688,18 @@
                             </button>
                         </div>
                     </div>
-                    <div id="carrinhoList">
-                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
-                    </div>
-                </div>
+<div id="carrinhoList">
+    <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+</div>
+</div>
 
-                
-               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+<div style="margin-top: 15px; margin-bottom: 15px;">
+    <button class="btn btn-primary" onclick="finalizarLocacao()">
+        <i class="bi bi-check-lg"></i> Finalizar Locação
+    </button>
+</div>
+
+<div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
                     <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
                     <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
                     <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
@@ -782,14 +787,14 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
-      <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
-      <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
-    </div>
+   <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
+  <button class="btn btn-sm btn-success audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
+  <button class="btn btn-sm btn-success audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
+  <button class="btn btn-sm btn-warning audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
+  <button class="btn btn-sm btn-info audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
+  <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
+</div>
 
     <div class="table-responsive">
       <table class="table">
@@ -873,7 +878,7 @@
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Nome</label><input type="text" id="editPecaNome"></div>
-                <div class="form-group"><label>Medida</label><input type="text" id="editPecaMedida"></div>
+                <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Valor</label><input type="number" id="editPecaValor" step="0.01"></div>
@@ -1207,6 +1212,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbxZoCyJZrG2WZfIuPA3Iyz6
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
         carregarLocal();
+        recalcularDisponibilidade(true);
         const hoje = new Date().toISOString().split('T')[0];
         const elIni = document.getElementById('aluguelIni');
         const elDev = document.getElementById('devData');
@@ -1720,52 +1726,7 @@ function renderTipos() {
         document.getElementById('inputBuscaPeca').focus();
     }
 
-    // --- FINALIZAR LOCAÇÃO ---
-    function finalizarLocacao() { 
-        var cli = document.getElementById('aluguelCliente').value;
-        var ini = document.getElementById('aluguelIni').value; 
-        var fim = document.getElementById('aluguelFim').value;
-
-        // LÊ O DIVISOR DO CAMPO
-        var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
-        if(isNaN(divInput) || divInput <= 0) divInput = 1;
-
-        if (!cli || carrinhoLocacao.length === 0) {
-            mostrarToast("Preencha cliente e itens!", "erro");
-            return;
-        }
-        
-        var itensParaSalvar = [];
-        for (var i = 0; i < carrinhoLocacao.length; i++) { 
-            itensParaSalvar.push(carrinhoLocacao[i]); 
-        }
-
-        locacoes.push({
-            id: Date.now(), 
-            locadorId: parseInt(cli), 
-            dataAluguel: ini, 
-            dataDevolucaoPrevisao: fim, 
-            items: itensParaSalvar, 
-            status: 'ativo', 
-            divisorFatura: divInput
-        });
-
-        carrinhoLocacao = [];
-        document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
-        document.getElementById('aluguelCliente').value = ""; 
-        document.getElementById('aluguelItemSelect').value = ""; 
-        document.getElementById('aluguelQtd').value = "1";
-        
-        salvarLocal();
-        renderTudo();
-        
-        // Registra no log de auditoria
-        const cliente = locadores.find(x => x.id === parseInt(cli));
-        registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
-        
-        mostrarToast("Locação Concluída!");
-        sincronizar('salvar');
-    }
+   function finalizarLocacao() {
 
     // === RECALCULAR DISPONIBILIDADE COM CACHE ===
     function recalcularDisponibilidade(forcar = false) {
@@ -1801,10 +1762,67 @@ function renderTipos() {
         console.log('✅ Disponibilidade recalculada');
     }
 
-    function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
-    
-    function salvarPeca() { const n=document.getElementById('pecaNome').value; if(!n) return; pecas.push({id:Date.now(), nome:n, codigo:document.getElementById('pecaCod').value, valor:parseFloat(document.getElementById('pecaValor').value), quantidade:parseInt(document.getElementById('pecaQtd').value), disponivel:parseInt(document.getElementById('pecaQtd').value), tipoId:parseInt(document.getElementById('pecaTipo').value), medida:document.getElementById('pecaMedida').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('pecaNome').value=""; mostrarToast("Item Salvo!"); }
-    
+    function salvarLocador() {
+    const n = document.getElementById('locNome').value;
+    if (!n) return;
+
+    locadores.push({
+        id: Date.now(),
+        nome: n,
+        documento: document.getElementById('locDoc').value,
+        endereco: document.getElementById('locEnd').value,
+        email: document.getElementById('locEmail').value,
+        telefone: document.getElementById('locTel').value
+    });
+
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+
+    document.getElementById('locNome').value = "";
+    document.getElementById('locDoc').value = "";
+    document.getElementById('locEnd').value = "";
+    document.getElementById('locEmail').value = "";
+    document.getElementById('locTel').value = "";
+
+    mostrarToast("Cliente salvo!");
+}
+    function salvarPeca() {
+    const n = document.getElementById('pecaNome').value;
+    if (!n) return;
+
+    const file = document.getElementById('pecaFoto').files[0];
+
+    const salvar = (fotoBase64 = '') => {
+        pecas.push({
+            id: Date.now(),
+            nome: n,
+            codigo: document.getElementById('pecaCod').value,
+            valor: parseFloat(document.getElementById('pecaValor').value) || 0,
+            quantidade: parseInt(document.getElementById('pecaQtd').value) || 0,
+            disponivel: parseInt(document.getElementById('pecaQtd').value) || 0,
+            tipoId: parseInt(document.getElementById('pecaTipo').value) || 0,
+            medida: document.getElementById('pecaMedida').value,
+            barras: document.getElementById('pecaBar').value,
+            foto: fotoBase64
+        });
+
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+        mostrarToast("Item salvo!");
+    };
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onloadend = function() {
+            salvar(reader.result);
+        };
+        reader.readAsDataURL(file);
+    } else {
+        salvar('');
+    }
+}
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
     function removerItem(t, id) {
@@ -1831,7 +1849,15 @@ function renderTipos() {
         sincronizar('salvar');
     }
 
-    function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
+   function cancelarLocacao(id) {
+    if (!confirm("Cancelar locação?")) return;
+
+    locacoes = locacoes.filter(l => l.id !== id);
+    recalcularDisponibilidade(true);
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+}
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
     function alternarPagamento(id) { const l = locacoes.find(x => x.id == id); if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); } }
@@ -2242,9 +2268,50 @@ function tentarRecuperacaoAutomatica() {
     function abrirEditarTipo(id) { const t = tipos.find(x => x.id === id); if(!t) return; document.getElementById('editTipoId').value = t.id; document.getElementById('editTipoNome').value = t.nome; document.getElementById('editTipoDesc').value = t.desc || ''; document.getElementById('modalEditarTipo').classList.add('active'); }
     function salvarEdicaoTipo() { const id = parseInt(document.getElementById('editTipoId').value); const t = tipos.find(x => x.id === id); if(t) { t.nome = document.getElementById('editTipoNome').value; t.desc = document.getElementById('editTipoDesc').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarTipo').classList.remove('active'); mostrarToast("Tipo atualizado!"); } }
 
-    function abrirEditarPeca(id) { const p = pecas.find(x => x.id === id); if(!p) return; document.getElementById('editPecaId').value = p.id; document.getElementById('editPecaCod').value = p.codigo; document.getElementById('editPecaNome').value = p.nome; document.getElementById('editPecaValor').value = p.valor; document.getElementById('editPecaQtd').value = p.quantidade; updateSelects(); const sel = document.getElementById('editPecaTipo'); if(sel) sel.value = p.tipoId || 0; document.getElementById('modalEditarPeca').classList.add('active'); }
-    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
+   function abrirEditarPeca(id) {
+    const p = pecas.find(x => x.id === id);
+    if (!p) return;
 
+    document.getElementById('editPecaId').value = p.id;
+    document.getElementById('editPecaCod').value = p.codigo || '';
+    document.getElementById('editPecaNome').value = p.nome || '';
+    document.getElementById('editPecaMedida').value = p.medida || '';
+    document.getElementById('editPecaValor').value = p.valor || 0;
+    document.getElementById('editPecaQtd').value = p.quantidade || 0;
+    document.getElementById('editPecaBar').value = p.barras || '';
+
+    updateSelects();
+    const sel = document.getElementById('editPecaTipo');
+    if (sel) sel.value = p.tipoId || 0;
+
+    document.getElementById('modalEditarPeca').classList.add('active');
+}
+    
+   function salvarEdicaoPeca() {
+    const id = parseInt(document.getElementById('editPecaId').value);
+    const p = pecas.find(x => x.id === id);
+    if (!p) return;
+
+    const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
+
+    p.codigo = document.getElementById('editPecaCod').value;
+    p.nome = document.getElementById('editPecaNome').value;
+    p.medida = document.getElementById('editPecaMedida').value;
+    p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
+    p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
+    p.quantidade = novaQtd;
+    p.barras = document.getElementById('editPecaBar').value;
+
+    recalcularDisponibilidade(true);
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+
+    document.getElementById('modalEditarPeca').classList.remove('active');
+    registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
+    mostrarToast("Item atualizado!");
+}
+       
     function salvarConfig() { const elRodape = document.getElementById('confRodape'); const elTel = document.getElementById('confTel'); const elEmail = document.getElementById('confEmail'); if(elRodape) config.rodape = elRodape.value; if(elTel) config.tel = elTel.value; if(elEmail) config.email = elEmail.value; salvarLocal(); sincronizar('salvar'); mostrarToast("Config salva!"); }
     
    // --- EXCEL INTELIGENTE (CORRIGIDO) ---
@@ -2609,28 +2676,30 @@ function processarExcelInteligente(input) {
         div.innerHTML = ""; if(!id) return; const l = locacoes.find(x => x.id == id); if(!l) return;
         div.innerHTML = l.items.map((item) => `<div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid var(--border);"><span>${item.nome} (${item.quantidade})</span> <span class="badge badge-success">OK</span></div>`).join('');
     }
-    function confirmarDevolucao() { 
+   function confirmarDevolucao() { 
     const id = document.getElementById('devLocacao').value;
-    if(!id) return alert("Selecione!");
-    
+    if (!id) return alert("Selecione!");
+
     const l = locacoes.find(x => x.id == id);
+    if (!l) return;
+
     l.status = 'devolvido';
-    
+
     devolucoes.push({ 
         id: Date.now(), 
         locacaoId: l.id, 
         dataDevolucao: document.getElementById('devData').value, 
         obs: 'Total' 
     });
-    
+
+    recalcularDisponibilidade(true);
     salvarLocal();
     renderTudo();
     sincronizar('salvar');
-    
-    // Registra no log de auditoria
+
     const cliente = locadores.find(x => x.id === l.locadorId);
     registrarLog('devolucao', 'criar', `Devolução registrada: ${cliente?.nome || 'Cliente'}`);
-    
+
     mostrarToast("Baixa confirmada!");
 }
 
@@ -2703,15 +2772,19 @@ function processarExcelInteligente(input) {
             if (modo === 'cadastro') {
                 document.getElementById('pecaBar').value = code;
                 mostrarToast("Código lido: " + code);
-            } else if (modo === 'locacao') {
-                const peca = pecas.find(p => p.codigo === code || (p.barras && p.barras === code)); 
-                if (peca) {
-                    document.getElementById('aluguelItemSelect').value = peca.id;
-                    mostrarToast("Item encontrado: " + peca.nome);
-                } else {
-                    mostrarToast("Item não encontrado!", "erro");
-                }
             }
+            
+                else if (modo === 'locacao') {
+    const peca = pecas.find(p => p.codigo === code || (p.barras && p.barras === code)); 
+    if (peca) {
+        document.getElementById('aluguelItemSelect').value = peca.id;
+        document.getElementById('inputBuscaPeca').value = peca.nome;
+        atualizarLimiteEstoque();
+        mostrarToast("Item encontrado: " + peca.nome);
+    } else {
+        mostrarToast("Item não encontrado!", "erro");
+    }
+}
             fecharScanner();
         });
     }
