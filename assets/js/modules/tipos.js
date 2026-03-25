@@ -1,0 +1,5 @@
+// Tipos: cadastro e edição
+    function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
+
+    function abrirEditarTipo(id) { const t = tipos.find(x => x.id === id); if(!t) return; document.getElementById('editTipoId').value = t.id; document.getElementById('editTipoNome').value = t.nome; document.getElementById('editTipoDesc').value = t.desc || ''; document.getElementById('modalEditarTipo').classList.add('active'); }
+    function salvarEdicaoTipo() { const id = parseInt(document.getElementById('editTipoId').value); const t = tipos.find(x => x.id === id); if(t) { t.nome = document.getElementById('editTipoNome').value; t.desc = document.getElementById('editTipoDesc').value; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarTipo').classList.remove('active'); mostrarToast("Tipo atualizado!"); } }
