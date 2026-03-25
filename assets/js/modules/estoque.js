@@ -35,8 +35,33 @@
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
-    function salvarPeca() { const n=document.getElementById('pecaNome').value; if(!n) return; pecas.push({id:Date.now(), nome:n, codigo:document.getElementById('pecaCod').value, valor:parseFloat(document.getElementById('pecaValor').value), quantidade:parseInt(document.getElementById('pecaQtd').value), disponivel:parseInt(document.getElementById('pecaQtd').value), tipoId:parseInt(document.getElementById('pecaTipo').value), medida:document.getElementById('pecaMedida').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('pecaNome').value=""; mostrarToast("Item Salvo!"); }
-    
+    function salvarPeca() {
+    const n = document.getElementById('pecaNome').value;
+    if (!n) return;
+
+    pecas.push({
+        id: Date.now(),
+        nome: n,
+        codigo: document.getElementById('pecaCod').value,
+        valor: parseFloat(document.getElementById('pecaValor').value) || 0,
+        quantidade: parseInt(document.getElementById('pecaQtd').value) || 0,
+        disponivel: parseInt(document.getElementById('pecaQtd').value) || 0,
+        tipoId: parseInt(document.getElementById('pecaTipo').value),
+        medida: document.getElementById('pecaMedida').value,
+
+        grupoChecklist: document.getElementById('pecaGrupoChecklist').value || 'outros',
+        familiaEstrutural: document.getElementById('pecaFamiliaEstrutural').value || '',
+        subtipoEstrutural: document.getElementById('pecaSubtipoEstrutural').value || '',
+        podeComporEstrutura: document.getElementById('pecaPodeCompor').value === 'sim'
+    });
+
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+
+    document.getElementById('pecaNome').value = "";
+    mostrarToast("Item Salvo!");
+}    
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
     function removerItem(t, id) {
