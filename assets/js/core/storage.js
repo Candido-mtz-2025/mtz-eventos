@@ -200,8 +200,15 @@ function salvarLocal() {
         const dados = {
     versao: '11.0',
     data: new Date().toISOString(),
-    locadores, pecas, locacoes, devolucoes, tipos, config,
-    logsAuditoria  // ← ADICIONE ESTA LINHA
+    locadores,
+    pecas,
+    locacoes,
+    devolucoes,
+    tipos,
+    config,
+    logsAuditoria,
+    modelosChecklist,
+    checklistsGerados
 };
 
         const json = JSON.stringify(dados);
@@ -266,6 +273,8 @@ function carregarLocal() {
         tipos = dados.tipos || [];
         config = dados.config || config;
         logsAuditoria = dados.logsAuditoria || [];
+        modelosChecklist = dados.modelosChecklist || [];
+        checklistsGerados = dados.checklistsGerados || [];
 
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
