@@ -167,7 +167,47 @@
                         <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
                         <div class="form-group"><label>Cód Barras</label><div style="display:flex; gap:5px;"><input type="text" id="pecaBar"><button class="btn btn-secondary" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button></div></div>
                     </div>
-                    <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+                    <div class="form-row">
+    <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
+    <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
+    <div class="form-group"><label>Cód Barras</label><div style="display:flex;gap:5px;"><input type="text" id="pecaBar"><button class="btn btn-secondary" onclick="iniciarScanner()">...</button></div></div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>Grupo Checklist</label>
+        <select id="pecaGrupoChecklist">
+            <option value="estrutura">Estrutura</option>
+            <option value="moveis">Móveis</option>
+            <option value="eletrica">Elétrica</option>
+            <option value="cobertura">Cobertura</option>
+            <option value="acabamento">Acabamento</option>
+            <option value="outros">Outros</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Família Estrutural</label>
+        <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>Subtipo Estrutural</label>
+        <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
+    </div>
+
+    <div class="form-group">
+        <label>Pode compor estrutura?</label>
+        <select id="pecaPodeCompor">
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+        </select>
+    </div>
+</div>
+                    
+<button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
                 </div>
                    <div class="card">
   <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
