@@ -1,3 +1,5 @@
+console.log("JS NOVO CARREGADO");
+alert("teste js novo");
 // ========================================
 // 🔥 CACHE DE DOM - OTIMIZAÇÃO V11.1
 // ========================================
