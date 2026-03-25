@@ -2,6 +2,9 @@
 // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
 let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
 
+let modelosChecklist = [];
+let checklistsGerados = [];
+
     let logsAuditoria = []; // NOVO: Sistema de auditoria
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
     let tokenClient, filtroAtual = 'todos';
