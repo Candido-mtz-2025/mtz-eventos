@@ -88,45 +88,76 @@
         sincronizar('salvar');
     }
 
-  abrirEditarPeca(id)
-   function salvarEdicaoPeca() {
-    const id = parseInt(document.getElementById('editPecaId').value);
-    const p = pecas.find(x => x.id === id);
-
-    if (p) {
-        const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
-        const diff = novaQtd - (p.quantidade || 0);
-
-        p.codigo = document.getElementById('editPecaCod').value;
-        p.nome = document.getElementById('editPecaNome').value;
-        p.medida = document.getElementById('editPecaMedida').value;
-        p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
-        p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
-        p.quantidade = novaQtd;
-        p.disponivel = (p.disponivel || 0) + diff;
-        p.barras = document.getElementById('editPecaBar').value;
-
-        p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
-        p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
-        p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
-        p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
-
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-
-        document.getElementById('modalEditarPeca').classList.remove('active');
-        registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
-        mostrarToast("Item atualizado!");
+  function abrirEditarPeca(id) {
+    const p = pecas.find(x => String(x.id) === String(id));
+    if (!p) {
+        mostrarToast("Item não encontrado!", "erro");
+        return;
     }
+
+    document.getElementById('editPecaId').value = p.id;
+    document.getElementById('editPecaCod').value = p.codigo || '';
+    document.getElementById('editPecaNome').value = p.nome || '';
+    document.getElementById('editPecaMedida').value = p.medida || '';
+    document.getElementById('editPecaValor').value = p.valor || 0;
+    document.getElementById('editPecaQtd').value = p.quantidade || 0;
+    document.getElementById('editPecaBar').value = p.barras || p.codigoBarras || '';
+
+    updateSelects();
+    const sel = document.getElementById('editPecaTipo');
+    if (sel) sel.value = p.tipoId || 0;
+
+    document.getElementById('editPecaGrupoChecklist').value = p.grupoChecklist || 'outros';
+    document.getElementById('editPecaFamiliaEstrutural').value = p.familiaEstrutural || '';
+    document.getElementById('editPecaSubtipoEstrutural').value = p.subtipoEstrutural || '';
+    document.getElementById('editPecaPodeCompor').value = p.podeComporEstrutura ? 'sim' : 'nao';
+
+    document.getElementById('modalEditarPeca').classList.add('active');
+}
+    function salvarEdicaoPeca() {
+    const id = document.getElementById('editPecaId').value;
+    const p = pecas.find(x => String(x.id) === String(id));
+
+    if (!p) {
+        mostrarToast("Item não encontrado para salvar!", "erro");
+        return;
+    }
+
+    const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
+    const diff = novaQtd - (p.quantidade || 0);
+
+    p.codigo = document.getElementById('editPecaCod').value;
+    p.nome = document.getElementById('editPecaNome').value;
+    p.medida = document.getElementById('editPecaMedida').value;
+    p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
+    p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
+    p.quantidade = novaQtd;
+    p.disponivel = (p.disponivel || 0) + diff;
+    p.barras = document.getElementById('editPecaBar').value;
+
+    p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
+    p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
+    p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
+    p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
+
+    document.getElementById('modalEditarPeca').classList.remove('active');
+    document.getElementById('editPecaId').value = "";
+
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+
+    registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
+    mostrarToast("Item atualizado!");
 }
 
-   let estoqueSelecionados = new Set();
+
+window.estoqueSelecionados = new Set();
 
 function onSelectEstoque(id, checked){
   id = Number(id);
-  if (checked) estoqueSelecionados.add(id);
-  else estoqueSelecionados.delete(id);
+  if (checked) window.estoqueSelecionados.add(id);
+  else window.estoqueSelecionados.delete(id);
 }
 
 function toggleSelecionarTodosEstoque(marcar) {
@@ -138,18 +169,42 @@ function toggleSelecionarTodosEstoque(marcar) {
 }
 
 function excluirSelecionadosEstoque(){
-  if (estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
-  if (!confirm(`Excluir ${estoqueSelecionados.size} item(ns) do estoque?`)) return;
+  if (window.estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
+  if (!confirm(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`)) return;
 
-  const ids = new Set([...estoqueSelecionados].map(Number));
+  const ids = new Set([...window.estoqueSelecionados].map(Number));
   const removidos = pecas.filter(p => ids.has(p.id));
   pecas = pecas.filter(p => !ids.has(p.id));
 
   removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
 
-  estoqueSelecionados.clear();
+  window.estoqueSelecionados.clear();
   salvarLocal();
   renderEstoque();
   sincronizar('salvar');
   mostrarToast('Itens excluídos!');
 }
+
+window.salvarPeca = function() {
+    return salvarPeca();
+};
+
+window.abrirEditarPeca = function(id) {
+    return abrirEditarPeca(id);
+};
+
+window.salvarEdicaoPeca = function() {
+    return salvarEdicaoPeca();
+};
+
+window.onSelectEstoque = function(id, checked) {
+    return onSelectEstoque(id, checked);
+};
+
+window.toggleSelecionarTodosEstoque = function(marcar) {
+    return toggleSelecionarTodosEstoque(marcar);
+};
+
+window.excluirSelecionadosEstoque = function() {
+    return excluirSelecionadosEstoque();
+};
