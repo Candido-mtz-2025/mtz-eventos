@@ -53,7 +53,7 @@ function renderEstoque() {
       p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
       p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
 
-    const marcado = (typeof estoqueSelecionados !== 'undefined' && estoqueSelecionados.has(p.id)) ? 'checked' : '';
+    const marcado = (window.estoqueSelecionados && window.estoqueSelecionados.has(p.id)) ? 'checked' : '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
