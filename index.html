@@ -469,6 +469,39 @@
             </div>
             <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
             <div style="margin-top:20px">
+                <div class="form-row">
+    <div class="form-group">
+        <label>Grupo Checklist</label>
+        <select id="editPecaGrupoChecklist">
+            <option value="estrutura">Estrutura</option>
+            <option value="moveis">Móveis</option>
+            <option value="eletrica">Elétrica</option>
+            <option value="cobertura">Cobertura</option>
+            <option value="acabamento">Acabamento</option>
+            <option value="outros">Outros</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Família Estrutural</label>
+        <input type="text" id="editPecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>Subtipo Estrutural</label>
+        <input type="text" id="editPecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
+    </div>
+
+    <div class="form-group">
+        <label>Pode compor estrutura?</label>
+        <select id="editPecaPodeCompor">
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+        </select>
+    </div>
+</div>
                 <button class="btn btn-primary" onclick="salvarEdicaoPeca()" style="width:100%">Salvar</button>
             </div>
         </div>
