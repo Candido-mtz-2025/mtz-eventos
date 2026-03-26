@@ -88,29 +88,7 @@
         sincronizar('salvar');
     }
 
-   function abrirEditarPeca(id) {
-    const p = pecas.find(x => x.id === id);
-    if (!p) return;
-
-    document.getElementById('editPecaId').value = p.id;
-    document.getElementById('editPecaCod').value = p.codigo || '';
-    document.getElementById('editPecaNome').value = p.nome || '';
-    document.getElementById('editPecaMedida').value = p.medida || '';
-    document.getElementById('editPecaValor').value = p.valor || 0;
-    document.getElementById('editPecaQtd').value = p.quantidade || 0;
-    document.getElementById('editPecaBar').value = p.barras || p.codigoBarras || '';
-
-    updateSelects();
-    const sel = document.getElementById('editPecaTipo');
-    if (sel) sel.value = p.tipoId || 0;
-
-    document.getElementById('editPecaGrupoChecklist').value = p.grupoChecklist || 'outros';
-    document.getElementById('editPecaFamiliaEstrutural').value = p.familiaEstrutural || '';
-    document.getElementById('editPecaSubtipoEstrutural').value = p.subtipoEstrutural || '';
-    document.getElementById('editPecaPodeCompor').value = p.podeComporEstrutura ? 'sim' : 'nao';
-
-    document.getElementById('modalEditarPeca').classList.add('active');
-}
+  abrirEditarPeca(id)
    function salvarEdicaoPeca() {
     const id = parseInt(document.getElementById('editPecaId').value);
     const p = pecas.find(x => x.id === id);
@@ -142,6 +120,7 @@
         mostrarToast("Item atualizado!");
     }
 }
+
    let estoqueSelecionados = new Set();
 
 function onSelectEstoque(id, checked){
