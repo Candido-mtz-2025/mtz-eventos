@@ -61,7 +61,7 @@
 
     document.getElementById('pecaNome').value = "";
     mostrarToast("Item Salvo!");
-}    
+}
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
     function removerItem(t, id) {
