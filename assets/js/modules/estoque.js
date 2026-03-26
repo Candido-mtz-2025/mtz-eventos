@@ -184,27 +184,9 @@ function excluirSelecionadosEstoque(){
   sincronizar('salvar');
   mostrarToast('Itens excluídos!');
 }
-
-window.salvarPeca = function() {
-    return salvarPeca();
-};
-
-window.abrirEditarPeca = function(id) {
-    return abrirEditarPeca(id);
-};
-
-window.salvarEdicaoPeca = function() {
-    return salvarEdicaoPeca();
-};
-
-window.onSelectEstoque = function(id, checked) {
-    return onSelectEstoque(id, checked);
-};
-
-window.toggleSelecionarTodosEstoque = function(marcar) {
-    return toggleSelecionarTodosEstoque(marcar);
-};
-
-window.excluirSelecionadosEstoque = function() {
-    return excluirSelecionadosEstoque();
-};
+window.salvarPeca = salvarPeca;
+window.abrirEditarPeca = abrirEditarPeca;
+window.salvarEdicaoPeca = salvarEdicaoPeca;
+window.onSelectEstoque = onSelectEstoque;
+window.toggleSelecionarTodosEstoque = toggleSelecionarTodosEstoque;
+window.excluirSelecionadosEstoque = excluirSelecionadosEstoque;
