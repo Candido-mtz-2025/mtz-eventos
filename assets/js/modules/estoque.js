@@ -88,9 +88,60 @@
         sincronizar('salvar');
     }
 
-    function abrirEditarPeca(id) { const p = pecas.find(x => x.id === id); if(!p) return; document.getElementById('editPecaId').value = p.id; document.getElementById('editPecaCod').value = p.codigo; document.getElementById('editPecaNome').value = p.nome; document.getElementById('editPecaValor').value = p.valor; document.getElementById('editPecaQtd').value = p.quantidade; updateSelects(); const sel = document.getElementById('editPecaTipo'); if(sel) sel.value = p.tipoId || 0; document.getElementById('modalEditarPeca').classList.add('active'); }
-    function salvarEdicaoPeca() { const id = parseInt(document.getElementById('editPecaId').value); const p = pecas.find(x => x.id === id); if(p) { const novaQtd = parseInt(document.getElementById('editPecaQtd').value); const diff = novaQtd - (p.quantidade || 0); p.codigo = document.getElementById('editPecaCod').value; p.nome = document.getElementById('editPecaNome').value; p.valor = parseFloat(document.getElementById('editPecaValor').value); p.tipoId = parseInt(document.getElementById('editPecaTipo').value); p.quantidade = novaQtd; p.disponivel = (p.disponivel || 0) + diff; salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('modalEditarPeca').classList.remove('active'); registrarLog('item', 'editar', `Item atualizado: ${p.nome}`); mostrarToast("Item atualizado!"); } }
+   function abrirEditarPeca(id) {
+    const p = pecas.find(x => x.id === id);
+    if (!p) return;
 
+    document.getElementById('editPecaId').value = p.id;
+    document.getElementById('editPecaCod').value = p.codigo || '';
+    document.getElementById('editPecaNome').value = p.nome || '';
+    document.getElementById('editPecaMedida').value = p.medida || '';
+    document.getElementById('editPecaValor').value = p.valor || 0;
+    document.getElementById('editPecaQtd').value = p.quantidade || 0;
+    document.getElementById('editPecaBar').value = p.barras || p.codigoBarras || '';
+
+    updateSelects();
+    const sel = document.getElementById('editPecaTipo');
+    if (sel) sel.value = p.tipoId || 0;
+
+    document.getElementById('editPecaGrupoChecklist').value = p.grupoChecklist || 'outros';
+    document.getElementById('editPecaFamiliaEstrutural').value = p.familiaEstrutural || '';
+    document.getElementById('editPecaSubtipoEstrutural').value = p.subtipoEstrutural || '';
+    document.getElementById('editPecaPodeCompor').value = p.podeComporEstrutura ? 'sim' : 'nao';
+
+    document.getElementById('modalEditarPeca').classList.add('active');
+}
+   function salvarEdicaoPeca() {
+    const id = parseInt(document.getElementById('editPecaId').value);
+    const p = pecas.find(x => x.id === id);
+
+    if (p) {
+        const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
+        const diff = novaQtd - (p.quantidade || 0);
+
+        p.codigo = document.getElementById('editPecaCod').value;
+        p.nome = document.getElementById('editPecaNome').value;
+        p.medida = document.getElementById('editPecaMedida').value;
+        p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
+        p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
+        p.quantidade = novaQtd;
+        p.disponivel = (p.disponivel || 0) + diff;
+        p.barras = document.getElementById('editPecaBar').value;
+
+        p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
+        p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
+        p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
+        p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
+
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+
+        document.getElementById('modalEditarPeca').classList.remove('active');
+        registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
+        mostrarToast("Item atualizado!");
+    }
+}
    let estoqueSelecionados = new Set();
 
 function onSelectEstoque(id, checked){
