@@ -114,7 +114,7 @@
 
     document.getElementById('modalEditarPeca').classList.add('active');
 }
-    function salvarEdicaoPeca() {
+  function salvarEdicaoPeca() {
     const id = document.getElementById('editPecaId').value;
     const p = pecas.find(x => String(x.id) === String(id));
 
@@ -144,8 +144,12 @@
     document.getElementById('editPecaId').value = "";
 
     salvarLocal();
-    renderTudo();
     sincronizar('salvar');
+
+    const busca = document.getElementById('buscaEstoque');
+    if (busca) busca.value = '';
+
+    renderEstoque();
 
     registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
     mostrarToast("Item atualizado!");
