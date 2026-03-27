@@ -339,3 +339,74 @@ function adicionarItemModeloChecklist() {
     console.log('Itens do modelo:', itensModeloChecklistTemp);
     mostrarToast("Peça adicionada!");
 }
+let itensModeloChecklistTemp = [];
+
+function abrirModalModeloChecklist() {
+    itensModeloChecklistTemp = [];
+    atualizarSelectModeloChecklist();
+    document.getElementById('modalModeloChecklist').classList.add('active');
+}
+
+function fecharModalModeloChecklist() {
+    document.getElementById('modalModeloChecklist').classList.remove('active');
+}
+
+function atualizarSelectModeloChecklist() {
+    const select = document.getElementById('modeloChecklistPeca');
+    if (!select) return;
+
+    const pecasEstruturais = pecas.filter(p => p.podeComporEstrutura);
+
+    select.innerHTML = '<option value="">Selecione uma peça</option>';
+
+    pecasEstruturais.forEach(p => {
+        select.innerHTML += `<option value="${p.id}">${p.nome}${p.medida ? ' - ' + p.medida : ''}</option>`;
+    });
+}
+
+function adicionarItemModeloChecklist() {
+    const select = document.getElementById('modeloChecklistPeca');
+    const qtdInput = document.getElementById('modeloChecklistQtd');
+
+    const pecaId = select.value;
+    const qtd = parseInt(qtdInput.value) || 0;
+
+    if (!pecaId) {
+        mostrarToast("Selecione uma peça.", "erro");
+        return;
+    }
+
+    if (qtd <= 0) {
+        mostrarToast("Informe uma quantidade válida.", "erro");
+        return;
+    }
+
+    const peca = pecas.find(p => String(p.id) === String(pecaId));
+    if (!peca) {
+        mostrarToast("Peça não encontrada.", "erro");
+        return;
+    }
+
+    const existente = itensModeloChecklistTemp.find(item => String(item.pecaId) === String(pecaId));
+
+    if (existente) {
+        existente.qtd += qtd;
+    } else {
+        itensModeloChecklistTemp.push({
+            pecaId: peca.id,
+            nome: peca.nome,
+            qtd: qtd
+        });
+    }
+
+    qtdInput.value = 1;
+    select.value = '';
+
+    console.log('Itens do modelo:', itensModeloChecklistTemp);
+    mostrarToast("Peça adicionada!");
+}
+
+window.abrirModalModeloChecklist = abrirModalModeloChecklist;
+window.fecharModalModeloChecklist = fecharModalModeloChecklist;
+window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
+window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
