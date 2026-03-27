@@ -274,10 +274,12 @@ let itensModeloChecklistTemp = [];
 function abrirModalModeloChecklist() {
     itensModeloChecklistTemp = [];
 
+    const id = document.getElementById('modeloChecklistId');
     const nome = document.getElementById('modeloChecklistNome');
     const familia = document.getElementById('modeloChecklistFamilia');
     const qtd = document.getElementById('modeloChecklistQtd');
 
+    if (id) id.value = '';
     if (nome) nome.value = '';
     if (familia) familia.value = '';
     if (qtd) qtd.value = 1;
@@ -303,6 +305,31 @@ function atualizarSelectModeloChecklist() {
     pecasEstruturais.forEach(p => {
         select.innerHTML += `<option value="${p.id}">${p.nome}${p.medida ? ' - ' + p.medida : ''}</option>`;
     });
+}
+
+function editarModeloChecklist(id) {
+    const modelo = buscarModeloChecklist(id);
+
+    if (!modelo) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    document.getElementById('modeloChecklistId').value = modelo.id;
+    document.getElementById('modeloChecklistNome').value = modelo.nome || '';
+    document.getElementById('modeloChecklistFamilia').value = modelo.familiaEstrutural || '';
+    document.getElementById('modeloChecklistQtd').value = 1;
+
+    itensModeloChecklistTemp = (modelo.itens || []).map(item => ({
+        pecaId: item.pecaId,
+        nome: item.nome,
+        qtd: item.qtd
+    }));
+
+    atualizarSelectModeloChecklist();
+    renderItensModeloChecklistTemp();
+
+    document.getElementById('modalModeloChecklist').classList.add('active');
 }
 
 function adicionarItemModeloChecklist() {
@@ -374,6 +401,7 @@ function removerItemModeloChecklistTemp(index) {
     renderItensModeloChecklistTemp();
 }
 function salvarModeloChecklistForm() {
+    const id = document.getElementById('modeloChecklistId').value;
     const nome = document.getElementById('modeloChecklistNome').value.trim();
     const familia = document.getElementById('modeloChecklistFamilia').value.trim();
 
@@ -387,8 +415,30 @@ function salvarModeloChecklistForm() {
         return;
     }
 
-    const modelo = salvarModeloChecklist(nome, familia, itensModeloChecklistTemp, 'manual');
-    if (!modelo) return;
+    if (id) {
+        const modelo = buscarModeloChecklist(id);
+
+        if (!modelo) {
+            mostrarToast("Modelo não encontrado para editar.", "erro");
+            return;
+        }
+
+        modelo.nome = nome;
+        modelo.familiaEstrutural = familia;
+        modelo.itens = itensModeloChecklistTemp.map(item => ({
+            pecaId: item.pecaId,
+            nome: item.nome,
+            qtd: item.qtd
+        }));
+
+        salvarLocal();
+        sincronizar('salvar');
+        registrarLog('checklist', 'editar-modelo', `Modelo editado: ${modelo.nome}`);
+        mostrarToast("Modelo atualizado com sucesso!");
+    } else {
+        const novo = salvarModeloChecklist(nome, familia, itensModeloChecklistTemp, 'manual');
+        if (!novo) return;
+    }
 
     fecharModalModeloChecklist();
     itensModeloChecklistTemp = [];
@@ -411,11 +461,12 @@ function renderModelosChecklist() {
                 <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
                 <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
             </div>
-           <div style="display:flex;gap:8px;">
+           <<div style="display:flex;gap:8px;">
+    <button class="btn btn-secondary" onclick="editarModeloChecklist(${modelo.id})">Editar</button>
     <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
     <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
 </div>
-        </div>
+    </div>
     `).join('');
 }
 
@@ -523,6 +574,7 @@ window.salvarModeloChecklistForm = salvarModeloChecklistForm;
 window.renderModelosChecklist = renderModelosChecklist;
 window.excluirModeloChecklistUI = excluirModeloChecklistUI;
 window.gerarChecklistModelo = gerarChecklistModelo;
+window.editarModeloChecklist = editarModeloChecklist;
 window.addEventListener('load', function () {
     renderModelosChecklist();
 });
