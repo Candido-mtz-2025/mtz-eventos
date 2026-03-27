@@ -274,6 +274,7 @@ let itensModeloChecklistTemp = [];
 function abrirModalModeloChecklist() {
     itensModeloChecklistTemp = [];
     atualizarSelectModeloChecklist();
+    renderItensModeloChecklistTemp();
     document.getElementById('modalModeloChecklist').classList.add('active');
 }
 
