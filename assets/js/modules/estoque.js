@@ -194,3 +194,78 @@ window.salvarEdicaoPeca = salvarEdicaoPeca;
 window.onSelectEstoque = onSelectEstoque;
 window.toggleSelecionarTodosEstoque = toggleSelecionarTodosEstoque;
 window.excluirSelecionadosEstoque = excluirSelecionadosEstoque;
+// ===== MODELOS DE CHECKLIST / ESTRUTURA =====
+
+function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual') {
+    nome = (nome || '').trim();
+    familiaEstrutural = (familiaEstrutural || '').trim();
+
+    if (!nome) {
+        mostrarToast("Informe o nome do modelo.", "erro");
+        return null;
+    }
+
+    if (!Array.isArray(itens) || itens.length === 0) {
+        mostrarToast("Adicione pelo menos 1 peça ao modelo.", "erro");
+        return null;
+    }
+
+    const modelo = {
+        id: Date.now(),
+        nome,
+        familiaEstrutural,
+        origem,
+        criadoEm: new Date().toISOString(),
+        itens: itens.map(item => ({
+            pecaId: item.pecaId,
+            nome: item.nome || '',
+            qtd: parseInt(item.qtd) || 0
+        })).filter(item => item.pecaId && item.qtd > 0)
+    };
+
+    if (modelo.itens.length === 0) {
+        mostrarToast("Nenhuma peça válida foi adicionada.", "erro");
+        return null;
+    }
+
+    modelosChecklist.push(modelo);
+
+    salvarLocal();
+    sincronizar('salvar');
+    registrarLog('checklist', 'criar-modelo', `Modelo criado: ${modelo.nome}`);
+    mostrarToast("Modelo salvo com sucesso!");
+
+    return modelo;
+}
+
+function buscarModeloChecklist(id) {
+    return modelosChecklist.find(x => String(x.id) === String(id));
+}
+
+function listarModelosChecklist(familiaEstrutural = '') {
+    if (!familiaEstrutural) return [...modelosChecklist];
+
+    return modelosChecklist.filter(x =>
+        (x.familiaEstrutural || '').toLowerCase() === familiaEstrutural.toLowerCase()
+    );
+}
+
+function excluirModeloChecklist(id) {
+    const antes = modelosChecklist.length;
+    modelosChecklist = modelosChecklist.filter(x => String(x.id) !== String(id));
+
+    if (modelosChecklist.length === antes) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    salvarLocal();
+    sincronizar('salvar');
+    registrarLog('checklist', 'excluir-modelo', `Modelo removido: ${id}`);
+    mostrarToast("Modelo excluído!");
+}
+
+window.salvarModeloChecklist = salvarModeloChecklist;
+window.buscarModeloChecklist = buscarModeloChecklist;
+window.listarModelosChecklist = listarModelosChecklist;
+window.excluirModeloChecklist = excluirModeloChecklist;
