@@ -567,7 +567,7 @@
     <script src="./assets/js/render/devolucoes.js"></script>
     <script src="./assets/js/ui/eventos.js"></script>
     <script src="./assets/js/core/app.js"></script>
-            <div id="modalModeloChecklist" class="modal">
+          <div id="modalModeloChecklist" class="modal">
     <div class="modal-content">
         <h3>Criar Modelo de Estrutura</h3>
 
@@ -583,7 +583,25 @@
             </div>
         </div>
 
-        <div style="margin-top: 20px; display: flex; gap: 10px;"
+        <div class="form-row">
+            <div class="form-group">
+                <label>Peça do Estoque</label>
+                <select id="modeloChecklistPeca"></select>
+            </div>
+
+            <div class="form-group">
+                <label>Quantidade</label>
+                <input type="number" id="modeloChecklistQtd" value="1" min="1">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="fecharModalModeloChecklist()">Fechar</button>
+        </div>
     </div>
 </div>
 </body>
