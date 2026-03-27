@@ -373,6 +373,27 @@ function removerItemModeloChecklistTemp(index) {
     itensModeloChecklistTemp.splice(index, 1);
     renderItensModeloChecklistTemp();
 }
+function salvarModeloChecklistForm() {
+    const nome = document.getElementById('modeloChecklistNome').value.trim();
+    const familia = document.getElementById('modeloChecklistFamilia').value.trim();
+
+    if (!nome) {
+        mostrarToast("Informe o nome do modelo.", "erro");
+        return;
+    }
+
+    if (itensModeloChecklistTemp.length === 0) {
+        mostrarToast("Adicione pelo menos uma peça.", "erro");
+        return;
+    }
+
+    const modelo = salvarModeloChecklist(nome, familia, itensModeloChecklistTemp, 'manual');
+    if (!modelo) return;
+
+    fecharModalModeloChecklist();
+    itensModeloChecklistTemp = [];
+    renderItensModeloChecklistTemp();
+}
 
 window.abrirModalModeloChecklist = abrirModalModeloChecklist;
 window.fecharModalModeloChecklist = fecharModalModeloChecklist;
@@ -380,3 +401,4 @@ window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
 window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
 window.renderItensModeloChecklistTemp = renderItensModeloChecklistTemp;
 window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
+window.salvarModeloChecklistForm = salvarModeloChecklistForm;
