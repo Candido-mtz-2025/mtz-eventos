@@ -2,11 +2,17 @@
 
 // Backup de emergência antes de sobrescrever dados
 function criarBackupEmergencia() {
-    const timestamp = new Date().toISOString();
     const backup = {
-        data: timestamp,
-        locadores, pecas, locacoes, devolucoes, tipos, config
-    };
+    data: timestamp,
+    locadores,
+    pecas,
+    locacoes,
+    devolucoes,
+    tipos,
+    config,
+    modelosChecklist,
+    checklistsGerados
+};
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
     return backup;
@@ -71,12 +77,14 @@ async function sincronizar(modo) {
 
             // Carregar dados
             if (dadosNuvem.locadores) {
-                locadores = dadosNuvem.locadores || [];
-                pecas = dadosNuvem.pecas || [];
-                locacoes = dadosNuvem.locacoes || [];
-                devolucoes = dadosNuvem.devolucoes || [];
-                tipos = dadosNuvem.tipos || [];
-                config = dadosNuvem.config || config;
+            locadores = dadosNuvem.locadores || [];
+            pecas = dadosNuvem.pecas || [];
+            locacoes = dadosNuvem.locacoes || [];
+            devolucoes = dadosNuvem.devolucoes || [];
+            tipos = dadosNuvem.tipos || [];
+            config = dadosNuvem.config || config;
+            modelosChecklist = dadosNuvem.modelosChecklist || [];
+            checklistsGerados = dadosNuvem.checklistsGerados || [];
 
                 salvarLocal();
                 renderTudo();
@@ -87,9 +95,16 @@ async function sincronizar(modo) {
             // Enviar dados para nuvem
             const timestamp = Date.now();
             const dadosParaEnviar = {
-                locadores, pecas, locacoes, devolucoes, tipos, config,
-                ultimaEdicao: timestamp
-            };
+            locadores,
+            pecas,
+            locacoes,
+            devolucoes,
+            tipos,
+            config,
+            modelosChecklist,
+            checklistsGerados,
+            ultimaEdicao: timestamp
+          };
 
             localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
 
@@ -123,11 +138,18 @@ function iniciarBackupAutomatico() {
     const umDia = 24 * 60 * 60 * 1000;
 
     if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
-        const backup = {
-            data: new Date().toISOString(),
-            versao: 'V11',
-            locadores, pecas, locacoes, devolucoes, tipos, config
-        };
+       const backup = {
+    data: new Date().toISOString(),
+    versao: 'V11',
+    locadores,
+    pecas,
+    locacoes,
+    devolucoes,
+    tipos,
+    config,
+    modelosChecklist,
+    checklistsGerados
+};
 
         localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
         localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
@@ -157,6 +179,8 @@ function restaurarBackupEmergencia() {
         devolucoes = dados.devolucoes || [];
         tipos = dados.tipos || [];
         config = dados.config || config;
+        modelosChecklist = dados.modelosChecklist || [];
+        checklistsGerados = dados.checklistsGerados || [];;
 
         salvarLocal();
         renderTudo();
