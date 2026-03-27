@@ -335,9 +335,31 @@ function adicionarItemModeloChecklist() {
     console.log('Itens do modelo:', itensModeloChecklistTemp);
     mostrarToast("Peça adicionada!");
 }
+function renderItensModeloChecklistTemp() {
+    const lista = document.getElementById('listaItensModeloChecklist');
+    if (!lista) return;
 
+    if (itensModeloChecklistTemp.length === 0) {
+        lista.innerHTML = '<p>Nenhuma peça adicionada.</p>';
+        return;
+    }
+
+    lista.innerHTML = itensModeloChecklistTemp.map((item, index) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:8px;margin-bottom:6px;border-radius:6px;">
+            <span>${item.nome} - Qtd: ${item.qtd}</span>
+            <button class="btn btn-danger" onclick="removerItemModeloChecklistTemp(${index})">Remover</button>
+        </div>
+    `).join('');
+}
+
+function removerItemModeloChecklistTemp(index) {
+    itensModeloChecklistTemp.splice(index, 1);
+    renderItensModeloChecklistTemp();
+}
 window.abrirModalModeloChecklist = abrirModalModeloChecklist;
 window.fecharModalModeloChecklist = fecharModalModeloChecklist;
 window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
 window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
+window.renderItensModeloChecklistTemp = renderItensModeloChecklistTemp;
+window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
 
