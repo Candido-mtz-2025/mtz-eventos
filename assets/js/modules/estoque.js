@@ -393,6 +393,7 @@ function salvarModeloChecklistForm() {
     fecharModalModeloChecklist();
     itensModeloChecklistTemp = [];
     renderItensModeloChecklistTemp();
+    renderModelosChecklist();
 }
 function renderModelosChecklist() {
     const lista = document.getElementById('listaModelosChecklist');
@@ -433,3 +434,6 @@ window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
 window.salvarModeloChecklistForm = salvarModeloChecklistForm;
 window.renderModelosChecklist = renderModelosChecklist;
 window.excluirModeloChecklistUI = excluirModeloChecklistUI;
+window.addEventListener('load', function () {
+    renderModelosChecklist();
+});
