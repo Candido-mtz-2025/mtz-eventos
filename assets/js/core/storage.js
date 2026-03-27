@@ -3,7 +3,6 @@
 // Backup de emergência antes de sobrescrever dados
 function criarBackupEmergencia() {
     const timestamp = new Date().toISOString();
-
     const backup = {
         data: timestamp,
         locadores,
@@ -15,12 +14,10 @@ function criarBackupEmergencia() {
         modelosChecklist,
         checklistsGerados
     };
-
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
     return backup;
 }
-
 // Sincronização com proteção contra perda de dados
 async function sincronizar(modo) {
     if (!navigator.onLine) {
@@ -89,10 +86,10 @@ async function sincronizar(modo) {
             modelosChecklist = dadosNuvem.modelosChecklist || [];
             checklistsGerados = dadosNuvem.checklistsGerados || [];
 
-                salvarLocal();
-                renderTudo();
-                mostrarToast('✅ Dados carregados da nuvem!');
-            }
+            salvarLocal();
+            renderTudo();
+            mostrarToast('✅ Dados carregados da nuvem!');
+        }
 
         } else {
             // Enviar dados para nuvem
