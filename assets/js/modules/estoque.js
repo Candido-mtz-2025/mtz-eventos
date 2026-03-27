@@ -269,3 +269,13 @@ window.salvarModeloChecklist = salvarModeloChecklist;
 window.buscarModeloChecklist = buscarModeloChecklist;
 window.listarModelosChecklist = listarModelosChecklist;
 window.excluirModeloChecklist = excluirModeloChecklist;
+function abrirModalModeloChecklist() {
+    document.getElementById('modalModeloChecklist').classList.add('active');
+}
+
+function fecharModalModeloChecklist() {
+    document.getElementById('modalModeloChecklist').classList.remove('active');
+}
+
+window.abrirModalModeloChecklist = abrirModalModeloChecklist;
+window.fecharModalModeloChecklist = fecharModalModeloChecklist;
