@@ -203,6 +203,8 @@
 </div>
                     
 <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+                    <br><br>
+<button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
                 </div>
                    <div class="card">
   <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
@@ -565,5 +567,26 @@
     <script src="./assets/js/render/devolucoes.js"></script>
     <script src="./assets/js/ui/eventos.js"></script>
     <script src="./assets/js/core/app.js"></script>
+            <div id="modalModeloChecklist" class="modal">
+    <div class="modal-content">
+        <h3>Criar Modelo de Estrutura</h3>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Nome do Modelo</label>
+                <input type="text" id="modeloChecklistNome" placeholder="Ex: Backdrop 6,15x3,30">
+            </div>
+
+            <div class="form-group">
+                <label>Família Estrutural</label>
+                <input type="text" id="modeloChecklistFamilia" placeholder="Ex: Q15, Q30, Tenda">
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="fecharModalModeloChecklist()">Fechar</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
