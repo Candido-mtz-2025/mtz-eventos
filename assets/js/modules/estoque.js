@@ -273,8 +273,18 @@ let itensModeloChecklistTemp = [];
 
 function abrirModalModeloChecklist() {
     itensModeloChecklistTemp = [];
+
+    const nome = document.getElementById('modeloChecklistNome');
+    const familia = document.getElementById('modeloChecklistFamilia');
+    const qtd = document.getElementById('modeloChecklistQtd');
+
+    if (nome) nome.value = '';
+    if (familia) familia.value = '';
+    if (qtd) qtd.value = 1;
+
     atualizarSelectModeloChecklist();
     renderItensModeloChecklistTemp();
+
     document.getElementById('modalModeloChecklist').classList.add('active');
 }
 
@@ -298,6 +308,11 @@ function atualizarSelectModeloChecklist() {
 function adicionarItemModeloChecklist() {
     const select = document.getElementById('modeloChecklistPeca');
     const qtdInput = document.getElementById('modeloChecklistQtd');
+
+    if (!select || !qtdInput) {
+        mostrarToast("Campos do modelo não encontrados.", "erro");
+        return;
+    }
 
     const pecaId = select.value;
     const qtd = parseInt(qtdInput.value) || 0;
@@ -333,9 +348,10 @@ function adicionarItemModeloChecklist() {
     qtdInput.value = 1;
     select.value = '';
 
-    console.log('Itens do modelo:', itensModeloChecklistTemp);
+    renderItensModeloChecklistTemp();
     mostrarToast("Peça adicionada!");
 }
+
 function renderItensModeloChecklistTemp() {
     const lista = document.getElementById('listaItensModeloChecklist');
     if (!lista) return;
@@ -357,10 +373,10 @@ function removerItemModeloChecklistTemp(index) {
     itensModeloChecklistTemp.splice(index, 1);
     renderItensModeloChecklistTemp();
 }
+
 window.abrirModalModeloChecklist = abrirModalModeloChecklist;
 window.fecharModalModeloChecklist = fecharModalModeloChecklist;
 window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
 window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
 window.renderItensModeloChecklistTemp = renderItensModeloChecklistTemp;
 window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
-
