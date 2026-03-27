@@ -2,17 +2,20 @@
 
 // Backup de emergência antes de sobrescrever dados
 function criarBackupEmergencia() {
+    const timestamp = new Date().toISOString();
+
     const backup = {
-    data: timestamp,
-    locadores,
-    pecas,
-    locacoes,
-    devolucoes,
-    tipos,
-    config,
-    modelosChecklist,
-    checklistsGerados
-};
+        data: timestamp,
+        locadores,
+        pecas,
+        locacoes,
+        devolucoes,
+        tipos,
+        config,
+        modelosChecklist,
+        checklistsGerados
+    };
+
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
     return backup;
