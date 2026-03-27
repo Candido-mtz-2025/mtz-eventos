@@ -394,6 +394,35 @@ function salvarModeloChecklistForm() {
     itensModeloChecklistTemp = [];
     renderItensModeloChecklistTemp();
 }
+function renderModelosChecklist() {
+    const lista = document.getElementById('listaModelosChecklist');
+    if (!lista) return;
+
+    if (!modelosChecklist || modelosChecklist.length === 0) {
+        lista.innerHTML = '<p>Nenhum modelo salvo.</p>';
+        return;
+    }
+
+    lista.innerHTML = modelosChecklist.map(modelo => `
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:10px;margin-bottom:8px;border-radius:8px;">
+            <div>
+                <strong>${modelo.nome}</strong><br>
+                <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
+                <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function excluirModeloChecklistUI(id) {
+    if (!confirm('Deseja excluir este modelo?')) return;
+
+    excluirModeloChecklist(id);
+    renderModelosChecklist();
+}
 
 window.abrirModalModeloChecklist = abrirModalModeloChecklist;
 window.fecharModalModeloChecklist = fecharModalModeloChecklist;
@@ -402,3 +431,5 @@ window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
 window.renderItensModeloChecklistTemp = renderItensModeloChecklistTemp;
 window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
 window.salvarModeloChecklistForm = salvarModeloChecklistForm;
+window.renderModelosChecklist = renderModelosChecklist;
+window.excluirModeloChecklistUI = excluirModeloChecklistUI;
