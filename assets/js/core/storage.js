@@ -197,7 +197,7 @@ function verInfoBackup() {
 function salvarLocal() {
     cacheDisponibilidade = null;
     try {
-        const dados = {
+       const dados = {
     versao: '11.0',
     data: new Date().toISOString(),
     locadores,
