@@ -197,7 +197,7 @@ function verInfoBackup() {
 function salvarLocal() {
     cacheDisponibilidade = null;
     try {
-       const dados = {
+const dados = {
     versao: '11.0',
     data: new Date().toISOString(),
     locadores,
@@ -275,7 +275,6 @@ function carregarLocal() {
         logsAuditoria = dados.logsAuditoria || [];
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
-
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
         
