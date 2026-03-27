@@ -411,9 +411,10 @@ function renderModelosChecklist() {
                 <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
                 <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
             </div>
-            <div style="display:flex;gap:8px;">
-                <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
-            </div>
+           <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
+    <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
+</div>
         </div>
     `).join('');
 }
@@ -425,6 +426,93 @@ function excluirModeloChecklistUI(id) {
     renderModelosChecklist();
 }
 
+function gerarChecklistModelo(id) {
+    const modelo = buscarModeloChecklist(id);
+
+    if (!modelo) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    const grupos = {};
+
+    modelo.itens.forEach(itemModelo => {
+        const peca = pecas.find(p => String(p.id) === String(itemModelo.pecaId));
+        if (!peca) return;
+
+        const grupo = peca.grupoChecklist || 'outros';
+
+        if (!grupos[grupo]) grupos[grupo] = [];
+
+        grupos[grupo].push({
+            nome: peca.nome + (peca.medida ? ` - ${peca.medida}` : ''),
+            qtd: itemModelo.qtd || 0
+        });
+    });
+
+    const ordemGrupos = ['estrutura', 'cobertura', 'eletrica', 'moveis', 'acabamento', 'outros'];
+
+    const secoes = ordemGrupos
+        .filter(grupo => grupos[grupo] && grupos[grupo].length > 0)
+        .map(grupo => {
+            const linhas = grupos[grupo].map(item => `
+                <tr>
+                    <td style="padding:8px; border:1px solid #ccc;">${item.nome}</td>
+                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">${item.qtd}</td>
+                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">_______</td>
+                    <td style="padding:8px; border:1px solid #ccc;">&nbsp;</td>
+                </tr>
+            `).join('');
+
+            return `
+                <div style="margin-bottom:25px;">
+                    <h3 style="margin:0 0 10px 0; text-transform:uppercase; border-bottom:2px solid #000; padding-bottom:5px;">
+                        ${grupo}
+                    </h3>
+                    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                        <thead>
+                            <tr style="background:#000; color:#fff;">
+                                <th style="padding:8px; border:1px solid #000; text-align:left;">Item</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:center; width:80px;">Qtd</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:center; width:120px;">Conferido</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:left;">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${linhas}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+
+    const layout = `
+        <div style="font-family:Arial,sans-serif; background:#fff; color:#000; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:25px; border-bottom:2px solid #000; padding-bottom:10px;">
+                <div>
+                    <h2 style="margin:0;">CHECKLIST DE SEPARAÇÃO</h2>
+                    <div style="margin-top:6px; font-size:14px;"><strong>Modelo:</strong> ${modelo.nome}</div>
+                    <div style="margin-top:4px; font-size:14px;"><strong>Família:</strong> ${modelo.familiaEstrutural || 'Não informada'}</div>
+                </div>
+                <div style="text-align:right; font-size:12px;">
+                    <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+                </div>
+            </div>
+
+            ${secoes || '<p>Nenhuma peça encontrada para este modelo.</p>'}
+        </div>
+    `;
+
+    const printArea = document.getElementById('printArea');
+    if (!printArea) {
+        mostrarToast("Área de impressão não encontrada.", "erro");
+        return;
+    }
+
+    printArea.innerHTML = layout;
+    document.getElementById('modalRelatorio').classList.add('active');
+}
+
 window.abrirModalModeloChecklist = abrirModalModeloChecklist;
 window.fecharModalModeloChecklist = fecharModalModeloChecklist;
 window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
@@ -434,6 +522,7 @@ window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
 window.salvarModeloChecklistForm = salvarModeloChecklistForm;
 window.renderModelosChecklist = renderModelosChecklist;
 window.excluirModeloChecklistUI = excluirModeloChecklistUI;
+window.gerarChecklistModelo = gerarChecklistModelo;
 window.addEventListener('load', function () {
     renderModelosChecklist();
 });
