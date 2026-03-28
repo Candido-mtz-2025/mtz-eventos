@@ -378,6 +378,8 @@ function tentarRecuperacaoAutomatica() {
         devolucoes = dados.devolucoes || [];
         tipos = dados.tipos || [];
         config = dados.config || config;
+        modelosChecklist = dados.modelosChecklist || [];
+        checklistsGerados = dados.checklistsGerados || [];
 
         salvarLocal();
         renderTudo();
