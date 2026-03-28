@@ -30,7 +30,7 @@ async function sincronizar(modo) {
     try {
         if (modo === 'carregar') {
             // Carregar dados da nuvem
-            const response = await fetch(`${API_URL}?action=carregar`);
+            const response = await fetch(`${API_URL}?action=carregar&token=${encodeURIComponent(gToken)}`);
             const texto = await response.text();
 
             // Validação de resposta
@@ -76,20 +76,24 @@ async function sincronizar(modo) {
             }
 
             // Carregar dados
-            if (dadosNuvem.locadores) {
-            locadores = dadosNuvem.locadores || [];
-            pecas = dadosNuvem.pecas || [];
-            locacoes = dadosNuvem.locacoes || [];
-            devolucoes = dadosNuvem.devolucoes || [];
-            tipos = dadosNuvem.tipos || [];
-            config = dadosNuvem.config || config;
-            modelosChecklist = dadosNuvem.modelosChecklist || [];
-            checklistsGerados = dadosNuvem.checklistsGerados || [];
+            const resposta = JSON.parse(texto);
 
-            salvarLocal();
-            renderTudo();
-            mostrarToast('✅ Dados carregados da nuvem!');
-        }
+if (resposta.success && resposta.dados) {
+    const dadosNuvem = resposta.dados;
+
+    locadores = dadosNuvem.locadores || [];
+    pecas = dadosNuvem.pecas || [];
+    locacoes = dadosNuvem.locacoes || [];
+    devolucoes = dadosNuvem.devolucoes || [];
+    tipos = dadosNuvem.tipos || [];
+    config = dadosNuvem.config || config;
+    modelosChecklist = dadosNuvem.modelosChecklist || [];
+    checklistsGerados = dadosNuvem.checklistsGerados || [];
+
+    salvarLocal();
+    renderTudo();
+    mostrarToast('✅ Dados carregados da nuvem!');
+}
 
         } else {
             // Enviar dados para nuvem
@@ -108,13 +112,11 @@ async function sincronizar(modo) {
 
             localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    dados: JSON.stringify(dadosParaEnviar)
-                })
-            });
+            const response = await fetch(`${API_URL}?action=salvar&token=${encodeURIComponent(gToken)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dadosParaEnviar)
+});
 
             if (response.ok) {
                 mostrarToast('☁️ Dados salvos na nuvem!');
