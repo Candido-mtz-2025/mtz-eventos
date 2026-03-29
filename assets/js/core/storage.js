@@ -135,63 +135,6 @@ async function sincronizar(modo) {
     }
 }
 
-            // Carregar dados
-            const resposta = JSON.parse(texto);
-
-if (resposta.success && resposta.dados) {
-    const dadosNuvem = resposta.dados;
-
-    locadores = dadosNuvem.locadores || [];
-    pecas = dadosNuvem.pecas || [];
-    locacoes = dadosNuvem.locacoes || [];
-    devolucoes = dadosNuvem.devolucoes || [];
-    tipos = dadosNuvem.tipos || [];
-    config = dadosNuvem.config || config;
-    modelosChecklist = dadosNuvem.modelosChecklist || [];
-    checklistsGerados = dadosNuvem.checklistsGerados || [];
-
-    salvarLocal();
-    renderTudo();
-    mostrarToast('✅ Dados carregados da nuvem!');
-}
-
-        } else {
-            // Enviar dados para nuvem
-            const timestamp = Date.now();
-            const dadosParaEnviar = {
-            locadores,
-            pecas,
-            locacoes,
-            devolucoes,
-            tipos,
-            config,
-            modelosChecklist,
-            checklistsGerados,
-            ultimaEdicao: timestamp
-          };
-
-            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
-
-            const response = await fetch(`${API_URL}?action=salvar&token=${encodeURIComponent(gToken)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dadosParaEnviar)
-});
-
-            if (response.ok) {
-                mostrarToast('☁️ Dados salvos na nuvem!');
-                console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
-            }
-        }
-
-        updStatus('online');
-
-    } catch (erro) {
-        console.error('❌ Erro na sincronização:', erro);
-        updStatus('offline');
-        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
-    }
-}
 
 // Backup automático diário
 function iniciarBackupAutomatico() {
