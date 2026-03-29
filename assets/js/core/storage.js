@@ -29,37 +29,44 @@ async function sincronizar(modo) {
 
     try {
         if (modo === 'carregar') {
-            // Carregar dados da nuvem
             const response = await fetch(`${API_URL}?action=carregar&token=${encodeURIComponent(gToken)}`);
             const texto = await response.text();
 
-            // Validação de resposta
             if (texto.startsWith('<')) {
                 console.warn('⚠️ Resposta inválida do servidor');
                 updStatus('offline');
                 return;
             }
 
-            const dadosNuvem = JSON.parse(texto);
+            const resposta = JSON.parse(texto);
 
-            // Verificar se há dados locais
-            const temDadosLocais = locadores.length > 0 || pecas.length > 0 || locacoes.length > 0;
+            if (!resposta.success) {
+                console.warn('⚠️ Falha ao carregar da nuvem:', resposta.error || resposta.msg);
+                updStatus('offline');
+                return;
+            }
+
+            const dadosNuvem = resposta.dados || {};
+
+            const temDadosLocais =
+                locadores.length > 0 ||
+                pecas.length > 0 ||
+                locacoes.length > 0 ||
+                modelosChecklist.length > 0;
 
             if (temDadosLocais) {
-                // Detectar conflito de timestamps
                 const timestampLocal = localStorage.getItem('mtzUltimaEdicao') || 0;
                 const timestampNuvem = dadosNuvem.ultimaEdicao || 0;
 
-                console.log('📅 Local:', new Date(Number(timestampLocal)).toLocaleString());
-                console.log('☁️ Nuvem:', new Date(Number(timestampNuvem)).toLocaleString());
+                console.log('📅 Local:', timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data');
+                console.log('☁️ Nuvem:', timestampNuvem ? new Date(Number(timestampNuvem)).toLocaleString() : 'sem data');
 
-                // Se nuvem for mais recente, perguntar
                 if (timestampNuvem > timestampLocal) {
                     const confirmar = confirm(
                         '⚠️ ATENÇÃO: Dados na nuvem são mais recentes!\n\n' +
-                        `📅 Seus dados locais: ${new Date(Number(timestampLocal)).toLocaleString()}\n` +
+                        `📅 Seus dados locais: ${timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data'}\n` +
                         `☁️ Dados na nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
-                        '✅ Clique OK para CARREGAR da nuvem (backup automático será criado)\n' +
+                        '✅ Clique OK para CARREGAR da nuvem\n' +
                         '❌ Clique CANCELAR para manter seus dados locais'
                     );
 
@@ -70,10 +77,63 @@ async function sincronizar(modo) {
                         return;
                     }
 
-                    // Criar backup antes de sobrescrever
                     criarBackupEmergencia();
                 }
             }
+
+            locadores = dadosNuvem.locadores || [];
+            pecas = dadosNuvem.pecas || [];
+            locacoes = dadosNuvem.locacoes || [];
+            devolucoes = dadosNuvem.devolucoes || [];
+            tipos = dadosNuvem.tipos || [];
+            config = dadosNuvem.config || config;
+            modelosChecklist = dadosNuvem.modelosChecklist || [];
+            checklistsGerados = dadosNuvem.checklistsGerados || [];
+
+            salvarLocal();
+            renderTudo();
+            mostrarToast('✅ Dados carregados da nuvem!');
+        } else {
+            const timestamp = Date.now();
+
+            const dadosParaEnviar = {
+                locadores,
+                pecas,
+                locacoes,
+                devolucoes,
+                tipos,
+                config,
+                modelosChecklist,
+                checklistsGerados,
+                ultimaEdicao: timestamp
+            };
+
+            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
+
+            const response = await fetch(`${API_URL}?action=salvar&token=${encodeURIComponent(gToken)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dadosParaEnviar)
+            });
+
+            const resultado = await response.json();
+
+            if (response.ok && resultado.success) {
+                mostrarToast('☁️ Dados salvos na nuvem!');
+                console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
+            } else {
+                console.warn('⚠️ Falha ao salvar na nuvem:', resultado.error || resultado.msg);
+                mostrarToast('⚠️ Erro ao salvar na nuvem.');
+            }
+        }
+
+        updStatus('online');
+    } catch (erro) {
+        console.error('❌ Erro na sincronização:', erro);
+        updStatus('offline');
+        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
+    }
+}
 
             // Carregar dados
             const resposta = JSON.parse(texto);
