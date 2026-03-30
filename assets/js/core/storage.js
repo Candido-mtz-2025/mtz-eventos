@@ -216,55 +216,7 @@ function verInfoBackup() {
     }
 
     alert(msg);
-}
-
-// === RECUPERAÇÃO AUTOMÁTICA ===
-function tentarRecuperacaoAutomatica() {
-    try {
-        let backup = localStorage.getItem('mtzBackupEmergencia');
-        let fonte = 'Emergência';
-
-        if (!backup) {
-            backup = localStorage.getItem('mtzBackupAutomatico');
-            fonte = 'Automático';
-        }
-
-        if (!backup) {
-            throw new Error('Nenhum backup disponível');
-        }
-
-        const dados = JSON.parse(backup);
-
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-        modelosChecklist = dados.modelosChecklist || [];
-        checklistsGerados = dados.checklistsGerados || [];
-
-        salvarLocal();
-        renderTudo();
-
-        alert(
-            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
-            `Fonte: Backup ${fonte}\n` +
-            `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
-            `Registros recuperados:\n` +
-            `- ${locadores.length} clientes\n` +
-            `- ${pecas.length} itens\n` +
-            `- ${locacoes.length} locações\n` +
-            `- ${modelosChecklist.length} modelos\n\n` +
-            `💡 Recomendação: Faça um backup JSON agora!`
-        );
-
-        console.log('✅ Dados recuperados de:', dados.data);
-    } catch (erro) {
-        alert('❌ Falha na recuperação automática: ' + erro.message);
-    }
-}
-    
+}  
     // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
 function salvarLocal() {
     cacheDisponibilidade = null;
