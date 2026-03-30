@@ -447,7 +447,10 @@ function salvarModeloChecklistForm() {
     renderModelosChecklist();
 }
 function renderModelosChecklist() {
+    console.log('MODELOS NA HORA DE RENDERIZAR:', modelosChecklist);
+
     const lista = document.getElementById('listaModelosChecklist');
+    console.log('DIV LISTA MODELOS:', lista);
     if (!lista) return;
 
     if (!modelosChecklist || modelosChecklist.length === 0) {
