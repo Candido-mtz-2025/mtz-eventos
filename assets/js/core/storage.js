@@ -26,18 +26,11 @@ async function sincronizar(modo) {
         return;
     }
 
-    const tokenAtual = window.gToken || localStorage.getItem('gToken') || '';
     updStatus('saving');
 
     try {
         if (modo === 'carregar') {
-            if (!tokenAtual) {
-                console.warn('⚠️ Sem token para carregar da nuvem');
-                updStatus('offline');
-                return;
-            }
-
-            const response = await fetch(`${API_URL}?action=carregar&token=${encodeURIComponent(tokenAtual)}`);
+            const response = await fetch(API_URL);
             const texto = await response.text();
 
             if (texto.startsWith('<')) {
@@ -46,22 +39,13 @@ async function sincronizar(modo) {
                 return;
             }
 
-            const resposta = JSON.parse(texto);
+            const dadosNuvem = JSON.parse(texto);
 
-            if (!resposta.success) {
-                console.warn('⚠️ Falha ao carregar da nuvem:', resposta.error || resposta.msg);
+            if (!dadosNuvem || typeof dadosNuvem !== 'object') {
+                console.warn('⚠️ Nuvem vazia ou inválida');
                 updStatus('offline');
                 return;
             }
-
-            if (!resposta.dados || typeof resposta.dados !== 'object') {
-                console.warn('⚠️ Nuvem vazia ou sem dados válidos. Mantendo dados locais.');
-                updStatus('online');
-                mostrarToast('Nuvem vazia. Dados locais mantidos.');
-                return;
-            }
-
-            const dadosNuvem = resposta.dados;
 
             const temDadosLocais =
                 locadores.length > 0 ||
@@ -125,25 +109,19 @@ async function sincronizar(modo) {
 
             localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
 
-            if (!tokenAtual) {
-                console.warn('⚠️ Sem token para salvar na nuvem');
-                updStatus('offline');
-                return;
-            }
-
-            const response = await fetch(`${API_URL}?action=salvar&token=${encodeURIComponent(tokenAtual)}`, {
+            const response = await fetch(API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(dadosParaEnviar)
             });
 
             const resultado = await response.json();
 
-            if (response.ok && resultado.success) {
+            if (resultado.result === 'sucesso') {
                 mostrarToast('☁️ Dados salvos na nuvem!');
                 console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
             } else {
-                console.warn('⚠️ Falha ao salvar na nuvem:', resultado.error || resultado.msg);
+                console.warn('⚠️ Falha ao salvar na nuvem:', resultado.error || resultado.result);
                 mostrarToast('⚠️ Erro ao salvar na nuvem.');
             }
         }
