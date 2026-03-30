@@ -31,6 +31,12 @@ async function sincronizar(modo) {
 
     try {
         if (modo === 'carregar') {
+            if (!tokenAtual) {
+                console.warn('⚠️ Sem token para carregar da nuvem');
+                updStatus('offline');
+                return;
+            }
+
             const response = await fetch(`${API_URL}?action=carregar&token=${encodeURIComponent(tokenAtual)}`);
             const texto = await response.text();
 
@@ -48,7 +54,14 @@ async function sincronizar(modo) {
                 return;
             }
 
-            const dadosNuvem = resposta.dados || {};
+            if (!resposta.dados || typeof resposta.dados !== 'object') {
+                console.warn('⚠️ Nuvem vazia ou sem dados válidos. Mantendo dados locais.');
+                updStatus('online');
+                mostrarToast('Nuvem vazia. Dados locais mantidos.');
+                return;
+            }
+
+            const dadosNuvem = resposta.dados;
 
             const temDadosLocais =
                 locadores.length > 0 ||
@@ -112,6 +125,12 @@ async function sincronizar(modo) {
 
             localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
 
+            if (!tokenAtual) {
+                console.warn('⚠️ Sem token para salvar na nuvem');
+                updStatus('offline');
+                return;
+            }
+
             const response = await fetch(`${API_URL}?action=salvar&token=${encodeURIComponent(tokenAtual)}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -161,6 +180,112 @@ function iniciarBackupAutomatico() {
         localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
 
         console.log('💾 Backup automático criado:', new Date().toLocaleString());
+    }
+}
+
+// Restaurar backup de emergência
+function restaurarBackupEmergencia() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    if (!backup) {
+        alert('❌ Nenhum backup de emergência encontrado.');
+        return;
+    }
+
+    const confirmar = confirm(
+        '⚠️ Deseja restaurar o BACKUP DE EMERGÊNCIA?\n\n' +
+        'Isso irá substituir todos os dados atuais.'
+    );
+
+    if (confirmar) {
+        const dados = JSON.parse(backup);
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+        modelosChecklist = dados.modelosChecklist || [];
+        checklistsGerados = dados.checklistsGerados || [];
+
+        salvarLocal();
+        renderTudo();
+        mostrarToast('✅ Backup de emergência restaurado!');
+        console.log('✅ Dados restaurados de:', dados.data);
+    }
+}
+
+// Ver informações de backup
+function verInfoBackup() {
+    const backup = localStorage.getItem('mtzBackupEmergencia');
+    const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+
+    let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
+
+    if (backup) {
+        const dados = JSON.parse(backup);
+        msg += `🆘 Backup de Emergência:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+        msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações, ${dados.modelosChecklist?.length || 0} modelos\n\n`;
+    } else {
+        msg += '❌ Nenhum backup de emergência\n\n';
+    }
+
+    if (backupAuto) {
+        const dados = JSON.parse(backupAuto);
+        msg += `💾 Backup Automático:\n`;
+        msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
+        msg += `   Modelos: ${dados.modelosChecklist?.length || 0}\n`;
+    } else {
+        msg += '❌ Nenhum backup automático';
+    }
+
+    alert(msg);
+}
+
+// === RECUPERAÇÃO AUTOMÁTICA ===
+function tentarRecuperacaoAutomatica() {
+    try {
+        let backup = localStorage.getItem('mtzBackupEmergencia');
+        let fonte = 'Emergência';
+
+        if (!backup) {
+            backup = localStorage.getItem('mtzBackupAutomatico');
+            fonte = 'Automático';
+        }
+
+        if (!backup) {
+            throw new Error('Nenhum backup disponível');
+        }
+
+        const dados = JSON.parse(backup);
+
+        locadores = dados.locadores || [];
+        pecas = dados.pecas || [];
+        locacoes = dados.locacoes || [];
+        devolucoes = dados.devolucoes || [];
+        tipos = dados.tipos || [];
+        config = dados.config || config;
+        modelosChecklist = dados.modelosChecklist || [];
+        checklistsGerados = dados.checklistsGerados || [];
+
+        salvarLocal();
+        renderTudo();
+
+        alert(
+            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
+            `Fonte: Backup ${fonte}\n` +
+            `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
+            `Registros recuperados:\n` +
+            `- ${locadores.length} clientes\n` +
+            `- ${pecas.length} itens\n` +
+            `- ${locacoes.length} locações\n` +
+            `- ${modelosChecklist.length} modelos\n\n` +
+            `💡 Recomendação: Faça um backup JSON agora!`
+        );
+
+        console.log('✅ Dados recuperados de:', dados.data);
+    } catch (erro) {
+        alert('❌ Falha na recuperação automática: ' + erro.message);
     }
 }
 
