@@ -4,6 +4,7 @@ function renderTudo() {
     if(typeof renderLocacoes === 'function') renderLocacoes();
     if(typeof renderLocadores === 'function') renderLocadores();
     if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
     if(typeof renderDevolucoes === 'function') renderDevolucoes();
     if(typeof renderTipos === 'function') renderTipos();
     if(typeof renderStats === 'function') renderStats();
