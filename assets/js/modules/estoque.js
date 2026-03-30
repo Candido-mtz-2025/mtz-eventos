@@ -229,7 +229,8 @@ function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual'
     }
 
     modelosChecklist.push(modelo);
-
+    console.log('MODELOS SALVOS AGORA:', modelosChecklist);
+    
     salvarLocal();
     sincronizar('salvar');
     registrarLog('checklist', 'criar-modelo', `Modelo criado: ${modelo.nome}`);
