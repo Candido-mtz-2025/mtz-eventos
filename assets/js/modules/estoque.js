@@ -462,12 +462,12 @@ function renderModelosChecklist() {
                 <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
                 <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
             </div>
-           <<div style="display:flex;gap:8px;">
-    <button class="btn btn-secondary" onclick="editarModeloChecklist(${modelo.id})">Editar</button>
-    <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
-    <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
-</div>
-    </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="editarModeloChecklist(${modelo.id})">Editar</button>
+                <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
+                <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
+            </div>
+        </div>
     `).join('');
 }
 
