@@ -298,6 +298,7 @@ const dados = {
         }
 
         localStorage.setItem('mtzBackup', json);
+        localStorage.setItem('mtzUltimaEdicao', Date.now().toString());
         return true;
 
     } catch (erro) {
