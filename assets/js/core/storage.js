@@ -34,7 +34,7 @@ async function sincronizar(modo) {
             const texto = await response.text();
 
             if (texto.startsWith('<')) {
-                console.warn('⚠️ Resposta inválida do servidor');
+                console.warn('⚠️ Resposta inválida do Apps Script');
                 updStatus('offline');
                 return;
             }
@@ -62,17 +62,16 @@ async function sincronizar(modo) {
 
                 if (timestampNuvem > timestampLocal) {
                     const confirmar = confirm(
-                        '⚠️ ATENÇÃO: Dados na nuvem são mais recentes!\n\n' +
-                        `📅 Seus dados locais: ${timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data'}\n` +
-                        `☁️ Dados na nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
-                        '✅ Clique OK para CARREGAR da nuvem\n' +
-                        '❌ Clique CANCELAR para manter seus dados locais'
+                        '⚠️ Dados na nuvem são mais recentes.\n\n' +
+                        `Local: ${timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data'}\n` +
+                        `Nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
+                        'OK = carregar da nuvem\n' +
+                        'Cancelar = manter dados locais'
                     );
 
                     if (!confirmar) {
-                        console.log('🚫 Usuário cancelou sincronização');
                         updStatus('offline');
-                        mostrarToast('Sincronização cancelada. Dados locais mantidos.');
+                        mostrarToast('Dados locais mantidos.');
                         return;
                     }
 
@@ -117,7 +116,7 @@ async function sincronizar(modo) {
 
             const resultado = await response.json();
 
-            if (resultado.result === 'sucesso') {
+            if (resultado.result === 'sucesso' || resultado.success === true) {
                 mostrarToast('☁️ Dados salvos na nuvem!');
                 console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
             } else {
@@ -134,6 +133,13 @@ async function sincronizar(modo) {
     }
 }
 
+        updStatus('online');
+    } catch (erro) {
+        console.error('❌ Erro na sincronização:', erro);
+        updStatus('offline');
+        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
+    }
+}
 // Backup automático diário
 function iniciarBackupAutomatico() {
     const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
