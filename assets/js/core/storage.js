@@ -132,14 +132,6 @@ async function sincronizar(modo) {
         mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
     }
 }
-
-        updStatus('online');
-    } catch (erro) {
-        console.error('❌ Erro na sincronização:', erro);
-        updStatus('offline');
-        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
-    }
-}
 // Backup automático diário
 function iniciarBackupAutomatico() {
     const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
