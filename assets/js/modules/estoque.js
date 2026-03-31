@@ -580,3 +580,4 @@ window.excluirModeloChecklistUI = excluirModeloChecklistUI;
 window.gerarChecklistModelo = gerarChecklistModelo;
 window.editarModeloChecklist = editarModeloChecklist;
 window.checklistMontagem = checklistMontagem;
+window.checklistEtapasMontagem = checklistEtapasMontagem;
