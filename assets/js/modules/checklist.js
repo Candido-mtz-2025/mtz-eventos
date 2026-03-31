@@ -54,15 +54,16 @@ function adicionarModeloAoChecklist() {
             existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
         } else {
             checklistMontagem.push({
-                modeloId: modelo.id,
-                modeloNome: modelo.nome,
-                pecaId: peca.id,
-                nome: peca.nome || 'Peça sem nome',
-                grupoChecklist: peca.grupoChecklist || 'outros',
-                familiaEstrutural: peca.familiaEstrutural || '',
-                subtipoEstrutural: peca.subtipoEstrutural || '',
-                quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
-            });
+            modeloId: modelo.id,
+            modeloNome: modelo.nome,
+            pecaId: peca.id,
+            nome: peca.nome || 'Peça sem nome',
+            medida: peca.medida || '',
+            grupoChecklist: peca.grupoChecklist || 'outros',
+            familiaEstrutural: peca.familiaEstrutural || '',
+            subtipoEstrutural: peca.subtipoEstrutural || '',
+            quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
+           });
         }
     });
 
@@ -227,19 +228,24 @@ function gerarPDFChecklistMontagem() {
     const gruposMap = {};
 
     (checklistMontagem || []).forEach(item => {
-        let grupo = item.grupoChecklist || 'outros';
+    let grupo = item.grupoChecklist || 'outros';
 
-        if (grupo === 'elétrica') grupo = 'eletrica';
-        if (grupo === 'móveis') grupo = 'moveis';
+    if (grupo === 'elétrica') grupo = 'eletrica';
+    if (grupo === 'móveis') grupo = 'moveis';
 
-        if (!gruposMap[grupo]) {
-            gruposMap[grupo] = new Map();
-        }
+    if (!gruposMap[grupo]) {
+        gruposMap[grupo] = new Map();
+    }
 
-        const nome = item.nome || 'Item';
-        const atual = gruposMap[grupo].get(nome) || 0;
-        gruposMap[grupo].set(nome, atual + (Number(item.quantidade) || 0));
-    });
+    const referenciaPeca =
+        item.medida ||
+        item.subtipoEstrutural ||
+        item.nome ||
+        'Item';
+
+    const atual = gruposMap[grupo].get(referenciaPeca) || 0;
+    gruposMap[grupo].set(referenciaPeca, atual + (Number(item.quantidade) || 0));
+});
 
     let htmlSeparacao = '';
 
@@ -378,12 +384,13 @@ function gerarPDFChecklistMontagem() {
         modalRelatorio.classList.add('active');
     }
 }
+
 function montarEtapasMontagemAPartirDaSeparacao() {
     checklistEtapasMontagem = checklistMontagem.map(item => ({
         etapa: item.grupoChecklist || 'montagem',
         modelo: item.modeloNome || '',
         descricao: item.modeloNome || '',
-        peca: item.nome || '',
+        peca: item.medida || item.subtipoEstrutural || item.nome || '',
         quantidade: item.quantidade || 0,
         observacao: '',
         conferido: false
