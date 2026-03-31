@@ -45,21 +45,32 @@ function adicionarModeloAoChecklist() {
 
         const existente = checklistMontagem.find(item => String(item.pecaId) === String(itemModelo.pecaId));
 
-        if (existente) {
-            existente.quantidade += Number(itemModelo.quantidade || 0);
-        } else {
-            checklistMontagem.push({
-                modeloId: modelo.id,
-                modeloNome: modelo.nome,
-                pecaId: peca.id,
-                nome: peca.nome || 'Peça sem nome',
-                grupoChecklist: peca.grupoChecklist || 'outros',
-                familiaEstrutural: peca.familiaEstrutural || '',
-                subtipoEstrutural: peca.subtipoEstrutural || '',
-                quantidade: Number(itemModelo.quantidade || 0)
-            });
-        }
-    });
+       modelo.itens.forEach(itemModelo => {
+    const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
+
+    const peca = (window.pecas || []).find(p => String(p.id) === String(pecaId));
+    if (!peca) {
+        console.warn('Peça não encontrada para o item do modelo:', itemModelo);
+        return;
+    }
+
+    const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
+
+    if (existente) {
+        existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
+    } else {
+        checklistMontagem.push({
+            modeloId: modelo.id,
+            modeloNome: modelo.nome,
+            pecaId: peca.id,
+            nome: peca.nome || 'Peça sem nome',
+            grupoChecklist: peca.grupoChecklist || 'outros',
+            familiaEstrutural: peca.familiaEstrutural || '',
+            subtipoEstrutural: peca.subtipoEstrutural || '',
+            quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
+        });
+    }
+});
 
     window.checklistMontagem = checklistMontagem;
 
