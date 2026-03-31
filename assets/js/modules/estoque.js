@@ -579,3 +579,4 @@ window.renderModelosChecklist = renderModelosChecklist;
 window.excluirModeloChecklistUI = excluirModeloChecklistUI;
 window.gerarChecklistModelo = gerarChecklistModelo;
 window.editarModeloChecklist = editarModeloChecklist;
+window.checklistMontagem = checklistMontagem;
