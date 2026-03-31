@@ -40,37 +40,31 @@ function adicionarModeloAoChecklist() {
     }
 
     modelo.itens.forEach(itemModelo => {
-        const peca = (window.pecas || []).find(p => String(p.id) === String(itemModelo.pecaId));
-        if (!peca) return;
+        const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
 
-        const existente = checklistMontagem.find(item => String(item.pecaId) === String(itemModelo.pecaId));
+        const peca = (window.pecas || []).find(p => String(p.id) === String(pecaId));
+        if (!peca) {
+            console.warn('Peça não encontrada para o item do modelo:', itemModelo);
+            return;
+        }
 
-       modelo.itens.forEach(itemModelo => {
-    const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
+        const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
 
-    const peca = (window.pecas || []).find(p => String(p.id) === String(pecaId));
-    if (!peca) {
-        console.warn('Peça não encontrada para o item do modelo:', itemModelo);
-        return;
-    }
-
-    const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
-
-    if (existente) {
-        existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
-    } else {
-        checklistMontagem.push({
-            modeloId: modelo.id,
-            modeloNome: modelo.nome,
-            pecaId: peca.id,
-            nome: peca.nome || 'Peça sem nome',
-            grupoChecklist: peca.grupoChecklist || 'outros',
-            familiaEstrutural: peca.familiaEstrutural || '',
-            subtipoEstrutural: peca.subtipoEstrutural || '',
-            quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
-        });
-    }
-});
+        if (existente) {
+            existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
+        } else {
+            checklistMontagem.push({
+                modeloId: modelo.id,
+                modeloNome: modelo.nome,
+                pecaId: peca.id,
+                nome: peca.nome || 'Peça sem nome',
+                grupoChecklist: peca.grupoChecklist || 'outros',
+                familiaEstrutural: peca.familiaEstrutural || '',
+                subtipoEstrutural: peca.subtipoEstrutural || '',
+                quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
+            });
+        }
+    });
 
     window.checklistMontagem = checklistMontagem;
 
