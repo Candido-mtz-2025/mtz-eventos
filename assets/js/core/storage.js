@@ -4,16 +4,17 @@
 function criarBackupEmergencia() {
     const timestamp = new Date().toISOString();
     const backup = {
-        data: timestamp,
-        locadores,
-        pecas,
-        locacoes,
-        devolucoes,
-        tipos,
-        config,
-        modelosChecklist,
-        checklistsGerados
-    };
+    data: timestamp,
+    locadores,
+    pecas,
+    locacoes,
+    devolucoes,
+    tipos,
+    config,
+    modelosChecklist,
+    checklistsGerados,
+    checklistMontagem
+};
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
     return backup;
@@ -87,6 +88,9 @@ async function sincronizar(modo) {
             config = dadosNuvem.config || config;
             modelosChecklist = dadosNuvem.modelosChecklist || [];
             checklistsGerados = dadosNuvem.checklistsGerados || [];
+            checklistMontagem = dadosNuvem.checklistMontagem || [];
+
+            window.checklistMontagem = checklistMontagem;
 
             salvarLocal();
             renderTudo();
@@ -95,16 +99,17 @@ async function sincronizar(modo) {
             const timestamp = Date.now();
 
             const dadosParaEnviar = {
-                locadores,
-                pecas,
-                locacoes,
-                devolucoes,
-                tipos,
-                config,
-                modelosChecklist,
-                checklistsGerados,
-                ultimaEdicao: timestamp
-            };
+             locadores,
+             pecas,
+             locacoes,
+             devolucoes,
+             tipos,
+             config,
+             modelosChecklist,
+             checklistsGerados,
+             checklistMontagem,
+             ultimaEdicao: timestamp
+           };
 
             localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
 
@@ -139,18 +144,19 @@ function iniciarBackupAutomatico() {
     const umDia = 24 * 60 * 60 * 1000;
 
     if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
-        const backup = {
-            data: new Date().toISOString(),
-            versao: 'V11',
-            locadores,
-            pecas,
-            locacoes,
-            devolucoes,
-            tipos,
-            config,
-            modelosChecklist,
-            checklistsGerados
-        };
+        cconst backup = {
+         data: new Date().toISOString(),
+         versao: 'V11',
+         locadores,
+         pecas,
+         locacoes,
+         devolucoes,
+         tipos,
+         config,
+         modelosChecklist,
+         checklistsGerados,
+         checklistMontagem
+   };
 
         localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
         localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
@@ -182,6 +188,9 @@ function restaurarBackupEmergencia() {
         config = dados.config || config;
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
+        checklistMontagem = dados.checklistMontagem || [];
+
+        window.checklistMontagem = checklistMontagem;
 
         salvarLocal();
         renderTudo();
@@ -243,6 +252,9 @@ function tentarRecuperacaoAutomatica() {
         config = dados.config || config;
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
+        checklistMontagem = dados.checklistMontagem || [];
+
+        window.checklistMontagem = checklistMontagem;
 
         salvarLocal();
         renderTudo();
@@ -280,7 +292,9 @@ const dados = {
     config,
     logsAuditoria,
     modelosChecklist,
-    checklistsGerados
+    checklistsGerados,
+    checklistMontagem,
+
 };
 
         const json = JSON.stringify(dados);
@@ -348,6 +362,9 @@ function carregarLocal() {
         logsAuditoria = dados.logsAuditoria || [];
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
+        checklistMontagem = dados.checklistMontagem || [];
+        
+        window.checklistMontagem = checklistMontagem;
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
         
