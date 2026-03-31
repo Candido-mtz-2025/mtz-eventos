@@ -68,8 +68,11 @@ function adicionarModeloAoChecklist() {
 
     window.checklistMontagem = checklistMontagem;
 
+    montarEtapasMontagemAPartirDaSeparacao();
+
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
+    renderChecklistEtapasMontagem();
 }
 
 function removerItemChecklistMontagem(index) {
@@ -87,10 +90,22 @@ function limparChecklistMontagem() {
     if (!confirmar) return;
 
     checklistMontagem = [];
+    checklistEtapasMontagem = [];
+
     window.checklistMontagem = checklistMontagem;
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+
+    const campoCliente = document.getElementById('checklistCliente');
+    const campoEvento = document.getElementById('checklistEvento');
+    const campoData = document.getElementById('checklistData');
+
+    if (campoCliente) campoCliente.value = '';
+    if (campoEvento) campoEvento.value = '';
+    if (campoData) campoData.value = new Date().toISOString().split('T')[0];
 
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
+    renderChecklistEtapasMontagem();
 }
 
 function formatarNomeGrupoChecklist(grupo) {
@@ -183,7 +198,7 @@ function renderChecklistMontagem() {
 }
 
 function gerarPDFChecklistMontagem() {
-    if (!checklistMontagem || !checklistMontagem.length) {
+    if ((!checklistMontagem || !checklistMontagem.length) && (!checklistEtapasMontagem || !checklistEtapasMontagem.length)) {
         alert('Nenhum item no checklist para gerar PDF.');
         return;
     }
@@ -196,71 +211,301 @@ function gerarPDFChecklistMontagem() {
         return;
     }
 
-    const grupos = {};
+    const cliente = document.getElementById('checklistCliente')?.value || '';
+    const evento = document.getElementById('checklistEvento')?.value || '';
+    const data = document.getElementById('checklistData')?.value || '';
 
-    checklistMontagem.forEach(item => {
+    const gruposSeparacao = {};
+    const ordemGruposSeparacao = ['estrutura', 'cobertura', 'eletrica', 'elétrica', 'moveis', 'móveis', 'acabamento', 'outros'];
+
+    (checklistMontagem || []).forEach(item => {
         let grupo = item.grupoChecklist || 'outros';
 
         if (grupo === 'móveis') grupo = 'moveis';
         if (grupo === 'elétrica') grupo = 'eletrica';
 
-        if (!grupos[grupo]) grupos[grupo] = [];
-        grupos[grupo].push(item);
+        if (!gruposSeparacao[grupo]) gruposSeparacao[grupo] = [];
+        gruposSeparacao[grupo].push(item);
     });
 
-    const gruposOrdem = ['estrutura', 'cobertura', 'eletrica', 'moveis', 'acabamento', 'outros'];
+    let htmlSeparacao = '';
 
-    let html = `
-        <div style="padding:20px; font-family:Arial,sans-serif;">
-            <h2 style="margin-bottom:6px;">Checklist de Montagem</h2>
-            <div style="margin-bottom:20px; color:#666;">
-                Gerado em ${new Date().toLocaleString('pt-BR')}
-            </div>
-    `;
+    ordemGruposSeparacao.forEach(grupo => {
+        if (!gruposSeparacao[grupo] || !gruposSeparacao[grupo].length) return;
 
-    gruposOrdem.forEach(grupo => {
-        if (!grupos[grupo] || !grupos[grupo].length) return;
+        htmlSeparacao += `
+            <div style="margin-top:20px;">
+                <h3 style="margin:0 0 10px 0; background:#f2f2f2; padding:8px; border:1px solid #ccc;">
+                    ${formatarNomeGrupoChecklist(grupo)}
+                </h3>
 
-        html += `
-            <h3 style="margin-top:20px; background:#f2f2f2; padding:8px; border:1px solid #ccc;">
-                ${formatarNomeGrupoChecklist(grupo)}
-            </h3>
-            <table style="width:100%; border-collapse:collapse; margin-top:10px;" border="1">
-                <thead>
-                    <tr>
-                        <th style="padding:8px;">Peça</th>
-                        <th style="padding:8px;">Família</th>
-                        <th style="padding:8px;">Subtipo</th>
-                        <th style="padding:8px;">Quantidade</th>
-                    </tr>
-                </thead>
-                <tbody>
+                <table style="width:100%; border-collapse:collapse; margin-top:8px;" border="1">
+                    <thead>
+                        <tr>
+                            <th style="padding:8px; text-align:left;">Peça</th>
+                            <th style="padding:8px; text-align:left;">Família</th>
+                            <th style="padding:8px; text-align:left;">Subtipo</th>
+                            <th style="padding:8px; text-align:center; width:90px;">Quantidade</th>
+                            <th style="padding:8px; text-align:center; width:120px;">Conferido</th>
+                            <th style="padding:8px; text-align:left;">Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
 
-        grupos[grupo].forEach(item => {
-            html += `
+        gruposSeparacao[grupo].forEach(item => {
+            htmlSeparacao += `
                 <tr>
                     <td style="padding:8px;">${item.nome || ''}</td>
                     <td style="padding:8px;">${item.familiaEstrutural || '-'}</td>
                     <td style="padding:8px;">${item.subtipoEstrutural || '-'}</td>
                     <td style="padding:8px; text-align:center;">${item.quantidade || 0}</td>
+                    <td style="padding:8px; text-align:center;">_______</td>
+                    <td style="padding:8px;">&nbsp;</td>
                 </tr>
             `;
         });
 
-        html += `
-                </tbody>
-            </table>
+        htmlSeparacao += `
+                    </tbody>
+                </table>
+            </div>
         `;
     });
 
-    html += `</div>`;
+    let htmlMontagem = '';
+
+    if (checklistEtapasMontagem && checklistEtapasMontagem.length) {
+        htmlMontagem += `
+            <table style="width:100%; border-collapse:collapse; margin-top:10px;" border="1">
+                <thead>
+                    <tr>
+                        <th style="padding:8px; text-align:left; width:140px;">Etapa</th>
+                        <th style="padding:8px; text-align:left;">Item / Atividade</th>
+                        <th style="padding:8px; text-align:center; width:80px;">Qtd</th>
+                        <th style="padding:8px; text-align:left;">Observação de Montagem</th>
+                        <th style="padding:8px; text-align:center; width:100px;">Conferido</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        checklistEtapasMontagem.forEach(linha => {
+            htmlMontagem += `
+                <tr>
+                    <td style="padding:8px;">${linha.etapa || '-'}</td>
+                    <td style="padding:8px;">${linha.item || '-'}</td>
+                    <td style="padding:8px; text-align:center;">${linha.quantidade || 0}</td>
+                    <td style="padding:8px;">${linha.observacao ? linha.observacao.replace(/\n/g, '<br>') : '&nbsp;'}</td>
+                    <td style="padding:8px; text-align:center;">${linha.conferido ? 'OK' : '_______'}</td>
+                </tr>
+            `;
+        });
+
+        htmlMontagem += `
+                </tbody>
+            </table>
+        `;
+    } else {
+        htmlMontagem = `
+            <table style="width:100%; border-collapse:collapse; margin-top:10px;" border="1">
+                <thead>
+                    <tr>
+                        <th style="padding:8px; text-align:left; width:140px;">Etapa</th>
+                        <th style="padding:8px; text-align:left;">Item / Atividade</th>
+                        <th style="padding:8px; text-align:center; width:80px;">Qtd</th>
+                        <th style="padding:8px; text-align:left;">Observação de Montagem</th>
+                        <th style="padding:8px; text-align:center; width:100px;">Conferido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">_______</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">_______</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">&nbsp;</td>
+                        <td style="padding:8px;">&nbsp;</td>
+                        <td style="padding:8px; text-align:center;">_______</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }
+
+    const dataFormatada = data
+        ? new Date(data + 'T00:00:00').toLocaleDateString('pt-BR')
+        : '-';
+
+    const html = `
+        <div style="padding:20px; font-family:Arial,sans-serif; background:#fff; color:#000;">
+            <div style="border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:20px;">
+                <h2 style="margin:0 0 10px 0;">Checklist de Evento</h2>
+
+                <div style="font-size:14px; line-height:1.7;">
+                    <div><strong>Cliente:</strong> ${cliente || '-'}</div>
+                    <div><strong>Evento:</strong> ${evento || '-'}</div>
+                    <div><strong>Data:</strong> ${dataFormatada}</div>
+                    <div><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
+                </div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <h2 style="margin:0 0 10px 0;">1. Checklist de Separação</h2>
+                ${htmlSeparacao || '<p>Nenhum item de separação adicionado.</p>'}
+            </div>
+
+            <div style="margin-top:35px;">
+                <h2 style="margin:0 0 10px 0;">2. Checklist de Montagem</h2>
+                ${htmlMontagem}
+            </div>
+        </div>
+    `;
 
     printArea.innerHTML = html;
 
     if (modalRelatorio) {
         modalRelatorio.classList.add('active');
     }
+}
+
+function montarEtapasMontagemAPartirDaSeparacao() {
+    checklistEtapasMontagem = checklistMontagem.map(item => ({
+        etapa: item.grupoChecklist || 'montagem',
+        item: item.nome || '',
+        quantidade: item.quantidade || 0,
+        observacao: '',
+        conferido: false
+    }));
+
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+}
+
+function adicionarLinhaManualMontagem() {
+    checklistEtapasMontagem.push({
+        etapa: 'montagem',
+        item: '',
+        quantidade: 1,
+        observacao: '',
+        conferido: false
+    });
+
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+
+    if (typeof salvarLocal === 'function') salvarLocal();
+    renderChecklistEtapasMontagem();
+}
+
+function atualizarLinhaMontagem(index, campo, valor) {
+    if (!checklistEtapasMontagem[index]) return;
+
+    checklistEtapasMontagem[index][campo] = valor;
+
+    if (campo === 'quantidade') {
+        checklistEtapasMontagem[index][campo] = Number(valor) || 0;
+    }
+
+    if (campo === 'conferido') {
+        checklistEtapasMontagem[index][campo] = !!valor;
+    }
+
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+
+    if (typeof salvarLocal === 'function') salvarLocal();
+}
+
+function removerLinhaMontagem(index) {
+    if (index < 0 || index >= checklistEtapasMontagem.length) return;
+
+    checklistEtapasMontagem.splice(index, 1);
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+
+    if (typeof salvarLocal === 'function') salvarLocal();
+    renderChecklistEtapasMontagem();
+}
+
+function renderChecklistEtapasMontagem() {
+    const container = document.getElementById('listaChecklistEtapasMontagem');
+    if (!container) return;
+
+    if (!checklistEtapasMontagem || !checklistEtapasMontagem.length) {
+        container.innerHTML = '<p>Nenhuma etapa de montagem adicionada.</p>';
+        return;
+    }
+
+    let html = `
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Etapa</th>
+                        <th>Item / Atividade</th>
+                        <th>Qtd</th>
+                        <th>Observação de Montagem</th>
+                        <th>Conferido</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    checklistEtapasMontagem.forEach((linha, index) => {
+        html += `
+            <tr>
+                <td>
+                    <input type="text"
+                           value="${linha.etapa || ''}"
+                           onchange="atualizarLinhaMontagem(${index}, 'etapa', this.value)">
+                </td>
+                <td>
+                    <input type="text"
+                           value="${linha.item || ''}"
+                           onchange="atualizarLinhaMontagem(${index}, 'item', this.value)">
+                </td>
+                <td>
+                    <input type="number"
+                           min="0"
+                           value="${linha.quantidade || 0}"
+                           onchange="atualizarLinhaMontagem(${index}, 'quantidade', this.value)">
+                </td>
+                <td>
+                    <textarea
+                        rows="2"
+                        onchange="atualizarLinhaMontagem(${index}, 'observacao', this.value)">${linha.observacao || ''}</textarea>
+                </td>
+                <td style="text-align:center;">
+                    <input type="checkbox"
+                           ${linha.conferido ? 'checked' : ''}
+                           onchange="atualizarLinhaMontagem(${index}, 'conferido', this.checked)">
+                </td>
+                <td>
+                    <button class="btn btn-danger btn-sm" onclick="removerLinhaMontagem(${index})">
+                        Remover
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
 }
 
 window.popularChecklistModeloSelect = popularChecklistModeloSelect;
