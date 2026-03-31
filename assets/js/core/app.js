@@ -17,47 +17,46 @@ function renderTudo() {
 
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
-        carregarLocal();
-        const hoje = new Date().toISOString().split('T')[0];
-        const elIni = document.getElementById('aluguelIni');
-        const elDev = document.getElementById('devData');
-        if(elIni) elIni.value = hoje;
-        if(elDev) elDev.value = hoje;
+    carregarLocal();
+    renderTudo();
 
-        // INJEÇÃO DE ESTILO FORÇADO PARA O PDF FICAR PERFEITO
-        const style = document.createElement('style');
-        style.innerHTML = `
-            @media print { @page { margin: 0; } body { background: white; } }
-            
-           /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
-            #printArea { 
-                position: relative !important; /* IMPORTANTE: Segura o rodapé no lugar */
-                background-color: #ffffff !important;
-                color: #000000 !important; 
-                box-shadow: none !important; 
-                margin: 0 auto !important; 
-                width: 100% !important;
-                /* Padding inferior maior (30mm) para o texto não ficar atrás da barra preta */
-                padding: 15mm 15mm 30mm 15mm !important; 
-                min-height: 297mm !important; /* Força altura total A4 */
-                display: flex;
-                flex-direction: column;
-            }
-            #printArea * { color: #000000 !important; border-color: #000000 !important; }
-            #printArea thead { background-color: #000000 !important; }
-            #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
-            #printArea .footer-bar, #printArea .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
-        `;
-        document.head.appendChild(style);
+    const hoje = new Date().toISOString().split('T')[0];
+    const elIni = document.getElementById('aluguelIni');
+    const elDev = document.getElementById('devData');
+    if(elIni) elIni.value = hoje;
+    if(elDev) elDev.value = hoje;
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @media print { @page { margin: 0; } body { background: white; } }
         
-        if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
-        if(window.google) gisLoaded();
-        if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
-        iniciarBackupAutomatico();
-        setInterval(salvarLocal, 60000); // Auto-salva a cada 1 minuto
-        console.log('✅ Sistema de backup ativado');
-    };
-
+       /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
+        #printArea { 
+            position: relative !important;
+            background-color: #ffffff !important;
+            color: #000000 !important; 
+            box-shadow: none !important; 
+            margin: 0 auto !important; 
+            width: 100% !important;
+            padding: 15mm 15mm 30mm 15mm !important; 
+            min-height: 297mm !important;
+            display: flex;
+            flex-direction: column;
+        }
+        #printArea * { color: #000000 !important; border-color: #000000 !important; }
+        #printArea thead { background-color: #000000 !important; }
+        #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
+        #printArea .footer-bar, #printArea .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
+    `;
+    document.head.appendChild(style);
+    
+    if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
+    if(window.google) gisLoaded();
+    if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+    iniciarBackupAutomatico();
+    setInterval(salvarLocal, 60000);
+    console.log('✅ Sistema de backup ativado');
+};
     function toggleTheme() { 
         const body = document.body;
         const isDark = body.getAttribute('data-theme') === 'dark'; 
