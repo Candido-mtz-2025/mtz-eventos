@@ -69,11 +69,8 @@ function adicionarModeloAoChecklist() {
 
     window.checklistMontagem = checklistMontagem;
 
-    montarEtapasMontagemAPartirDaSeparacao();
-
     if (typeof salvarLocal === 'function') salvarLocal();
-    renderChecklistMontagem();
-    renderChecklistEtapasMontagem();
+    renderChecklistMontagem()
 }
 
 function removerItemChecklistMontagem(index) {
@@ -369,11 +366,6 @@ function gerarPDFChecklistMontagem() {
             <div style="margin-top:10px;">
                 <h2 style="margin:0 0 12px 0;">1. Checklist de Separação</h2>
                 ${htmlSeparacao || '<p>Nenhum item adicionado.</p>'}
-            </div>
-
-            <div style="margin-top:35px;">
-                <h2 style="margin:0 0 12px 0;">2. Checklist de Montagem</h2>
-                ${htmlMontagem}
             </div>
         </div>
     `;
