@@ -312,9 +312,31 @@
           <div id="tab-checklist" class="tab-content">
     <div class="card">
         <h2>Checklist</h2>
-        <p>Aba em construção.</p>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Modelo salvo</label>
+                <select id="checklistModeloSelect"></select>
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+                <button class="btn btn-primary" onclick="adicionarModeloAoChecklist()">Adicionar ao Checklist</button>
+            </div>
+        </div>
+
+        <div style="margin-top:20px;">
+            <h3>Itens do Checklist</h3>
+            <div id="listaChecklistMontagem">
+                <p>Nenhum item adicionado.</p>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn btn-success" onclick="gerarChecklistMontagemPDF()">Gerar PDF</button>
+            <button class="btn btn-secondary" onclick="limparChecklistMontagem()">Limpar</button>
+        </div>
     </div>
-</div>  
+</div>
             <div id="tab-devolucoes" class="tab-content">
         <div class="card">
             <h3>Registrar Devolução</h3>
