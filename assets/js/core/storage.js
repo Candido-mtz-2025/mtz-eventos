@@ -144,7 +144,7 @@ function iniciarBackupAutomatico() {
     const umDia = 24 * 60 * 60 * 1000;
 
     if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
-        cconst backup = {
+         const backup = {
          data: new Date().toISOString(),
          versao: 'V11',
          locadores,
