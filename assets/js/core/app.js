@@ -19,7 +19,11 @@ function renderTudo() {
     window.onload = function() {
     carregarLocal();
     renderTudo();
-
+        
+    const checklistData = document.getElementById('checklistData');
+    if (checklistData && !checklistData.value) {
+    checklistData.value = new Date().toISOString().split('T')[0];
+}
     const hoje = new Date().toISOString().split('T')[0];
     const elIni = document.getElementById('aluguelIni');
     const elDev = document.getElementById('devData');
