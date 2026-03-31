@@ -70,7 +70,7 @@ function adicionarModeloAoChecklist() {
     window.checklistMontagem = checklistMontagem;
 
     if (typeof salvarLocal === 'function') salvarLocal();
-    renderChecklistMontagem()
+    renderChecklistMontagem();
 }
 
 function removerItemChecklistMontagem(index) {
@@ -84,14 +84,11 @@ function removerItemChecklistMontagem(index) {
 }
 
 function limparChecklistMontagem() {
-    const confirmar = confirm('Deseja limpar o checklist em montagem?');
+    const confirmar = confirm('Deseja limpar o checklist?');
     if (!confirmar) return;
 
     checklistMontagem = [];
-    checklistEtapasMontagem = [];
-
     window.checklistMontagem = checklistMontagem;
-    window.checklistEtapasMontagem = checklistEtapasMontagem;
 
     const campoCliente = document.getElementById('checklistCliente');
     const campoEvento = document.getElementById('checklistEvento');
@@ -99,11 +96,10 @@ function limparChecklistMontagem() {
 
     if (campoCliente) campoCliente.value = '';
     if (campoEvento) campoEvento.value = '';
-    if (campoData) campoData.value = new Date().toISOString().split('T')[0];
+    if (campoData) campoData.value = '';
 
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
-    renderChecklistEtapasMontagem();
 }
 
 function formatarNomeGrupoChecklist(grupo) {
@@ -126,60 +122,72 @@ function renderChecklistMontagem() {
     if (!container) return;
 
     if (!checklistMontagem || !checklistMontagem.length) {
-        container.innerHTML = `
-            <p>Nenhum item adicionado.</p>
-        `;
+        container.innerHTML = `<p>Nenhum item adicionado.</p>`;
         return;
     }
 
-    const grupos = {};
+    const gruposMap = {};
 
-    checklistMontagem.forEach((item, index) => {
+    checklistMontagem.forEach(item => {
         let grupo = item.grupoChecklist || 'outros';
 
-        if (grupo === 'móveis') grupo = 'moveis';
         if (grupo === 'elétrica') grupo = 'eletrica';
+        if (grupo === 'móveis') grupo = 'moveis';
 
-        if (!grupos[grupo]) grupos[grupo] = [];
-        grupos[grupo].push({ ...item, index });
+        if (!gruposMap[grupo]) {
+            gruposMap[grupo] = new Map();
+        }
+
+        const referencia =
+            item.medida ||
+            item.subtipoEstrutural ||
+            item.nome ||
+            'Item';
+
+        const atual = gruposMap[grupo].get(referencia) || 0;
+        gruposMap[grupo].set(referencia, atual + (Number(item.quantidade) || 0));
     });
-
-    const gruposOrdem = ['estrutura', 'cobertura', 'eletrica', 'moveis', 'acabamento', 'outros'];
 
     let html = '';
 
-    gruposOrdem.forEach(grupo => {
-        if (!grupos[grupo] || !grupos[grupo].length) return;
+    Object.keys(gruposMap).forEach(grupo => {
+        let titulo = grupo;
+
+        if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
+        else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
+        else if (grupo === 'estrutura') titulo = 'Estrutura';
+        else if (grupo === 'moveis') titulo = 'Móveis';
+        else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
+        else if (grupo === 'escritorio') titulo = 'Escritório';
+        else if (grupo === 'cobertura') titulo = 'Cobertura';
+        else if (grupo === 'acabamento') titulo = 'Acabamento';
+        else if (grupo === 'eletrica') titulo = 'Elétrica';
+        else if (grupo === 'outros') titulo = 'Outros';
 
         html += `
             <div class="card" style="margin-bottom:15px;">
-                <h4>${formatarNomeGrupoChecklist(grupo)}</h4>
+                <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
+                    ${titulo}
+                </div>
+
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Peça</th>
-                                <th>Família</th>
-                                <th>Subtipo</th>
-                                <th>Quantidade</th>
-                                <th>Ação</th>
+                                <th>Item</th>
+                                <th>Saída</th>
+                                <th>Retorno</th>
                             </tr>
                         </thead>
                         <tbody>
         `;
 
-        grupos[grupo].forEach(item => {
+        gruposMap[grupo].forEach((qtd, nome) => {
             html += `
                 <tr>
-                    <td>${item.nome || ''}</td>
-                    <td>${item.familiaEstrutural || '-'}</td>
-                    <td>${item.subtipoEstrutural || '-'}</td>
-                    <td>${item.quantidade || 0}</td>
-                    <td>
-                        <button class="btn btn-danger btn-sm" onclick="removerItemChecklistMontagem(${item.index})">
-                            Remover
-                        </button>
-                    </td>
+                    <td>${nome}</td>
+                    <td style="text-align:center;">${qtd}</td>
+                    <td style="text-align:center;">_______</td>
                 </tr>
             `;
         });
@@ -196,10 +204,10 @@ function renderChecklistMontagem() {
 }
 
 function gerarPDFChecklistMontagem() {
-    if ((!checklistMontagem || !checklistMontagem.length) && (!checklistEtapasMontagem || !checklistEtapasMontagem.length)) {
-        alert('Nenhum item no checklist para gerar PDF.');
-        return;
-    }
+    if (!checklistMontagem || !checklistMontagem.length) {
+    alert('Nenhum item no checklist para gerar PDF.');
+    return;
+}
 
     const printArea = document.getElementById('printArea');
     const modalRelatorio = document.getElementById('modalRelatorio');
@@ -303,53 +311,7 @@ function gerarPDFChecklistMontagem() {
             </div>
         `;
     });
-
-    let htmlMontagem = `
-        <table style="width:100%; border-collapse:collapse; margin-top:10px;" border="1">
-            <thead>
-                <tr style="background:#000; color:#fff;">
-                    <th style="padding:8px; text-align:left; width:120px;">Etapa</th>
-                    <th style="padding:8px; text-align:left;">Estrutura / Item selecionado</th>
-                    <th style="padding:8px; text-align:left; width:160px;">Peça da composição</th>
-                    <th style="padding:8px; text-align:center; width:80px;">Qtd</th>
-                    <th style="padding:8px; text-align:left;">Observação de Montagem</th>
-                    <th style="padding:8px; text-align:center; width:100px;">Conferido</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    if (checklistEtapasMontagem && checklistEtapasMontagem.length) {
-        checklistEtapasMontagem.forEach(linha => {
-            htmlMontagem += `
-                <tr>
-                    <td style="padding:8px;">${linha.etapa || '-'}</td>
-                    <td style="padding:8px;">${linha.descricao || linha.modelo || '-'}</td>
-                    <td style="padding:8px;">${linha.peca || '-'}</td>
-                    <td style="padding:8px; text-align:center;">${linha.quantidade || 0}</td>
-                    <td style="padding:8px;">${linha.observacao ? linha.observacao.replace(/\n/g, '<br>') : '&nbsp;'}</td>
-                    <td style="padding:8px; text-align:center;">${linha.conferido ? 'OK' : '_______'}</td>
-                </tr>
-            `;
-        });
-    } else {
-        htmlMontagem += `
-            <tr>
-                <td style="padding:8px;">estrutura</td>
-                <td style="padding:8px;">${modeloSelecionado?.nome || '-'}</td>
-                <td style="padding:8px;">&nbsp;</td>
-                <td style="padding:8px; text-align:center;">&nbsp;</td>
-                <td style="padding:8px;">&nbsp;</td>
-                <td style="padding:8px; text-align:center;">_______</td>
-            </tr>
-        `;
-    }
-
-    htmlMontagem += `
-            </tbody>
-        </table>
-    `;
-
+    
     const html = `
         <div style="padding:20px; font-family:Arial,sans-serif; background:#fff; color:#000;">
             <div style="margin-bottom:25px;">
