@@ -230,39 +230,63 @@ function gerarPDFChecklistMontagem() {
 
     const nomeModelo = modeloSelecionado?.nome || 'Modelo não informado';
 
-    const composicaoMap = new Map();
+    const gruposMap = {};
 
-    (checklistMontagem || []).forEach(item => {
-        const chave = item.nome || 'Item sem nome';
-        const atual = composicaoMap.get(chave) || 0;
-        composicaoMap.set(chave, atual + (Number(item.quantidade) || 0));
-    });
+(checklistMontagem || []).forEach(item => {
+    let grupo = item.grupoChecklist || 'outros';
 
-    let htmlSeparacao = `
-        <div style="margin-top:20px;">
-            <div style="background:#f3ef00; color:#000; font-weight:bold; text-align:center; border:1px solid #000; padding:8px; font-size:18px;">
-                ${tituloEstrutura}
+    if (grupo === 'elétrica') grupo = 'eletrica';
+    if (grupo === 'móveis') grupo = 'moveis';
+
+    if (!gruposMap[grupo]) {
+        gruposMap[grupo] = new Map();
+    }
+
+    const nome = item.nome || 'Item';
+
+    const atual = gruposMap[grupo].get(nome) || 0;
+    gruposMap[grupo].set(nome, atual + (Number(item.quantidade) || 0));
+});
+
+let htmlSeparacao = '';
+
+Object.keys(gruposMap).forEach(grupo => {
+    let titulo = grupo;
+
+    if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
+    else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
+    else if (grupo === 'estrutura') titulo = 'Estrutura';
+    else if (grupo === 'moveis') titulo = 'Móveis';
+    else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
+    else if (grupo === 'escritorio') titulo = 'Escritório';
+    else if (grupo === 'cobertura') titulo = 'Cobertura';
+    else if (grupo === 'acabamento') titulo = 'Acabamento';
+    else if (grupo === 'eletrica') titulo = 'Elétrica';
+    else if (grupo === 'outros') titulo = 'Outros';
+
+    htmlSeparacao += `
+        <div style="margin-top:25px;">
+            <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
+                ${titulo}
             </div>
 
-            <table style="width:100%; border-collapse:collapse; margin-top:0;" border="1">
+            <table style="width:100%; border-collapse:collapse;" border="1">
                 <thead>
-                    <tr style="background:#f3ef00; color:#000;">
-                        <th style="padding:8px; text-align:center;">Composição da Estrutura</th>
-                        <th style="padding:8px; text-align:center; width:220px;">Quantidade de Saída</th>
+                    <tr style="background:#f3ef00;">
+                        <th style="padding:6px; text-align:left;">Item</th>
+                        <th style="padding:6px; text-align:center; width:180px;">Quantidade de Saída</th>
+                        <th style="padding:6px; text-align:center; width:180px;">Quantidade de Retorno</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="padding:8px; font-weight:bold;">${nomeModelo}</td>
-                        <td style="padding:8px; text-align:center; font-weight:bold;">1</td>
-                    </tr>
     `;
 
-    composicaoMap.forEach((quantidade, nomeItem) => {
+    gruposMap[grupo].forEach((qtd, nome) => {
         htmlSeparacao += `
             <tr>
-                <td style="padding:8px;">${nomeItem}</td>
-                <td style="padding:8px; text-align:center;">${quantidade}</td>
+                <td style="padding:6px;">${nome}</td>
+                <td style="padding:6px; text-align:center;">${qtd}</td>
+                <td style="padding:6px; text-align:center;">_______</td>
             </tr>
         `;
     });
@@ -272,77 +296,7 @@ function gerarPDFChecklistMontagem() {
             </table>
         </div>
     `;
-
-    let htmlMontagem = `
-        <table style="width:100%; border-collapse:collapse; margin-top:10px;" border="1">
-            <thead>
-                <tr style="background:#000; color:#fff;">
-                    <th style="padding:8px; text-align:left; width:140px;">Etapa</th>
-                    <th style="padding:8px; text-align:left;">O que será montado</th>
-                    <th style="padding:8px; text-align:left; width:180px;">Peça</th>
-                    <th style="padding:8px; text-align:center; width:80px;">Qtd</th>
-                    <th style="padding:8px; text-align:left;">Observação de Montagem</th>
-                    <th style="padding:8px; text-align:center; width:100px;">Conferido</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    if (checklistEtapasMontagem && checklistEtapasMontagem.length) {
-        checklistEtapasMontagem.forEach(linha => {
-            htmlMontagem += `
-                <tr>
-                    <td style="padding:8px;">${linha.etapa || '-'}</td>
-                    <td style="padding:8px;">${linha.descricao || linha.modelo || nomeModelo || '-'}</td>
-                    <td style="padding:8px;">${linha.peca || linha.item || '-'}</td>
-                    <td style="padding:8px; text-align:center;">${linha.quantidade || 0}</td>
-                    <td style="padding:8px;">${linha.observacao ? linha.observacao.replace(/\n/g, '<br>') : '&nbsp;'}</td>
-                    <td style="padding:8px; text-align:center;">${linha.conferido ? 'OK' : '_______'}</td>
-                </tr>
-            `;
-        });
-    } else {
-        htmlMontagem += `
-            <tr>
-                <td style="padding:8px;">estrutura</td>
-                <td style="padding:8px;">${nomeModelo}</td>
-                <td style="padding:8px;">&nbsp;</td>
-                <td style="padding:8px; text-align:center;">&nbsp;</td>
-                <td style="padding:8px;">&nbsp;</td>
-                <td style="padding:8px; text-align:center;">_______</td>
-            </tr>
-        `;
-    }
-
-    htmlMontagem += `
-            </tbody>
-        </table>
-    `;
-
-    const html = `
-        <div style="padding:20px; font-family:Arial,sans-serif; background:#fff; color:#000;">
-            <div style="margin-bottom:25px;">
-                <h2 style="margin:0 0 10px 0;">Checklist de Evento</h2>
-
-                <div style="font-size:14px; line-height:1.7;">
-                    <div><strong>Cliente:</strong> ${cliente || '-'}</div>
-                    <div><strong>Evento:</strong> ${evento || '-'}</div>
-                    <div><strong>Data:</strong> ${dataFormatada}</div>
-                    <div><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
-                </div>
-            </div>
-
-            <div style="margin-top:10px;">
-                <h2 style="margin:0 0 12px 0;">1. Checklist de Separação</h2>
-                ${htmlSeparacao}
-            </div>
-
-            <div style="margin-top:35px;">
-                <h2 style="margin:0 0 12px 0;">2. Checklist de Montagem</h2>
-                ${htmlMontagem}
-            </div>
-        </div>
-    `;
+});
 
     printArea.innerHTML = html;
 
