@@ -4,6 +4,7 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
 
 let modelosChecklist = [];
 let checklistsGerados = [];
+let checklistMontagem = [];
 
     let logsAuditoria = []; // NOVO: Sistema de auditoria
     let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
