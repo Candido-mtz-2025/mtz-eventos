@@ -13,7 +13,8 @@ function criarBackupEmergencia() {
     config,
     modelosChecklist,
     checklistsGerados,
-    checklistMontagem
+    checklistMontagem,
+    checklistEtapasMontagem
 };
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
@@ -363,6 +364,8 @@ function carregarLocal() {
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
         checklistMontagem = dados.checklistMontagem || [];
+        checklistEtapasMontagem = dados.checklistEtapasMontagem || [];
+        window.checklistEtapasMontagem = checklistEtapasMontagem;
         
         window.checklistMontagem = checklistMontagem;
 
