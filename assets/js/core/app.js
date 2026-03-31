@@ -5,6 +5,8 @@ function renderTudo() {
     if(typeof renderLocadores === 'function') renderLocadores();
     if(typeof renderEstoque === 'function') renderEstoque();
     if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
+    if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
+    if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
     if(typeof renderDevolucoes === 'function') renderDevolucoes();
     if(typeof renderTipos === 'function') renderTipos();
     if(typeof renderStats === 'function') renderStats();
