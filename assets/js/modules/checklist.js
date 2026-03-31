@@ -294,7 +294,8 @@ function gerarPDFChecklistMontagem() {
             htmlMontagem += `
                 <tr>
                     <td style="padding:8px;">${linha.etapa || '-'}</td>
-                    <td style="padding:8px;">${linha.item || '-'}</td>
+                    <td style="padding:8px;">${linha.descricao || '-'}</td>
+                    <td style="padding:8px;">${linha.peca || '-'}</td>
                     <td style="padding:8px; text-align:center;">${linha.quantidade || 0}</td>
                     <td style="padding:8px;">${linha.observacao ? linha.observacao.replace(/\n/g, '<br>') : '&nbsp;'}</td>
                     <td style="padding:8px; text-align:center;">${linha.conferido ? 'OK' : '_______'}</td>
@@ -384,7 +385,9 @@ function gerarPDFChecklistMontagem() {
 function montarEtapasMontagemAPartirDaSeparacao() {
     checklistEtapasMontagem = checklistMontagem.map(item => ({
         etapa: item.grupoChecklist || 'montagem',
-        item: item.nome || '',
+        modelo: item.modeloNome || '',
+        descricao: item.modeloNome || '',
+        peca: item.nome || '',
         quantidade: item.quantidade || 0,
         observacao: '',
         conferido: false
@@ -451,11 +454,11 @@ function renderChecklistEtapasMontagem() {
                 <thead>
                     <tr>
                         <th>Etapa</th>
-                        <th>Item / Atividade</th>
+                        <th>Estrutura / Item selecionado</th>
+                        <th>Peça da composição</th>
                         <th>Qtd</th>
                         <th>Observação de Montagem</th>
                         <th>Conferido</th>
-                        <th>Ação</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -464,38 +467,43 @@ function renderChecklistEtapasMontagem() {
     checklistEtapasMontagem.forEach((linha, index) => {
         html += `
             <tr>
-                <td>
-                    <input type="text"
-                           value="${linha.etapa || ''}"
-                           onchange="atualizarLinhaMontagem(${index}, 'etapa', this.value)">
-                </td>
-                <td>
-                    <input type="text"
-                           value="${linha.item || ''}"
-                           onchange="atualizarLinhaMontagem(${index}, 'item', this.value)">
-                </td>
-                <td>
-                    <input type="number"
-                           min="0"
-                           value="${linha.quantidade || 0}"
-                           onchange="atualizarLinhaMontagem(${index}, 'quantidade', this.value)">
-                </td>
-                <td>
-                    <textarea
-                        rows="2"
-                        onchange="atualizarLinhaMontagem(${index}, 'observacao', this.value)">${linha.observacao || ''}</textarea>
-                </td>
-                <td style="text-align:center;">
-                    <input type="checkbox"
-                           ${linha.conferido ? 'checked' : ''}
-                           onchange="atualizarLinhaMontagem(${index}, 'conferido', this.checked)">
-                </td>
-                <td>
-                    <button class="btn btn-danger btn-sm" onclick="removerLinhaMontagem(${index})">
-                        Remover
-                    </button>
-                </td>
-            </tr>
+    <td>
+        <input type="text"
+               value="${linha.etapa || ''}"
+               onchange="atualizarLinhaMontagem(${index}, 'etapa', this.value)">
+    </td>
+    <td>
+        <input type="text"
+               value="${linha.descricao || ''}"
+               onchange="atualizarLinhaMontagem(${index}, 'descricao', this.value)">
+    </td>
+    <td>
+        <input type="text"
+               value="${linha.peca || ''}"
+               onchange="atualizarLinhaMontagem(${index}, 'peca', this.value)">
+    </td>
+    <td>
+        <input type="number"
+               min="0"
+               value="${linha.quantidade || 0}"
+               onchange="atualizarLinhaMontagem(${index}, 'quantidade', this.value)">
+    </td>
+    <td>
+        <textarea
+            rows="2"
+            onchange="atualizarLinhaMontagem(${index}, 'observacao', this.value)">${linha.observacao || ''}</textarea>
+    </td>
+    <td style="text-align:center;">
+        <input type="checkbox"
+               ${linha.conferido ? 'checked' : ''}
+               onchange="atualizarLinhaMontagem(${index}, 'conferido', this.checked)">
+    </td>
+    <td>
+        <button class="btn btn-danger btn-sm" onclick="removerLinhaMontagem(${index})">
+            Remover
+        </button>
+    </td>
+</tr>
         `;
     });
 
