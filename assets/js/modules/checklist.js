@@ -4,7 +4,7 @@ function popularChecklistModeloSelect() {
 
     const modelos = typeof listarModelosChecklist === 'function'
         ? listarModelosChecklist()
-        : (window.modelosChecklist || []);
+        : modelosChecklist;
 
     select.innerHTML = '<option value="">Selecione um modelo</option>';
 
@@ -27,7 +27,7 @@ function adicionarModeloAoChecklist() {
 
     const modelo = typeof buscarModeloChecklist === 'function'
         ? buscarModeloChecklist(modeloId)
-        : (window.modelosChecklist || []).find(m => String(m.id) === String(modeloId));
+        : modelosChecklist.find(m => String(m.id) === String(modeloId));
 
     if (!modelo) {
         alert('Modelo não encontrado.');
@@ -42,7 +42,7 @@ function adicionarModeloAoChecklist() {
     modelo.itens.forEach(itemModelo => {
         const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
 
-        const peca = (window.pecas || []).find(p => String(p.id) === String(pecaId));
+        const peca = pecas.find(p => String(p.id) === String(pecaId));
         if (!peca) {
             console.warn('Peça não encontrada para o item do modelo:', itemModelo);
             return;
