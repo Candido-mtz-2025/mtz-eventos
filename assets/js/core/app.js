@@ -1,6 +1,7 @@
 // Render central e inicialização da aplicação
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
+    if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade();
     if(typeof renderLocacoes === 'function') renderLocacoes();
     if(typeof renderLocadores === 'function') renderLocadores();
     if(typeof renderEstoque === 'function') renderEstoque();

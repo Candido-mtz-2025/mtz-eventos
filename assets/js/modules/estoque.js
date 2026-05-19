@@ -14,8 +14,8 @@
         
         locacoes.forEach(l => {
             if (l.status !== 'devolvido') {
-                l.items.forEach(i => {
-                    const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
+                (l.items || []).forEach(i => {
+                    const qtdAlugada = Math.max((i.quantidade || 0) - (i.devolvidos || 0), 0);
                     const atual = aluguelPorPeca.get(i.pecaId) || 0;
                     aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
                 });

@@ -12,13 +12,15 @@ function renderLocacoes() {
         let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
         let st = l.status;
         if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
+        const qtdDevolvida = (l.items || []).reduce((total, item) => total + (parseInt(item.devolvidos) || 0), 0);
+        const devolucaoParcial = l.status !== 'devolvido' && qtdDevolvida > 0;
         
         let total = 0;
         (l.items || []).forEach(i => total += (parseFloat(i.valor) || 0) * (parseInt(i.quantidade) || 1));
         let div = parseFloat(l.divisorFatura) || 1;
         if (div <= 0) div = 1;
         
-        return { ...l, statusVisual: st, valorTotal: total / div, pago: l.pago || false };
+        return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false };
     });
     
     const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
@@ -56,7 +58,12 @@ function renderLocacoes() {
                 <div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>
                 ${l.pago ? '<span class="badge badge-success">PAGO</span>' : '<span class="badge badge-warning">PENDENTE</span>'}
             </td>
-            <td><span class="badge ${badgeClass}">${l.statusVisual}</span></td>
+            <td>
+                <span class="badge-row">
+                    <span class="badge ${badgeClass}">${l.statusVisual}</span>
+                    ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
+                </span>
+            </td>
             <td class="col-actions">
                 <div class="actions-cell">
                     <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">

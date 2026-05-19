@@ -122,7 +122,104 @@ function getHeaderMTZ() {
         const printArea = document.getElementById('printArea'); if(printArea) { printArea.innerHTML = layout; document.getElementById('modalRelatorio').classList.add('active'); }
     }
     function gerarRomaneio(id) { prepararModalRelatorio(id, "ROMANEIO DE SEPARAÇÃO"); }
-    function gerarRecibo(id) { prepararModalRelatorio(id, "RECIBO DE DEVOLUÇÃO"); }
+    function gerarRecibo(id) {
+        const ultima = devolucoes.slice().reverse().find(d => d.locacaoId === id);
+        if (ultima) return gerarReciboDevolucao(ultima.id);
+        prepararModalRelatorio(id, "RECIBO DE DEVOLUÇÃO");
+    }
+    function gerarReciboDevolucao(devolucaoId) {
+        const d = devolucoes.find(x => x.id === devolucaoId);
+        if (!d) return mostrarToast("Devolução não encontrada.", "erro");
+
+        const escapar = (valor) => {
+            const div = document.createElement('div');
+            div.textContent = valor ?? '';
+            return div.innerHTML;
+        };
+
+        const l = locacoes.find(x => x.id === d.locacaoId);
+        const c = locadores.find(x => x.id === (l ? l.locadorId : 0)) || { nome: 'Removido', telefone: '-' };
+        const itens = Array.isArray(d.itens) && d.itens.length ? d.itens : (l?.items || []).map(item => ({
+            nome: item.nome,
+            quantidadeDevolvida: item.quantidade,
+            quantidadeAvaria: 0,
+            quantidadePendenteApos: 0,
+            observacao: ''
+        }));
+
+        const linhas = itens.map(item => `
+            <tr style="border-bottom:1px solid #e5e7eb;">
+                <td style="padding:10px; font-size:12px; color:#000000 !important;">${escapar(item.nome)}</td>
+                <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidadeDevolvida || 0}</td>
+                <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidadeAvaria || 0}</td>
+                <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${item.quantidadePendenteApos || 0}</td>
+                <td style="padding:10px; font-size:12px; color:#000000 !important;">${escapar(item.observacao || '-')}</td>
+            </tr>
+        `).join('');
+
+        const totalDevolvido = itens.reduce((total, item) => total + (parseInt(item.quantidadeDevolvida) || 0), 0);
+        const totalAvaria = itens.reduce((total, item) => total + (parseInt(item.quantidadeAvaria) || 0), 0);
+        const status = d.tipo === 'parcial' ? 'DEVOLUÇÃO PARCIAL' : 'DEVOLUÇÃO TOTAL';
+
+        const layout = `<div style="background:#ffffff !important; min-height:100%; width:100%; position:relative; display:flex; flex-direction:column; padding:0; color:#000000 !important;">
+            <div style="flex:1;">
+                ${getHeaderMTZ()}
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:25px; border-bottom:2px solid #000000; padding-bottom:15px;">
+                    <div>
+                        <h2 style="margin:0; font-size:24px; color:#000000 !important;">RECIBO DE DEVOLUÇÃO</h2>
+                        <div style="margin-top:6px; font-size:12px; font-weight:bold; color:#000000 !important;">${status}</div>
+                    </div>
+                    <div style="text-align:right; font-size:12px;">
+                        <strong>Nº:</strong> #${d.id.toString().slice(-4)}<br>
+                        <strong>Contrato:</strong> #${l ? l.id.toString().slice(-4) : '----'}<br>
+                        <strong>Data:</strong> ${formatarData(d.dataDevolucao).replace(/<[^>]*>/g, '')}
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:40px; margin-bottom:25px;">
+                    <div style="flex:1;">
+                        <div style="font-size:10px; color:#666 !important; font-weight:bold; border-bottom:1px solid #eee; margin-bottom:5px;">CLIENTE</div>
+                        <div style="font-weight:bold;">${escapar(c.nome)}</div>
+                        <div style="font-size:12px;">${escapar(c.telefone || '-')}</div>
+                    </div>
+                    <div style="flex:1; text-align:right;">
+                        <div style="font-size:10px; color:#666 !important; font-weight:bold; border-bottom:1px solid #eee; margin-bottom:5px;">RESUMO</div>
+                        <div style="font-size:13px;">Devolvidos: <strong>${totalDevolvido}</strong></div>
+                        <div style="font-size:13px;">Avaria/perda: <strong>${totalAvaria}</strong></div>
+                    </div>
+                </div>
+
+                <table style="width:100%; border-collapse:collapse; margin-bottom:30px;">
+                    <thead style="background:#000000 !important; color:white !important;">
+                        <tr>
+                            <th style="padding:10px; text-align:left; font-size:11px; color:white !important;">ITEM</th>
+                            <th style="padding:10px; text-align:center; font-size:11px; color:white !important;">DEVOLVIDO</th>
+                            <th style="padding:10px; text-align:center; font-size:11px; color:white !important;">AVARIA/PERDA</th>
+                            <th style="padding:10px; text-align:center; font-size:11px; color:white !important;">PENDENTE</th>
+                            <th style="padding:10px; text-align:left; font-size:11px; color:white !important;">OBSERVAÇÃO</th>
+                        </tr>
+                    </thead>
+                    <tbody>${linhas}</tbody>
+                </table>
+
+                <div style="font-size:11px; padding:10px; border:1px solid #000; background:#f9f9f9; text-align:justify;">
+                    Este recibo registra apenas os itens conferidos nesta devolução. Quantidades pendentes permanecem vinculadas ao contrato até nova baixa.
+                </div>
+
+                <div style="display:flex; justify-content:space-between; margin-top:60px;">
+                    <div style="text-align:center; width:40%;"> <div style="border-top:1px solid #000; padding-top:10px; font-size:11px;">MTZ EVENTOS</div> </div>
+                    <div style="text-align:center; width:40%;"> <div style="border-top:1px solid #000; padding-top:10px; font-size:11px;">${escapar(c.nome.toUpperCase())}</div> </div>
+                </div>
+            </div>
+            ${getFooterMTZ()}
+        </div>`;
+
+        const printArea = document.getElementById('printArea');
+        if(printArea) {
+            printArea.innerHTML = layout;
+            document.getElementById('modalRelatorio').classList.add('active');
+        }
+    }
     function gerarRelatorio(id) { prepararModalRelatorio(id, "CONTRATO DE LOCAÇÃO"); }
    function gerarRelatorioAnual(clienteId) {
         const c = locadores.find(x => x.id === clienteId);

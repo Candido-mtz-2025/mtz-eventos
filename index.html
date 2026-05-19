@@ -286,6 +286,20 @@
                     <div id="carrinhoList">
                         <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
                     </div>
+                    <div class="checkout-bar">
+                        <div>
+                            <small>Total do pedido</small>
+                            <strong id="checkoutTotalLocacao">R$ 0,00</strong>
+                        </div>
+                        <div class="checkout-actions">
+                            <button id="btnLimparCarrinho" class="btn btn-secondary" onclick="limparCarrinhoLocacao()" disabled>
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                            <button id="btnFinalizarLocacao" class="btn btn-primary" onclick="finalizarLocacao()" disabled>
+                                <i class="bi bi-check2-circle"></i> Concluir Locação
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 
@@ -395,7 +409,7 @@
             <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
                 <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
             </div>
-            <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Confirmar Baixa</button>
+            <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
         <div class="card">
             <h3>Histórico Recente</h3>

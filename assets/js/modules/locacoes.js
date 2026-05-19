@@ -82,6 +82,77 @@ const filtrados = pecas
     lista.classList.add('ativo');
 }
 
+    function formatarMoedaBR(valor) {
+        return (Number(valor) || 0).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        });
+    }
+
+    function escaparHTML(valor) {
+        const div = document.createElement('div');
+        div.textContent = valor ?? '';
+        return div.innerHTML;
+    }
+
+    function calcularTotalCarrinhoLocacao() {
+        return carrinhoLocacao.reduce((total, item) => {
+            return total + ((parseFloat(item.valor) || 0) * (parseInt(item.quantidade) || 0));
+        }, 0);
+    }
+
+    function renderCarrinhoLocacao() {
+        const lista = document.getElementById('carrinhoList');
+        const total = document.getElementById('checkoutTotalLocacao');
+        const btnFinalizar = document.getElementById('btnFinalizarLocacao');
+        const btnLimpar = document.getElementById('btnLimparCarrinho');
+
+        if (!lista) return;
+
+        if (carrinhoLocacao.length === 0) {
+            lista.innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
+        } else {
+            lista.innerHTML = carrinhoLocacao.map((item, index) => {
+                const valor = parseFloat(item.valor) || 0;
+                const quantidade = parseInt(item.quantidade) || 0;
+                const totalItem = valor * quantidade;
+
+                return `
+                    <div class="item-carrinho">
+                        <div class="item-carrinho-main">
+                            <span><b>${quantidade}x</b> ${escaparHTML(item.nome)}</span>
+                            <span class="item-carrinho-meta">${formatarMoedaBR(valor)} por item</span>
+                        </div>
+                        <div class="item-carrinho-side">
+                            <strong>${formatarMoedaBR(totalItem)}</strong>
+                            <button class="btn btn-sm btn-danger btn-icon" onclick="removerItemCarrinho(${index})" title="Remover item">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        if (total) total.innerText = formatarMoedaBR(calcularTotalCarrinhoLocacao());
+        if (btnFinalizar) btnFinalizar.disabled = carrinhoLocacao.length === 0;
+        if (btnLimpar) btnLimpar.disabled = carrinhoLocacao.length === 0;
+    }
+
+    function removerItemCarrinho(index) {
+        carrinhoLocacao.splice(index, 1);
+        renderCarrinhoLocacao();
+    }
+
+    function limparCarrinhoLocacao() {
+        if (carrinhoLocacao.length === 0) return;
+        if (!confirm('Limpar todos os itens do pedido?')) return;
+
+        carrinhoLocacao = [];
+        renderCarrinhoLocacao();
+        mostrarToast('Pedido limpo.');
+    }
+
     // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
     function addItemCarrinho() { 
         // 1. Pega o ID do input oculto
@@ -113,23 +184,12 @@ const filtrados = pecas
             carrinhoLocacao.push({
                 pecaId: p.id, 
                 nome: p.nome, 
-                valor: parseFloat(p.valor), 
+                valor: parseFloat(p.valor) || 0,
                 quantidade: qtd
             });
         }
-        
-        // 5. Gera HTML
-        var htmlLista = '';
-        for (var i = 0; i < carrinhoLocacao.length; i++) {
-            var item = carrinhoLocacao[i];
-            var totalItem = (item.valor * item.quantidade).toFixed(2);
-            htmlLista += '<div class="item-carrinho">';
-            htmlLista += '<span><b>' + item.quantidade + 'x</b> ' + item.nome + '</span>';
-            htmlLista += '<span style="font-weight:600">R$ ' + totalItem + '</span>';
-            htmlLista += '</div>';
-        }
 
-        document.getElementById('carrinhoList').innerHTML = htmlLista;
+        renderCarrinhoLocacao();
         mostrarToast("Item adicionado!");
 
         // 6. LIMPA E FOCA PARA O PRÓXIMO
@@ -154,11 +214,18 @@ const filtrados = pecas
             mostrarToast("Preencha cliente e itens!", "erro");
             return;
         }
-        
-        var itensParaSalvar = [];
-        for (var i = 0; i < carrinhoLocacao.length; i++) { 
-            itensParaSalvar.push(carrinhoLocacao[i]); 
+
+        if (!ini || !fim) {
+            mostrarToast("Informe as datas da locação.", "erro");
+            return;
         }
+
+        if (new Date(fim) < new Date(ini)) {
+            mostrarToast("A previsão de fim não pode ser antes do início.", "erro");
+            return;
+        }
+
+        var itensParaSalvar = carrinhoLocacao.map(item => ({ ...item }));
 
         locacoes.push({
             id: Date.now(), 
@@ -171,11 +238,12 @@ const filtrados = pecas
         });
 
         carrinhoLocacao = [];
-        document.getElementById('carrinhoList').innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>';
         document.getElementById('aluguelCliente').value = ""; 
         document.getElementById('aluguelItemSelect').value = ""; 
         document.getElementById('aluguelQtd').value = "1";
+        renderCarrinhoLocacao();
         
+        if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
         salvarLocal();
         renderTudo();
         
@@ -187,7 +255,7 @@ const filtrados = pecas
         sincronizar('salvar');
     }
 
-    function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); salvarLocal(); renderTudo(); sincronizar('salvar'); }
+    function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true); salvarLocal(); renderTudo(); sincronizar('salvar'); }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
     function alternarPagamento(id) { const l = locacoes.find(x => x.id == id); if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); } }
@@ -221,3 +289,7 @@ const filtrados = pecas
         }
         if (valorDigitado < 1) input.value = 1;
     }
+
+    window.renderCarrinhoLocacao = renderCarrinhoLocacao;
+    window.removerItemCarrinho = removerItemCarrinho;
+    window.limparCarrinhoLocacao = limparCarrinhoLocacao;

@@ -22,12 +22,21 @@ function renderDevolucoes() {
     tbody.innerHTML = lista.map(d => { 
         const l = locacoes.find(x => x.id === d.locacaoId); 
         const c = locadores.find(x => x.id === (l ? l.locadorId : 0)); 
+        const tipo = d.tipo === 'parcial' ? 'Parcial' : 'Concluído';
+        const badge = d.tipo === 'parcial' ? 'badge-warning' : 'badge-success';
+        const qtd = Array.isArray(d.itens)
+            ? d.itens.reduce((total, item) => total + (parseInt(item.quantidadeDevolvida) || 0), 0)
+            : '';
+
         return `<tr> 
-            <td><div style="font-weight:600;">${c ? c.nome : 'Removido'}</div></td> 
+            <td>
+                <div style="font-weight:600;">${c ? c.nome : 'Removido'}</div>
+                <div style="font-size:0.75rem; opacity:0.7;">#${l ? l.id.toString().slice(-4) : '----'} ${qtd ? `| ${qtd} item(ns)` : ''}</div>
+            </td>
             <td>${formatarData(d.dataDevolucao)}</td> 
-            <td><span class="badge badge-success">Concluído</span></td> 
+            <td><span class="badge ${badge}">${tipo}</span></td>
             <td class="col-actions"> 
-                <button class="btn btn-sm btn-secondary" onclick="gerarRecibo(${l ? l.id : 0})"> 
+                <button class="btn btn-sm btn-secondary" onclick="gerarReciboDevolucao(${d.id})">
                     <i class="bi bi-printer"></i> 
                 </button> 
             </td> 
