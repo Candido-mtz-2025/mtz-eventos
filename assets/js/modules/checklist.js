@@ -90,31 +90,151 @@ function limparChecklistMontagem() {
     checklistMontagem = [];
     window.checklistMontagem = checklistMontagem;
 
-    const campoCliente = document.getElementById('checklistCliente');
-    const campoEvento = document.getElementById('checklistEvento');
-    const campoData = document.getElementById('checklistData');
-
-    if (campoCliente) campoCliente.value = '';
-    if (campoEvento) campoEvento.value = '';
-    if (campoData) campoData.value = '';
+    [
+        'checklistCliente',
+        'checklistLocal',
+        'checklistMontagemData',
+        'checklistHorario',
+        'checklistEvento',
+        'checklistDesmontagemData',
+        'checklistRespSaida',
+        'checklistRespRetorno'
+    ].forEach(id => {
+        const campo = document.getElementById(id);
+        if (campo) campo.value = '';
+    });
 
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
 }
 
+function normalizarGrupoChecklist(grupo) {
+    const valor = String(grupo || '').trim().toLowerCase();
+    const mapa = {
+        'elétrica': 'eletrica',
+        eletrica: 'eletrica',
+        'móveis': 'moveis',
+        moveis: 'moveis',
+        'estrutura q15': 'estrutura_q15',
+        'estrutura q30': 'estrutura_q30'
+    };
+
+    return mapa[valor] || valor || 'outros';
+}
+
 function formatarNomeGrupoChecklist(grupo) {
     const mapa = {
         estrutura: 'Estrutura',
+        estrutura_q15: 'Estrutura Q15',
+        estrutura_q30: 'Estrutura Q30',
         cobertura: 'Cobertura',
         elétrica: 'Elétrica',
         eletrica: 'Elétrica',
         moveis: 'Móveis',
         móveis: 'Móveis',
+        comunicacao: 'Comunicação Visual',
+        escritorio: 'Escritório',
         acabamento: 'Acabamento',
         outros: 'Outros'
     };
 
-    return mapa[grupo] || grupo;
+    return mapa[grupo] || grupo || 'Outros';
+}
+
+function escaparHTMLChecklist(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor ?? '';
+    return div.innerHTML;
+}
+
+function formatarDataChecklist(valor) {
+    if (!valor) return '-';
+    const data = new Date(`${valor}T00:00:00`);
+    if (isNaN(data.getTime())) return '-';
+    return data.toLocaleDateString('pt-BR');
+}
+
+function obterDadosCabecalhoChecklist() {
+    return {
+        cliente: document.getElementById('checklistCliente')?.value || '',
+        local: document.getElementById('checklistLocal')?.value || '',
+        montagem: document.getElementById('checklistMontagemData')?.value || '',
+        horario: document.getElementById('checklistHorario')?.value || '',
+        evento: document.getElementById('checklistEvento')?.value || '',
+        desmontagem: document.getElementById('checklistDesmontagemData')?.value || '',
+        respSaida: document.getElementById('checklistRespSaida')?.value || '',
+        respRetorno: document.getElementById('checklistRespRetorno')?.value || ''
+    };
+}
+
+function obterNomeItemChecklist(item) {
+    const nome = String(item.nome || '').trim();
+    const medida = String(item.medida || '').trim();
+    const subtipo = String(item.subtipoEstrutural || '').trim();
+
+    if (nome && medida && !nome.toLowerCase().includes(medida.toLowerCase())) {
+        return `${nome} - ${medida}`;
+    }
+
+    return nome || medida || subtipo || 'Item';
+}
+
+function obterGruposChecklist() {
+    const gruposMap = {};
+
+    (checklistMontagem || []).forEach(item => {
+        const grupo = normalizarGrupoChecklist(item.grupoChecklist || item.grupo || item.categoriaChecklist || item.categoria);
+
+        if (!gruposMap[grupo]) {
+            gruposMap[grupo] = {
+                chave: grupo,
+                titulo: formatarNomeGrupoChecklist(grupo),
+                total: 0,
+                modelos: new Set(),
+                itens: new Map()
+            };
+        }
+
+        const referencia = obterNomeItemChecklist(item);
+
+        const qtd = Number(item.quantidade) || 0;
+        const linhaAtual = gruposMap[grupo].itens.get(referencia) || {
+            nome: referencia,
+            quantidade: 0
+        };
+
+        linhaAtual.quantidade += qtd;
+        gruposMap[grupo].itens.set(referencia, linhaAtual);
+        gruposMap[grupo].total += qtd;
+
+        if (item.modeloNome) gruposMap[grupo].modelos.add(item.modeloNome);
+    });
+
+    const ordem = [
+        'estrutura',
+        'estrutura_q15',
+        'estrutura_q30',
+        'cobertura',
+        'eletrica',
+        'moveis',
+        'acabamento',
+        'comunicacao',
+        'escritorio',
+        'outros'
+    ];
+
+    return Object.keys(gruposMap)
+        .sort((a, b) => {
+            const posA = ordem.includes(a) ? ordem.indexOf(a) : 999;
+            const posB = ordem.includes(b) ? ordem.indexOf(b) : 999;
+            if (posA !== posB) return posA - posB;
+            return formatarNomeGrupoChecklist(a).localeCompare(formatarNomeGrupoChecklist(b));
+        })
+        .map(chave => ({
+            ...gruposMap[chave],
+            modelos: Array.from(gruposMap[chave].modelos),
+            itens: Array.from(gruposMap[chave].itens.values())
+        }));
 }
 
 function renderChecklistMontagem() {
@@ -126,52 +246,20 @@ function renderChecklistMontagem() {
         return;
     }
 
-    const gruposMap = {};
+    const grupos = obterGruposChecklist();
 
-    checklistMontagem.forEach(item => {
-        let grupo = item.grupoChecklist || 'outros';
-
-        if (grupo === 'elétrica') grupo = 'eletrica';
-        if (grupo === 'móveis') grupo = 'moveis';
-
-        if (!gruposMap[grupo]) {
-            gruposMap[grupo] = new Map();
-        }
-
-        const referencia =
-            item.medida ||
-            item.subtipoEstrutural ||
-            item.nome ||
-            'Item';
-
-        const atual = gruposMap[grupo].get(referencia) || 0;
-        gruposMap[grupo].set(referencia, atual + (Number(item.quantidade) || 0));
-    });
-
-    let html = '';
-
-    Object.keys(gruposMap).forEach(grupo => {
-        let titulo = grupo;
-
-        if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
-        else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
-        else if (grupo === 'estrutura') titulo = 'Estrutura';
-        else if (grupo === 'moveis') titulo = 'Móveis';
-        else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
-        else if (grupo === 'escritorio') titulo = 'Escritório';
-        else if (grupo === 'cobertura') titulo = 'Cobertura';
-        else if (grupo === 'acabamento') titulo = 'Acabamento';
-        else if (grupo === 'eletrica') titulo = 'Elétrica';
-        else if (grupo === 'outros') titulo = 'Outros';
-
-        html += `
-            <div class="card" style="margin-bottom:15px;">
-                <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
-                    ${titulo}
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table">
+    container.innerHTML = `
+        <div class="checklist-preview-grid">
+            ${grupos.map(grupo => `
+                <div class="checklist-preview-card">
+                    <div class="checklist-preview-head">
+                        <div>
+                            <strong>${escaparHTMLChecklist(grupo.titulo)}</strong>
+                            ${grupo.modelos.length ? `<div style="font-size:0.8rem;color:var(--text-light);margin-top:3px;">${grupo.modelos.map(escaparHTMLChecklist).join(' • ')}</div>` : ''}
+                        </div>
+                        <span>${grupo.total} item(ns)</span>
+                    </div>
+                    <table class="checklist-preview-table">
                         <thead>
                             <tr>
                                 <th>Item</th>
@@ -180,34 +268,26 @@ function renderChecklistMontagem() {
                             </tr>
                         </thead>
                         <tbody>
-        `;
-
-        gruposMap[grupo].forEach((qtd, nome) => {
-            html += `
-                <tr>
-                    <td>${nome}</td>
-                    <td style="text-align:center;">${qtd}</td>
-                    <td style="text-align:center;">_______</td>
-                </tr>
-            `;
-        });
-
-        html += `
+                            ${grupo.itens.map(item => `
+                                <tr>
+                                    <td>${escaparHTMLChecklist(item.nome)}</td>
+                                    <td>${item.quantidade}</td>
+                                    <td>_______</td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
+            `).join('')}
+        </div>
+    `;
 }
 
 function gerarPDFChecklistMontagem() {
     if (!checklistMontagem || !checklistMontagem.length) {
-    alert('Nenhum item no checklist para gerar PDF.');
-    return;
-}
+        alert('Nenhum item no checklist para gerar PDF.');
+        return;
+    }
 
     const printArea = document.getElementById('printArea');
     const modalRelatorio = document.getElementById('modalRelatorio');
@@ -217,117 +297,106 @@ function gerarPDFChecklistMontagem() {
         return;
     }
 
-    const cliente = document.getElementById('checklistCliente')?.value || '';
-    const evento = document.getElementById('checklistEvento')?.value || '';
-    const data = document.getElementById('checklistData')?.value || '';
+    const dados = obterDadosCabecalhoChecklist();
+    const grupos = obterGruposChecklist();
+    const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
+    const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
 
-    const dataFormatada = data
-        ? new Date(data + 'T00:00:00').toLocaleDateString('pt-BR')
-        : '-';
+    const infoCard = (label, value) => `
+        <div style="border:1px solid #d7dde8;border-radius:10px;padding:10px 12px;background:#f8fafc;">
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:700;">${label}</div>
+            <div style="margin-top:4px;font-size:12px;color:#111827;font-weight:700;line-height:1.3;">${escaparHTMLChecklist(value || '-')}</div>
+        </div>
+    `;
 
-    const modeloSelecionadoId = document.getElementById('checklistModeloSelect')?.value || '';
-    const modeloSelecionado = typeof buscarModeloChecklist === 'function'
-        ? buscarModeloChecklist(modeloSelecionadoId)
-        : null;
-
-    const gruposMap = {};
-
-    (checklistMontagem || []).forEach(item => {
-    let grupo = item.grupoChecklist || 'outros';
-
-    if (grupo === 'elétrica') grupo = 'eletrica';
-    if (grupo === 'móveis') grupo = 'moveis';
-
-    if (!gruposMap[grupo]) {
-        gruposMap[grupo] = new Map();
-    }
-
-    const referenciaPeca =
-        item.medida ||
-        item.subtipoEstrutural ||
-        item.nome ||
-        'Item';
-
-    const atual = gruposMap[grupo].get(referenciaPeca) || 0;
-    gruposMap[grupo].set(referenciaPeca, atual + (Number(item.quantidade) || 0));
-});
-
-    let htmlSeparacao = '';
-
-    Object.keys(gruposMap).forEach(grupo => {
-        let titulo = grupo;
-
-        if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
-        else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
-        else if (grupo === 'estrutura') titulo = 'Estrutura';
-        else if (grupo === 'moveis') titulo = 'Móveis';
-        else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
-        else if (grupo === 'escritorio') titulo = 'Escritório';
-        else if (grupo === 'cobertura') titulo = 'Cobertura';
-        else if (grupo === 'acabamento') titulo = 'Acabamento';
-        else if (grupo === 'eletrica') titulo = 'Elétrica';
-        else if (grupo === 'outros') titulo = 'Outros';
-
-        htmlSeparacao += `
-            <div style="margin-top:25px;">
-                <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
-                    ${titulo}
+    const htmlSeparacao = grupos.map((grupo, index) => `
+        <section style="margin-top:16px;border:1px solid #d7dde8;border-radius:14px;overflow:hidden;break-inside:avoid;background:#ffffff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;background:#111827;color:#ffffff;padding:12px 14px;">
+                <div>
+                    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#bfdbfe;font-weight:800;">Grupo ${String(index + 1).padStart(2, '0')}</div>
+                    <div style="font-size:15px;font-weight:800;margin-top:2px;">${escaparHTMLChecklist(grupo.titulo)}</div>
                 </div>
+                <div style="font-size:11px;font-weight:800;background:#2563eb;color:#ffffff;border-radius:999px;padding:6px 10px;white-space:nowrap;">${grupo.total} item(ns)</div>
+            </div>
 
-                <table style="width:100%; border-collapse:collapse;" border="1">
-                    <thead>
-                        <tr style="background:#f3ef00;">
-                            <th style="padding:6px; text-align:left;">Item</th>
-                            <th style="padding:6px; text-align:center; width:180px;">Quantidade de Saída</th>
-                            <th style="padding:6px; text-align:center; width:180px;">Quantidade de Retorno</th>
+            ${grupo.modelos.length ? `
+                <div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #d7dde8;color:#1e3a8a;font-size:11px;">
+                    <strong>Modelo:</strong> ${grupo.modelos.map(escaparHTMLChecklist).join(' • ')}
+                </div>
+            ` : ''}
+
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                <thead>
+                    <tr style="background:#f8fafc;color:#475569;">
+                        <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #d7dde8;width:46%;">Item</th>
+                        <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #d7dde8;width:16%;">Saída</th>
+                        <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #d7dde8;width:20%;">Retorno</th>
+                        <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #d7dde8;width:18%;">Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${grupo.itens.map((item, linhaIndex) => `
+                        <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">${escaparHTMLChecklist(item.nome)}</td>
+                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#111827;font-weight:800;">${item.quantidade}</td>
+                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">
+                                <span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>
+                            </td>
+                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
+                                <span style="display:block;border-bottom:1px solid #cbd5e1;height:14px;"></span>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-        `;
+                    `).join('')}
+                </tbody>
+            </table>
+        </section>
+    `).join('');
 
-        if (modeloSelecionado && (grupo === 'estrutura' || grupo === 'estrutura_q15' || grupo === 'estrutura_q30')) {
-            htmlSeparacao += `
-                <tr>
-                    <td style="padding:6px; font-weight:bold;">${modeloSelecionado.nome || 'Modelo'}</td>
-                    <td style="padding:6px; text-align:center; font-weight:bold;">1</td>
-                    <td style="padding:6px; text-align:center;">_______</td>
-                </tr>
-            `;
-        }
-
-        gruposMap[grupo].forEach((qtd, nome) => {
-            htmlSeparacao += `
-                <tr>
-                    <td style="padding:6px;">${nome}</td>
-                    <td style="padding:6px; text-align:center;">${qtd}</td>
-                    <td style="padding:6px; text-align:center;">_______</td>
-                </tr>
-            `;
-        });
-
-        htmlSeparacao += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-    });
-    
     const html = `
-        <div style="padding:20px; font-family:Arial,sans-serif; background:#fff; color:#000;">
-            <div style="margin-bottom:25px;">
-                <h2 style="margin:0 0 10px 0;">Checklist de Evento</h2>
-
-                <div style="font-size:14px; line-height:1.7;">
-                    <div><strong>Cliente:</strong> ${cliente || '-'}</div>
-                    <div><strong>Evento:</strong> ${evento || '-'}</div>
-                    <div><strong>Data:</strong> ${dataFormatada}</div>
-                    <div><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
+        <div style="font-family:Inter,Arial,sans-serif;background:#ffffff;color:#111827;width:100%;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:16px;border-bottom:3px solid #111827;">
+                <div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#2563eb;font-weight:900;">MTZ Eventos</div>
+                    <h1 style="margin:5px 0 4px 0;font-size:28px;line-height:1;color:#111827;">Checklist Operacional</h1>
+                    <div style="font-size:12px;color:#64748b;font-weight:700;">Separação, saída e retorno de materiais</div>
+                </div>
+                <div style="text-align:right;">
+                    <img src="./logo.png" alt="MTZ Eventos" style="height:64px;object-fit:contain;margin-bottom:6px;">
+                    <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;font-weight:800;">Gerado em</div>
+                    <div style="font-size:11px;color:#111827;font-weight:800;">${new Date().toLocaleString('pt-BR')}</div>
                 </div>
             </div>
 
-            <div style="margin-top:10px;">
-                <h2 style="margin:0 0 12px 0;">1. Checklist de Separação</h2>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;">
+                ${infoCard('Cliente', dados.cliente)}
+                ${infoCard('Evento', dados.evento)}
+                ${infoCard('Local', dados.local)}
+                ${infoCard('Montagem', `${formatarDataChecklist(dados.montagem)}${dados.horario ? ' às ' + dados.horario : ''}`)}
+                ${infoCard('Desmontagem', formatarDataChecklist(dados.desmontagem))}
+                ${infoCard('Resp. saída', dados.respSaida)}
+                ${infoCard('Resp. retorno', dados.respRetorno)}
+                ${infoCard('Itens', `${totalItens} peças • ${totalLinhas} linhas`)}
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
+                <div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#1d4ed8;font-weight:900;">Checklist de separação</div>
+                    <div style="font-size:12px;color:#1e3a8a;margin-top:3px;">Conferir saída, registrar retorno e anotar divergências.</div>
+                </div>
+                <div style="font-size:20px;font-weight:900;color:#1d4ed8;">${String(grupos.length).padStart(2, '0')}</div>
+            </div>
+
+            <div>
                 ${htmlSeparacao || '<p>Nenhum item adicionado.</p>'}
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:38px;break-inside:avoid;">
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827;padding-top:9px;font-size:10px;font-weight:800;color:#111827;text-transform:uppercase;">Responsável pela saída</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827;padding-top:9px;font-size:10px;font-weight:800;color:#111827;text-transform:uppercase;">Responsável pelo retorno</div>
+                </div>
             </div>
         </div>
     `;
