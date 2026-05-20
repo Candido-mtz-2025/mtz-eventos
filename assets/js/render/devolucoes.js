@@ -3,7 +3,9 @@ function renderDevolucoes() {
     if (!tbody) return;
 
     if (!Array.isArray(devolucoes)) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Dados não carregados</td></tr>';
+        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+            ? criarLinhaTabelaVazia(4, 'Dados não carregados.')
+            : '<tr class="table-empty-row"><td colspan="4">Dados não carregados.</td></tr>';
         return;
     }
 
@@ -53,7 +55,9 @@ function renderDevolucoes() {
     if (kpiParciais) kpiParciais.textContent = String(filtrados.filter((x) => x.tipoNormalizado === 'parcial').length);
 
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhuma devolução registrada para este filtro.</td></tr>';
+        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+            ? criarLinhaTabelaVazia(4, 'Nenhuma devolução registrada para este filtro.')
+            : '<tr class="table-empty-row"><td colspan="4">Nenhuma devolução registrada para este filtro.</td></tr>';
         return;
     }
 
@@ -68,8 +72,8 @@ function renderDevolucoes() {
         return `
             <tr>
                 <td>
-                    <div style="font-weight:600;">${cliente}</div>
-                    <div style="font-size:0.75rem; opacity:0.7;">${locacaoId} ${itensTexto}</div>
+                    <div class="table-cell-title">${cliente}</div>
+                    <div class="table-cell-sub">${locacaoId} ${itensTexto}</div>
                 </td>
                 <td>${formatarData(registro.dataDevolucao)}</td>
                 <td><span class="badge ${badge}">${tipo}</span></td>

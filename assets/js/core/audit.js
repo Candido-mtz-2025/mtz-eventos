@@ -136,7 +136,9 @@ function renderLogs(filtro = 'todos') {
 
     const lista = logsFiltrados.slice(0, 120);
     if (lista.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; opacity:0.65;">Nenhum log encontrado para este filtro.</td></tr>';
+        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+            ? criarLinhaTabelaVazia(5, 'Nenhum log encontrado para este filtro.')
+            : '<tr class="table-empty-row"><td colspan="5">Nenhum log encontrado para este filtro.</td></tr>';
         return;
     }
 
@@ -154,20 +156,19 @@ function renderLogs(filtro = 'todos') {
         return `
             <tr>
                 <td>
-                    <div style="font-size:0.85rem; line-height:1.4">${dataStr}</div>
-                    <div style="font-size:0.75rem; opacity:0.7">${horaStr}</div>
+                    <div class="table-cell-title">${dataStr}</div>
+                    <div class="table-cell-sub">${horaStr}</div>
                 </td>
                 <td>
-                    <i class="bi ${iconeSeguro}" style="color:var(--primary); margin-right:4px"></i>
-                    <span style="font-size:0.85rem">${tipoSeguro}</span>
+                    <span class="audit-type-label"><i class="bi ${iconeSeguro}"></i>${tipoSeguro}</span>
                 </td>
                 <td>
-                    <span style="color:${corAcao}; font-weight:600; font-size:0.85rem">${acaoSegura}</span>
+                    <span class="audit-action-label" style="--audit-action-color:${corAcao}">${acaoSegura}</span>
                 </td>
-                <td style="max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                <td class="audit-description-cell">
                     ${descricaoSegura}
                 </td>
-                <td style="font-size:0.85rem; opacity:0.8">${usuarioSeguro}</td>
+                <td class="table-cell-muted">${usuarioSeguro}</td>
             </tr>
         `;
     }).join('');

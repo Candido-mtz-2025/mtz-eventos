@@ -13,7 +13,9 @@ function renderLocadores() {
     );
     
     if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; opacity:0.6;">Nenhum cliente encontrado.</td></tr>';
+        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+            ? criarLinhaTabelaVazia(4, 'Nenhum cliente encontrado.')
+            : '<tr class="table-empty-row"><td colspan="4">Nenhum cliente encontrado.</td></tr>';
         return;
     }
     
@@ -28,8 +30,8 @@ function renderLocadores() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <div style="font-weight:600">${nome}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">${documento}</div>
+                <div class="table-cell-title">${nome}</div>
+                <div class="table-cell-sub">${documento || 'Sem documento'}</div>
             </td>
             <td>${email}</td>
             <td>${telefone}</td>
@@ -59,6 +61,13 @@ function renderLocadores() {
 function renderTipos() {
     const tbody = document.getElementById('tblTipos');
     if(!tbody) return;
+
+    if (!tipos.length) {
+        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+            ? criarLinhaTabelaVazia(3, 'Nenhum tipo cadastrado.')
+            : '<tr class="table-empty-row"><td colspan="3">Nenhum tipo cadastrado.</td></tr>';
+        return;
+    }
     
     tbody.innerHTML = tipos.map((t) => {
         const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.nome || '') : (t.nome || '');

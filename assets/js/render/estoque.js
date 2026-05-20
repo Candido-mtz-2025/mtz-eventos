@@ -37,7 +37,9 @@ function renderEstoque() {
 
   if (itensFiltrados.length === 0) {
     const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoSeguro}".</td></tr>`;
+    tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
+      ? criarLinhaTabelaVazia(8, `Nenhum item encontrado para "${termoSeguro}".`)
+      : `<tr class="table-empty-row"><td colspan="8">Nenhum item encontrado para "${termoSeguro}".</td></tr>`;
     return;
   }
 
@@ -52,32 +54,32 @@ function renderEstoque() {
     const medidaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.medida || '') : (p.medida || '');
 
     const thumb = fotoSegura
-      ? `<img src="${fotoSegura}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
-      : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
+      ? `<img src="${fotoSegura}" class="table-thumb-img">`
+      : `<div class="table-thumb-fallback"><i class="bi bi-box"></i></div>`;
 
-    let corEstoque =
-      p.disponivel === 0 ? 'color:#ef4444; font-weight:bold;' :
-      p.disponivel <= 3 ? 'color:#f59e0b; font-weight:bold;' : '';
+    const statusEstoqueClass =
+      p.disponivel === 0 ? 'stock-critical' :
+      p.disponivel <= 3 ? 'stock-warning' : 'stock-ok';
 
     const marcado = (window.estoqueSelecionados && window.estoqueSelecionados.has(p.id)) ? 'checked' : '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="width:40px;">
+      <td class="table-select-col">
         <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
                onchange="onSelectEstoque(${p.id}, this.checked)">
       </td>
       <td>${thumb}</td>
-      <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${codigoSeguro}</span></td>
+      <td><span class="table-code">${codigoSeguro}</span></td>
       <td>${tipoSeguro}</td>
       <td>
-        <div style="font-weight:600">${nomeSeguro}</div>
-        <div style="font-size:0.75rem; opacity:0.7;">${medidaSegura}</div>
+        <div class="table-cell-title">${nomeSeguro}</div>
+        <div class="table-cell-sub">${medidaSegura || '-'}</div>
       </td>
       <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
       <td>
-        <span style="${corEstoque}">${p.disponivel}</span>
-        <span style="opacity:0.5; font-size:0.75rem;">/ ${p.quantidade}</span>
+        <span class="stock-pill ${statusEstoqueClass}">${p.disponivel}</span>
+        <span class="table-cell-muted">/ ${p.quantidade}</span>
       </td>
       <td class="col-actions">
         <div class="actions-cell">
