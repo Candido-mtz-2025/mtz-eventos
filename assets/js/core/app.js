@@ -61,6 +61,14 @@ function renderTudo() {
     
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
+    const btnInicial = document.querySelector('.tab-btn.active');
+    if (btnInicial) {
+        const clickExpr = btnInicial.getAttribute('onclick') || '';
+        const match = clickExpr.match(/abrirTab\(['"]([^'"]+)['"]\)/);
+        if (match && match[1]) abrirTab(match[1]);
+    } else {
+        abrirTab('dashboard');
+    }
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
@@ -72,13 +80,23 @@ function renderTudo() {
         localStorage.setItem('theme', isDark ? 'light' : 'dark');
     }
 
-    function abrirTab(id) { 
-        document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active')); 
-        const tab = document.getElementById('tab-'+id);
-        if(tab) tab.classList.add('active'); 
+    function abrirTab(id) {
+        const alvoId = `tab-${id}`;
+        const tabs = document.querySelectorAll('.tab-content');
+        tabs.forEach((tab) => {
+            const ativa = tab.id === alvoId;
+            tab.classList.toggle('active', ativa);
+            tab.hidden = !ativa;
+            tab.setAttribute('aria-hidden', ativa ? 'false' : 'true');
+        });
+
         const btns = document.querySelectorAll('.tab-btn');
-        btns.forEach(btn => { if(btn.getAttribute('onclick').includes(id)) btn.classList.add('active'); });
+        btns.forEach((btn) => {
+            const clickExpr = btn.getAttribute('onclick') || '';
+            const ativa = clickExpr.includes(`abrirTab('${id}')`) || clickExpr.includes(`abrirTab(\"${id}\")`);
+            btn.classList.toggle('active', ativa);
+            btn.setAttribute('aria-pressed', ativa ? 'true' : 'false');
+        });
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
