@@ -75,8 +75,8 @@ function renderEstoque() {
       </td>
       <td class="col-actions">
         <div class="actions-cell">
-          <button class="btn btn-sm btn-info" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-sm btn-info" data-acesso="admin" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-danger" data-acesso="admin" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
         </div>
       </td>
     `;
@@ -86,4 +86,5 @@ function renderEstoque() {
 
   tbody.innerHTML = '';
   tbody.appendChild(fragment);
+  if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }

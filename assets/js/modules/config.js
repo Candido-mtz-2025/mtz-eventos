@@ -8,10 +8,15 @@ function normalizarEmailsPermitidos(texto) {
 }
 
 function salvarConfig() {
+    if (typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode salvar configurações.')) {
+        return;
+    }
+
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
     const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
+    const elAdminEmails = document.getElementById('confAdminEmails');
 
     if (elRodape) config.rodape = elRodape.value;
     if (elTel) config.tel = elTel.value;
@@ -20,9 +25,14 @@ function salvarConfig() {
         config.emailsPermitidos = normalizarEmailsPermitidos(elEmailsPermitidos.value);
         elEmailsPermitidos.value = config.emailsPermitidos;
     }
+    if (elAdminEmails) {
+        config.adminEmails = normalizarEmailsPermitidos(elAdminEmails.value);
+        elAdminEmails.value = config.adminEmails;
+    }
 
     salvarLocal();
     sincronizar('salvar');
+    if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     mostrarToast('Config salva!');
 }
 

@@ -1223,6 +1223,27 @@ header .container {
     color: var(--text-light);
 }
 
+.header-role-badge {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
+.header-role-badge.role-admin {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.header-role-badge.role-operacao {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
 .metric-value-compact {
     font-size: 1.4rem !important;
 }
@@ -1364,6 +1385,24 @@ header .container {
 .full-width-btn {
     width: 100%;
     justify-content: center;
+}
+
+.is-locked {
+    opacity: 0.55;
+    cursor: not-allowed !important;
+    filter: grayscale(0.15);
+}
+
+.field-locked {
+    background: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
+    color: #64748b !important;
+}
+
+[data-theme="dark"] .field-locked {
+    background: #111827 !important;
+    border-color: #374151 !important;
+    color: #94a3b8 !important;
 }
 
 .modal-helper-text {

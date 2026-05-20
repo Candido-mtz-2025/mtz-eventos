@@ -163,6 +163,7 @@ function renderUsuarioCabecalho() {
     emailEl.textContent = email;
     avatarEl.src = foto;
     box.style.display = 'inline-flex';
+    if (typeof atualizarIndicadorPerfilCabecalho === 'function') atualizarIndicadorPerfilCabecalho();
 }
 
 function mostrarTelaSessaoExpirada() {
@@ -297,6 +298,7 @@ async function processarRespostaGoogle(resp, origem = 'login') {
     }
 
     localStorage.setItem(AUTH_MODE_KEY, 'google');
+    if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     atualizarStatusLogin('Conectado com Google. Carregando seus dados...', 'success');
     entrarApp();
     sincronizar('carregar');
@@ -360,6 +362,7 @@ function entrarComUltimoUsuarioGoogle() {
 
 function entrarOffline() {
     localStorage.setItem(AUTH_MODE_KEY, 'offline');
+    if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     entrarApp();
     updStatus('offline');
     mostrarToast('Modo offline ativado.', 'info');
@@ -374,6 +377,7 @@ function entrarApp() {
     if (appArea) appArea.style.display = 'block';
 
     renderUsuarioCabecalho();
+    if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     renderTudo();
 }
 
@@ -462,6 +466,7 @@ function inicializarSessaoLogin() {
     ocultarTelaSessaoExpirada(true);
     renderAcessoRapidoLogin();
     renderUsuarioCabecalho();
+    if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
 
     if (!navigator.onLine) {
         atualizarStatusLogin('Sem internet. Você pode continuar offline.', 'warn');

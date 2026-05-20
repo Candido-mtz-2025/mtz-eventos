@@ -14,6 +14,10 @@
     }
 
     function restaurarBackup(input) {
+        if (typeof validarPermissao === 'function' && !validarPermissao('restaurar_backup', 'Somente administrador pode restaurar backup.')) {
+            return;
+        }
+
         if (!input.files || !input.files[0]) return;
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -40,6 +44,10 @@
 
     // --- FUNÇÃO DE LIMPEZA E ARQUIVAMENTO (VERSÃO MATA-FANTASMAS) ---
     function arquivarHistorico() {
+        if (typeof validarPermissao === 'function' && !validarPermissao('arquivar_historico', 'Somente administrador pode arquivar histórico.')) {
+            return;
+        }
+
         // PASSO 1: FAXINA IMEDIATA (Remove os traços "-" da tela)
         const historicoAntes = devolucoes.length;
         devolucoes = devolucoes.filter(d => locacoes.some(l => l.id === d.locacaoId));

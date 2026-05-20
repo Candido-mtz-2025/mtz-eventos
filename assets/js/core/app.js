@@ -14,11 +14,13 @@ function renderTudo() {
     if(typeof updateSelects === 'function') updateSelects();
     if(typeof renderLogs === 'function') renderLogs();
     if(typeof renderConfig === 'function') renderConfig();
+    if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
     carregarLocal();
+    if(typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     renderTudo();
         
     const checklistData = document.getElementById('checklistData');

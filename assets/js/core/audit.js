@@ -24,6 +24,10 @@ function registrarLog(tipo, acao, descricao, dados = null) {
  * Limpa logs antigos (mais de 90 dias)
  */
 function limparLogsAntigos() {
+    if (typeof validarPermissao === 'function' && !validarPermissao('limpar_logs', 'Somente administrador pode limpar logs.')) {
+        return;
+    }
+
     const treseMesesAtras = Date.now() - (90 * 24 * 60 * 60 * 1000);
     const qtdAntes = logsAuditoria.length;
     

@@ -37,7 +37,7 @@ function renderLocadores() {
                     <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="removerItem('locadores', ${c.id})">
+                    <button class="btn btn-sm btn-danger" data-acesso="admin" onclick="removerItem('locadores', ${c.id})">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -48,6 +48,7 @@ function renderLocadores() {
     
     tbody.innerHTML = '';
     tbody.appendChild(fragment);
+    if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 
 // --- TIPOS (RECOLOCAR) ---
@@ -94,12 +95,14 @@ function renderConfig() {
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
     const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
+    const elAdminEmails = document.getElementById('confAdminEmails');
     const elLogo = document.getElementById('previewLogo');
 
     if (elRodape) elRodape.value = config.rodape || '';
     if (elTel) elTel.value = config.tel || '';
     if (elEmail) elEmail.value = config.email || '';
     if (elEmailsPermitidos) elEmailsPermitidos.value = config.emailsPermitidos || '';
+    if (elAdminEmails) elAdminEmails.value = config.adminEmails || '';
     
     // Mostra a logo se existir
     if (elLogo && config.logo) {

@@ -36,6 +36,10 @@
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
 function salvarPeca() {
+    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode cadastrar ou alterar valores de estoque.')) {
+        return;
+    }
+
     const n = (document.getElementById('pecaNome').value || '').trim();
     const valor = parseFloat(document.getElementById('pecaValor').value);
     const quantidade = parseInt(document.getElementById('pecaQtd').value, 10);
@@ -112,6 +116,10 @@ function salvarPeca() {
     }
 
   function abrirEditarPeca(id) {
+    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode editar itens de estoque.')) {
+        return;
+    }
+
     const p = pecas.find(x => String(x.id) === String(id));
     if (!p) {
         mostrarToast("Item não encontrado!", "erro");
@@ -138,6 +146,10 @@ function salvarPeca() {
     document.getElementById('modalEditarPeca').classList.add('active');
 }
   function salvarEdicaoPeca() {
+    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode salvar alterações de valores/estoque.')) {
+        return;
+    }
+
     const id = document.getElementById('editPecaId').value;
     const p = pecas.find(x => String(x.id) === String(id));
 
@@ -196,6 +208,10 @@ function toggleSelecionarTodosEstoque(marcar) {
 }
 
 function excluirSelecionadosEstoque(){
+  if (typeof validarPermissao === 'function' && !validarPermissao('excluir_registro', 'Somente administrador pode excluir itens de estoque.')) {
+    return;
+  }
+
   if (window.estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
   confirmarAcao(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`, () => {
     const ids = new Set([...window.estoqueSelecionados].map(Number));

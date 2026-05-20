@@ -96,6 +96,7 @@
                         <div>
                             <strong id="headerUserName">Usuário</strong>
                             <span id="headerUserEmail">Modo local</span>
+                            <small id="headerUserRole" class="header-role-badge">Admin</small>
                         </div>
                     </div>
                     <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
@@ -259,7 +260,7 @@
                             </div>
                         </div>
                         <div class="inline-chip-row">
-                            <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+                            <button class="btn btn-primary" data-acesso="admin" onclick="salvarPeca()">Salvar Item</button>
                             <button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
                         </div>
                     </div>
@@ -272,7 +273,7 @@
                     <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
 
                     <div class="inline-chip-row">
-                        <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
+                        <button class="btn btn-danger btn-sm" data-acesso="admin" onclick="excluirSelecionadosEstoque()">
                             <i class="bi bi-trash"></i> Excluir selecionados
                         </button>
                     </div>
@@ -485,17 +486,22 @@
                         <textarea id="confEmailsPermitidos" rows="3" placeholder="Um por linha ou separado por vírgula"></textarea>
                         <small class="field-hint">Se preenchido, apenas esses e-mails poderão entrar com Google.</small>
                     </div>
+                    <div class="form-group">
+                        <label>Administradores (opcional)</label>
+                        <textarea id="confAdminEmails" rows="3" placeholder="E-mails de admin: um por linha ou por vírgula"></textarea>
+                        <small class="field-hint">Quando vazio, todo login Google entra como administrador.</small>
+                    </div>
                     <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
                     <div id="previewLogo" class="preview-logo"></div>
-                    <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
+                    <button class="btn btn-primary" data-acesso="admin" onclick="salvarConfig()">Salvar Configurações</button>
                 </div>
                 
                 <div class="card config-actions-card">
                     <h3>Dados & Backup</h3>
                     <div class="inline-chip-row">
                         <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
-                        <button class="btn btn-warning" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
-                        <button class="btn btn-danger" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
+                        <button class="btn btn-warning" data-acesso="admin" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
+                        <button class="btn btn-danger" data-acesso="admin" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
                         
                         <input type="file" id="fileRestore" class="hidden-file-input" onchange="restaurarBackup(this)">
                     </div>
@@ -513,7 +519,7 @@
         <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
           <i class="bi bi-download"></i> Exportar
         </button>
-        <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+        <button class="btn btn-danger btn-sm" data-acesso="admin" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
           <i class="bi bi-trash"></i> Limpar
         </button>
       </div>
@@ -737,6 +743,7 @@
     <script src="./assets/js/ui/toast.js"></script>
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>
+    <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/storage.js"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js"></script>

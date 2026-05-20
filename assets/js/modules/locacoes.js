@@ -297,6 +297,10 @@ const filtrados = pecas
     }
 
     function cancelarLocacao(id) {
+        if (typeof validarPermissao === 'function' && !validarPermissao('cancelar_locacao', 'Somente administrador pode cancelar locações.')) {
+            return;
+        }
+
         confirmarAcao("Cancelar locação?", () => {
             locacoes = locacoes.filter(l => l.id !== id);
             if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
@@ -312,7 +316,13 @@ const filtrados = pecas
     }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
-    function alternarPagamento(id) { const l = locacoes.find(x => x.id == id); if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); } }
+    function alternarPagamento(id) {
+        if (typeof validarPermissao === 'function' && !validarPermissao('alterar_pagamento', 'Somente administrador pode alterar status de pagamento.')) {
+            return;
+        }
+        const l = locacoes.find(x => x.id == id);
+        if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); }
+    }
 
         // --- FUNÇÕES DE TRAVA DE ESTOQUE ---
     function atualizarLimiteEstoque() {

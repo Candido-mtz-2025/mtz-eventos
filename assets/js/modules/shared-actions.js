@@ -1,5 +1,9 @@
 // Ações compartilhadas entre módulos
 function removerItem(t, id) {
+        if (typeof validarPermissao === 'function' && !validarPermissao('excluir_registro', 'Somente administrador pode excluir registros.')) {
+            return;
+        }
+
         confirmarAcao("Tem certeza que deseja excluir este registro?", () => {
             if(t === 'locadores') {
                 const item = locadores.find(x => x.id == id);

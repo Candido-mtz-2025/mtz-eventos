@@ -66,7 +66,7 @@ function renderLocacoes() {
             </td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
+                    <button class="btn btn-sm" data-acesso="admin" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
                         <i class="bi bi-currency-dollar"></i>
                     </button>
                     <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})">
@@ -78,7 +78,7 @@ function renderLocacoes() {
                     <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
+                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" data-acesso="admin" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;
@@ -89,6 +89,7 @@ function renderLocacoes() {
     tbody.appendChild(fragment); // 🚀 1 reflow ao invés de 50+
     
     criarControlesPaginacao('locacoes', totalPaginas, filtrados.length);
+    if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
         
 // === CRIAR BOTÕES DE PAGINAÇÃO ===
