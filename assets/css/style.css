@@ -3269,4 +3269,199 @@ input[type="file"]::-webkit-file-upload-button {
         animation: none !important;
     }
 }
+
+/* === V12.5 | CHECKLIST + CONFIG + MODAIS (POLISH FINAL) === */
+#tab-checklist .card > h2 {
+    margin: 0 0 14px;
+    font-size: 1.32rem;
+    font-weight: 800;
+}
+
+#tab-checklist .section-gap {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+#tab-checklist #listaChecklistMontagem,
+#tab-checklist #listaChecklistEtapasMontagem {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 12px;
+}
+
+#tab-checklist .inline-chip-row.section-gap {
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+}
+
+#tab-checklist .inline-chip-row .btn {
+    min-width: 156px;
+}
+
+#tab-devolucoes #divItensDevolucao {
+    border-style: solid;
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+#tab-devolucoes .section-toolbar .inline-chip-row {
+    margin-bottom: 0;
+}
+
+#tab-devolucoes .section-toolbar .inline-chip-row select,
+#tab-devolucoes .section-toolbar .inline-chip-row input {
+    min-width: 170px;
+}
+
+#tab-config .config-card,
+#tab-config .config-actions-card {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, #ffffff 4%) 0%, var(--surface) 100%);
+}
+
+#tab-config .config-card h3,
+#tab-config .config-actions-card h3 {
+    font-size: 1.06rem;
+    font-weight: 800;
+}
+
+#tab-config .config-actions-card .inline-chip-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+#tab-config .config-actions-card .btn {
+    width: 100%;
+    min-height: 42px;
+}
+
+#tab-config #previewLogo {
+    min-height: 64px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+}
+
+#tab-config #previewLogo img {
+    max-width: 100%;
+}
+
+.modal {
+    background: rgba(2, 8, 23, 0.6);
+    backdrop-filter: blur(6px);
+}
+
+.modal-content:not(.modal-relatorio-content) {
+    width: min(92vw, 760px);
+    max-height: 88vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    animation: modalFadeInUp 0.2s ease;
+}
+
+#modalScanner .modal-content {
+    width: min(92vw, 560px);
+}
+
+#modalModeloChecklist .modal-content {
+    width: min(92vw, 880px);
+}
+
+.modal-content > .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    margin: -2px -2px 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-content .form-group + .form-group {
+    margin-top: 10px;
+}
+
+.modelo-checklist-list {
+    margin-top: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    padding: 12px;
+}
+
+.modelo-checklist-list h4 {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.modelo-checklist-list #listaItensModeloChecklist {
+    min-height: 48px;
+}
+
+@keyframes modalFadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+[data-theme="dark"] #tab-config .config-card,
+[data-theme="dark"] #tab-config .config-actions-card {
+    background: linear-gradient(180deg, #17263a 0%, #0f1a2b 100%);
+}
+
+[data-theme="dark"] #tab-checklist #listaChecklistMontagem,
+[data-theme="dark"] #tab-checklist #listaChecklistEtapasMontagem,
+[data-theme="dark"] #tab-devolucoes #divItensDevolucao,
+[data-theme="dark"] .modelo-checklist-list,
+[data-theme="dark"] #tab-config #previewLogo {
+    background: #0f1a2b;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .modal-content:not(.modal-relatorio-content) > .modal-header {
+    background: #17263a;
+}
+
+@media (max-width: 900px) {
+    #tab-config .config-actions-card .inline-chip-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    #tab-checklist .inline-chip-row .btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    #tab-devolucoes .section-toolbar .inline-chip-row {
+        width: 100%;
+    }
+
+    #tab-devolucoes .section-toolbar .inline-chip-row select,
+    #tab-devolucoes .section-toolbar .inline-chip-row input {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .modal-content:not(.modal-relatorio-content) {
+        width: 100%;
+        max-height: 100%;
+        border-radius: 14px 14px 0 0;
+        align-self: flex-end;
+    }
+}
     

@@ -825,7 +825,12 @@
     </div>
             <div id="modalModeloChecklist" class="modal">
     <div class="modal-content">
-        <h3>Criar Modelo de Estrutura</h3>
+        <div class="modal-header">
+            <h3>Criar Modelo de Estrutura</h3>
+            <button class="btn-close-modal" onclick="fecharModalModeloChecklist()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
         <input type="hidden" id="modeloChecklistId">
         
         <div class="form-row">
@@ -856,7 +861,7 @@
             <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
         </div>
 
-<div>
+<div class="modelo-checklist-list">
     <h4>Peças do Modelo</h4>
     <div id="listaItensModeloChecklist"></div>
 </div>
