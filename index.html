@@ -142,6 +142,24 @@
                         <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
                     </div>
                 </div>
+                <div class="finance-strip">
+                    <div class="finance-kpi">
+                        <small>Receita Mês</small>
+                        <strong id="dashFinMes">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi">
+                        <small>Recebido Mês</small>
+                        <strong id="dashFinRecebido">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi">
+                        <small>Pendente Ativo</small>
+                        <strong id="dashFinPendente">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi">
+                        <small>Ticket Médio</small>
+                        <strong id="dashFinTicket">R$ 0,00</strong>
+                    </div>
+                </div>
                 <div class="dashboard-lower">
                     <div class="dash-section">
                         <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
@@ -150,7 +168,7 @@
                         </div>
                     </div>
                     <div class="dash-section">
-                        <h3><i class="bi bi-box-seam"></i> Avisos</h3>
+                        <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
                         <div id="listEstoqueBaixo"><small class="muted-note">Sistema operando normalmente.</small></div>
                     </div>
                 </div>
@@ -302,15 +320,36 @@
    <div id="tab-locacoes" class="tab-content">
         <div class="card">
             <h3>Nova Locação</h3>
-            <div class="form-row">
-                <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
-                <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+            <div id="locacaoFlow" class="locacao-flow">
+                <button type="button" id="locacaoStep1" class="locacao-step is-active" onclick="irEtapaLocacao(1)">
+                    <span>1</span> Cliente e datas
+                </button>
+                <button type="button" id="locacaoStep2" class="locacao-step" onclick="irEtapaLocacao(2)">
+                    <span>2</span> Itens do pedido
+                </button>
+                <button type="button" id="locacaoStep3" class="locacao-step" onclick="irEtapaLocacao(3)">
+                    <span>3</span> Revisar e concluir
+                </button>
             </div>
-            <div class="form-row">
-                <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
-                <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+
+            <div id="locacaoEtapa1" class="locacao-step-panel is-active">
+                <div class="form-row">
+                    <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
+                    <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
+                    <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+                </div>
+                <div class="inline-chip-row">
+                    <button id="btnIrEtapa2" class="btn btn-primary" onclick="irEtapaLocacao(2)">
+                        Continuar para itens
+                    </button>
+                </div>
             </div>
-                    <div class="box-carrinho">
+
+            <div id="locacaoEtapa2" class="locacao-step-panel">
+                <div class="box-carrinho">
                         <h4 class="cart-title">
                             <i class="bi bi-cart-plus cart-title-icon"></i> Itens do Pedido
                         </h4>
@@ -350,14 +389,27 @@
                             <button id="btnLimparCarrinho" class="btn btn-secondary" onclick="limparCarrinhoLocacao()" disabled>
                                 <i class="bi bi-eraser"></i> Limpar
                             </button>
-                            <button id="btnFinalizarLocacao" class="btn btn-primary" onclick="finalizarLocacao()" disabled>
-                                <i class="bi bi-check2-circle"></i> Concluir Locação
+                            <button id="btnIrEtapa3" class="btn btn-primary" onclick="irEtapaLocacao(3)" disabled>
+                                <i class="bi bi-arrow-right-circle"></i> Revisar locação
                             </button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                
+            <div id="locacaoEtapa3" class="locacao-step-panel">
+                <div id="locacaoResumoFinal" class="locacao-review"></div>
+                <div class="inline-chip-row">
+                    <button class="btn btn-secondary" onclick="irEtapaLocacao(2)">
+                        <i class="bi bi-arrow-left"></i> Voltar aos itens
+                    </button>
+                    <button id="btnFinalizarLocacao" class="btn btn-primary" onclick="finalizarLocacao()" disabled>
+                        <i class="bi bi-check2-circle"></i> Concluir Locação
+                    </button>
+                </div>
+            </div>
+
+                 
                <div class="filters-row">
                     <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
                     <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>

@@ -14,6 +14,7 @@ function renderTudo() {
     if(typeof updateSelects === 'function') updateSelects();
     if(typeof renderLogs === 'function') renderLogs();
     if(typeof renderConfig === 'function') renderConfig();
+    if(typeof atualizarFluxoLocacao === 'function') atualizarFluxoLocacao();
     if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 
@@ -32,6 +33,7 @@ function renderTudo() {
     const elDev = document.getElementById('devData');
     if(elIni) elIni.value = hoje;
     if(elDev) elDev.value = hoje;
+    if(typeof inicializarFluxoLocacao === 'function') inicializarFluxoLocacao();
 
     const style = document.createElement('style');
     style.innerHTML = `
