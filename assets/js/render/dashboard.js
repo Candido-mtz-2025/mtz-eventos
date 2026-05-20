@@ -47,6 +47,180 @@ function resumoClientesAlerta(lista, limite) {
     return `${base.map((nome) => escaparTextoDashboard(nome)).join(', ')}${restante > 0 ? ` +${restante}` : ''}`;
 }
 
+function abreviarMoedaDashboard(valor) {
+    const numero = Number(valor) || 0;
+    const abs = Math.abs(numero);
+    if (abs >= 1000000) return `R$ ${(numero / 1000000).toFixed(1).replace('.', ',')}M`;
+    if (abs >= 1000) return `R$ ${(numero / 1000).toFixed(1).replace('.', ',')}K`;
+    return formatarMoedaDashboard(numero);
+}
+
+function gerarSerieReceitaMensal(locacoesComValor, totalMeses = 6) {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - (totalMeses - 1), 1);
+
+    const serie = [];
+    const indicePorChave = new Map();
+
+    for (let i = 0; i < totalMeses; i += 1) {
+        const dataMes = new Date(inicio.getFullYear(), inicio.getMonth() + i, 1);
+        const chave = `${dataMes.getFullYear()}-${String(dataMes.getMonth() + 1).padStart(2, '0')}`;
+        const mesTxt = dataMes.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
+        const anoTxt = String(dataMes.getFullYear()).slice(-2);
+        indicePorChave.set(chave, i);
+        serie.push({
+            chave,
+            rotulo: `${mesTxt}/${anoTxt}`,
+            valor: 0
+        });
+    }
+
+    locacoesComValor.forEach((locacao) => {
+        const dataAluguel = obterDataLocal(locacao.dataAluguel);
+        if (!dataAluguel) return;
+        const chave = `${dataAluguel.getFullYear()}-${String(dataAluguel.getMonth() + 1).padStart(2, '0')}`;
+        const idx = indicePorChave.get(chave);
+        if (typeof idx === 'number') {
+            serie[idx].valor += Number(locacao.valorFinal) || 0;
+        }
+    });
+
+    return serie;
+}
+
+function renderGraficoReceitaMensal(serie) {
+    const box = document.getElementById('dashChartReceita');
+    if (!box) return;
+
+    if (!Array.isArray(serie) || serie.length === 0) {
+        box.innerHTML = '<small class="muted-note">Sem dados para o gráfico.</small>';
+        return;
+    }
+
+    const maximo = Math.max(...serie.map((item) => Number(item.valor) || 0), 0);
+    const base = maximo > 0 ? maximo : 1;
+
+    box.innerHTML = `
+        <div class="dash-receita-chart">
+            ${serie.map((item) => {
+                const percentual = Math.max(4, Math.round(((Number(item.valor) || 0) / base) * 100));
+                return `
+                    <div class="dash-receita-col">
+                        <div class="dash-receita-bar-wrap">
+                            <span class="dash-receita-bar" style="height:${percentual}%;" title="${escaparTextoDashboard(item.rotulo)}: ${escaparTextoDashboard(formatarMoedaDashboard(item.valor))}"></span>
+                        </div>
+                        <small>${item.rotulo}</small>
+                        <strong>${abreviarMoedaDashboard(item.valor)}</strong>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
+    const box = document.getElementById('dashChartStatus');
+    if (!box) return;
+
+    const dados = [
+        { nome: 'Em aberto', classe: 'dash-status-open', valor: Math.max(Number(abertas) || 0, 0) },
+        { nome: 'Atrasadas', classe: 'dash-status-delay', valor: Math.max(Number(atrasadas) || 0, 0) },
+        { nome: 'Devolvidas', classe: 'dash-status-done', valor: Math.max(Number(devolvidas) || 0, 0) }
+    ];
+    const total = dados.reduce((acc, item) => acc + item.valor, 0);
+
+    if (total === 0) {
+        box.innerHTML = '<small class="muted-note">Sem dados para o gráfico.</small>';
+        return;
+    }
+
+    box.innerHTML = `
+        <div class="dash-status-list">
+            ${dados.map((item) => {
+                const percentual = Math.round((item.valor / total) * 100);
+                return `
+                    <div class="dash-status-item">
+                        <div class="dash-status-head">
+                            <span><i class="bi bi-circle-fill ${item.classe}"></i> ${item.nome}</span>
+                            <strong>${item.valor}</strong>
+                        </div>
+                        <div class="dash-status-track">
+                            <span class="${item.classe}" style="width:${percentual}%;"></span>
+                        </div>
+                        <small>${percentual}% do total</small>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje }) {
+    const box = document.getElementById('dashAcoesDia');
+    const resumo = document.getElementById('dashResumoAcoesDia');
+    if (!box) return;
+
+    const acoes = [];
+    if (atrasadas > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-alta">
+                <div>
+                    <strong>${atrasadas} devolução(ões) atrasada(s)</strong>
+                    <small>Priorize contato e retorno desses contratos.</small>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="irParaLocacoes('atrasado')">Ver atrasos</button>
+            </div>
+        `);
+    }
+    if (vencemHoje > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-media">
+                <div>
+                    <strong>${vencemHoje} devolução(ões) vencem hoje</strong>
+                    <small>Organize equipe e logística para conferência.</small>
+                </div>
+                <button class="btn btn-sm btn-warning" onclick="abrirTab('devolucoes')">Conferir</button>
+            </div>
+        `);
+    }
+    if (pendentesFinanceiros > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-media">
+                <div>
+                    <strong>${pendentesFinanceiros} locação(ões) pendentes de pagamento</strong>
+                    <small>Validar cobranças para reduzir saldo em aberto.</small>
+                </div>
+                <button class="btn btn-sm btn-info" onclick="abrirTab('locacoes')">Cobranças</button>
+            </div>
+        `);
+    }
+    if (iniciamHoje > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-baixa">
+                <div>
+                    <strong>${iniciamHoje} locação(ões) iniciam hoje</strong>
+                    <small>Revisar checklist de saída e disponibilidade.</small>
+                </div>
+                <button class="btn btn-sm btn-secondary" onclick="abrirTab('checklist')">Checklist</button>
+            </div>
+        `);
+    }
+
+    if (resumo) {
+        resumo.innerText = acoes.length > 0
+            ? `${acoes.length} frente(s) para acompanhar hoje`
+            : 'Sem ações pendentes';
+    }
+
+    if (acoes.length === 0) {
+        box.innerHTML = '<small class="muted-note">Nenhuma ação urgente no momento.</small>';
+        return;
+    }
+
+    box.innerHTML = `<div class="dash-actions-list">${acoes.join('')}</div>`;
+}
+
 function renderStats() {
     const elClientes = document.getElementById('dashClientes');
     if (elClientes) elClientes.innerText = locadores.length;
@@ -135,6 +309,13 @@ function renderStats() {
     const vencemAmanha = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 1);
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
     const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length;
+    const devolvidas = locacoesComValor.filter((locacao) => locacao.status === 'devolvido').length;
+    const abertasSemAtraso = Math.max(ativas.length - atrasadas.length, 0);
+    const iniciamHoje = locacoesComValor.filter((locacao) => {
+        const dataAluguel = obterDataLocal(locacao.dataAluguel);
+        return locacao.status === 'ativo' && dataAluguel && dataAluguel.getTime() === hoje.getTime();
+    }).length;
+    const pendentesFinanceiros = ativas.filter((locacao) => !locacao.pago).length;
 
     const elAtrasos = document.getElementById('dashAtrasos');
     if (elAtrasos) {
@@ -247,4 +428,18 @@ function renderStats() {
             }).join('');
         }
     }
+
+    const serieReceitaMensal = gerarSerieReceitaMensal(locacoesComValor, 6);
+    renderGraficoReceitaMensal(serieReceitaMensal);
+    renderGraficoStatusLocacoes({
+        abertas: abertasSemAtraso,
+        atrasadas: atrasadas.length,
+        devolvidas
+    });
+    renderAcoesDiaDashboard({
+        atrasadas: atrasadas.length,
+        vencemHoje: vencemHoje.length,
+        pendentesFinanceiros,
+        iniciamHoje
+    });
 }
