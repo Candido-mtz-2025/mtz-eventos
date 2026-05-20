@@ -99,8 +99,10 @@
                         </div>
                     </div>
                     <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
-                    <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="bi bi-moon"></i></button>
-                    <button class="btn btn-danger btn-sm" onclick="sair()"><i class="bi bi-box-arrow-right"></i></button>
+                    <div class="header-controls">
+                        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="bi bi-moon"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="sair()"><i class="bi bi-box-arrow-right"></i></button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -477,7 +479,7 @@
   </div> 
         
             <div id="tab-config" class="tab-content">
-                <div class="card">
+                <div class="card config-card">
                     <h3>Personalização</h3>
                     <div class="form-row"><div class="form-group"><label>Rodapé PDF</label><input type="text" id="confRodape"></div></div>
                     <div class="form-row">
@@ -494,7 +496,7 @@
                     <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
                 </div>
                 
-                <div class="card">
+                <div class="card config-actions-card">
                     <h3>Dados & Backup</h3>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
