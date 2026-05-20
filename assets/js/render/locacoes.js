@@ -93,19 +93,19 @@ function renderLocacoes() {
             </td>
             <td class="col-actions">
                 <div class="actions-cell locacao-actions">
-                    <button class="btn btn-sm locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" onclick="alternarPagamento(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
                         <i class="bi bi-currency-dollar"></i>
                     </button>
-                    <button class="btn btn-sm locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" onclick="enviarZap(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
                         <i class="bi bi-whatsapp"></i>
                     </button>
-                    <button class="btn btn-sm locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" onclick="gerarRomaneio(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                         <i class="bi bi-truck"></i>
                     </button>
-                    <button class="btn btn-sm locacao-action-btn locacao-action-relatorio" title="Abrir relatório" onclick="gerarRelatorio(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-relatorio" title="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger locacao-action-btn" data-acesso="admin" title="Cancelar locação" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
+                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;
@@ -132,14 +132,14 @@ function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
         <tr class="table-pagination-row">
             <td colspan="10" class="table-pagination-cell">
                 <div class="table-pagination">
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
+                    <button class="btn btn-sm btn-secondary" data-action="irParaPagina" data-arg="${tipo}" data-arg2="${paginaAtualTipo - 1}" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
                         <i class="bi bi-chevron-left"></i> Anterior
                     </button>
                     <span class="table-pagination-info">
                         Página ${paginaAtualTipo} de ${totalPaginas}
                         <span class="table-pagination-meta">(${totalItens} itens)</span>
                     </span>
-                    <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
+                    <button class="btn btn-sm btn-secondary" data-action="irParaPagina" data-arg="${tipo}" data-arg2="${paginaAtualTipo + 1}" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
                         Próxima <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>

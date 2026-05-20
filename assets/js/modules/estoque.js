@@ -435,7 +435,7 @@ function renderItensModeloChecklistTemp() {
     lista.innerHTML = itensModeloChecklistTemp.map((item, index) => `
         <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:8px;margin-bottom:6px;border-radius:6px;">
             <span>${item.nome} - Qtd: ${item.qtd}</span>
-            <button class="btn btn-danger" onclick="removerItemModeloChecklistTemp(${index})">Remover</button>
+            <button class="btn btn-danger" data-action="removerItemModeloChecklistTemp" data-arg="${index}">Remover</button>
         </div>
     `).join('');
 }
@@ -490,10 +490,7 @@ function salvarModeloChecklistForm() {
     renderModelosChecklist();
 }
 function renderModelosChecklist() {
-    console.log('MODELOS NA HORA DE RENDERIZAR:', modelosChecklist);
-
     const lista = document.getElementById('listaModelosChecklist');
-    console.log('DIV LISTA MODELOS:', lista);
     if (!lista) return;
 
     if (!modelosChecklist || modelosChecklist.length === 0) {
@@ -509,9 +506,9 @@ function renderModelosChecklist() {
                 <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
             </div>
             <div style="display:flex;gap:8px;">
-                <button class="btn btn-secondary" onclick="editarModeloChecklist(${modelo.id})">Editar</button>
-                <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
-                <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
+                <button class="btn btn-secondary" data-action="editarModeloChecklist" data-arg="${modelo.id}">Editar</button>
+                <button class="btn btn-primary" data-action="gerarChecklistModelo" data-arg="${modelo.id}">Gerar Checklist</button>
+                <button class="btn btn-danger" data-action="excluirModeloChecklistUI" data-arg="${modelo.id}">Excluir</button>
             </div>
         </div>
     `).join('');

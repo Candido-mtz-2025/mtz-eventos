@@ -247,7 +247,23 @@ function gisLoaded() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: GOOGLE_SCOPES,
-        callback: () => {}
+        callback: () => {},
+        error_callback: (erro) => {
+            alternarBotoesLogin(false);
+
+            if (erro?.type === 'popup_failed_to_open') {
+                atualizarStatusLogin('O navegador bloqueou a janela do Google. Libere pop-ups para este site e tente novamente.', 'warn');
+                return;
+            }
+
+            if (erro?.type === 'popup_closed') {
+                atualizarStatusLogin('Login cancelado. Quando quiser, tente novamente.', 'warn');
+                return;
+            }
+
+            atualizarStatusLogin('Não foi possível abrir o login Google agora. Tente novamente.', 'error');
+            console.warn('Erro no fluxo Google:', erro);
+        }
     });
 
     aguardandoSDKGoogle = false;
@@ -428,14 +444,18 @@ function tentarRevalidacaoSilenciosa() {
         return true;
     }
 
+    limparSessaoGoogle();
+    localStorage.removeItem(AUTH_MODE_KEY);
+
     if (!navigator.onLine) {
-        atualizarStatusLogin('Sessão antiga detectada. Conecte a internet ou continue offline.', 'warn');
+        mostrarTelaSessaoExpirada();
+        atualizarStatusLogin('Sessão expirada. Conecte a internet ou continue offline.', 'warn');
         return false;
     }
 
-    atualizarStatusLogin('Atualizando sessão Google...', 'info');
-    solicitarTokenGoogle('', 'revalidacao');
-    return true;
+    mostrarTelaSessaoExpirada();
+    atualizarStatusLogin('Sessão expirada. Clique em "Reativar com Google" para continuar.', 'warn');
+    return false;
 }
 
 function aguardarSDKGoogle() {

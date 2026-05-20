@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mtz-eventos-v14';
+const CACHE_NAME = 'mtz-eventos-v15';
 const APP_SHELL = [
   './',
   './index.html',
@@ -7,8 +7,13 @@ const APP_SHELL = [
 ];
 
 function deveIgnorarRequisicao(request) {
+  const url = new URL(request.url);
+  const protocoloHttp = url.protocol === 'http:' || url.protocol === 'https:';
+
   return (
+    !protocoloHttp ||
     request.method !== 'GET' ||
+    url.protocol === 'chrome-extension:' ||
     request.url.includes('accounts.google.com') ||
     request.url.includes('script.google.com')
   );
@@ -47,7 +52,23 @@ async function respostaStaleWhileRevalidate(request) {
     })
     .catch(() => null);
 
-  return cached || atualizacao;
+  if (cached) return cached;
+
+  const respostaRede = await atualizacao;
+  if (respostaRede) return respostaRede;
+
+  return new Response('', { status: 504, statusText: 'Offline' });
+}
+
+function recursoCritico(request) {
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+
+  return (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('/index.html')
+  );
 }
 
 self.addEventListener('install', (event) => {
@@ -72,6 +93,11 @@ self.addEventListener('fetch', (event) => {
   if (deveIgnorarRequisicao(request)) return;
 
   if (ehNavegacao(request)) {
+    event.respondWith(respostaNetworkFirst(request));
+    return;
+  }
+
+  if (recursoCritico(request)) {
     event.respondWith(respostaNetworkFirst(request));
     return;
   }

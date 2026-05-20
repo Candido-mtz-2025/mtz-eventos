@@ -53,15 +53,15 @@
                         <span id="loginLastUserEmail">Sem e-mail salvo</span>
                     </div>
                 </div>
-                <button id="btnAcessoRapidoGoogle" class="btn btn-login-quick" onclick="entrarComUltimoUsuarioGoogle()">
+                <button id="btnAcessoRapidoGoogle" class="btn btn-login-quick" data-action="entrarComUltimoUsuarioGoogle">
                     <i class="bi bi-lightning-charge"></i> Acesso rápido com Google
                 </button>
             </div>
 
-            <button id="btnLoginGoogle" class="btn btn-login-google" onclick="fazerLoginGoogle()">
+            <button id="btnLoginGoogle" class="btn btn-login-google" data-action="fazerLoginGoogle">
                 <i class="bi bi-google"></i> Entrar com Google
             </button>
-            <button id="btnEntrarOffline" class="btn btn-login-offline" onclick="entrarOffline()">
+            <button id="btnEntrarOffline" class="btn btn-login-offline" data-action="entrarOffline">
                 <i class="bi bi-hdd"></i> Continuar offline
             </button>
 
@@ -74,10 +74,10 @@
             <div class="session-icon"><i class="bi bi-shield-lock"></i></div>
             <h2>Sessão expirada</h2>
             <p>Por segurança, confirme sua conta Google para continuar com sincronização.</p>
-            <button id="btnSessaoGoogle" class="btn btn-login-google" onclick="fazerLoginGoogle()">
+            <button id="btnSessaoGoogle" class="btn btn-login-google" data-action="fazerLoginGoogle">
                 <i class="bi bi-google"></i> Reativar com Google
             </button>
-            <button id="btnSessaoOffline" class="btn btn-login-offline" onclick="entrarOffline()">
+            <button id="btnSessaoOffline" class="btn btn-login-offline" data-action="entrarOffline">
                 <i class="bi bi-hdd"></i> Continuar offline
             </button>
         </div>
@@ -101,8 +101,8 @@
                     </div>
                     <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
                     <div class="header-controls">
-                        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="bi bi-moon"></i></button>
-                        <button class="btn btn-danger btn-sm" onclick="sair()"><i class="bi bi-box-arrow-right"></i></button>
+                        <button class="btn btn-secondary btn-sm" data-action="toggleTheme"><i class="bi bi-moon"></i></button>
+                        <button class="btn btn-danger btn-sm" data-action="sair"><i class="bi bi-box-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -111,15 +111,15 @@
         <div class="container">
                <div class="tabs-container">
     <div class="tabs">
-        <button class="tab-btn active" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
-        <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-        <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
-        <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-        <button class="tab-btn" onclick="abrirTab('checklist')"><i class="bi bi-check2-square"></i> Checklist</button>
-        <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
-        <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-        <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
-        <button class="tab-btn" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Config</button>
+        <button class="tab-btn active" data-tab="dashboard" data-action="abrirTab" data-arg="dashboard"><i class="bi bi-grid"></i> Dashboard</button>
+        <button class="tab-btn" data-tab="locadores" data-action="abrirTab" data-arg="locadores"><i class="bi bi-people"></i> Clientes</button>
+        <button class="tab-btn" data-tab="tipos" data-action="abrirTab" data-arg="tipos"><i class="bi bi-tags"></i> Tipos</button>
+        <button class="tab-btn" data-tab="estoque" data-action="abrirTab" data-arg="estoque"><i class="bi bi-box-seam"></i> Estoque</button>
+        <button class="tab-btn" data-tab="checklist" data-action="abrirTab" data-arg="checklist"><i class="bi bi-check2-square"></i> Checklist</button>
+        <button class="tab-btn" data-tab="locacoes" data-action="abrirTab" data-arg="locacoes"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" data-tab="devolucoes" data-action="abrirTab" data-arg="devolucoes"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+        <button class="tab-btn" data-tab="auditoria" data-action="abrirTab" data-arg="auditoria"><i class="bi bi-shield-check"></i> Auditoria</button>
+        <button class="tab-btn" data-tab="config" data-action="abrirTab" data-arg="config"><i class="bi bi-gear"></i> Config</button>
     </div>
 </div>
 
@@ -135,7 +135,7 @@
                     </div>
                 </div>
                 <div class="dashboard-grid">
-                    <div class="stat-card card-blue" onclick="abrirTab('locadores')">
+                    <div class="stat-card card-blue" data-action="abrirTab" data-arg="locadores">
                         <div class="stat-info">
                             <small id="dashTagClientes" class="stat-tag">Base ativa</small>
                             <h3 id="dashClientes">0</h3>
@@ -143,7 +143,7 @@
                         </div>
                         <div class="stat-icon"><i class="bi bi-people"></i></div>
                     </div>
-                    <div class="stat-card card-orange" onclick="irParaLocacoes('todos')">
+                    <div class="stat-card card-orange" data-action="irParaLocacoes" data-arg="todos">
                         <div class="stat-info">
                             <small id="dashTagLocacoes" class="stat-tag">Operação</small>
                             <h3 id="dashLocacoes">0</h3>
@@ -159,7 +159,7 @@
                         </div>
                         <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
                     </div>
-                    <div class="stat-card card-purple" onclick="irParaLocacoes('atrasado')">
+                    <div class="stat-card card-purple" data-action="irParaLocacoes" data-arg="atrasado">
                         <div class="stat-info">
                             <small id="dashTagAtrasos" class="stat-tag">Risco</small>
                             <h3 id="dashAtrasos">0</h3>
@@ -249,10 +249,10 @@
                         <div class="form-group"><label>Email</label><input type="email" id="locEmail"></div>
                         <div class="form-group"><label>Telefone</label><input type="tel" id="locTel"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
+                    <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')">
+                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-keyup="buscarComDebounce" data-arg="locadores">
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -269,7 +269,7 @@
                         <div class="form-group"><label>Nome</label><input type="text" id="tipoNome"></div>
                         <div class="form-group"><label>Descrição</label><input type="text" id="tipoDesc"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="salvarTipo()">Salvar Tipo</button>
+                    <button class="btn btn-primary" data-action="salvarTipo">Salvar Tipo</button>
                 </div>
                 <div class="card">
                     <div class="table-responsive"><table class="table"><thead><tr><th>Nome</th><th>Descrição</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblTipos"></tbody></table></div>
@@ -280,9 +280,9 @@
                 <div class="card">
                     <div class="section-toolbar">
                         <h2>Stock de Peças</h2>
-                        <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
+                        <button class="btn btn-success" data-action="triggerClick" data-target-id="inputExcel"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
                     </div>
-                    <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" onchange="processarExcelInteligente(this)">
+                    <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 
                     <div class="panel-block">
                         <h3>Novo Item</h3>
@@ -304,7 +304,7 @@
                                 <label>Cód Barras</label>
                                 <div class="inline-input-action">
                                     <input type="text" id="pecaBar">
-                                    <button class="btn btn-secondary btn-icon" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button>
+                                    <button class="btn btn-secondary btn-icon" data-action="iniciarScanner" data-arg="cadastro"><i class="bi bi-qr-code"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -339,8 +339,8 @@
                             </div>
                         </div>
                         <div class="inline-chip-row">
-                            <button class="btn btn-primary" data-acesso="admin" onclick="salvarPeca()">Salvar Item</button>
-                            <button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
+                            <button class="btn btn-primary" data-acesso="admin" data-action="salvarPeca">Salvar Item</button>
+                            <button class="btn btn-secondary" data-action="abrirModalModeloChecklist">Criar Modelo de Estrutura</button>
                         </div>
                     </div>
 
@@ -349,10 +349,10 @@
                         <div id="listaModelosChecklist"></div>
                     </div>
 
-                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
+                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-keyup="buscarComDebounce" data-arg="estoque">
 
                     <div class="inline-chip-row">
-                        <button class="btn btn-danger btn-sm" data-acesso="admin" onclick="excluirSelecionadosEstoque()">
+                        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
                             <i class="bi bi-trash"></i> Excluir selecionados
                         </button>
                     </div>
@@ -362,7 +362,7 @@
                             <thead>
                                 <tr>
                                     <th class="table-select-col">
-                                        <input type="checkbox" id="chkAllEstoque" onchange="toggleSelecionarTodosEstoque(this.checked)">
+                                        <input type="checkbox" id="chkAllEstoque" data-change="toggleSelecionarTodosEstoque" data-arg="__checked__">
                                     </th>
                                     <th>Img</th>
                                     <th>Cód</th>
@@ -382,13 +382,13 @@
         <div class="card">
             <h3>Nova Locação</h3>
             <div id="locacaoFlow" class="locacao-flow">
-                <button type="button" id="locacaoStep1" class="locacao-step is-active" onclick="irEtapaLocacao(1)">
+                <button type="button" id="locacaoStep1" class="locacao-step is-active" data-action="irEtapaLocacao" data-arg="1">
                     <span>1</span> Cliente e datas
                 </button>
-                <button type="button" id="locacaoStep2" class="locacao-step" onclick="irEtapaLocacao(2)">
+                <button type="button" id="locacaoStep2" class="locacao-step" data-action="irEtapaLocacao" data-arg="2">
                     <span>2</span> Itens do pedido
                 </button>
-                <button type="button" id="locacaoStep3" class="locacao-step" onclick="irEtapaLocacao(3)">
+                <button type="button" id="locacaoStep3" class="locacao-step" data-action="irEtapaLocacao" data-arg="3">
                     <span>3</span> Revisar e concluir
                 </button>
             </div>
@@ -403,7 +403,7 @@
                     <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
                 </div>
                 <div class="inline-chip-row">
-                    <button id="btnIrEtapa2" class="btn btn-primary" onclick="irEtapaLocacao(2)">
+                    <button id="btnIrEtapa2" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="2">
                         Continuar para itens
                     </button>
                 </div>
@@ -419,21 +419,21 @@
                         
                         <div class="form-group locacao-item-search">
                             <label>Buscar Item (Digite para filtrar)</label>
-                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
+                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." data-keyup="filtrarItensLocacao" autocomplete="off">
                             <input type="hidden" id="aluguelItemSelect">
                             <div id="listaSugestoes" class="dropdown-sugestoes"></div>
                         </div>
 
                         <div class="form-group locacao-item-qtd">
                             <label>Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
-                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" oninput="validarDigitacao(this)">
+                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" data-input="validarDigitacao" data-arg="__this__">
                         </div>
 
                         <div class="form-group locacao-item-actions">
-                            <button class="btn btn-success btn-grow" onclick="addItemCarrinho()">
+                            <button class="btn btn-success btn-grow" data-action="addItemCarrinho">
                                 <i class="bi bi-plus-lg"></i> Add
                             </button>
-                            <button class="btn btn-secondary btn-square" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                            <button class="btn btn-secondary btn-square" data-action="iniciarScanner" data-arg="locacao" title="Ler QR Code">
                                 <i class="bi bi-qr-code"></i>
                             </button>
                         </div>
@@ -447,10 +447,10 @@
                             <strong id="checkoutTotalLocacao">R$ 0,00</strong>
                         </div>
                         <div class="checkout-actions">
-                            <button id="btnLimparCarrinho" class="btn btn-secondary" onclick="limparCarrinhoLocacao()" disabled>
+                            <button id="btnLimparCarrinho" class="btn btn-secondary" data-action="limparCarrinhoLocacao" disabled>
                                 <i class="bi bi-eraser"></i> Limpar
                             </button>
-                            <button id="btnIrEtapa3" class="btn btn-primary" onclick="irEtapaLocacao(3)" disabled>
+                            <button id="btnIrEtapa3" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="3" disabled>
                                 <i class="bi bi-arrow-right-circle"></i> Revisar locação
                             </button>
                         </div>
@@ -461,10 +461,10 @@
             <div id="locacaoEtapa3" class="locacao-step-panel">
                 <div id="locacaoResumoFinal" class="locacao-review"></div>
                 <div class="inline-chip-row">
-                    <button class="btn btn-secondary" onclick="irEtapaLocacao(2)">
+                    <button class="btn btn-secondary" data-action="irEtapaLocacao" data-arg="2">
                         <i class="bi bi-arrow-left"></i> Voltar aos itens
                     </button>
-                    <button id="btnFinalizarLocacao" class="btn btn-primary" onclick="finalizarLocacao()" disabled>
+                    <button id="btnFinalizarLocacao" class="btn btn-primary" data-action="finalizarLocacao" disabled>
                         <i class="bi bi-check2-circle"></i> Concluir Locação
                     </button>
                 </div>
@@ -472,10 +472,10 @@
 
                  
                <div class="filters-row">
-                    <button class="btn btn-sm btn-secondary" data-filtro="todos" onclick="mudarFiltro('todos')">Todos</button>
-                    <button class="btn btn-sm btn-success" data-filtro="ativo" onclick="mudarFiltro('ativo')">Em Aberto</button>
-                    <button class="btn btn-sm btn-danger" data-filtro="atrasado" onclick="mudarFiltro('atrasado')">Atrasados</button>
-                    <button class="btn btn-sm btn-info" data-filtro="devolvido" onclick="mudarFiltro('devolvido')">Histórico</button>
+                    <button class="btn btn-sm btn-secondary" data-filtro="todos" data-action="mudarFiltro" data-arg="todos">Todos</button>
+                    <button class="btn btn-sm btn-success" data-filtro="ativo" data-action="mudarFiltro" data-arg="ativo">Em Aberto</button>
+                    <button class="btn btn-sm btn-danger" data-filtro="atrasado" data-action="mudarFiltro" data-arg="atrasado">Atrasados</button>
+                    <button class="btn btn-sm btn-info" data-filtro="devolvido" data-action="mudarFiltro" data-arg="devolvido">Histórico</button>
                 </div> 
 
                  <div class="panel-block panel-block-spaced">
@@ -542,7 +542,7 @@
                             <select id="checklistModeloSelect"></select>
                         </div>
                         <div class="form-group form-group-end">
-                            <button class="btn btn-primary" onclick="adicionarModeloAoChecklist()">
+                            <button class="btn btn-primary" data-action="adicionarModeloAoChecklist">
                                 Adicionar ao Checklist
                             </button>
                         </div>
@@ -556,8 +556,8 @@
                     </div>
 
                     <div class="inline-chip-row section-gap">
-                        <button class="btn btn-success" onclick="gerarPDFChecklistMontagem()">Gerar PDF</button>
-                        <button class="btn btn-secondary" onclick="limparChecklistMontagem()">Limpar</button>
+                        <button class="btn btn-success" data-action="gerarPDFChecklistMontagem">Gerar PDF</button>
+                        <button class="btn btn-secondary" data-action="limparChecklistMontagem">Limpar</button>
                     </div>
                 </div>
             </div>
@@ -565,24 +565,24 @@
         <div class="card">
             <h3>Registrar Devolução</h3>
             <div class="form-row">
-                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
+                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao"></select></div>
                 <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
             </div>
             <div id="divItensDevolucao" class="soft-box">
                 <small class="muted-note">Selecione uma locação para conferir.</small>
             </div>
-            <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
+            <button class="btn btn-primary" data-action="confirmarDevolucao"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
         <div class="card">
             <div class="section-toolbar">
                 <h3>Histórico Recente</h3>
                 <div class="inline-chip-row">
-                    <select id="devFiltroHistorico" onchange="renderDevolucoes()">
+                    <select id="devFiltroHistorico" data-change="renderDevolucoes">
                         <option value="todos">Todos</option>
                         <option value="parcial">Parciais</option>
                         <option value="total">Concluídas</option>
                     </select>
-                    <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." oninput="renderDevolucoes()">
+                    <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." data-input="renderDevolucoes">
                 </div>
             </div>
             <div class="devolucao-kpis">
@@ -619,19 +619,19 @@
                         <textarea id="confAdminEmails" rows="3" placeholder="E-mails de admin: um por linha ou por vírgula"></textarea>
                         <small class="field-hint">Quando vazio, todo login Google entra como administrador.</small>
                     </div>
-                    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
+                    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" data-change="converterLogo"></div>
                     <div id="previewLogo" class="preview-logo"></div>
-                    <button class="btn btn-primary" data-acesso="admin" onclick="salvarConfig()">Salvar Configurações</button>
+                    <button class="btn btn-primary" data-acesso="admin" data-action="salvarConfig">Salvar Configurações</button>
                 </div>
                 
                 <div class="card config-actions-card">
                     <h3>Dados & Backup</h3>
                     <div class="inline-chip-row">
-                        <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
-                        <button class="btn btn-warning" data-acesso="admin" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
-                        <button class="btn btn-danger" data-acesso="admin" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
+                        <button class="btn btn-info" data-action="baixarBackup">Baixar JSON</button>
+                        <button class="btn btn-warning" data-acesso="admin" data-action="triggerClick" data-target-id="fileRestore">Restaurar JSON</button>
+                        <button class="btn btn-danger" data-acesso="admin" data-action="arquivarHistorico">Arquivar (Limpeza)</button>
                         
-                        <input type="file" id="fileRestore" class="hidden-file-input" onchange="restaurarBackup(this)">
+                        <input type="file" id="fileRestore" class="hidden-file-input" data-change="restaurarBackup" data-arg="__this__">
                     </div>
                 </div>
             </div>
@@ -644,27 +644,27 @@
       <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
 
       <div class="audit-actions">
-        <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
+        <button class="btn btn-info btn-sm" data-action="exportarLogsCSV">
           <i class="bi bi-download"></i> Exportar
         </button>
-        <button class="btn btn-danger btn-sm" data-acesso="admin" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="confirmarLimparLogsAntigos">
           <i class="bi bi-trash"></i> Limpar
         </button>
       </div>
     </div>
 
     <div class="filters-row">
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
-      <button class="btn btn-sm btn-success audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
-      <button class="btn btn-sm btn-success audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
-      <button class="btn btn-sm btn-warning audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
-      <button class="btn btn-sm btn-info audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" data-action="renderLogs" data-arg="todos">Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-filter="cliente" data-action="renderLogs" data-arg="cliente">Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-filter="item" data-action="renderLogs" data-arg="item">Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-filter="locacao" data-action="renderLogs" data-arg="locacao">Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-filter="devolucao" data-action="renderLogs" data-arg="devolucao">Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" data-action="renderLogs" data-arg="sistema">Sistema</button>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label>Busca rápida em logs</label>
-        <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." oninput="renderLogs(window.filtroLogAtual || 'todos')">
+        <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." data-input="renderLogs" data-arg="__filtro_log__">
       </div>
     </div>
 
@@ -700,7 +700,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Editar Cliente</h3>
-      <button class="btn-close-modal" onclick="fecharModal('modalEditarLocador')">
+      <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarLocador">
         <i class="bi bi-x-lg"></i>
       </button>
     </div>
@@ -711,7 +711,7 @@
     <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
 
     <div class="section-gap">
-      <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoLocador()">
+      <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoLocador">
         <i class="bi bi-check-lg"></i> Salvar Alterações
       </button>
     </div>
@@ -722,7 +722,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Editar Tipo</h3>
-                <button class="btn-close-modal" onclick="fecharModal('modalEditarTipo')">
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarTipo">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -730,7 +730,7 @@
             <div class="form-group"><label>Nome</label><input type="text" id="editTipoNome"></div>
             <div class="form-group"><label>Descrição</label><input type="text" id="editTipoDesc"></div>
             <div class="section-gap">
-                <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoTipo()">Salvar</button>
+                <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoTipo">Salvar</button>
             </div>
         </div>
     </div>
@@ -739,7 +739,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Editar Item</h3>
-                <button class="btn-close-modal" onclick="fecharModal('modalEditarPeca')">
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarPeca">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -791,7 +791,7 @@
         </select>
     </div>
 </div>
-                <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoPeca()">Salvar</button>
+                <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoPeca">Salvar</button>
             </div>
         </div>
     </div>
@@ -800,7 +800,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Leitor QR</h3>
-                <button class="btn-close-modal" onclick="fecharScanner()">
+                <button class="btn-close-modal" data-action="fecharScanner">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -814,8 +814,8 @@
             <div class="modal-relatorio-bar">
                 <span>Visualização de Impressão</span>
                 <div class="modal-relatorio-actions">
-                    <button class="btn btn-primary btn-sm" onclick="gerarPDF()"><i class="bi bi-printer"></i> Salvar PDF</button>
-                    <button class="btn btn-danger btn-sm" onclick="fecharModal('modalRelatorio')">Fechar</button>
+                    <button class="btn btn-primary btn-sm" data-action="gerarPDF"><i class="bi bi-printer"></i> Salvar PDF</button>
+                    <button class="btn btn-danger btn-sm" data-action="fecharModal" data-arg="modalRelatorio">Fechar</button>
                 </div>
             </div>
             <div class="modal-relatorio-scroll">
@@ -827,7 +827,7 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Criar Modelo de Estrutura</h3>
-            <button class="btn-close-modal" onclick="fecharModalModeloChecklist()">
+            <button class="btn-close-modal" data-action="fecharModalModeloChecklist">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -858,7 +858,7 @@
         </div>
 
         <div class="section-gap-small">
-            <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
+            <button class="btn btn-secondary" data-action="adicionarItemModeloChecklist">Adicionar Peça</button>
         </div>
 
 <div class="modelo-checklist-list">
@@ -867,8 +867,8 @@
 </div>
 
 <div class="inline-chip-row section-gap">
-    <button class="btn btn-success" onclick="salvarModeloChecklistForm()">Salvar Modelo</button>
-    <button class="btn btn-primary" onclick="fecharModalModeloChecklist()">Fechar</button>
+    <button class="btn btn-success" data-action="salvarModeloChecklistForm">Salvar Modelo</button>
+    <button class="btn btn-primary" data-action="fecharModalModeloChecklist">Fechar</button>
 </div>
     </div>
 </div>

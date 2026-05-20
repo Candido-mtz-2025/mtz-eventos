@@ -67,7 +67,7 @@ function renderEstoque() {
     tr.innerHTML = `
       <td class="table-select-col">
         <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
-               onchange="onSelectEstoque(${p.id}, this.checked)">
+               data-change="onSelectEstoque" data-arg="${p.id}" data-arg2="__checked__">
       </td>
       <td>${thumb}</td>
       <td><span class="table-code">${codigoSeguro}</span></td>
@@ -83,8 +83,8 @@ function renderEstoque() {
       </td>
       <td class="col-actions">
         <div class="actions-cell">
-          <button class="btn btn-sm btn-info" data-acesso="admin" onclick="abrirEditarPeca(${p.id})"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger" data-acesso="admin" onclick="removerItem('pecas', ${p.id})"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-sm btn-info" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${p.id}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-danger" data-acesso="admin" data-action="removerItem" data-arg="pecas" data-arg2="${p.id}"><i class="bi bi-trash"></i></button>
         </div>
       </td>
     `;

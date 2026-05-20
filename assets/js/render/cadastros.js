@@ -37,13 +37,13 @@ function renderLocadores() {
             <td>${telefone}</td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})">
+                    <button class="btn btn-sm btn-info" data-action="abrirEditarLocador" data-arg="${c.id}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm btn-warning" onclick="gerarRelatorioAnual(${c.id})">
+                    <button class="btn btn-sm btn-warning" data-action="gerarRelatorioAnual" data-arg="${c.id}">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" data-acesso="admin" onclick="removerItem('locadores', ${c.id})">
+                    <button class="btn btn-sm btn-danger" data-acesso="admin" data-action="removerItem" data-arg="locadores" data-arg2="${c.id}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -78,7 +78,7 @@ function renderTipos() {
             <td>${desc}</td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})">
+                    <button class="btn btn-sm btn-info" data-action="abrirEditarTipo" data-arg="${t.id}">
                         <i class="bi bi-pencil"></i>
                     </button>
                 </div>

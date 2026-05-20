@@ -71,6 +71,11 @@ function limparConferenciaDevolucao() {
     atualizarResumoConferenciaDevolucao();
 }
 
+function onInputConferenciaDevolucao(input) {
+    validarQtdDevolucao(input);
+    atualizarResumoConferenciaDevolucao();
+}
+
 function carregarItensDevolucao() {
     const id = document.getElementById('devLocacao').value;
     const div = document.getElementById('divItensDevolucao');
@@ -103,10 +108,10 @@ function carregarItensDevolucao() {
             <span><b>Pendentes:</b> ${totalPendente} item(ns)</span>
         </div>
         <div class="inline-chip-row section-gap-small">
-            <button class="btn btn-sm btn-success" onclick="preencherDevolucaoCompleta()">
+            <button class="btn btn-sm btn-success" data-action="preencherDevolucaoCompleta">
                 <i class="bi bi-check2-all"></i> Marcar conferência completa
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="limparConferenciaDevolucao()">
+            <button class="btn btn-sm btn-secondary" data-action="limparConferenciaDevolucao">
                 <i class="bi bi-eraser"></i> Limpar conferência
             </button>
         </div>
@@ -123,11 +128,11 @@ function carregarItensDevolucao() {
                         </div>
                         <div class="form-group">
                             <label>Qtd devolvida</label>
-                            <input type="number" class="dev-qtd" data-peca-id="${item.pecaId}" data-index="${index}" min="0" max="${pendente}" value="${pendente}" oninput="validarQtdDevolucao(this); atualizarResumoConferenciaDevolucao()">
+                            <input type="number" class="dev-qtd" data-peca-id="${item.pecaId}" data-index="${index}" min="0" max="${pendente}" value="${pendente}" data-input="onInputConferenciaDevolucao" data-arg="__this__">
                         </div>
                         <div class="form-group">
                             <label>Avaria/perda</label>
-                            <input type="number" class="dev-avaria" data-peca-id="${item.pecaId}" min="0" max="${pendente}" value="0" oninput="validarQtdDevolucao(this); atualizarResumoConferenciaDevolucao()">
+                            <input type="number" class="dev-avaria" data-peca-id="${item.pecaId}" min="0" max="${pendente}" value="0" data-input="onInputConferenciaDevolucao" data-arg="__this__">
                         </div>
                         <div class="form-group">
                             <label>Observação</label>
@@ -256,3 +261,4 @@ function confirmarDevolucao() {
 window.preencherDevolucaoCompleta = preencherDevolucaoCompleta;
 window.limparConferenciaDevolucao = limparConferenciaDevolucao;
 window.atualizarResumoConferenciaDevolucao = atualizarResumoConferenciaDevolucao;
+window.onInputConferenciaDevolucao = onInputConferenciaDevolucao;

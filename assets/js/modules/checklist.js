@@ -385,12 +385,20 @@ function renderChecklistMontagem() {
                                             max="${item.quantidade}"
                                             class="checklist-input-retorno"
                                             value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
-                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'retorno', this.value, ${item.quantidade})">
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="retorno"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
                                     </td>
                                     <td>
                                         <select
                                             class="checklist-select-status"
-                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'status', this.value, ${item.quantidade})">
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="status"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
                                             <option value="pendente" ${item.conferencia.status === 'pendente' ? 'selected' : ''}>Pendente</option>
                                             <option value="ok" ${item.conferencia.status === 'ok' ? 'selected' : ''}>Conferido</option>
                                             <option value="faltando" ${item.conferencia.status === 'faltando' ? 'selected' : ''}>Faltando</option>
@@ -404,7 +412,11 @@ function renderChecklistMontagem() {
                                             class="checklist-input-obs"
                                             value="${escaparHTMLChecklist(item.conferencia.observacao || '')}"
                                             placeholder="Observacao rapida"
-                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'observacao', this.value, ${item.quantidade})">
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="observacao"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
                                     </td>
                                 </tr>
                             `).join('')}
@@ -655,36 +667,54 @@ function renderChecklistEtapasMontagem() {
     <td>
         <input type="text"
                value="${linha.etapa || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'etapa', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="etapa"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="text"
                value="${linha.descricao || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'descricao', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="descricao"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="text"
                value="${linha.peca || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'peca', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="peca"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="number"
                min="0"
                value="${linha.quantidade || 0}"
-               onchange="atualizarLinhaMontagem(${index}, 'quantidade', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="quantidade"
+               data-arg3="__value__">
     </td>
     <td>
         <textarea
             rows="2"
-            onchange="atualizarLinhaMontagem(${index}, 'observacao', this.value)">${linha.observacao || ''}</textarea>
+            data-change="atualizarLinhaMontagem"
+            data-arg="${index}"
+            data-arg2="observacao"
+            data-arg3="__value__">${linha.observacao || ''}</textarea>
     </td>
     <td style="text-align:center;">
         <input type="checkbox"
                ${linha.conferido ? 'checked' : ''}
-               onchange="atualizarLinhaMontagem(${index}, 'conferido', this.checked)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="conferido"
+               data-arg3="__checked__">
     </td>
     <td>
-        <button class="btn btn-danger btn-sm" onclick="removerLinhaMontagem(${index})">
+        <button class="btn btn-danger btn-sm" data-action="removerLinhaMontagem" data-arg="${index}">
             Remover
         </button>
     </td>

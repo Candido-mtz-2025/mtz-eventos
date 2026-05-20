@@ -5,6 +5,10 @@ const STORAGE_BACKUP_EMERGENCIA = 'mtzBackupEmergencia';
 const STORAGE_BACKUP_AUTO = 'mtzBackupAutomatico';
 const STORAGE_BACKUP_AUTO_TS = 'mtzUltimoBackupAuto';
 const STORAGE_VERSION = '11.1';
+const SYNC_TIMEOUT_MS = 15000;
+
+let sincronizacaoEmAndamento = false;
+let sincronizacaoPendente = null;
 
 function gerarSnapshotDadosSistema() {
     return {
@@ -71,6 +75,17 @@ function montarUrlSyncComToken(urlBase, token) {
     return `${urlBase}${separador}token=${encodeURIComponent(token)}`;
 }
 
+async function fetchComTimeout(url, options = {}, timeoutMs = SYNC_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 function tratarSessaoInvalidaSincronizacao() {
     if (typeof limparSessaoGoogle === 'function') limparSessaoGoogle();
     localStorage.removeItem(AUTH_MODE_KEY);
@@ -98,6 +113,11 @@ function criarBackupEmergencia() {
 }
 
 async function sincronizar(modo) {
+    if (sincronizacaoEmAndamento) {
+        sincronizacaoPendente = modo;
+        return;
+    }
+
     if (!navigator.onLine) {
         updStatus('offline');
         return;
@@ -112,12 +132,13 @@ async function sincronizar(modo) {
         return;
     }
 
+    sincronizacaoEmAndamento = true;
     const urlSync = montarUrlSyncComToken(API_URL, contexto.token);
     updStatus('saving');
 
     try {
         if (modo === 'carregar') {
-            const response = await fetch(urlSync, { cache: 'no-store' });
+            const response = await fetchComTimeout(urlSync, { cache: 'no-store' });
             if (response.status === 401 || response.status === 403) {
                 tratarSessaoInvalidaSincronizacao();
                 return;
@@ -188,7 +209,7 @@ async function sincronizar(modo) {
 
             localStorage.setItem(STORAGE_EDIT_KEY, String(timestamp));
 
-            const response = await fetch(urlSync, {
+            const response = await fetchComTimeout(urlSync, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(dadosParaEnviar)
@@ -213,7 +234,19 @@ async function sincronizar(modo) {
     } catch (erro) {
         console.error('❌ Erro na sincronização:', erro);
         updStatus('offline');
-        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
+        if (erro?.name === 'AbortError') {
+            mostrarToast('⚠️ Nuvem demorou para responder. Seguimos no modo local.', 'erro');
+        } else {
+            mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.', 'erro');
+        }
+    } finally {
+        sincronizacaoEmAndamento = false;
+
+        if (sincronizacaoPendente) {
+            const proximoModo = sincronizacaoPendente;
+            sincronizacaoPendente = null;
+            setTimeout(() => sincronizar(proximoModo), 0);
+        }
     }
 }
 

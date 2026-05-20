@@ -61,14 +61,8 @@ function renderTudo() {
     
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
-    const btnInicial = document.querySelector('.tab-btn.active');
-    if (btnInicial) {
-        const clickExpr = btnInicial.getAttribute('onclick') || '';
-        const match = clickExpr.match(/abrirTab\(['"]([^'"]+)['"]\)/);
-        if (match && match[1]) abrirTab(match[1]);
-    } else {
-        abrirTab('dashboard');
-    }
+    const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
+    abrirTab(btnInicial?.dataset.tab || 'dashboard');
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
@@ -92,8 +86,7 @@ function renderTudo() {
 
         const btns = document.querySelectorAll('.tab-btn');
         btns.forEach((btn) => {
-            const clickExpr = btn.getAttribute('onclick') || '';
-            const ativa = clickExpr.includes(`abrirTab('${id}')`) || clickExpr.includes(`abrirTab(\"${id}\")`);
+            const ativa = btn.dataset.tab === id;
             btn.classList.toggle('active', ativa);
             btn.setAttribute('aria-pressed', ativa ? 'true' : 'false');
         });

@@ -53,6 +53,7 @@ window.sanitizarTexto = sanitizarTexto;
 window.sanitizarImagemURL = sanitizarImagemURL;
 window.criarLinhaTabelaVazia = criarLinhaTabelaVazia;
 window.criarLinhaTabelaCarregando = criarLinhaTabelaCarregando;
+window.buscarComDebounce = buscarComDebounce;
 
     // --- FORMATAÇÃO DE DATA ---
     function formatarData(dataString) {

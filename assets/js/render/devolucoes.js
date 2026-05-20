@@ -78,7 +78,7 @@ function renderDevolucoes() {
                 <td>${formatarData(registro.dataDevolucao)}</td>
                 <td><span class="badge ${badge}">${tipo}</span></td>
                 <td class="col-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="gerarReciboDevolucao(${registro.id})">
+                    <button class="btn btn-sm btn-secondary" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
                         <i class="bi bi-printer"></i>
                     </button>
                 </td>

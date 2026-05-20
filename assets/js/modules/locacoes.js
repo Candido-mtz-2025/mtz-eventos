@@ -327,7 +327,7 @@ function renderCarrinhoLocacao() {
                     </div>
                     <div class="item-carrinho-side">
                         <strong>${formatarMoedaBR(totalItem)}</strong>
-                        <button class="btn btn-sm btn-danger btn-icon" onclick="removerItemCarrinho(${index})" title="Remover item">
+                        <button class="btn btn-sm btn-danger btn-icon" data-action="removerItemCarrinho" data-arg="${index}" title="Remover item">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
