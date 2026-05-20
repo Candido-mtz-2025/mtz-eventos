@@ -2604,7 +2604,7 @@ input[type="file"]::-webkit-file-upload-button {
 }
 
 /* === V12.2 | DASHBOARD EXECUTIVO === */
-#tab-dashboard {
+#tab-dashboard.active {
     display: flex;
     flex-direction: column;
     gap: 16px;
