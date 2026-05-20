@@ -513,7 +513,22 @@
             <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
         <div class="card">
-            <h3>Histórico Recente</h3>
+            <div class="section-toolbar">
+                <h3>Histórico Recente</h3>
+                <div class="inline-chip-row">
+                    <select id="devFiltroHistorico" onchange="renderDevolucoes()">
+                        <option value="todos">Todos</option>
+                        <option value="parcial">Parciais</option>
+                        <option value="total">Concluídas</option>
+                    </select>
+                    <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." oninput="renderDevolucoes()">
+                </div>
+            </div>
+            <div class="devolucao-kpis">
+                <div class="devolucao-kpi"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
+                <div class="devolucao-kpi"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
+                <div class="devolucao-kpi"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
+            </div>
             <div class="table-responsive">
               <table class="table">
                 <thead>
@@ -578,12 +593,18 @@
     </div>
 
     <div class="filters-row">
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
-      <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
-      <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" onclick="renderLogs('todos')">Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-filter="cliente" onclick="renderLogs('cliente')">Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-filter="item" onclick="renderLogs('item')">Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-filter="locacao" onclick="renderLogs('locacao')">Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-filter="devolucao" onclick="renderLogs('devolucao')">Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" onclick="renderLogs('sistema')">Sistema</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Busca rápida em logs</label>
+        <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." oninput="renderLogs(window.filtroLogAtual || 'todos')">
+      </div>
     </div>
 
     <div class="table-responsive">

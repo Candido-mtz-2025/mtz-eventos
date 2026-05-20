@@ -15,6 +15,62 @@ function escaparHTMLDevolucao(valor) {
     return div.innerHTML;
 }
 
+function atualizarResumoConferenciaDevolucao() {
+    const resumo = document.getElementById('devResumoLive');
+    if (!resumo) return;
+
+    const itens = Array.from(document.querySelectorAll('.devolucao-item'));
+    if (itens.length === 0) {
+        resumo.innerHTML = '<span class="muted-note">Sem itens para conferência.</span>';
+        return;
+    }
+
+    let totalPendente = 0;
+    let totalDevolvido = 0;
+    let totalAvaria = 0;
+
+    itens.forEach((item) => {
+        const qtd = item.querySelector('.dev-qtd');
+        const avaria = item.querySelector('.dev-avaria');
+        const pendente = parseInt(qtd?.max, 10) || 0;
+
+        totalPendente += pendente;
+        totalDevolvido += parseInt(qtd?.value, 10) || 0;
+        totalAvaria += parseInt(avaria?.value, 10) || 0;
+    });
+
+    const restante = Math.max(totalPendente - totalDevolvido - totalAvaria, 0);
+    const classe = restante === 0 ? 'badge-success' : 'badge-warning';
+    const texto = restante === 0 ? 'Conferência completa' : `${restante} item(ns) ainda pendente(s)`;
+
+    resumo.innerHTML = `
+        <span><b>Pendente:</b> ${totalPendente}</span>
+        <span><b>Devolvido:</b> ${totalDevolvido}</span>
+        <span><b>Avaria/perda:</b> ${totalAvaria}</span>
+        <span class="badge ${classe}">${texto}</span>
+    `;
+}
+
+function preencherDevolucaoCompleta() {
+    document.querySelectorAll('.dev-qtd').forEach((input) => {
+        input.value = parseInt(input.max, 10) || 0;
+    });
+    document.querySelectorAll('.dev-avaria').forEach((input) => {
+        input.value = 0;
+    });
+    atualizarResumoConferenciaDevolucao();
+}
+
+function limparConferenciaDevolucao() {
+    document.querySelectorAll('.dev-qtd, .dev-avaria').forEach((input) => {
+        input.value = 0;
+    });
+    document.querySelectorAll('.dev-obs').forEach((input) => {
+        input.value = '';
+    });
+    atualizarResumoConferenciaDevolucao();
+}
+
 function carregarItensDevolucao() {
     const id = document.getElementById('devLocacao').value;
     const div = document.getElementById('divItensDevolucao');
@@ -46,6 +102,14 @@ function carregarItensDevolucao() {
             <span><b>Cliente:</b> ${escaparHTMLDevolucao(cliente?.nome || 'Removido')}</span>
             <span><b>Pendentes:</b> ${totalPendente} item(ns)</span>
         </div>
+        <div class="inline-chip-row section-gap-small">
+            <button class="btn btn-sm btn-success" onclick="preencherDevolucaoCompleta()">
+                <i class="bi bi-check2-all"></i> Marcar conferência completa
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="limparConferenciaDevolucao()">
+                <i class="bi bi-eraser"></i> Limpar conferência
+            </button>
+        </div>
         <div class="devolucao-lista">
             ${itensPendentes.map((item, index) => {
                 const pendente = getQtdPendenteItem(item);
@@ -59,11 +123,11 @@ function carregarItensDevolucao() {
                         </div>
                         <div class="form-group">
                             <label>Qtd devolvida</label>
-                            <input type="number" class="dev-qtd" data-peca-id="${item.pecaId}" data-index="${index}" min="0" max="${pendente}" value="${pendente}" oninput="validarQtdDevolucao(this)">
+                            <input type="number" class="dev-qtd" data-peca-id="${item.pecaId}" data-index="${index}" min="0" max="${pendente}" value="${pendente}" oninput="validarQtdDevolucao(this); atualizarResumoConferenciaDevolucao()">
                         </div>
                         <div class="form-group">
                             <label>Avaria/perda</label>
-                            <input type="number" class="dev-avaria" data-peca-id="${item.pecaId}" min="0" max="${pendente}" value="0" oninput="validarQtdDevolucao(this)">
+                            <input type="number" class="dev-avaria" data-peca-id="${item.pecaId}" min="0" max="${pendente}" value="0" oninput="validarQtdDevolucao(this); atualizarResumoConferenciaDevolucao()">
                         </div>
                         <div class="form-group">
                             <label>Observação</label>
@@ -74,10 +138,13 @@ function carregarItensDevolucao() {
                 `;
             }).join('')}
         </div>
+        <div id="devResumoLive" class="devolucao-resumo-live"></div>
         <small style="display:block; margin-top:10px; color:var(--text-light)">
             A quantidade em "Qtd devolvida" volta para o estoque. Use "Avaria/perda" apenas para registrar conferência.
         </small>
     `;
+
+    atualizarResumoConferenciaDevolucao();
 }
 
 function validarQtdDevolucao(input) {
@@ -185,3 +252,7 @@ function confirmarDevolucao() {
 
     mostrarToast(devolucaoTotal ? "Devolução total registrada!" : "Devolução parcial registrada!");
 }
+
+window.preencherDevolucaoCompleta = preencherDevolucaoCompleta;
+window.limparConferenciaDevolucao = limparConferenciaDevolucao;
+window.atualizarResumoConferenciaDevolucao = atualizarResumoConferenciaDevolucao;

@@ -78,40 +78,71 @@ function exportarLogsCSV() {
  * Renderiza a tabela de logs
  */
 function renderLogs(filtro = 'todos') {
-  const tbody = document.getElementById('tblLogs');
-  if (!tbody) return;
+    const tbody = document.getElementById('tblLogs');
+    if (!tbody) return;
 
-  // (opcional) ativa botão
-  document.querySelectorAll('.audit-filter').forEach(b => b.classList.remove('active'));
-  const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
-  if (btnAtivo) btnAtivo.classList.add('active');
+    window.filtroLogAtual = filtro;
 
-  let logsFiltrados = logsAuditoria;
-  if (filtro !== 'todos') {
-    logsFiltrados = logsAuditoria.filter(log => log.tipo === filtro);
-  }
+    document.querySelectorAll('.audit-filter').forEach((botao) => botao.classList.remove('active'));
+    const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
+    if (btnAtivo) btnAtivo.classList.add('active');
+
+    const termoBusca = (document.getElementById('auditBusca')?.value || '').trim().toLowerCase();
+
+    let logsFiltrados = logsAuditoria;
+    if (filtro !== 'todos') {
+        logsFiltrados = logsFiltrados.filter((log) => log.tipo === filtro);
+    }
+
+    if (termoBusca) {
+        logsFiltrados = logsFiltrados.filter((log) => {
+            const descricao = String(log.descricao || '').toLowerCase();
+            const usuario = String(log.usuario || '').toLowerCase();
+            const tipo = String(log.tipo || '').toLowerCase();
+            const acao = String(log.acao || '').toLowerCase();
+            return (
+                descricao.includes(termoBusca) ||
+                usuario.includes(termoBusca) ||
+                tipo.includes(termoBusca) ||
+                acao.includes(termoBusca)
+            );
+        });
+    }
+
+    const totalLogs = document.getElementById('totalLogs');
+    if (totalLogs) totalLogs.textContent = String(logsAuditoria.length);
+
     const icones = {
-        'cliente': 'bi-person',
-        'item': 'bi-box',
-        'locacao': 'bi-cart',
-        'devolucao': 'bi-arrow-return-left',
-        'config': 'bi-gear',
-        'sistema': 'bi-cpu'
+        cliente: 'bi-person',
+        item: 'bi-box',
+        locacao: 'bi-cart',
+        devolucao: 'bi-arrow-return-left',
+        config: 'bi-gear',
+        sistema: 'bi-cpu',
+        checklist: 'bi-check2-square'
     };
-    
+
     const cores = {
-        'criar': '#10b981',
-        'editar': '#f59e0b',
-        'deletar': '#ef4444',
-        'visualizar': '#0ea5e9',
-        'exportar': '#8b5cf6'
+        criar: '#10b981',
+        editar: '#f59e0b',
+        deletar: '#ef4444',
+        visualizar: '#0ea5e9',
+        exportar: '#8b5cf6',
+        parcial: '#f59e0b',
+        limpeza: '#dc2626'
     };
-    
-    tbody.innerHTML = logsFiltrados.slice(0, 100).map(log => {
+
+    const lista = logsFiltrados.slice(0, 120);
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; opacity:0.65;">Nenhum log encontrado para este filtro.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = lista.map((log) => {
         const data = new Date(log.timestamp);
         const dataStr = data.toLocaleDateString('pt-BR');
-        const horaStr = data.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
-        
+        const horaStr = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
         return `
             <tr>
                 <td>
@@ -123,9 +154,9 @@ function renderLogs(filtro = 'todos') {
                     <span style="font-size:0.85rem">${log.tipo}</span>
                 </td>
                 <td>
-                    <span style="color:${cores[log.acao]}; font-weight:600; font-size:0.85rem">${log.acao}</span>
+                    <span style="color:${cores[log.acao] || 'var(--text)'}; font-weight:600; font-size:0.85rem">${log.acao}</span>
                 </td>
-                <td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+                <td style="max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
                     ${log.descricao}
                 </td>
                 <td style="font-size:0.85rem; opacity:0.8">${log.usuario}</td>

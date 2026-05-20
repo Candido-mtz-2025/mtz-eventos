@@ -23,6 +23,15 @@
   outline: 2px solid rgba(15, 23, 42, 0.35);
 }
 
+.filters-row .audit-filter.active {
+  outline: 2px solid rgba(15, 23, 42, 0.25);
+  outline-offset: 1px;
+}
+
+[data-theme="dark"] .filters-row .audit-filter.active {
+  outline-color: rgba(191, 219, 254, 0.55);
+}
+
         /* === ESTILO V9: CLEAN & MODERN === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -744,6 +753,51 @@
   font-size: 0.85rem;
 }
 
+.devolucao-resumo-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-hover);
+}
+
+.devolucao-resumo-live span {
+  font-size: 0.82rem;
+  color: var(--text-light);
+}
+
+.devolucao-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.devolucao-kpi {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-hover);
+  padding: 10px 12px;
+}
+
+.devolucao-kpi small {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: var(--text-light);
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.devolucao-kpi strong {
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
 .badge-row {
   display: inline-flex;
   align-items: center;
@@ -833,6 +887,10 @@
 
 @media (max-width: 768px) {
   .devolucao-item {
+    grid-template-columns: 1fr;
+  }
+
+  .devolucao-kpis {
     grid-template-columns: 1fr;
   }
 
