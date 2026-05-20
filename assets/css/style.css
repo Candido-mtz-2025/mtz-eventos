@@ -359,8 +359,28 @@
             background: var(--primary-hover);
         }
 
+        .btn-login-quick {
+            width: 100%;
+            justify-content: center;
+            margin: 10px 0 2px;
+            padding: 11px 14px;
+            background: #0ea5e9;
+            color: #ffffff;
+            font-weight: 700;
+            border-radius: 10px;
+        }
+
+        .btn-login-quick:hover {
+            background: #0284c7;
+        }
+
         .btn-login-google:disabled,
         .btn-login-offline:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .btn-login-quick:disabled {
             opacity: 0.65;
             cursor: not-allowed;
         }
@@ -371,6 +391,53 @@
             color: var(--text-light);
             font-size: 0.8rem;
             text-align: center;
+        }
+
+        .login-last-user {
+            border: 1px solid var(--border);
+            background: var(--surface-hover);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 0 0 12px;
+        }
+
+        .login-last-user-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .login-last-user-head img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--border);
+            background: #e2e8f0;
+        }
+
+        .login-last-user-head small {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.74rem;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .login-last-user-head strong {
+            display: block;
+            color: var(--text);
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+
+        .login-last-user-head span {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.8rem;
+            margin-top: 2px;
+            overflow-wrap: anywhere;
         }
 
         /* INPUTS MODERNOS */
@@ -401,6 +468,7 @@
             .login-brand { align-items: flex-start; }
             .login-brand h1 { font-size: 1.35rem; }
             .login-copy p { font-size: 0.9rem; }
+            .login-last-user-head { align-items: flex-start; }
             .checkout-bar { align-items: stretch; flex-direction: column; }
             .checkout-actions { flex-direction: column; }
             .checkout-actions .btn { justify-content: center; width: 100%; }

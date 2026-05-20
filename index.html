@@ -44,6 +44,20 @@
                 <span id="loginStatusText">Pronto para entrar.</span>
             </div>
 
+            <div id="loginLastUser" class="login-last-user" style="display:none;">
+                <div class="login-last-user-head">
+                    <img id="loginLastUserAvatar" src="./logo.png" alt="Último usuário">
+                    <div>
+                        <small>Último acesso</small>
+                        <strong id="loginLastUserName">Conta Google</strong>
+                        <span id="loginLastUserEmail">Sem e-mail salvo</span>
+                    </div>
+                </div>
+                <button id="btnAcessoRapidoGoogle" class="btn btn-login-quick" onclick="entrarComUltimoUsuarioGoogle()">
+                    <i class="bi bi-lightning-charge"></i> Acesso rápido com Google
+                </button>
+            </div>
+
             <button id="btnLoginGoogle" class="btn btn-login-google" onclick="fazerLoginGoogle()">
                 <i class="bi bi-google"></i> Entrar com Google
             </button>
