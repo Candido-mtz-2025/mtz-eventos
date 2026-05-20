@@ -26,15 +26,32 @@
 
     <div id="loginArea">
         <div class="login-box">
-            <h1 style="color:var(--primary); margin-bottom:5px;">MTZ Eventos</h1>
-            <p style="margin-bottom: 30px; color:var(--text-light);">Sistema de Gestão & Locação V11</p>
-            
-            <button id="btnLoginGoogle" class="btn" style="width: 100%; margin-bottom: 15px; background-color: #1e293b; color: white; justify-content: center; padding: 14px;" onclick="fazerLoginGoogle()">
+            <div class="login-brand">
+                <img src="./logo.png" alt="Logo MTZ Eventos">
+                <div>
+                    <h1>MTZ Eventos</h1>
+                    <p>Gestão e locação de eventos</p>
+                </div>
+            </div>
+
+            <div class="login-copy">
+                <h2>Acesso ao sistema</h2>
+                <p>Use sua conta Google para sincronizar dados ou continue em modo local.</p>
+            </div>
+
+            <div id="loginStatus" class="login-status info">
+                <i id="loginStatusIcon" class="bi bi-shield-check"></i>
+                <span id="loginStatusText">Pronto para entrar.</span>
+            </div>
+
+            <button id="btnLoginGoogle" class="btn btn-login-google" onclick="fazerLoginGoogle()">
                 <i class="bi bi-google"></i> Entrar com Google
             </button>
-            <button class="btn" style="width: 100%; background-color: var(--primary); color: white; justify-content: center; padding: 14px;" onclick="entrarOffline()">
-                <i class="bi bi-hdd"></i> Usar Offline (Local)
+            <button id="btnEntrarOffline" class="btn btn-login-offline" onclick="entrarOffline()">
+                <i class="bi bi-hdd"></i> Continuar offline
             </button>
+
+            <small class="login-hint">Você pode sincronizar com a nuvem depois, quando quiser.</small>
         </div>
     </div>
 

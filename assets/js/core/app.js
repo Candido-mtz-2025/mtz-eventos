@@ -56,8 +56,7 @@ function renderTudo() {
     document.head.appendChild(style);
     
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
-    if(window.google) gisLoaded();
-    if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+    if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
