@@ -88,7 +88,7 @@
             <div class="container">
                 <div class="logo">
                     <h1>MTZ Eventos</h1>
-                    <p style="font-size:0.85rem; color:var(--text-light);">Painel de Controle</p>
+                    <p class="logo-subtitle">Painel de Controle</p>
                 </div>
                 <div class="header-actions">
                     <div id="headerUser" class="header-user" style="display:none;">
@@ -114,7 +114,7 @@
         <button class="tab-btn" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
         <button class="tab-btn" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
         <button class="tab-btn" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-        <button class="tab-btn" onclick="abrirTab('checklist')">Checklist</button>
+        <button class="tab-btn" onclick="abrirTab('checklist')"><i class="bi bi-check2-square"></i> Checklist</button>
         <button class="tab-btn" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
         <button class="tab-btn" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
         <button class="tab-btn" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
@@ -133,7 +133,7 @@
                         <div class="stat-icon"><i class="bi bi-cart"></i></div>
                     </div>
                     <div class="stat-card card-green">
-                        <div class="stat-info"><h3 id="dashFaturamento" style="font-size:1.4rem;">R$ 0,00</h3><p>Receita</p></div>
+                        <div class="stat-info"><h3 id="dashFaturamento" class="metric-value-compact">R$ 0,00</h3><p>Receita</p></div>
                         <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
                     </div>
                     <div class="stat-card card-purple" onclick="irParaLocacoes('atrasado')">
@@ -145,12 +145,12 @@
                     <div class="dash-section">
                         <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
                         <div class="table-responsive">
-                            <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th style="text-align:center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
+                            <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th class="table-head-center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
                         </div>
                     </div>
                     <div class="dash-section">
                         <h3><i class="bi bi-box-seam"></i> Avisos</h3>
-                        <div id="listEstoqueBaixo"><small style="color:var(--text-light)">Sistema operando normalmente.</small></div>
+                        <div id="listEstoqueBaixo"><small class="muted-note">Sistema operando normalmente.</small></div>
                     </div>
                 </div>
             </div>
@@ -172,7 +172,7 @@
                     <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
+                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')">
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -197,107 +197,107 @@
             </div>
 
             <div id="tab-estoque" class="tab-content">
-                 <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0;">Stock de Peças</h2>
-                    <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
-                </div>
-                <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
-                
                 <div class="card">
-                    <h3>Novo Item</h3>
-                    <div class="form-row">
-                        <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
-                        <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
+                    <div class="section-toolbar">
+                        <h2>Stock de Peças</h2>
+                        <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
-                        <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
-                        <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
-                        <div class="form-group"><label>Cód Barras</label><div style="display:flex; gap:5px;"><input type="text" id="pecaBar"><button class="btn btn-secondary" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button></div></div>
-                    </div>
-                    
-<div class="form-row">
-    <div class="form-group">
-        <label>Grupo Checklist</label>
-        <select id="pecaGrupoChecklist">
-            <option value="estrutura">Estrutura</option>
-            <option value="moveis">Móveis</option>
-            <option value="eletrica">Elétrica</option>
-            <option value="cobertura">Cobertura</option>
-            <option value="acabamento">Acabamento</option>
-            <option value="outros">Outros</option>
-        </select>
-    </div>
+                    <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" onchange="processarExcelInteligente(this)">
 
-    <div class="form-group">
-        <label>Família Estrutural</label>
-        <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
-    </div>
-</div>
+                    <div class="panel-block">
+                        <h3>Novo Item</h3>
+                        <div class="form-row">
+                            <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
+                            <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
+                            <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
+                            <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
+                            <div class="form-group">
+                                <label>Cód Barras</label>
+                                <div class="inline-input-action">
+                                    <input type="text" id="pecaBar">
+                                    <button class="btn btn-secondary btn-icon" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Grupo Checklist</label>
+                                <select id="pecaGrupoChecklist">
+                                    <option value="estrutura">Estrutura</option>
+                                    <option value="moveis">Móveis</option>
+                                    <option value="eletrica">Elétrica</option>
+                                    <option value="cobertura">Cobertura</option>
+                                    <option value="acabamento">Acabamento</option>
+                                    <option value="outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Família Estrutural</label>
+                                <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Subtipo Estrutural</label>
+                                <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
+                            </div>
+                            <div class="form-group">
+                                <label>Pode compor estrutura?</label>
+                                <select id="pecaPodeCompor">
+                                    <option value="sim">Sim</option>
+                                    <option value="nao">Não</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
+                            <button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Subtipo Estrutural</label>
-        <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
-    </div>
+                    <div class="panel-block panel-block-spaced">
+                        <h3>Modelos de Estrutura Salvos</h3>
+                        <div id="listaModelosChecklist"></div>
+                    </div>
 
-    <div class="form-group">
-        <label>Pode compor estrutura?</label>
-        <select id="pecaPodeCompor">
-            <option value="sim">Sim</option>
-            <option value="nao">Não</option>
-        </select>
-    </div>
-</div>
-                    
-<button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
-                    <br><br>
-<button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
+                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')">
+
+                    <div class="inline-chip-row">
+                        <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
+                            <i class="bi bi-trash"></i> Excluir selecionados
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="table-select-col">
+                                        <input type="checkbox" id="chkAllEstoque" onchange="toggleSelecionarTodosEstoque(this.checked)">
+                                    </th>
+                                    <th>Img</th>
+                                    <th>Cód</th>
+                                    <th>Tipo</th>
+                                    <th>Nome</th>
+                                    <th>Valor</th>
+                                    <th>Estoque</th>
+                                    <th class="col-actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblEstoque"></tbody>
+                        </table>
+                    </div>
                 </div>
-                   <div class="card">
-                       <div class="card" style="margin-top:20px;">
-    <h3>Modelos de Estrutura Salvos</h3>
-    <div id="listaModelosChecklist"></div>
-</div>
-  <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
-
-  <!-- BOTÃO AQUI (entre o input e a tabela) -->
-  <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-    <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
-      <i class="bi bi-trash"></i> Excluir selecionados
-    </button>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th style="width:40px;">
-            <input type="checkbox" id="chkAllEstoque"
-                   onchange="toggleSelecionarTodosEstoque(this.checked)">
-          </th>
-          <th>Img</th>
-          <th>Cód</th>
-          <th>Tipo</th>
-          <th>Nome</th>
-          <th>Valor</th>
-          <th>Estoque</th>
-          <th class="col-actions">Ações</th>
-        </tr>
-      </thead>
-    <tbody id="tblEstoque"></tbody>
-            </table>
-          </div>
-        </div> 
-      </div> 
-     </div> 
+            </div>
    <div id="tab-locacoes" class="tab-content">
         <div class="card">
             <h3>Nova Locação</h3>
@@ -310,29 +310,29 @@
                 <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
             </div>
                     <div class="box-carrinho">
-                        <h4 style="margin-top:0; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
-                            <i class="bi bi-cart-plus" style="color:var(--primary)"></i> Itens do Pedido
+                        <h4 class="cart-title">
+                            <i class="bi bi-cart-plus cart-title-icon"></i> Itens do Pedido
                         </h4>
                         
-                        <div class="form-row" style="align-items: flex-end;">
+                        <div class="form-row locacao-form-row">
                         
-                        <div class="form-group" style="flex: 4; position: relative;">
+                        <div class="form-group locacao-item-search">
                             <label>Buscar Item (Digite para filtrar)</label>
                             <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
                             <input type="hidden" id="aluguelItemSelect">
                             <div id="listaSugestoes" class="dropdown-sugestoes"></div>
                         </div>
 
-                        <div class="form-group" style="flex: 1; min-width: 70px;">
-                            <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
-                            <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+                        <div class="form-group locacao-item-qtd">
+                            <label>Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
+                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" oninput="validarDigitacao(this)">
                         </div>
 
-                        <div class="form-group" style="flex: 2; display:flex; gap: 5px; flex-direction: row;">
-                            <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
+                        <div class="form-group locacao-item-actions">
+                            <button class="btn btn-success btn-grow" onclick="addItemCarrinho()">
                                 <i class="bi bi-plus-lg"></i> Add
                             </button>
-                            <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                            <button class="btn btn-secondary btn-square" onclick="iniciarScanner('locacao')" title="Ler QR Code">
                                 <i class="bi bi-qr-code"></i>
                             </button>
                         </div>
@@ -357,14 +357,14 @@
                 </div>
 
                 
-               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+               <div class="filters-row">
                     <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
                     <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
                     <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
                     <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
                 </div> 
 
-                 <div class="card">
+                 <div class="panel-block panel-block-spaced">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
@@ -378,81 +378,75 @@
         </div> 
   </div> 
             <div id="tab-checklist" class="tab-content">
-    <div class="card">
-        <h2>Checklist</h2>
-        
-         <div class="form-row">
-    <div class="form-group">
-        <label>Cliente</label>
-        <input type="text" id="checklistCliente" placeholder="Nome do cliente">
-    </div>
+                <div class="card">
+                    <h2>Checklist</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="checklistCliente" placeholder="Nome do cliente">
+                        </div>
+                        <div class="form-group">
+                            <label>Local</label>
+                            <input type="text" id="checklistLocal" placeholder="Local do evento">
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Local</label>
-        <input type="text" id="checklistLocal" placeholder="Local do evento">
-    </div>
-</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Montagem</label>
+                            <input type="date" id="checklistMontagemData">
+                        </div>
+                        <div class="form-group">
+                            <label>Horário</label>
+                            <input type="text" id="checklistHorario" placeholder="Ex: 08:00">
+                        </div>
+                        <div class="form-group">
+                            <label>Evento</label>
+                            <input type="text" id="checklistEvento" placeholder="Nome do evento">
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Montagem</label>
-        <input type="date" id="checklistMontagemData">
-    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Desmontagem</label>
+                            <input type="date" id="checklistDesmontagemData">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsável pela Saída</label>
+                            <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsável pelo Retorno</label>
+                            <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno">
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Horário</label>
-        <input type="text" id="checklistHorario" placeholder="Ex: 08:00">
-    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Modelo salvo</label>
+                            <select id="checklistModeloSelect"></select>
+                        </div>
+                        <div class="form-group form-group-end">
+                            <button class="btn btn-primary" onclick="adicionarModeloAoChecklist()">
+                                Adicionar ao Checklist
+                            </button>
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Evento</label>
-        <input type="text" id="checklistEvento" placeholder="Nome do evento">
-    </div>
-</div>
+                    <div class="section-gap">
+                        <h3>Checklist de Saída / Retorno</h3>
+                        <div id="listaChecklistMontagem">
+                            <p>Nenhum item adicionado.</p>
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Desmontagem</label>
-        <input type="date" id="checklistDesmontagemData">
-    </div>
-
-    <div class="form-group">
-        <label>Responsável pela Saída</label>
-        <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída">
-    </div>
-
-    <div class="form-group">
-        <label>Responsável pelo Retorno</label>
-        <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno">
-    </div>
-</div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Modelo salvo</label>
-                <select id="checklistModeloSelect"></select>
+                    <div class="inline-chip-row section-gap">
+                        <button class="btn btn-success" onclick="gerarPDFChecklistMontagem()">Gerar PDF</button>
+                        <button class="btn btn-secondary" onclick="limparChecklistMontagem()">Limpar</button>
+                    </div>
+                </div>
             </div>
-
-            <div class="form-group" style="display:flex; align-items:flex-end;">
-                <button class="btn btn-primary" onclick="adicionarModeloAoChecklist()">
-                    Adicionar ao Checklist
-                </button>
-            </div>
-        </div>
-
-        <div style="margin-top:20px;">
-            <h3>Checklist de Saída / Retorno</h3>
-            <div id="listaChecklistMontagem">
-                <p>Nenhum item adicionado.</p>
-            </div>
-        </div>
-
-        <div style="margin-top:20px; display:flex; gap:10px;">
-            <button class="btn btn-success" onclick="gerarPDFChecklistMontagem()">Gerar PDF</button>
-            <button class="btn btn-secondary" onclick="limparChecklistMontagem()">Limpar</button>
-        </div>
-    </div>
-</div>
             <div id="tab-devolucoes" class="tab-content">
         <div class="card">
             <h3>Registrar Devolução</h3>
@@ -460,8 +454,8 @@
                 <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
                 <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
             </div>
-            <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
-                <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
+            <div id="divItensDevolucao" class="soft-box">
+                <small class="muted-note">Selecione uma locação para conferir.</small>
             </div>
             <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
@@ -492,18 +486,18 @@
                         <small class="field-hint">Se preenchido, apenas esses e-mails poderão entrar com Google.</small>
                     </div>
                     <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
-                    <div id="previewLogo" style="margin: 10px 0;"></div>
+                    <div id="previewLogo" class="preview-logo"></div>
                     <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
                 </div>
                 
                 <div class="card config-actions-card">
                     <h3>Dados & Backup</h3>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <div class="inline-chip-row">
                         <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
                         <button class="btn btn-warning" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
                         <button class="btn btn-danger" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
                         
-                        <input type="file" id="fileRestore" style="display: none;" onchange="restaurarBackup(this)">
+                        <input type="file" id="fileRestore" class="hidden-file-input" onchange="restaurarBackup(this)">
                     </div>
                 </div>
             </div>
@@ -525,7 +519,7 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
+    <div class="filters-row">
       <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
       <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
       <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
@@ -550,7 +544,7 @@
     </div>
 
     <div class="audit-footer-info">
-      <small style="color:var(--text-light);">
+      <small class="muted-note">
         <i class="bi bi-info-circle"></i>
         <b>Total</b>:
         <span id="totalLogs">0</span>/1000
@@ -576,8 +570,8 @@
     <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
     <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
 
-    <div style="margin-top:20px">
-      <button class="btn btn-primary" onclick="salvarEdicaoLocador()" style="width:100%">
+    <div class="section-gap">
+      <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoLocador()">
         <i class="bi bi-check-lg"></i> Salvar Alterações
       </button>
     </div>
@@ -595,8 +589,8 @@
             <input type="hidden" id="editTipoId">
             <div class="form-group"><label>Nome</label><input type="text" id="editTipoNome"></div>
             <div class="form-group"><label>Descrição</label><input type="text" id="editTipoDesc"></div>
-            <div style="margin-top:20px">
-                <button class="btn btn-primary" onclick="salvarEdicaoTipo()" style="width:100%">Salvar</button>
+            <div class="section-gap">
+                <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoTipo()">Salvar</button>
             </div>
         </div>
     </div>
@@ -623,7 +617,7 @@
                 <div class="form-group"><label>Qtd</label><input type="number" id="editPecaQtd"></div>
             </div>
             <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
-            <div style="margin-top:20px">
+            <div class="section-gap">
                 <div class="form-row">
     <div class="form-group">
         <label>Grupo Checklist</label>
@@ -657,7 +651,7 @@
         </select>
     </div>
 </div>
-                <button class="btn btn-primary" onclick="salvarEdicaoPeca()" style="width:100%">Salvar</button>
+                <button class="btn btn-primary full-width-btn" onclick="salvarEdicaoPeca()">Salvar</button>
             </div>
         </div>
     </div>
@@ -671,20 +665,20 @@
                 </button>
             </div>
             <div class="scanner-box"><div id="interactive" class="viewport"></div></div>
-            <p style="text-align:center;">Aponte a câmera</p>
+            <p class="modal-helper-text">Aponte a câmera</p>
         </div>
     </div>
     
     <div id="modalRelatorio" class="modal">
-        <div class="modal-content" style="max-width: 900px; padding: 0; background: #525659; height: 95vh; display: flex; flex-direction: column;">
-            <div style="padding: 10px 20px; background: #323639; color: white; display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-content modal-relatorio-content">
+            <div class="modal-relatorio-bar">
                 <span>Visualização de Impressão</span>
-                <div style="display: flex; gap: 10px;">
+                <div class="modal-relatorio-actions">
                     <button class="btn btn-primary btn-sm" onclick="gerarPDF()"><i class="bi bi-printer"></i> Salvar PDF</button>
                     <button class="btn btn-danger btn-sm" onclick="fecharModal('modalRelatorio')">Fechar</button>
                 </div>
             </div>
-            <div style="flex: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; background: #525659;">
+            <div class="modal-relatorio-scroll">
                 <div id="printArea" class="invoice-box"></div>
             </div>
         </div>
@@ -718,16 +712,16 @@
             </div>
         </div>
 
-        <div style="margin-bottom: 15px;">
-    <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
-</div>
+        <div class="section-gap-small">
+            <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
+        </div>
 
 <div>
     <h4>Peças do Modelo</h4>
     <div id="listaItensModeloChecklist"></div>
 </div>
 
-<div style="margin-top: 20px; display: flex; gap: 10px;">
+<div class="inline-chip-row section-gap">
     <button class="btn btn-success" onclick="salvarModeloChecklistForm()">Salvar Modelo</button>
     <button class="btn btn-primary" onclick="fecharModalModeloChecklist()">Fechar</button>
 </div>
