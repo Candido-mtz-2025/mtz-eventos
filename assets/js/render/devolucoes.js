@@ -58,7 +58,8 @@ function renderDevolucoes() {
     }
 
     tbody.innerHTML = lista.map((registro) => {
-        const cliente = registro.cliente ? registro.cliente.nome : 'Removido';
+        const clienteBruto = registro.cliente ? registro.cliente.nome : 'Removido';
+        const cliente = typeof sanitizarTexto === 'function' ? sanitizarTexto(clienteBruto) : clienteBruto;
         const locacaoId = registro.locacao ? `#${registro.locacao.id.toString().slice(-4)}` : '#----';
         const tipo = registro.tipoNormalizado === 'parcial' ? 'Parcial' : 'Concluído';
         const badge = registro.tipoNormalizado === 'parcial' ? 'badge-warning' : 'badge-success';

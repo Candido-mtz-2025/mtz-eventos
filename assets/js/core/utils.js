@@ -13,6 +13,33 @@ const buscarComDebounce = debounce(function(tipo) {
     if (tipo === 'estoque') renderEstoque();
 }, 300);
 
+function sanitizarTexto(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor == null ? '' : String(valor);
+    return div.innerHTML;
+}
+
+function sanitizarImagemURL(valor) {
+    const bruto = String(valor || '').trim();
+    if (!bruto) return '';
+
+    if (bruto.startsWith('data:image/')) return bruto;
+
+    try {
+        const parsed = new URL(bruto, window.location.href);
+        if (['http:', 'https:', 'blob:'].includes(parsed.protocol)) {
+            return parsed.href;
+        }
+    } catch (_) {
+        return '';
+    }
+
+    return '';
+}
+
+window.sanitizarTexto = sanitizarTexto;
+window.sanitizarImagemURL = sanitizarImagemURL;
+
     // --- FORMATAÇÃO DE DATA ---
     function formatarData(dataString) {
         if (!dataString) return '<span style="color:#999">---</span>';

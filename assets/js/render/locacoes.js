@@ -27,7 +27,9 @@ function renderLocacoes() {
     filtrados.sort((a, b) => b.id - a.id);
     
     // Paginação
-    const totalPaginas = Math.ceil(filtrados.length / ITENS_POR_PAGINA);
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITENS_POR_PAGINA));
+    if (paginaAtual.locacoes > totalPaginas) paginaAtual.locacoes = totalPaginas;
+    if (paginaAtual.locacoes < 1) paginaAtual.locacoes = 1;
     const inicio = (paginaAtual.locacoes - 1) * ITENS_POR_PAGINA;
     const itensPagina = filtrados.slice(inicio, inicio + ITENS_POR_PAGINA);
     
@@ -39,15 +41,28 @@ function renderLocacoes() {
     // 🔥 OTIMIZAÇÃO: DocumentFragment (1 reflow)
     const fragment = document.createDocumentFragment();
     
-    itensPagina.forEach(l => {
-     const c = locadores.find(x => x.id === l.locadorId);
-        let badgeClass = l.statusVisual === 'atrasado' ? 'badge-danger' : 
-                        l.statusVisual === 'devolvido' ? 'badge-info' : 'badge-success';
+    itensPagina.forEach((l) => {
+        const c = locadores.find((x) => x.id === l.locadorId);
+        const nomeCliente = typeof sanitizarTexto === 'function'
+            ? sanitizarTexto(c ? c.nome : 'Removido')
+            : (c ? c.nome : 'Removido');
+
+        const statusVisual = l.statusVisual === 'atrasado'
+            ? 'atrasado'
+            : l.statusVisual === 'devolvido'
+                ? 'devolvido'
+                : 'ativo';
+
+        const badgeClass = statusVisual === 'atrasado'
+            ? 'badge-danger'
+            : statusVisual === 'devolvido'
+                ? 'badge-info'
+                : 'badge-success';
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <div style="font-weight:600">${c ? c.nome : 'Removido'}</div>
+                <div style="font-weight:600">${nomeCliente}</div>
                 <div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div>
             </td>
             <td>
@@ -60,7 +75,7 @@ function renderLocacoes() {
             </td>
             <td>
                 <span class="badge-row">
-                    <span class="badge ${badgeClass}">${l.statusVisual}</span>
+                    <span class="badge ${badgeClass}">${statusVisual}</span>
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
                 </span>
             </td>

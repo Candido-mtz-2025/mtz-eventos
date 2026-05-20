@@ -1,5 +1,23 @@
 // Clientes: cadastro e edição
-    function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
+    function salvarLocador() {
+    const n = document.getElementById('locNome').value;
+    if(!n) return;
+
+    locadores.push({
+        id: Date.now(),
+        nome: n,
+        email: document.getElementById('locEmail').value,
+        telefone: document.getElementById('locTel').value,
+        documento: document.getElementById('locDoc').value,
+        endereco: document.getElementById('locEnd')?.value || ''
+    });
+
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+    document.getElementById('locNome').value = "";
+    mostrarToast("Cliente Salvo!");
+}
 
     function abrirEditarLocador(id) { const c = locadores.find(x => x.id === id); if(!c) return; document.getElementById('editLocId').value = c.id; document.getElementById('editLocNome').value = c.nome; document.getElementById('editLocEmail').value = c.email || ''; document.getElementById('editLocTel').value = c.telefone || ''; document.getElementById('modalEditarLocador').classList.add('active'); }
     function salvarEdicaoLocador() { 

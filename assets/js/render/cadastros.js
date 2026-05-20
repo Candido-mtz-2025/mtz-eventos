@@ -3,13 +3,13 @@
 // 🔥 RENDERIZAR LOCADORES OTIMIZADA
 // ========================================
 function renderLocadores() {
-    const termo = (DOM.get('buscaCliente')?.value || '').toLowerCase();
+    const termo = String(DOM.get('buscaCliente')?.value || '').toLowerCase();
     const tbody = DOM.get('tblLocadores');
     if (!tbody) return;
     
     const clientesFiltrados = locadores.filter(c => 
-        c.nome.toLowerCase().includes(termo) || 
-        (c.documento && c.documento.toLowerCase().includes(termo))
+        String(c.nome || '').toLowerCase().includes(termo) || 
+        String(c.documento || '').toLowerCase().includes(termo)
     );
     
     if (clientesFiltrados.length === 0) {
@@ -20,15 +20,19 @@ function renderLocadores() {
     // 🔥 OTIMIZAÇÃO: DocumentFragment
     const fragment = document.createDocumentFragment();
     
-    clientesFiltrados.forEach(c => {
+    clientesFiltrados.forEach((c) => {
+        const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.nome || '') : (c.nome || '');
+        const documento = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.documento || '') : (c.documento || '');
+        const email = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.email || '-') : (c.email || '-');
+        const telefone = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.telefone || '-') : (c.telefone || '-');
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <div style="font-weight:600">${c.nome}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">${c.documento || ''}</div>
+                <div style="font-weight:600">${nome}</div>
+                <div style="font-size:0.75rem; opacity:0.7;">${documento}</div>
             </td>
-            <td>${c.email || '-'}</td>
-            <td>${c.telefone || '-'}</td>
+            <td>${email}</td>
+            <td>${telefone}</td>
             <td class="col-actions">
                 <div class="actions-cell">
                     <button class="btn btn-sm btn-info" onclick="abrirEditarLocador(${c.id})">
@@ -56,10 +60,13 @@ function renderTipos() {
     const tbody = document.getElementById('tblTipos');
     if(!tbody) return;
     
-    tbody.innerHTML = tipos.map(t => `
+    tbody.innerHTML = tipos.map((t) => {
+        const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.nome || '') : (t.nome || '');
+        const desc = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.desc || '-') : (t.desc || '-');
+        return `
         <tr>
-            <td><b>${t.nome}</b></td>
-            <td>${t.desc || '-'}</td>
+            <td><b>${nome}</b></td>
+            <td>${desc}</td>
             <td class="col-actions">
                 <div class="actions-cell">
                     <button class="btn btn-sm btn-info" onclick="abrirEditarTipo(${t.id})">
@@ -68,23 +75,34 @@ function renderTipos() {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
    // --- ATUALIZAR LISTAS (CORRIGIDO: SEM LISTA DE PEÇAS GIGANTE) ---
     function updateSelects() { 
         // 1. Clientes
         const c = document.getElementById('aluguelCliente');
-        if(c) c.innerHTML='<option value="">Selecione...</option>'+locadores.map(x=>`<option value="${x.id}">${x.nome}</option>`).join(''); 
+        if(c) c.innerHTML='<option value="">Selecione...</option>'+locadores.map((x) => {
+            const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');
+            return `<option value="${x.id}">${nome}</option>`;
+        }).join(''); 
         
         // 2. PEÇAS: REMOVIDO! (Agora usamos busca inteligente)
         
         // 3. Devoluções
         const d = document.getElementById('devLocacao');
-        if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map(l=>`<option value="${l.id}">#${l.id.toString().slice(-4)} - ${locadores.find(x=>x.id==l.locadorId)?.nome}</option>`).join(''); 
+        if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map((l) => {
+            const nomeBruto = locadores.find((x) => x.id == l.locadorId)?.nome || 'Cliente';
+            const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(nomeBruto) : nomeBruto;
+            return `<option value="${l.id}">#${l.id.toString().slice(-4)} - ${nome}</option>`;
+        }).join(''); 
         
         // 4. Tipos
-        const tOpts = '<option value="0">Geral</option>'+tipos.map(x=>`<option value="${x.id}">${x.nome}</option>`).join('');
+        const tOpts = '<option value="0">Geral</option>'+tipos.map((x) => {
+            const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');
+            return `<option value="${x.id}">${nome}</option>`;
+        }).join('');
         const t = document.getElementById('pecaTipo'); if(t) t.innerHTML=tOpts;
         const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
     } 
@@ -106,6 +124,11 @@ function renderConfig() {
     
     // Mostra a logo se existir
     if (elLogo && config.logo) {
-        elLogo.innerHTML = `<img src="${config.logo}" style="height:50px; border:1px solid #ccc; padding:2px; border-radius:4px;">`;
+        const logoURL = typeof sanitizarImagemURL === 'function' ? sanitizarImagemURL(config.logo) : config.logo;
+        if (logoURL) {
+            elLogo.innerHTML = `<img src="${logoURL}" style="height:50px; border:1px solid #ccc; padding:2px; border-radius:4px;">`;
+        } else {
+            elLogo.innerHTML = '';
+        }
     }
 }

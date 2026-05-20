@@ -1,48 +1,139 @@
-// === SISTEMA DE SINCRONIZAÇÃO SEGURA V2 ===
+// === ARMAZENAMENTO LOCAL E SINCRONIZACAO ===
+const STORAGE_KEY = 'mtzBackup';
+const STORAGE_EDIT_KEY = 'mtzUltimaEdicao';
+const STORAGE_BACKUP_EMERGENCIA = 'mtzBackupEmergencia';
+const STORAGE_BACKUP_AUTO = 'mtzBackupAutomatico';
+const STORAGE_BACKUP_AUTO_TS = 'mtzUltimoBackupAuto';
+const STORAGE_VERSION = '11.1';
 
-// Backup de emergência antes de sobrescrever dados
+function gerarSnapshotDadosSistema() {
+    return {
+        locadores: Array.isArray(locadores) ? locadores : [],
+        pecas: Array.isArray(pecas) ? pecas : [],
+        locacoes: Array.isArray(locacoes) ? locacoes : [],
+        devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
+        tipos: Array.isArray(tipos) ? tipos : [],
+        config: config && typeof config === 'object' ? config : {},
+        logsAuditoria: Array.isArray(logsAuditoria) ? logsAuditoria : [],
+        modelosChecklist: Array.isArray(modelosChecklist) ? modelosChecklist : [],
+        checklistsGerados: Array.isArray(checklistsGerados) ? checklistsGerados : [],
+        checklistMontagem: Array.isArray(checklistMontagem) ? checklistMontagem : [],
+        checklistConferencia: checklistConferencia && typeof checklistConferencia === 'object' ? checklistConferencia : {},
+        checklistEtapasMontagem: Array.isArray(checklistEtapasMontagem) ? checklistEtapasMontagem : []
+    };
+}
+
+function aplicarDadosSistema(dados = {}, opcoes = {}) {
+    const manterConfigAtual = !!opcoes.manterConfigAtual;
+    const baseConfig = manterConfigAtual ? (config || {}) : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '' };
+    const configEntrada = dados.config && typeof dados.config === 'object' ? dados.config : {};
+
+    locadores = Array.isArray(dados.locadores) ? dados.locadores : [];
+    pecas = Array.isArray(dados.pecas) ? dados.pecas : [];
+    locacoes = Array.isArray(dados.locacoes) ? dados.locacoes : [];
+    devolucoes = Array.isArray(dados.devolucoes) ? dados.devolucoes : [];
+    tipos = Array.isArray(dados.tipos) ? dados.tipos : [];
+    config = { ...baseConfig, ...configEntrada };
+    logsAuditoria = Array.isArray(dados.logsAuditoria) ? dados.logsAuditoria : [];
+    modelosChecklist = Array.isArray(dados.modelosChecklist) ? dados.modelosChecklist : [];
+    checklistsGerados = Array.isArray(dados.checklistsGerados) ? dados.checklistsGerados : [];
+    checklistMontagem = Array.isArray(dados.checklistMontagem) ? dados.checklistMontagem : [];
+    checklistConferencia = dados.checklistConferencia && typeof dados.checklistConferencia === 'object'
+        ? dados.checklistConferencia
+        : {};
+    checklistEtapasMontagem = Array.isArray(dados.checklistEtapasMontagem)
+        ? dados.checklistEtapasMontagem
+        : [];
+
+    window.checklistMontagem = checklistMontagem;
+    window.checklistConferencia = checklistConferencia;
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+}
+
+function obterContextoSyncSeguro() {
+    const modo = String(localStorage.getItem(AUTH_MODE_KEY) || 'offline');
+    const token = String(localStorage.getItem('gToken') || '');
+    const tokenExpirado = typeof sessaoGoogleExpirada === 'function' ? sessaoGoogleExpirada() : false;
+    const tokenValido = modo === 'google' && !!token && !tokenExpirado;
+
+    return {
+        modo,
+        token,
+        tokenExpirado,
+        tokenValido,
+        modoGoogle: modo === 'google'
+    };
+}
+
+function montarUrlSyncComToken(urlBase, token) {
+    if (!token) return urlBase;
+    const separador = urlBase.includes('?') ? '&' : '?';
+    return `${urlBase}${separador}token=${encodeURIComponent(token)}`;
+}
+
+function tratarSessaoInvalidaSincronizacao() {
+    if (typeof limparSessaoGoogle === 'function') limparSessaoGoogle();
+    localStorage.removeItem(AUTH_MODE_KEY);
+    updStatus('offline');
+
+    if (typeof mostrarTelaSessaoExpirada === 'function') {
+        mostrarTelaSessaoExpirada();
+    }
+    if (typeof atualizarStatusLogin === 'function') {
+        atualizarStatusLogin('Sessão expirada. Entre novamente com Google.', 'warn');
+    }
+}
+
 function criarBackupEmergencia() {
     const timestamp = new Date().toISOString();
     const backup = {
-    data: timestamp,
-    locadores,
-    pecas,
-    locacoes,
-    devolucoes,
-    tipos,
-    config,
-    modelosChecklist,
-    checklistsGerados,
-    checklistMontagem,
-    checklistConferencia,
-    checklistEtapasMontagem
-};
-    localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
+        data: timestamp,
+        versao: STORAGE_VERSION,
+        ...gerarSnapshotDadosSistema()
+    };
+
+    localStorage.setItem(STORAGE_BACKUP_EMERGENCIA, JSON.stringify(backup));
     console.log('✅ Backup de emergência criado:', timestamp);
     return backup;
 }
 
-// Sincronização com proteção contra perda de dados
 async function sincronizar(modo) {
     if (!navigator.onLine) {
         updStatus('offline');
         return;
     }
 
+    const contexto = obterContextoSyncSeguro();
+    if (!contexto.tokenValido) {
+        updStatus('offline');
+        if (contexto.modoGoogle && contexto.tokenExpirado) {
+            tratarSessaoInvalidaSincronizacao();
+        }
+        return;
+    }
+
+    const urlSync = montarUrlSyncComToken(API_URL, contexto.token);
     updStatus('saving');
 
     try {
         if (modo === 'carregar') {
-            const response = await fetch(API_URL);
-            const texto = await response.text();
+            const response = await fetch(urlSync, { cache: 'no-store' });
+            if (response.status === 401 || response.status === 403) {
+                tratarSessaoInvalidaSincronizacao();
+                return;
+            }
 
-            if (texto.startsWith('<')) {
-                console.warn('⚠️ Resposta inválida do Apps Script');
+            const texto = await response.text();
+            if (!texto || texto.trim().startsWith('<')) {
+                console.warn('⚠️ Resposta inválida da nuvem');
                 updStatus('offline');
                 return;
             }
 
-            const dadosNuvem = JSON.parse(texto);
+            let dadosNuvem = JSON.parse(texto);
+            if (dadosNuvem?.dados && typeof dadosNuvem.dados === 'object') {
+                dadosNuvem = dadosNuvem.dados;
+            }
 
             if (!dadosNuvem || typeof dadosNuvem !== 'object') {
                 console.warn('⚠️ Nuvem vazia ou inválida');
@@ -50,24 +141,25 @@ async function sincronizar(modo) {
                 return;
             }
 
+            const snapshotLocal = gerarSnapshotDadosSistema();
             const temDadosLocais =
-                locadores.length > 0 ||
-                pecas.length > 0 ||
-                locacoes.length > 0 ||
-                modelosChecklist.length > 0;
+                snapshotLocal.locadores.length > 0 ||
+                snapshotLocal.pecas.length > 0 ||
+                snapshotLocal.locacoes.length > 0 ||
+                snapshotLocal.modelosChecklist.length > 0;
 
             if (temDadosLocais) {
-                const timestampLocal = localStorage.getItem('mtzUltimaEdicao') || 0;
-                const timestampNuvem = dadosNuvem.ultimaEdicao || 0;
+                const timestampLocal = Number(localStorage.getItem(STORAGE_EDIT_KEY) || 0);
+                const timestampNuvem = Number(dadosNuvem.ultimaEdicao || 0);
 
-                console.log('📅 Local:', timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data');
-                console.log('☁️ Nuvem:', timestampNuvem ? new Date(Number(timestampNuvem)).toLocaleString() : 'sem data');
+                console.log('📅 Local:', timestampLocal ? new Date(timestampLocal).toLocaleString() : 'sem data');
+                console.log('☁️ Nuvem:', timestampNuvem ? new Date(timestampNuvem).toLocaleString() : 'sem data');
 
                 if (timestampNuvem > timestampLocal) {
                     const confirmar = confirm(
                         '⚠️ Dados na nuvem são mais recentes.\n\n' +
-                        `Local: ${timestampLocal ? new Date(Number(timestampLocal)).toLocaleString() : 'sem data'}\n` +
-                        `Nuvem: ${new Date(Number(timestampNuvem)).toLocaleString()}\n\n` +
+                        `Local: ${timestampLocal ? new Date(timestampLocal).toLocaleString() : 'sem data'}\n` +
+                        `Nuvem: ${new Date(timestampNuvem).toLocaleString()}\n\n` +
                         'OK = carregar da nuvem\n' +
                         'Cancelar = manter dados locais'
                     );
@@ -82,50 +174,32 @@ async function sincronizar(modo) {
                 }
             }
 
-            locadores = dadosNuvem.locadores || [];
-            pecas = dadosNuvem.pecas || [];
-            locacoes = dadosNuvem.locacoes || [];
-            devolucoes = dadosNuvem.devolucoes || [];
-            tipos = dadosNuvem.tipos || [];
-            config = dadosNuvem.config || config;
-            modelosChecklist = dadosNuvem.modelosChecklist || [];
-            checklistsGerados = dadosNuvem.checklistsGerados || [];
-            checklistMontagem = dadosNuvem.checklistMontagem || [];
-            checklistConferencia = dadosNuvem.checklistConferencia || {};
-
-            window.checklistMontagem = checklistMontagem;
-            window.checklistConferencia = checklistConferencia;
-
+            aplicarDadosSistema(dadosNuvem, { manterConfigAtual: true });
             salvarLocal();
             renderTudo();
             mostrarToast('✅ Dados carregados da nuvem!');
         } else {
             const timestamp = Date.now();
-
             const dadosParaEnviar = {
-             locadores,
-             pecas,
-             locacoes,
-             devolucoes,
-             tipos,
-             config,
-             modelosChecklist,
-             checklistsGerados,
-             checklistMontagem,
-             checklistConferencia,
-             ultimaEdicao: timestamp
-           };
+                ...gerarSnapshotDadosSistema(),
+                versao: STORAGE_VERSION,
+                ultimaEdicao: timestamp
+            };
 
-            localStorage.setItem('mtzUltimaEdicao', timestamp.toString());
+            localStorage.setItem(STORAGE_EDIT_KEY, String(timestamp));
 
-            const response = await fetch(API_URL, {
+            const response = await fetch(urlSync, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(dadosParaEnviar)
             });
 
-            const resultado = await response.json();
+            if (response.status === 401 || response.status === 403) {
+                tratarSessaoInvalidaSincronizacao();
+                return;
+            }
 
+            const resultado = await response.json();
             if (resultado.result === 'sucesso' || resultado.success === true) {
                 mostrarToast('☁️ Dados salvos na nuvem!');
                 console.log('✅ Sincronização concluída:', new Date(timestamp).toLocaleString());
@@ -142,38 +216,27 @@ async function sincronizar(modo) {
         mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.');
     }
 }
-// Backup automático diário
+
 function iniciarBackupAutomatico() {
-    const ultimoBackup = localStorage.getItem('mtzUltimoBackupAuto');
+    const ultimoBackup = localStorage.getItem(STORAGE_BACKUP_AUTO_TS);
     const agora = Date.now();
     const umDia = 24 * 60 * 60 * 1000;
 
     if (!ultimoBackup || (agora - Number(ultimoBackup)) > umDia) {
-         const backup = {
-         data: new Date().toISOString(),
-         versao: 'V11',
-         locadores,
-         pecas,
-         locacoes,
-         devolucoes,
-         tipos,
-         config,
-         modelosChecklist,
-         checklistsGerados,
-         checklistMontagem,
-         checklistConferencia
-   };
+        const backup = {
+            data: new Date().toISOString(),
+            versao: STORAGE_VERSION,
+            ...gerarSnapshotDadosSistema()
+        };
 
-        localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
-        localStorage.setItem('mtzUltimoBackupAuto', agora.toString());
-
+        localStorage.setItem(STORAGE_BACKUP_AUTO, JSON.stringify(backup));
+        localStorage.setItem(STORAGE_BACKUP_AUTO_TS, String(agora));
         console.log('💾 Backup automático criado:', new Date().toLocaleString());
     }
 }
 
-// Restaurar backup de emergência
 function restaurarBackupEmergencia() {
-    const backup = localStorage.getItem('mtzBackupEmergencia');
+    const backup = localStorage.getItem(STORAGE_BACKUP_EMERGENCIA);
     if (!backup) {
         alert('❌ Nenhum backup de emergência encontrado.');
         return;
@@ -184,39 +247,25 @@ function restaurarBackupEmergencia() {
         'Isso irá substituir todos os dados atuais.'
     );
 
-    if (confirmar) {
-        const dados = JSON.parse(backup);
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-        modelosChecklist = dados.modelosChecklist || [];
-        checklistsGerados = dados.checklistsGerados || [];
-        checklistMontagem = dados.checklistMontagem || [];
-        checklistConferencia = dados.checklistConferencia || {};
+    if (!confirmar) return;
 
-        window.checklistMontagem = checklistMontagem;
-        window.checklistConferencia = checklistConferencia;
-
-        salvarLocal();
-        renderTudo();
-        mostrarToast('✅ Backup de emergência restaurado!');
-        console.log('✅ Dados restaurados de:', dados.data);
-    }
+    const dados = JSON.parse(backup);
+    aplicarDadosSistema(dados, { manterConfigAtual: true });
+    salvarLocal();
+    renderTudo();
+    mostrarToast('✅ Backup de emergência restaurado!');
+    console.log('✅ Dados restaurados de:', dados.data);
 }
 
-// Ver informações de backup
 function verInfoBackup() {
-    const backup = localStorage.getItem('mtzBackupEmergencia');
-    const backupAuto = localStorage.getItem('mtzBackupAutomatico');
+    const backup = localStorage.getItem(STORAGE_BACKUP_EMERGENCIA);
+    const backupAuto = localStorage.getItem(STORAGE_BACKUP_AUTO);
 
     let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
 
     if (backup) {
         const dados = JSON.parse(backup);
-        msg += `🆘 Backup de Emergência:\n`;
+        msg += '🆘 Backup de Emergência:\n';
         msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
         msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações, ${dados.modelosChecklist?.length || 0} modelos\n\n`;
     } else {
@@ -225,7 +274,7 @@ function verInfoBackup() {
 
     if (backupAuto) {
         const dados = JSON.parse(backupAuto);
-        msg += `💾 Backup Automático:\n`;
+        msg += '💾 Backup Automático:\n';
         msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
         msg += `   Modelos: ${dados.modelosChecklist?.length || 0}\n`;
     } else {
@@ -235,14 +284,13 @@ function verInfoBackup() {
     alert(msg);
 }
 
-// === RECUPERAÇÃO AUTOMÁTICA ===
 function tentarRecuperacaoAutomatica() {
     try {
-        let backup = localStorage.getItem('mtzBackupEmergencia');
+        let backup = localStorage.getItem(STORAGE_BACKUP_EMERGENCIA);
         let fonte = 'Emergência';
 
         if (!backup) {
-            backup = localStorage.getItem('mtzBackupAutomatico');
+            backup = localStorage.getItem(STORAGE_BACKUP_AUTO);
             fonte = 'Automático';
         }
 
@@ -251,79 +299,51 @@ function tentarRecuperacaoAutomatica() {
         }
 
         const dados = JSON.parse(backup);
-
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-        modelosChecklist = dados.modelosChecklist || [];
-        checklistsGerados = dados.checklistsGerados || [];
-        checklistMontagem = dados.checklistMontagem || [];
-        checklistConferencia = dados.checklistConferencia || {};
-
-        window.checklistMontagem = checklistMontagem;
-        window.checklistConferencia = checklistConferencia;
-
+        aplicarDadosSistema(dados, { manterConfigAtual: true });
         salvarLocal();
         renderTudo();
 
         alert(
-            `✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n` +
+            '✅ RECUPERAÇÃO BEM-SUCEDIDA!\n\n' +
             `Fonte: Backup ${fonte}\n` +
             `Data: ${new Date(dados.data).toLocaleString()}\n\n` +
-            `Registros recuperados:\n` +
+            'Registros recuperados:\n' +
             `- ${locadores.length} clientes\n` +
             `- ${pecas.length} itens\n` +
             `- ${locacoes.length} locações\n` +
             `- ${modelosChecklist.length} modelos\n\n` +
-            `💡 Recomendação: Faça um backup JSON agora!`
+            '💡 Recomendação: Faça um backup JSON agora!'
         );
 
         console.log('✅ Dados recuperados de:', dados.data);
     } catch (erro) {
-        alert('❌ Falha na recuperação automática: ' + erro.message);
+        alert(`❌ Falha na recuperação automática: ${erro.message}`);
     }
 }
-    
-    // === SALVAR COM PROTEÇÃO CONTRA ESTOURO ===
+
 function salvarLocal() {
     cacheDisponibilidade = null;
     try {
-const dados = {
-    versao: '11.0',
-    data: new Date().toISOString(),
-    locadores,
-    pecas,
-    locacoes,
-    devolucoes,
-    tipos,
-    config,
-    logsAuditoria,
-    modelosChecklist,
-    checklistsGerados,
-    checklistMontagem,
-    checklistConferencia,
-
-};
+        const dados = {
+            versao: STORAGE_VERSION,
+            data: new Date().toISOString(),
+            ...gerarSnapshotDadosSistema()
+        };
 
         const json = JSON.stringify(dados);
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
-        const tamanhoMB = (tamanhoKB / 1024).toFixed(2);
+        const tamanhoMB = (Number(tamanhoKB) / 1024).toFixed(2);
 
         console.log(`💾 Salvando ${tamanhoKB} KB no localStorage...`);
 
-        // Verificar se está próximo do limite (5MB = 5120 KB)
-        if (parseFloat(tamanhoKB) > 4500) {
+        if (Number(tamanhoKB) > 4500) {
             console.warn(`⚠️ ALERTA: LocalStorage usando ${tamanhoMB} MB de 5 MB!`);
-            mostrarToast(`⚠️ Armazenamento em ${Math.round((tamanhoKB/5120)*100)}%! Faça backup e arquive dados antigos.`, 'erro');
+            mostrarToast(`⚠️ Armazenamento em ${Math.round((Number(tamanhoKB) / 5120) * 100)}%! Faça backup e arquive dados antigos.`, 'erro');
         }
 
-        localStorage.setItem('mtzBackup', json);
-        localStorage.setItem('mtzUltimaEdicao', Date.now().toString());
+        localStorage.setItem(STORAGE_KEY, json);
+        localStorage.setItem(STORAGE_EDIT_KEY, String(Date.now()));
         return true;
-
     } catch (erro) {
         console.error('❌ Erro ao salvar:', erro);
 
@@ -340,49 +360,27 @@ const dados = {
             return false;
         }
 
-        // Outros erros
-        alert('❌ Erro ao salvar dados: ' + erro.message);
+        alert(`❌ Erro ao salvar dados: ${erro.message}`);
         return false;
     }
 }
 
-    // === CARREGAR COM VALIDAÇÃO E RECUPERAÇÃO ===
 function carregarLocal() {
     try {
-        const json = localStorage.getItem('mtzBackup');
-        
+        const json = localStorage.getItem(STORAGE_KEY);
         if (!json) {
             console.log('📭 Nenhum dado local encontrado (primeira vez)');
             return;
         }
 
         const dados = JSON.parse(json);
-
-        // Validação de integridade
-        if (!dados.locadores || !Array.isArray(dados.locadores)) {
-            throw new Error('Dados corrompidos: estrutura inválida');
+        if (!dados || typeof dados !== 'object') {
+            throw new Error('Estrutura inválida de dados.');
         }
 
-        // Carregar dados
-        locadores = dados.locadores || [];
-        pecas = dados.pecas || [];
-        locacoes = dados.locacoes || [];
-        devolucoes = dados.devolucoes || [];
-        tipos = dados.tipos || [];
-        config = dados.config || config;
-        logsAuditoria = dados.logsAuditoria || [];
-        modelosChecklist = dados.modelosChecklist || [];
-        checklistsGerados = dados.checklistsGerados || [];
-        checklistMontagem = dados.checklistMontagem || [];
-        checklistConferencia = dados.checklistConferencia || {};
-        checklistEtapasMontagem = dados.checklistEtapasMontagem || [];
-        window.checklistEtapasMontagem = checklistEtapasMontagem;
-        
-        window.checklistMontagem = checklistMontagem;
-        window.checklistConferencia = checklistConferencia;
+        aplicarDadosSistema(dados, { manterConfigAtual: true });
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
-        
         console.log('✅ Dados locais carregados:', {
             tamanho: `${tamanhoKB} KB`,
             clientes: locadores.length,
@@ -391,18 +389,15 @@ function carregarLocal() {
             versao: dados.versao || 'antiga'
         });
 
-        // Alerta se estiver usando mais de 80% do storage
-        if (parseFloat(tamanhoKB) > 4000) {
+        if (Number(tamanhoKB) > 4000) {
             console.warn('⚠️ LocalStorage usando mais de 80%');
         }
-
     } catch (erro) {
         console.error('❌ Erro ao carregar dados:', erro);
-        
-        // Tentar recuperar backup automático
-        const backupAuto = localStorage.getItem('mtzBackupAutomatico');
-        const backupEmergencia = localStorage.getItem('mtzBackupEmergencia');
-        
+
+        const backupAuto = localStorage.getItem(STORAGE_BACKUP_AUTO);
+        const backupEmergencia = localStorage.getItem(STORAGE_BACKUP_EMERGENCIA);
+
         if (backupEmergencia || backupAuto) {
             const restaurar = confirm(
                 '⚠️ ERRO ao carregar dados locais!\n\n' +
@@ -423,19 +418,11 @@ function carregarLocal() {
                 '- Extensão do navegador interferindo\n\n' +
                 'O sistema será reiniciado vazio.'
             );
-            
-            // Resetar para dados vazios
-            locadores = [];
-            pecas = [];
-            locacoes = [];
-            devolucoes = [];
-            tipos = [];
-            checklistMontagem = [];
-            checklistConferencia = {};
-            window.checklistMontagem = checklistMontagem;
-            window.checklistConferencia = checklistConferencia;
+
+            aplicarDadosSistema({}, { manterConfigAtual: false });
         }
     }
 }
 
-
+window.gerarSnapshotDadosSistema = gerarSnapshotDadosSistema;
+window.aplicarDadosSistema = aplicarDadosSistema;

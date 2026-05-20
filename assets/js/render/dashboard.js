@@ -34,7 +34,7 @@ function resumoClientesAlerta(lista, limite) {
     if (nomes.length === 0) return 'Sem clientes listados.';
     const base = nomes.slice(0, limite);
     const restante = nomes.length - base.length;
-    return `${base.join(', ')}${restante > 0 ? ` +${restante}` : ''}`;
+    return `${base.map((nome) => escaparTextoDashboard(nome)).join(', ')}${restante > 0 ? ` +${restante}` : ''}`;
 }
 
 function renderStats() {

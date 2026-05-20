@@ -36,7 +36,8 @@ function renderEstoque() {
   // -----------------------------
 
   if (itensFiltrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoRaw}".</td></tr>`;
+    const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; opacity:0.6;">Nenhum item encontrado para "${termoSeguro}".</td></tr>`;
     return;
   }
 
@@ -44,9 +45,14 @@ function renderEstoque() {
 
   itensFiltrados.forEach(p => {
     const tipo = tipos.find(x => x.id === p.tipoId);
+    const fotoSegura = typeof sanitizarImagemURL === 'function' ? sanitizarImagemURL(p.foto) : (p.foto || '');
+    const codigoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.codigo || '') : (p.codigo || '');
+    const tipoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(tipo ? tipo.nome : '-') : (tipo ? tipo.nome : '-');
+    const nomeSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.nome || '') : (p.nome || '');
+    const medidaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.medida || '') : (p.medida || '');
 
-    const thumb = p.foto
-      ? `<img src="${p.foto}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
+    const thumb = fotoSegura
+      ? `<img src="${fotoSegura}" style="width:36px; height:36px; object-fit:cover; border-radius:6px;">`
       : `<div style="width:36px; height:36px; background:var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center;"><i class="bi bi-box" style="opacity:0.5;"></i></div>`;
 
     let corEstoque =
@@ -62,11 +68,11 @@ function renderEstoque() {
                onchange="onSelectEstoque(${p.id}, this.checked)">
       </td>
       <td>${thumb}</td>
-      <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${p.codigo}</span></td>
-      <td>${tipo ? tipo.nome : '-'}</td>
+      <td><span style="font-family:monospace; font-weight:600; color:var(--text-light);">${codigoSeguro}</span></td>
+      <td>${tipoSeguro}</td>
       <td>
-        <div style="font-weight:600">${p.nome}</div>
-        <div style="font-size:0.75rem; opacity:0.7;">${p.medida || ''}</div>
+        <div style="font-weight:600">${nomeSeguro}</div>
+        <div style="font-size:0.75rem; opacity:0.7;">${medidaSegura}</div>
       </td>
       <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
       <td>

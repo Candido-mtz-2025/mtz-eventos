@@ -1,7 +1,18 @@
 // Ferramentas de backup e limpeza
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
-        const dados = JSON.stringify({locadores, pecas, locacoes, devolucoes, tipos, config});
+        const snapshot = typeof gerarSnapshotDadosSistema === 'function'
+            ? gerarSnapshotDadosSistema()
+            : {
+                locadores, pecas, locacoes, devolucoes, tipos, config,
+                logsAuditoria, modelosChecklist, checklistsGerados,
+                checklistMontagem, checklistConferencia, checklistEtapasMontagem
+            };
+        const dados = JSON.stringify({
+            versao: '11.1',
+            data: new Date().toISOString(),
+            ...snapshot
+        });
         const blob = new Blob([dados], {type: "application/json"});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -24,12 +35,16 @@
             try {
                 const j = JSON.parse(e.target.result);
                 if (confirm("Isso substituirá todos os dados atuais. Continuar?")) {
-                    locadores = j.locadores || [];
-                    pecas = j.pecas || [];
-                    locacoes = j.locacoes || [];
-                    devolucoes = j.devolucoes || [];
-                    tipos = j.tipos || [];
-                    config = j.config || config;
+                    if (typeof aplicarDadosSistema === 'function') {
+                        aplicarDadosSistema(j, { manterConfigAtual: true });
+                    } else {
+                        locadores = j.locadores || [];
+                        pecas = j.pecas || [];
+                        locacoes = j.locacoes || [];
+                        devolucoes = j.devolucoes || [];
+                        tipos = j.tipos || [];
+                        config = j.config || config;
+                    }
                     salvarLocal();
                     renderTudo();
                     sincronizar('salvar');

@@ -53,12 +53,14 @@ function exportarLogsCSV() {
     
     let csv = 'Data,Hora,Tipo,Ação,Descrição,Usuário\n';
     
+    const toCSV = (valor) => String(valor ?? '').replace(/"/g, '""').replace(/[\r\n]+/g, ' ');
+
     logsAuditoria.forEach(log => {
         const data = new Date(log.timestamp);
         const dataStr = data.toLocaleDateString('pt-BR');
         const horaStr = data.toLocaleTimeString('pt-BR');
         
-        csv += `"${dataStr}","${horaStr}","${log.tipo}","${log.acao}","${log.descricao}","${log.usuario}"\n`;
+        csv += `"${toCSV(dataStr)}","${toCSV(horaStr)}","${toCSV(log.tipo)}","${toCSV(log.acao)}","${toCSV(log.descricao)}","${toCSV(log.usuario)}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -142,6 +144,12 @@ function renderLogs(filtro = 'todos') {
         const data = new Date(log.timestamp);
         const dataStr = data.toLocaleDateString('pt-BR');
         const horaStr = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const tipoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(log.tipo || '') : (log.tipo || '');
+        const acaoSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(log.acao || '') : (log.acao || '');
+        const descricaoSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(log.descricao || '') : (log.descricao || '');
+        const usuarioSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(log.usuario || '') : (log.usuario || '');
+        const iconeSeguro = icones[log.tipo] || 'bi-circle';
+        const corAcao = cores[log.acao] || 'var(--text)';
 
         return `
             <tr>
@@ -150,16 +158,16 @@ function renderLogs(filtro = 'todos') {
                     <div style="font-size:0.75rem; opacity:0.7">${horaStr}</div>
                 </td>
                 <td>
-                    <i class="bi ${icones[log.tipo] || 'bi-circle'}" style="color:var(--primary); margin-right:4px"></i>
-                    <span style="font-size:0.85rem">${log.tipo}</span>
+                    <i class="bi ${iconeSeguro}" style="color:var(--primary); margin-right:4px"></i>
+                    <span style="font-size:0.85rem">${tipoSeguro}</span>
                 </td>
                 <td>
-                    <span style="color:${cores[log.acao] || 'var(--text)'}; font-weight:600; font-size:0.85rem">${log.acao}</span>
+                    <span style="color:${corAcao}; font-weight:600; font-size:0.85rem">${acaoSegura}</span>
                 </td>
                 <td style="max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
-                    ${log.descricao}
+                    ${descricaoSegura}
                 </td>
-                <td style="font-size:0.85rem; opacity:0.8">${log.usuario}</td>
+                <td style="font-size:0.85rem; opacity:0.8">${usuarioSeguro}</td>
             </tr>
         `;
     }).join('');
