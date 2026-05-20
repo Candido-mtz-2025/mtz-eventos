@@ -69,6 +69,20 @@
         </div>
     </div>
 
+    <div id="sessionExpiredArea" style="display: none;">
+        <div class="session-box">
+            <div class="session-icon"><i class="bi bi-shield-lock"></i></div>
+            <h2>Sessão expirada</h2>
+            <p>Por segurança, confirme sua conta Google para continuar com sincronização.</p>
+            <button id="btnSessaoGoogle" class="btn btn-login-google" onclick="fazerLoginGoogle()">
+                <i class="bi bi-google"></i> Reativar com Google
+            </button>
+            <button id="btnSessaoOffline" class="btn btn-login-offline" onclick="entrarOffline()">
+                <i class="bi bi-hdd"></i> Continuar offline
+            </button>
+        </div>
+    </div>
+
     <div id="appArea" style="display: none;">
         <header>
             <div class="container">
@@ -76,7 +90,14 @@
                     <h1>MTZ Eventos</h1>
                     <p style="font-size:0.85rem; color:var(--text-light);">Painel de Controle</p>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="header-actions">
+                    <div id="headerUser" class="header-user" style="display:none;">
+                        <img id="headerUserAvatar" src="./logo.png" alt="Usuário">
+                        <div>
+                            <strong id="headerUserName">Usuário</strong>
+                            <span id="headerUserEmail">Modo local</span>
+                        </div>
+                    </div>
                     <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
                     <button class="btn btn-secondary btn-sm" onclick="toggleTheme()"><i class="bi bi-moon"></i></button>
                     <button class="btn btn-danger btn-sm" onclick="sair()"><i class="bi bi-box-arrow-right"></i></button>
@@ -462,6 +483,11 @@
                     <div class="form-row">
                         <div class="form-group"><label>Telefone</label><input type="text" id="confTel"></div>
                         <div class="form-group"><label>Email</label><input type="email" id="confEmail"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>E-mails permitidos (opcional)</label>
+                        <textarea id="confEmailsPermitidos" rows="3" placeholder="Um por linha ou separado por vírgula"></textarea>
+                        <small class="field-hint">Se preenchido, apenas esses e-mails poderão entrar com Google.</small>
                     </div>
                     <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
                     <div id="previewLogo" style="margin: 10px 0;"></div>

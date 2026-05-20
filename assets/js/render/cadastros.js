@@ -88,16 +88,18 @@ function renderTipos() {
         const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
     } 
 
-    function renderConfig() {
+function renderConfig() {
     // Preenche os inputs com os dados da memória
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
+    const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
     const elLogo = document.getElementById('previewLogo');
 
     if (elRodape) elRodape.value = config.rodape || '';
     if (elTel) elTel.value = config.tel || '';
     if (elEmail) elEmail.value = config.email || '';
+    if (elEmailsPermitidos) elEmailsPermitidos.value = config.emailsPermitidos || '';
     
     // Mostra a logo se existir
     if (elLogo && config.logo) {

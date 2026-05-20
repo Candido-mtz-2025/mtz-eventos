@@ -8,6 +8,7 @@ const GOOGLE_SCOPES = [
 ].join(' ');
 const GOOGLE_SESSION_TTL_MS = 55 * 60 * 1000;
 const LAST_GOOGLE_USER_KEY = 'mtzLastGoogleUser';
+const AUTH_MODE_KEY = 'mtzAuthMode';
 
 let loginEventosRegistrados = false;
 let aguardandoSDKGoogle = false;
@@ -34,13 +35,18 @@ function atualizarStatusLogin(texto, tipo = 'info') {
 }
 
 function alternarBotoesLogin(desativado) {
-    const btnGoogle = document.getElementById('btnLoginGoogle');
-    const btnOffline = document.getElementById('btnEntrarOffline');
-    const btnRapido = document.getElementById('btnAcessoRapidoGoogle');
+    const botoes = [
+        'btnLoginGoogle',
+        'btnEntrarOffline',
+        'btnAcessoRapidoGoogle',
+        'btnSessaoGoogle',
+        'btnSessaoOffline'
+    ];
 
-    if (btnGoogle) btnGoogle.disabled = !!desativado;
-    if (btnOffline) btnOffline.disabled = !!desativado;
-    if (btnRapido) btnRapido.disabled = !!desativado;
+    botoes.forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = !!desativado;
+    });
 }
 
 function salvarSessaoGoogle(token) {
@@ -82,6 +88,27 @@ function salvarUltimoUsuarioGoogle(dados) {
     localStorage.setItem(LAST_GOOGLE_USER_KEY, JSON.stringify(dados));
 }
 
+function obterEmailsPermitidosConfig() {
+    const bruto = config?.emailsPermitidos || '';
+    return String(bruto)
+        .split(/[\n,;]+/)
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function emailGooglePermitido(email) {
+    const regras = obterEmailsPermitidosConfig();
+    if (!regras.length) return true;
+
+    const alvo = String(email || '').trim().toLowerCase();
+    if (!alvo) return false;
+
+    return regras.some((regra) => {
+        if (regra.startsWith('@')) return alvo.endsWith(regra);
+        return alvo === regra;
+    });
+}
+
 function renderAcessoRapidoLogin() {
     const bloco = document.getElementById('loginLastUser');
     const nomeEl = document.getElementById('loginLastUserName');
@@ -100,6 +127,58 @@ function renderAcessoRapidoLogin() {
     emailEl.textContent = dados.email || 'Usuário Google';
     avatarEl.src = dados.foto || './logo.png';
     bloco.style.display = 'block';
+}
+
+function renderUsuarioCabecalho() {
+    const box = document.getElementById('headerUser');
+    const nomeEl = document.getElementById('headerUserName');
+    const emailEl = document.getElementById('headerUserEmail');
+    const avatarEl = document.getElementById('headerUserAvatar');
+
+    if (!box || !nomeEl || !emailEl || !avatarEl) return;
+
+    const modo = localStorage.getItem(AUTH_MODE_KEY) || 'offline';
+    const ultimo = obterUltimoUsuarioGoogle();
+    const emailSessao = localStorage.getItem('usuarioEmail') || '';
+
+    let nome = '';
+    let email = '';
+    let foto = './logo.png';
+
+    if (modo === 'google') {
+        nome = ultimo?.nome || 'Conta Google';
+        email = ultimo?.email || emailSessao || 'Sincronização ativa';
+        foto = ultimo?.foto || './logo.png';
+    } else {
+        nome = 'Modo offline';
+        if (ultimo?.email) {
+            email = `Último Google: ${ultimo.email}`;
+            foto = ultimo?.foto || './logo.png';
+        } else {
+            email = 'Sem sincronização ativa';
+        }
+    }
+
+    nomeEl.textContent = nome;
+    emailEl.textContent = email;
+    avatarEl.src = foto;
+    box.style.display = 'inline-flex';
+}
+
+function mostrarTelaSessaoExpirada() {
+    const loginArea = document.getElementById('loginArea');
+    const sessaoArea = document.getElementById('sessionExpiredArea');
+
+    if (loginArea) loginArea.style.display = 'none';
+    if (sessaoArea) sessaoArea.style.display = 'flex';
+}
+
+function ocultarTelaSessaoExpirada(mostrarLogin = false) {
+    const loginArea = document.getElementById('loginArea');
+    const sessaoArea = document.getElementById('sessionExpiredArea');
+
+    if (sessaoArea) sessaoArea.style.display = 'none';
+    if (loginArea) loginArea.style.display = mostrarLogin ? 'flex' : loginArea.style.display;
 }
 
 async function atualizarUltimoUsuarioGoogle(accessToken) {
@@ -132,6 +211,8 @@ async function atualizarUltimoUsuarioGoogle(accessToken) {
 
     salvarUltimoUsuarioGoogle(perfil);
     renderAcessoRapidoLogin();
+    renderUsuarioCabecalho();
+    return perfil;
 }
 
 function registrarEventosRedeLogin() {
@@ -174,7 +255,7 @@ function gisLoaded() {
     }
 }
 
-function processarRespostaGoogle(resp, origem = 'login') {
+async function processarRespostaGoogle(resp, origem = 'login') {
     if (resp?.error) {
         if (resp.error === 'popup_closed_by_user') {
             atualizarStatusLogin('Login cancelado. Quando quiser, tente novamente.', 'warn');
@@ -188,6 +269,8 @@ function processarRespostaGoogle(resp, origem = 'login') {
 
         if (origem === 'revalidacao') {
             limparSessaoGoogle();
+            localStorage.removeItem(AUTH_MODE_KEY);
+            mostrarTelaSessaoExpirada();
             atualizarStatusLogin('Sessão expirada. Entre novamente com Google.', 'warn');
             return;
         }
@@ -203,7 +286,17 @@ function processarRespostaGoogle(resp, origem = 'login') {
     }
 
     salvarSessaoGoogle(resp.access_token);
-    atualizarUltimoUsuarioGoogle(resp.access_token);
+    const perfil = await atualizarUltimoUsuarioGoogle(resp.access_token);
+
+    if (!emailGooglePermitido(perfil.email)) {
+        limparSessaoGoogle();
+        localStorage.removeItem(AUTH_MODE_KEY);
+        atualizarStatusLogin('Este e-mail não está liberado para login Google neste sistema.', 'error');
+        mostrarToast('Acesso negado para este e-mail.', 'erro');
+        return;
+    }
+
+    localStorage.setItem(AUTH_MODE_KEY, 'google');
     atualizarStatusLogin('Conectado com Google. Carregando seus dados...', 'success');
     entrarApp();
     sincronizar('carregar');
@@ -235,9 +328,9 @@ function solicitarTokenGoogle(promptValue = 'consent', origem = 'login') {
         : 'Abrindo autenticação Google...';
     atualizarStatusLogin(mensagem, 'info');
 
-    tokenClient.callback = (resp) => {
+    tokenClient.callback = async (resp) => {
         alternarBotoesLogin(false);
-        processarRespostaGoogle(resp, origem);
+        await processarRespostaGoogle(resp, origem);
     };
 
     try {
@@ -250,6 +343,7 @@ function solicitarTokenGoogle(promptValue = 'consent', origem = 'login') {
 }
 
 function fazerLoginGoogle() {
+    ocultarTelaSessaoExpirada(true);
     solicitarTokenGoogle('consent', 'login');
 }
 
@@ -260,10 +354,12 @@ function entrarComUltimoUsuarioGoogle() {
         return;
     }
 
+    ocultarTelaSessaoExpirada(true);
     solicitarTokenGoogle('', 'acesso_rapido');
 }
 
 function entrarOffline() {
+    localStorage.setItem(AUTH_MODE_KEY, 'offline');
     entrarApp();
     updStatus('offline');
     mostrarToast('Modo offline ativado.', 'info');
@@ -272,13 +368,18 @@ function entrarOffline() {
 function entrarApp() {
     const loginArea = document.getElementById('loginArea');
     const appArea = document.getElementById('appArea');
+
+    ocultarTelaSessaoExpirada(false);
     if (loginArea) loginArea.style.display = 'none';
     if (appArea) appArea.style.display = 'block';
+
+    renderUsuarioCabecalho();
     renderTudo();
 }
 
 function sair() {
     limparSessaoGoogle();
+    localStorage.removeItem(AUTH_MODE_KEY);
     location.reload();
 }
 
@@ -304,9 +405,20 @@ function updStatus(s) {
 }
 
 function tentarRevalidacaoSilenciosa() {
-    if (!localStorage.getItem('gToken')) return false;
+    const token = localStorage.getItem('gToken');
+    if (!token) return false;
+
+    const ultimo = obterUltimoUsuarioGoogle();
+    const emailBase = ultimo?.email || localStorage.getItem('usuarioEmail') || '';
+    if (!emailGooglePermitido(emailBase)) {
+        limparSessaoGoogle();
+        localStorage.removeItem(AUTH_MODE_KEY);
+        atualizarStatusLogin('Este e-mail não está liberado para login Google neste sistema.', 'error');
+        return false;
+    }
 
     if (!sessaoGoogleExpirada()) {
+        localStorage.setItem(AUTH_MODE_KEY, 'google');
         entrarApp();
         sincronizar('carregar');
         return true;
@@ -347,7 +459,9 @@ function aguardarSDKGoogle() {
 function inicializarSessaoLogin() {
     registrarEventosRedeLogin();
     alternarBotoesLogin(false);
+    ocultarTelaSessaoExpirada(true);
     renderAcessoRapidoLogin();
+    renderUsuarioCabecalho();
 
     if (!navigator.onLine) {
         atualizarStatusLogin('Sem internet. Você pode continuar offline.', 'warn');
