@@ -5,6 +5,16 @@ function formatarMoedaDashboard(valor) {
     });
 }
 
+function formatarDataHoraDashboard(data) {
+    return data.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function obterDataLocal(dataIso) {
     if (!dataIso) return null;
     const data = new Date(`${dataIso}T00:00:00`);
@@ -40,6 +50,14 @@ function resumoClientesAlerta(lista, limite) {
 function renderStats() {
     const elClientes = document.getElementById('dashClientes');
     if (elClientes) elClientes.innerText = locadores.length;
+    const elAtualizadoEm = document.getElementById('dashAtualizadoEm');
+    if (elAtualizadoEm) elAtualizadoEm.innerText = formatarDataHoraDashboard(new Date());
+    const elTagClientes = document.getElementById('dashTagClientes');
+    if (elTagClientes) {
+        elTagClientes.innerText = locadores.length === 1
+            ? '1 cadastro ativo'
+            : `${locadores.length} cadastros ativos`;
+    }
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -62,6 +80,12 @@ function renderStats() {
     const ativas = locacoesComValor.filter((locacao) => locacao.status === 'ativo');
     const elLocacoes = document.getElementById('dashLocacoes');
     if (elLocacoes) elLocacoes.innerText = ativas.length;
+    const elTagLocacoes = document.getElementById('dashTagLocacoes');
+    if (elTagLocacoes) {
+        elTagLocacoes.innerText = ativas.length === 0
+            ? 'Sem operações abertas'
+            : `${ativas.length} em andamento`;
+    }
 
     const totalRecebidoAtivo = ativas
         .filter((locacao) => locacao.pago)
@@ -73,10 +97,15 @@ function renderStats() {
     const elFaturamento = document.getElementById('dashFaturamento');
     if (elFaturamento) {
         elFaturamento.innerHTML = `
-            <span style="color:var(--primary)">${formatarMoedaDashboard(totalRecebidoAtivo)}</span>
-            <br>
-            <span style="font-size:0.8rem; color:var(--text-light); font-weight:400;">+ ${formatarMoedaDashboard(totalPendenteAtivo)} pendente</span>
+            <span class="dash-receita-main">${formatarMoedaDashboard(totalRecebidoAtivo)}</span>
+            <span class="dash-receita-sub">+ ${formatarMoedaDashboard(totalPendenteAtivo)} pendente</span>
         `;
+    }
+    const elTagReceita = document.getElementById('dashTagReceita');
+    if (elTagReceita) {
+        elTagReceita.innerText = totalPendenteAtivo > 0
+            ? `A receber ${formatarMoedaDashboard(totalPendenteAtivo)}`
+            : 'Sem pendências';
     }
 
     const locacoesDoMes = locacoesComValor.filter((locacao) => {
@@ -105,11 +134,33 @@ function renderStats() {
     const vencemHoje = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 0);
     const vencemAmanha = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 1);
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
+    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length;
 
     const elAtrasos = document.getElementById('dashAtrasos');
     if (elAtrasos) {
         elAtrasos.innerText = atrasadas.length;
         elAtrasos.style.color = atrasadas.length > 0 ? '#ef4444' : 'var(--text)';
+    }
+    const elTagAtrasos = document.getElementById('dashTagAtrasos');
+    if (elTagAtrasos) {
+        if (atrasadas.length === 0) {
+            elTagAtrasos.innerText = 'Operação estável';
+        } else if (atrasadas.length <= 2) {
+            elTagAtrasos.innerText = 'Atenção moderada';
+        } else {
+            elTagAtrasos.innerText = 'Prioridade alta';
+        }
+    }
+
+    const elResumoAlertas = document.getElementById('dashResumoAlertas');
+    if (elResumoAlertas) {
+        if (totalAlertas === 0) {
+            elResumoAlertas.innerText = 'Sem alertas no momento';
+        } else if (atrasadas.length > 0) {
+            elResumoAlertas.innerText = `${totalAlertas} alerta(s), com prioridade alta`;
+        } else {
+            elResumoAlertas.innerText = `${totalAlertas} alerta(s) de acompanhamento`;
+        }
     }
 
     const listaAlertas = document.getElementById('listEstoqueBaixo');
@@ -120,7 +171,7 @@ function renderStats() {
             cards.push(`
                 <div class="alert-item critical">
                     <i class="bi bi-exclamation-octagon"></i>
-                    <div>
+                    <div class="alert-item-body">
                         <strong>${atrasadas.length} devolucao(oes) atrasada(s)</strong>
                         <small>${resumoClientesAlerta(atrasadas, 2)}</small>
                     </div>
@@ -131,7 +182,7 @@ function renderStats() {
             cards.push(`
                 <div class="alert-item warning">
                     <i class="bi bi-calendar2-day"></i>
-                    <div>
+                    <div class="alert-item-body">
                         <strong>${vencemHoje.length} devolucao(oes) vence(m) hoje</strong>
                         <small>${resumoClientesAlerta(vencemHoje, 2)}</small>
                     </div>
@@ -142,7 +193,7 @@ function renderStats() {
             cards.push(`
                 <div class="alert-item info">
                     <i class="bi bi-calendar2-week"></i>
-                    <div>
+                    <div class="alert-item-body">
                         <strong>${vencemAmanha.length} devolucao(oes) para amanha</strong>
                         <small>${resumoClientesAlerta(vencemAmanha, 2)}</small>
                     </div>
@@ -153,7 +204,7 @@ function renderStats() {
             cards.push(`
                 <div class="alert-item neutral">
                     <i class="bi bi-clock-history"></i>
-                    <div>
+                    <div class="alert-item-body">
                         <strong>${proximas72h.length} devolucao(oes) nos proximos 3 dias</strong>
                         <small>${resumoClientesAlerta(proximas72h, 2)}</small>
                     </div>
@@ -182,7 +233,7 @@ function renderStats() {
     const tabelaDevolucoes = document.getElementById('tblDashDevolucoes');
     if (tabelaDevolucoes) {
         if (!proximas.length) {
-            tabelaDevolucoes.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:15px; opacity:0.6;">Nada previsto.</td></tr>';
+            tabelaDevolucoes.innerHTML = '<tr class="table-empty-row"><td colspan="3">Nada previsto.</td></tr>';
         } else {
             tabelaDevolucoes.innerHTML = proximas.slice(0, 5).map((locacao) => {
                 const status = statusPrazo(locacao.diffDias);
@@ -190,7 +241,7 @@ function renderStats() {
                     <tr>
                         <td>${locacao.previsao.toLocaleDateString('pt-BR')}</td>
                         <td>${escaparTextoDashboard(locacao.cliente)}</td>
-                        <td style="text-align:center"><span class="badge ${status.classe}">${status.texto}</span></td>
+                        <td class="table-head-center"><span class="badge ${status.classe}">${status.texto}</span></td>
                     </tr>
                 `;
             }).join('');

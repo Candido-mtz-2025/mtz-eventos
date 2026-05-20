@@ -2602,4 +2602,207 @@ input[type="file"]::-webkit-file-upload-button {
         width: 100%;
     }
 }
+
+/* === V12.2 | DASHBOARD EXECUTIVO === */
+#tab-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#tab-dashboard .dashboard-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 92%, #ffffff 8%) 0%, var(--surface-soft) 100%);
+}
+
+#tab-dashboard .dashboard-topbar h2 {
+    margin: 0;
+    font-size: 1.18rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+#tab-dashboard .dashboard-topbar p {
+    margin: 4px 0 0;
+    color: var(--text-light);
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+#tab-dashboard .dashboard-topbar-meta {
+    text-align: right;
+}
+
+#tab-dashboard .dashboard-topbar-meta small {
+    display: block;
+    color: var(--text-light);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+#tab-dashboard .dashboard-topbar-meta strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.86rem;
+    color: var(--text);
+}
+
+#tab-dashboard .dashboard-grid {
+    margin-bottom: 0;
+    gap: 12px;
+}
+
+#tab-dashboard .stat-card {
+    min-height: 132px;
+    padding: 17px;
+}
+
+#tab-dashboard .stat-info {
+    min-width: 0;
+}
+
+#tab-dashboard .stat-info .stat-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-light);
+    font-size: 0.69rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#tab-dashboard .stat-info h3 {
+    margin: 9px 0 1px;
+    line-height: 1.1;
+    font-size: 1.72rem;
+}
+
+#tab-dashboard .stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+}
+
+#tab-dashboard .finance-strip {
+    margin-bottom: 0;
+    gap: 10px;
+}
+
+#tab-dashboard .finance-kpi {
+    padding: 13px 14px;
+    border-radius: 12px;
+}
+
+#tab-dashboard .finance-kpi strong {
+    font-size: 1.14rem;
+}
+
+#tab-dashboard .dashboard-lower {
+    gap: 14px;
+}
+
+#tab-dashboard .dash-section {
+    padding: 18px;
+}
+
+#tab-dashboard .dash-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+#tab-dashboard .dash-section h3 {
+    margin: 0;
+}
+
+#tab-dashboard .dash-section-meta {
+    color: var(--text-light);
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+#tab-dashboard .table-responsive {
+    background: var(--surface);
+}
+
+#tab-dashboard #listEstoqueBaixo .muted-note {
+    margin: 0;
+}
+
+[data-theme="dark"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #122036 0%, #0f1a2b 100%);
+    border-color: #334155;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-info .stat-tag {
+    background: #0b1220;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+
+@media (max-width: 920px) {
+    #tab-dashboard .dashboard-topbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    #tab-dashboard .dashboard-topbar-meta {
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    #tab-dashboard .dashboard-topbar {
+        padding: 12px;
+    }
+
+    #tab-dashboard .dashboard-topbar h2 {
+        font-size: 1.02rem;
+    }
+
+    #tab-dashboard .dashboard-grid {
+        gap: 10px;
+    }
+
+    #tab-dashboard .stat-card {
+        min-height: 112px;
+        padding: 14px;
+    }
+
+    #tab-dashboard .stat-info h3 {
+        font-size: 1.46rem;
+    }
+
+    #tab-dashboard .stat-icon {
+        width: 46px;
+        height: 46px;
+    }
+
+    #tab-dashboard .finance-kpi strong {
+        font-size: 1.02rem;
+    }
+
+    #tab-dashboard .dash-section {
+        padding: 14px;
+    }
+}
     

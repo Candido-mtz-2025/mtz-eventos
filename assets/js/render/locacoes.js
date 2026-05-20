@@ -1,11 +1,20 @@
 // 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
 // ========================================
+function atualizarFiltroVisualLocacoes() {
+    const botoes = document.querySelectorAll('#tab-locacoes .filters-row [data-filtro]');
+    botoes.forEach((btn) => {
+        const ativo = btn.getAttribute('data-filtro') === filtroAtual;
+        btn.classList.toggle('is-active', ativo);
+    });
+}
+
 function renderLocacoes() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     
     const tbody = DOM.get('tblLocacoes');
     if (!tbody) return;
+    atualizarFiltroVisualLocacoes();
     
     // Processar dados
     const lista = locacoes.map(l => {
@@ -34,7 +43,7 @@ function renderLocacoes() {
     const itensPagina = filtrados.slice(inicio, inicio + ITENS_POR_PAGINA);
     
     if (itensPagina.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; opacity:0.6;">Nenhum registro.</td></tr>';
+        tbody.innerHTML = '<tr class="table-empty-row"><td colspan="5">Nenhum registro.</td></tr>';
         return;
     }
     
@@ -60,17 +69,20 @@ function renderLocacoes() {
                 : 'badge-success';
         
         const tr = document.createElement('tr');
+        const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
+        const statusPagamentoLabel = l.pago ? 'Marcar como pendente' : 'Marcar como pago';
+        tr.className = 'locacao-row';
         tr.innerHTML = `
             <td>
-                <div style="font-weight:600">${nomeCliente}</div>
-                <div style="font-size:0.75rem; opacity:0.7;">#${l.id.toString().slice(-4)}</div>
+                <div class="locacao-cell-main">${nomeCliente}</div>
+                <div class="locacao-cell-meta">#${l.id.toString().slice(-4)}</div>
             </td>
             <td>
-                <div style="font-size:0.85rem">${formatarData(l.dataAluguel)}</div>
-                <div style="font-size:0.85rem; font-weight:600;">Até ${formatarData(l.dataDevolucaoPrevisao)}</div>
+                <div class="locacao-period-main">${formatarData(l.dataAluguel)}</div>
+                <div class="locacao-period-meta">Até ${formatarData(l.dataDevolucaoPrevisao)}</div>
             </td>
             <td>
-                <div style="font-weight:700">R$ ${l.valorTotal.toFixed(2)}</div>
+                <div class="locacao-cell-main">R$ ${l.valorTotal.toFixed(2)}</div>
                 ${l.pago ? '<span class="badge badge-success">PAGO</span>' : '<span class="badge badge-warning">PENDENTE</span>'}
             </td>
             <td>
@@ -80,20 +92,20 @@ function renderLocacoes() {
                 </span>
             </td>
             <td class="col-actions">
-                <div class="actions-cell">
-                    <button class="btn btn-sm" data-acesso="admin" style="${l.pago ? 'background:var(--border); color:var(--text-light)' : 'background:#10b981; color:white'}" onclick="alternarPagamento(${l.id})">
+                <div class="actions-cell locacao-actions">
+                    <button class="btn btn-sm locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" onclick="alternarPagamento(${l.id})">
                         <i class="bi bi-currency-dollar"></i>
                     </button>
-                    <button class="btn btn-sm" style="background:#25D366; color:white" onclick="enviarZap(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" onclick="enviarZap(${l.id})">
                         <i class="bi bi-whatsapp"></i>
                     </button>
-                    <button class="btn btn-sm btn-warning" style="color:white" onclick="gerarRomaneio(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" onclick="gerarRomaneio(${l.id})">
                         <i class="bi bi-truck"></i>
                     </button>
-                    <button class="btn btn-sm btn-info" onclick="gerarRelatorio(${l.id})">
+                    <button class="btn btn-sm locacao-action-btn locacao-action-relatorio" title="Abrir relatório" onclick="gerarRelatorio(${l.id})">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger" data-acesso="admin" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
+                    ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger locacao-action-btn" data-acesso="admin" title="Cancelar locação" onclick="cancelarLocacao(${l.id})"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;
@@ -117,15 +129,15 @@ function criarControlesPaginacao(tipo, totalPaginas, totalItens) {
     const paginaAtualTipo = paginaAtual[tipo];
     
     const controles = `
-        <tr style="background: var(--surface-hover);">
-            <td colspan="10" style="text-align: center; padding: 15px;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+        <tr class="table-pagination-row">
+            <td colspan="10" class="table-pagination-cell">
+                <div class="table-pagination">
                     <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo - 1})" ${paginaAtualTipo === 1 ? 'disabled' : ''}>
                         <i class="bi bi-chevron-left"></i> Anterior
                     </button>
-                    <span style="font-weight: 600; color: var(--text);">
-                        Página ${paginaAtualTipo} de ${totalPaginas} 
-                        <span style="opacity: 0.6; font-size: 0.85rem;">(${totalItens} itens)</span>
+                    <span class="table-pagination-info">
+                        Página ${paginaAtualTipo} de ${totalPaginas}
+                        <span class="table-pagination-meta">(${totalItens} itens)</span>
                     </span>
                     <button class="btn btn-sm btn-secondary" onclick="irParaPagina('${tipo}', ${paginaAtualTipo + 1})" ${paginaAtualTipo === totalPaginas ? 'disabled' : ''}>
                         Próxima <i class="bi bi-chevron-right"></i>

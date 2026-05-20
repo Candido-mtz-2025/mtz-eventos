@@ -124,21 +124,47 @@
 </div>
 
             <div id="tab-dashboard" class="tab-content active">
+                <div class="dashboard-topbar">
+                    <div>
+                        <h2>Painel Executivo</h2>
+                        <p>Visão operacional e financeira em tempo real.</p>
+                    </div>
+                    <div class="dashboard-topbar-meta">
+                        <small>Atualizado em</small>
+                        <strong id="dashAtualizadoEm">--</strong>
+                    </div>
+                </div>
                 <div class="dashboard-grid">
                     <div class="stat-card card-blue" onclick="abrirTab('locadores')">
-                        <div class="stat-info"><h3 id="dashClientes">0</h3><p>Clientes</p></div>
+                        <div class="stat-info">
+                            <small id="dashTagClientes" class="stat-tag">Base ativa</small>
+                            <h3 id="dashClientes">0</h3>
+                            <p>Clientes</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-people"></i></div>
                     </div>
                     <div class="stat-card card-orange" onclick="irParaLocacoes('todos')">
-                        <div class="stat-info"><h3 id="dashLocacoes">0</h3><p>Locações Ativas</p></div>
+                        <div class="stat-info">
+                            <small id="dashTagLocacoes" class="stat-tag">Operação</small>
+                            <h3 id="dashLocacoes">0</h3>
+                            <p>Locações Ativas</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-cart"></i></div>
                     </div>
                     <div class="stat-card card-green">
-                        <div class="stat-info"><h3 id="dashFaturamento" class="metric-value-compact">R$ 0,00</h3><p>Receita</p></div>
+                        <div class="stat-info">
+                            <small id="dashTagReceita" class="stat-tag">Recebimento</small>
+                            <h3 id="dashFaturamento" class="metric-value-compact">R$ 0,00</h3>
+                            <p>Receita</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
                     </div>
                     <div class="stat-card card-purple" onclick="irParaLocacoes('atrasado')">
-                        <div class="stat-info"><h3 id="dashAtrasos">0</h3><p>Atrasos</p></div>
+                        <div class="stat-info">
+                            <small id="dashTagAtrasos" class="stat-tag">Risco</small>
+                            <h3 id="dashAtrasos">0</h3>
+                            <p>Atrasos</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
                     </div>
                 </div>
@@ -162,13 +188,19 @@
                 </div>
                 <div class="dashboard-lower">
                     <div class="dash-section">
-                        <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
+                            <small class="dash-section-meta">Próximos 5 registros</small>
+                        </div>
                         <div class="table-responsive">
                             <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th class="table-head-center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
                         </div>
                     </div>
                     <div class="dash-section">
-                        <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
+                            <small id="dashResumoAlertas" class="dash-section-meta">Sem alertas no momento</small>
+                        </div>
                         <div id="listEstoqueBaixo"><small class="muted-note">Sistema operando normalmente.</small></div>
                     </div>
                 </div>
@@ -411,10 +443,10 @@
 
                  
                <div class="filters-row">
-                    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
-                    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
-                    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
-                    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
+                    <button class="btn btn-sm btn-secondary" data-filtro="todos" onclick="mudarFiltro('todos')">Todos</button>
+                    <button class="btn btn-sm btn-success" data-filtro="ativo" onclick="mudarFiltro('ativo')">Em Aberto</button>
+                    <button class="btn btn-sm btn-danger" data-filtro="atrasado" onclick="mudarFiltro('atrasado')">Atrasados</button>
+                    <button class="btn btn-sm btn-info" data-filtro="devolvido" onclick="mudarFiltro('devolvido')">Histórico</button>
                 </div> 
 
                  <div class="panel-block panel-block-spaced">
