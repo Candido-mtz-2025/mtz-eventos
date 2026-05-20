@@ -5,6 +5,7 @@ let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carr
 let modelosChecklist = [];
 let checklistsGerados = [];
 let checklistMontagem = [];
+let checklistConferencia = {};
 let checklistEtapasMontagem = [];
 
     let logsAuditoria = []; // NOVO: Sistema de auditoria

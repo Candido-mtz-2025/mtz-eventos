@@ -146,11 +146,15 @@ const filtrados = pecas
 
     function limparCarrinhoLocacao() {
         if (carrinhoLocacao.length === 0) return;
-        if (!confirm('Limpar todos os itens do pedido?')) return;
-
-        carrinhoLocacao = [];
-        renderCarrinhoLocacao();
-        mostrarToast('Pedido limpo.');
+        confirmarAcao('Limpar todos os itens do pedido?', () => {
+            carrinhoLocacao = [];
+            renderCarrinhoLocacao();
+            mostrarToast('Pedido limpo.');
+        }, {
+            titulo: 'Limpar pedido',
+            textoConfirmar: 'Limpar',
+            classeConfirmar: 'btn-danger'
+        });
     }
 
     // --- NOVA FUNÇÃO DE ADICIONAR AO CARRINHO (RESTAURADA) ---
@@ -160,13 +164,21 @@ const filtrados = pecas
         if (!id) return mostrarToast("Busque e selecione um item!", "erro"); 
         
         // 2. Trata a quantidade
-        var qtdInput = document.getElementById('aluguelQtd').value;
-        var qtd = parseInt(qtdInput);
-        if (isNaN(qtd) || qtd < 1) qtd = 1;
+        var campoQtd = document.getElementById('aluguelQtd');
+        var qtd = parseInt(campoQtd?.value, 10);
+        if (!Number.isInteger(qtd) || qtd < 1) {
+            mostrarToast("Informe uma quantidade valida (minimo 1).", "erro");
+            if (campoQtd) campoQtd.focus();
+            return;
+        }
 
         // 3. Busca a peça
         var p = pecas.find(function(x) { return x.id == id; });
-        if (!p) return;
+        if (!p) return mostrarToast("Item nao encontrado.", "erro");
+        if ((parseInt(p.disponivel, 10) || 0) <= 0) {
+            mostrarToast("Esse item esta sem estoque disponivel.", "erro");
+            return;
+        }
 
         // --- TRAVA DE ESTOQUE ---
         var itemNoCarrinho = carrinhoLocacao.find(x => x.pecaId == p.id);
@@ -174,6 +186,7 @@ const filtrados = pecas
         var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
 
         if (qtdTotalSolicitada > p.disponivel) {
+            if (campoQtd) campoQtd.value = String(Math.max((parseInt(p.disponivel, 10) || 1) - qtdJaNoCarrinho, 1));
             return mostrarToast(`Estoque insuficiente! Só restam ${p.disponivel}.`, "erro");
         }
 
@@ -215,13 +228,42 @@ const filtrados = pecas
             return;
         }
 
+        const cliente = locadores.find(x => String(x.id) === String(cli));
+        if (!cliente) {
+            mostrarToast("Cliente selecionado e invalido.", "erro");
+            return;
+        }
+
         if (!ini || !fim) {
             mostrarToast("Informe as datas da locação.", "erro");
             return;
         }
 
-        if (new Date(fim) < new Date(ini)) {
+        const dataInicio = new Date(`${ini}T00:00:00`);
+        const dataFim = new Date(`${fim}T00:00:00`);
+        if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
+            mostrarToast("Datas invalidas. Confira inicio e fim.", "erro");
+            return;
+        }
+
+        if (dataFim < dataInicio) {
             mostrarToast("A previsão de fim não pode ser antes do início.", "erro");
+            return;
+        }
+
+        if (!Number.isFinite(divInput) || divInput <= 0) {
+            mostrarToast("Divisor invalido. Informe um valor acima de zero.", "erro");
+            return;
+        }
+
+        const itensInvalidos = carrinhoLocacao.filter(item => {
+            const qtd = parseInt(item.quantidade, 10);
+            const valor = parseFloat(item.valor);
+            return !Number.isInteger(qtd) || qtd < 1 || !Number.isFinite(valor) || valor < 0;
+        });
+
+        if (itensInvalidos.length > 0) {
+            mostrarToast("Existem itens com quantidade/valor invalido no pedido.", "erro");
             return;
         }
 
@@ -248,14 +290,26 @@ const filtrados = pecas
         renderTudo();
         
         // Registra no log de auditoria
-        const cliente = locadores.find(x => x.id === parseInt(cli));
         registrarLog('locacao', 'criar', `Locação criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
         
         mostrarToast("Locação Concluída!");
         sincronizar('salvar');
     }
 
-    function cancelarLocacao(id) { if(!confirm("Cancelar locação?")) return; locacoes=locacoes.filter(l=>l.id!==id); if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true); salvarLocal(); renderTudo(); sincronizar('salvar'); }
+    function cancelarLocacao(id) {
+        confirmarAcao("Cancelar locação?", () => {
+            locacoes = locacoes.filter(l => l.id !== id);
+            if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+            mostrarToast("Locacao cancelada.");
+        }, {
+            titulo: "Cancelar locacao",
+            textoConfirmar: "Cancelar locacao",
+            classeConfirmar: "btn-danger"
+        });
+    }
     function mudarFiltro(n) { filtroAtual = n; renderLocacoes(); }
     function irParaLocacoes(f) { abrirTab('locacoes'); setTimeout(() => mudarFiltro(f), 100); }
     function alternarPagamento(id) { const l = locacoes.find(x => x.id == id); if(l) { l.pago = !l.pago; salvarLocal(); renderLocacoes(); renderStats(); sincronizar('salvar'); mostrarToast("Pagamento atualizado!"); } }

@@ -35,18 +35,37 @@
 
     function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
     
-    function salvarPeca() {
-    const n = document.getElementById('pecaNome').value;
-    if (!n) return;
+function salvarPeca() {
+    const n = (document.getElementById('pecaNome').value || '').trim();
+    const valor = parseFloat(document.getElementById('pecaValor').value);
+    const quantidade = parseInt(document.getElementById('pecaQtd').value, 10);
+    const tipoId = parseInt(document.getElementById('pecaTipo').value, 10);
+
+    if (!n) {
+        mostrarToast("Informe o nome da peca.", "erro");
+        return;
+    }
+    if (!Number.isFinite(valor) || valor < 0) {
+        mostrarToast("Informe um valor valido (maior ou igual a zero).", "erro");
+        return;
+    }
+    if (!Number.isInteger(quantidade) || quantidade < 0) {
+        mostrarToast("Informe uma quantidade valida (maior ou igual a zero).", "erro");
+        return;
+    }
+    if (!tipoId) {
+        mostrarToast("Selecione um tipo para a peca.", "erro");
+        return;
+    }
 
     pecas.push({
         id: Date.now(),
         nome: n,
         codigo: document.getElementById('pecaCod').value,
-        valor: parseFloat(document.getElementById('pecaValor').value) || 0,
-        quantidade: parseInt(document.getElementById('pecaQtd').value) || 0,
-        disponivel: parseInt(document.getElementById('pecaQtd').value) || 0,
-        tipoId: parseInt(document.getElementById('pecaTipo').value),
+        valor,
+        quantidade,
+        disponivel: quantidade,
+        tipoId,
         medida: document.getElementById('pecaMedida').value,
 
         grupoChecklist: document.getElementById('pecaGrupoChecklist').value || 'outros',
@@ -65,27 +84,31 @@
     function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
 
     function removerItem(t, id) {
-        if(!confirm("Tem certeza?")) return;
-        
-        if(t === 'locadores') {
-            const item = locadores.find(x => x.id == id);
-            locadores = locadores.filter(x => x.id !== id);
-            registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
-        }
-        if(t === 'pecas') {
-            const item = pecas.find(x => x.id == id);
-            pecas = pecas.filter(x => x.id !== id);
-            registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
-        }
-        if(t === 'tipos') {
-            const item = tipos.find(x => x.id == id);
-            tipos = tipos.filter(x => x.id !== id);
-            registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
-        }
-        
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
+        confirmarAcao("Tem certeza que deseja remover este registro?", () => {
+            if(t === 'locadores') {
+                const item = locadores.find(x => x.id == id);
+                locadores = locadores.filter(x => x.id !== id);
+                registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
+            }
+            if(t === 'pecas') {
+                const item = pecas.find(x => x.id == id);
+                pecas = pecas.filter(x => x.id !== id);
+                registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
+            }
+            if(t === 'tipos') {
+                const item = tipos.find(x => x.id == id);
+                tipos = tipos.filter(x => x.id !== id);
+                registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
+            }
+            
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+        }, {
+            titulo: "Remover registro",
+            textoConfirmar: "Remover",
+            classeConfirmar: "btn-danger"
+        });
     }
 
   function abrirEditarPeca(id) {
@@ -174,19 +197,23 @@ function toggleSelecionarTodosEstoque(marcar) {
 
 function excluirSelecionadosEstoque(){
   if (window.estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
-  if (!confirm(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`)) return;
+  confirmarAcao(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`, () => {
+    const ids = new Set([...window.estoqueSelecionados].map(Number));
+    const removidos = pecas.filter(p => ids.has(p.id));
+    pecas = pecas.filter(p => !ids.has(p.id));
 
-  const ids = new Set([...window.estoqueSelecionados].map(Number));
-  const removidos = pecas.filter(p => ids.has(p.id));
-  pecas = pecas.filter(p => !ids.has(p.id));
+    removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
 
-  removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
-
-  window.estoqueSelecionados.clear();
-  salvarLocal();
-  renderEstoque();
-  sincronizar('salvar');
-  mostrarToast('Itens excluídos!');
+    window.estoqueSelecionados.clear();
+    salvarLocal();
+    renderEstoque();
+    sincronizar('salvar');
+    mostrarToast('Itens excluidos!');
+  }, {
+    titulo: "Excluir itens",
+    textoConfirmar: "Excluir",
+    classeConfirmar: "btn-danger"
+  });
 }
 window.salvarPeca = salvarPeca;
 window.abrirEditarPeca = abrirEditarPeca;
@@ -475,10 +502,14 @@ function renderModelosChecklist() {
 }
 
 function excluirModeloChecklistUI(id) {
-    if (!confirm('Deseja excluir este modelo?')) return;
-
-    excluirModeloChecklist(id);
-    renderModelosChecklist();
+    confirmarAcao('Deseja excluir este modelo?', () => {
+        excluirModeloChecklist(id);
+        renderModelosChecklist();
+    }, {
+        titulo: 'Excluir modelo',
+        textoConfirmar: 'Excluir',
+        classeConfirmar: 'btn-danger'
+    });
 }
 
 function gerarChecklistModelo(id) {

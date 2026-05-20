@@ -92,12 +92,23 @@ function validarQtdDevolucao(input) {
 
 function confirmarDevolucao() {
     const id = document.getElementById('devLocacao').value;
-    if (!id) return alert("Selecione!");
+    if (!id) {
+        mostrarToast("Selecione uma locacao para devolver.", "erro");
+        return;
+    }
+
+    const dataDevolucao = document.getElementById('devData').value;
+    if (!dataDevolucao) {
+        mostrarToast("Informe a data da devolucao.", "erro");
+        return;
+    }
 
     const l = locacoes.find(x => x.id == id);
     if (!l) return mostrarToast("Locação não encontrada.", "erro");
 
     const itensDevolvidos = [];
+    const pendencias = [];
+    let validacaoFalhou = false;
 
     (l.items || []).forEach(item => {
         const pendenteAntes = getQtdPendenteItem(item);
@@ -107,18 +118,42 @@ function confirmarDevolucao() {
         const inputAvaria = document.querySelector(`.dev-avaria[data-peca-id="${item.pecaId}"]`);
         const inputObs = document.querySelector(`.dev-obs[data-peca-id="${item.pecaId}"]`);
 
-        const qtdDevolvida = Math.min(parseInt(inputQtd?.value) || 0, pendenteAntes);
-        const qtdAvaria = Math.min(parseInt(inputAvaria?.value) || 0, pendenteAntes);
-        const obs = inputObs?.value || '';
+        const qtdDevolvida = Math.max(0, Math.min(parseInt(inputQtd?.value, 10) || 0, pendenteAntes));
+        const qtdAvaria = Math.max(0, Math.min(parseInt(inputAvaria?.value, 10) || 0, pendenteAntes));
+        const obs = (inputObs?.value || '').trim();
 
-        if (qtdDevolvida <= 0 && qtdAvaria <= 0 && !obs.trim()) return;
+        if ((qtdDevolvida + qtdAvaria) > pendenteAntes) {
+            mostrarToast(`"${item.nome}" excedeu a quantidade pendente (${pendenteAntes}).`, "erro");
+            validacaoFalhou = true;
+            return;
+        }
 
-        item.devolvidos = (parseInt(item.devolvidos) || 0) + qtdDevolvida;
+        if (qtdDevolvida <= 0 && qtdAvaria <= 0) return;
+
+        pendencias.push({
+            item,
+            pendenteAntes,
+            qtdDevolvida,
+            qtdAvaria,
+            obs
+        });
+    });
+
+    if (validacaoFalhou) return;
+
+    if (pendencias.length === 0) {
+        mostrarToast("Informe pelo menos uma quantidade para devolucao ou avaria.", "erro");
+        return;
+    }
+
+    pendencias.forEach((registro) => {
+        const { item, pendenteAntes, qtdDevolvida, qtdAvaria, obs } = registro;
+        item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
 
         itensDevolvidos.push({
             pecaId: item.pecaId,
             nome: item.nome,
-            quantidadeLocada: parseInt(item.quantidade) || 0,
+            quantidadeLocada: parseInt(item.quantidade, 10) || 0,
             quantidadeDevolvida: qtdDevolvida,
             quantidadeAvaria: qtdAvaria,
             quantidadePendenteAntes: pendenteAntes,
@@ -128,18 +163,13 @@ function confirmarDevolucao() {
         });
     });
 
-    if (itensDevolvidos.length === 0) {
-        mostrarToast("Informe pelo menos uma quantidade ou observação.", "erro");
-        return;
-    }
-
     const devolucaoTotal = locacaoEstaTotalmenteDevolvida(l);
     l.status = devolucaoTotal ? 'devolvido' : 'ativo';
 
     devolucoes.push({
         id: Date.now(),
         locacaoId: l.id,
-        dataDevolucao: document.getElementById('devData').value,
+        dataDevolucao,
         tipo: devolucaoTotal ? 'total' : 'parcial',
         obs: devolucaoTotal ? 'Total' : 'Parcial',
         itens: itensDevolvidos

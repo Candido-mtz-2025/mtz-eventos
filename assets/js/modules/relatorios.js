@@ -306,7 +306,10 @@ function getHeaderMTZ() {
         }
     }
     function gerarPDF() { 
-        if (!window.jspdf || !window.html2canvas) { alert("Aguarde o carregamento das bibliotecas..."); return; } 
+        if (!window.jspdf || !window.html2canvas) {
+            mostrarToast("Aguarde o carregamento das bibliotecas...", "erro");
+            return;
+        } 
         const { jsPDF } = window.jspdf; 
         const elemento = document.getElementById("printArea"); 
         

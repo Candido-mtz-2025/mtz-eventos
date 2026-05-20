@@ -19,7 +19,7 @@ function popularChecklistModeloSelect() {
 function adicionarModeloAoChecklist() {
     const select = document.getElementById('checklistModeloSelect');
     if (!select || !select.value) {
-        alert('Selecione um modelo.');
+        mostrarToast('Selecione um modelo.', 'erro');
         return;
     }
 
@@ -30,17 +30,19 @@ function adicionarModeloAoChecklist() {
         : modelosChecklist.find(m => String(m.id) === String(modeloId));
 
     if (!modelo) {
-        alert('Modelo não encontrado.');
+        mostrarToast('Modelo nao encontrado.', 'erro');
         return;
     }
 
     if (!modelo.itens || !modelo.itens.length) {
-        alert('Esse modelo não possui itens.');
+        mostrarToast('Esse modelo nao possui itens.', 'erro');
         return;
     }
 
     modelo.itens.forEach(itemModelo => {
         const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
+        const quantidadeModelo = Number(itemModelo.quantidade || itemModelo.qtd || 0);
+        if (!Number.isFinite(quantidadeModelo) || quantidadeModelo <= 0) return;
 
         const peca = pecas.find(p => String(p.id) === String(pecaId));
         if (!peca) {
@@ -51,7 +53,7 @@ function adicionarModeloAoChecklist() {
         const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
 
         if (existente) {
-            existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
+            existente.quantidade += quantidadeModelo;
         } else {
             checklistMontagem.push({
             modeloId: modelo.id,
@@ -62,7 +64,7 @@ function adicionarModeloAoChecklist() {
             grupoChecklist: peca.grupoChecklist || 'outros',
             familiaEstrutural: peca.familiaEstrutural || '',
             subtipoEstrutural: peca.subtipoEstrutural || '',
-            quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
+            quantidade: quantidadeModelo
            });
         }
     });
@@ -71,6 +73,7 @@ function adicionarModeloAoChecklist() {
 
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
+    mostrarToast('Modelo adicionado ao checklist.');
 }
 
 function removerItemChecklistMontagem(index) {
@@ -84,28 +87,34 @@ function removerItemChecklistMontagem(index) {
 }
 
 function limparChecklistMontagem() {
-    const confirmar = confirm('Deseja limpar o checklist?');
-    if (!confirmar) return;
+    confirmarAcao('Deseja limpar o checklist?', () => {
+        checklistMontagem = [];
+        checklistConferencia = {};
+        window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
 
-    checklistMontagem = [];
-    window.checklistMontagem = checklistMontagem;
+        [
+            'checklistCliente',
+            'checklistLocal',
+            'checklistMontagemData',
+            'checklistHorario',
+            'checklistEvento',
+            'checklistDesmontagemData',
+            'checklistRespSaida',
+            'checklistRespRetorno'
+        ].forEach(id => {
+            const campo = document.getElementById(id);
+            if (campo) campo.value = '';
+        });
 
-    [
-        'checklistCliente',
-        'checklistLocal',
-        'checklistMontagemData',
-        'checklistHorario',
-        'checklistEvento',
-        'checklistDesmontagemData',
-        'checklistRespSaida',
-        'checklistRespRetorno'
-    ].forEach(id => {
-        const campo = document.getElementById(id);
-        if (campo) campo.value = '';
+        if (typeof salvarLocal === 'function') salvarLocal();
+        renderChecklistMontagem();
+        mostrarToast('Checklist limpo.');
+    }, {
+        titulo: 'Limpar checklist',
+        textoConfirmar: 'Limpar',
+        classeConfirmar: 'btn-danger'
     });
-
-    if (typeof salvarLocal === 'function') salvarLocal();
-    renderChecklistMontagem();
 }
 
 function normalizarGrupoChecklist(grupo) {
@@ -179,6 +188,95 @@ function obterNomeItemChecklist(item) {
     return nome || medida || subtipo || 'Item';
 }
 
+function chaveConferenciaChecklist(grupo, nomeItem) {
+    const base = `${grupo || 'outros'}::${nomeItem || 'item'}`.toLowerCase();
+    return base.replace(/\s+/g, '_').replace(/[^a-z0-9:_-]/g, '');
+}
+
+function obterConferenciaItemChecklist(chave, quantidadeSaida) {
+    if (!checklistConferencia || typeof checklistConferencia !== 'object') {
+        checklistConferencia = {};
+    }
+
+    if (!checklistConferencia[chave]) {
+        checklistConferencia[chave] = {
+            retorno: '',
+            status: 'pendente',
+            observacao: ''
+        };
+    }
+
+    const registro = checklistConferencia[chave];
+    const maximo = Math.max(parseInt(quantidadeSaida, 10) || 0, 0);
+    const retornoNumero = parseInt(registro.retorno, 10);
+
+    registro.retorno = Number.isInteger(retornoNumero)
+        ? Math.max(0, Math.min(retornoNumero, maximo))
+        : '';
+
+    const statusPermitido = ['pendente', 'ok', 'faltando', 'avaria'];
+    if (!statusPermitido.includes(registro.status)) {
+        registro.status = 'pendente';
+    }
+
+    registro.observacao = String(registro.observacao || '').trim().slice(0, 160);
+    return registro;
+}
+
+function atualizarConferenciaChecklist(chave, campo, valor, quantidadeSaida) {
+    const registro = obterConferenciaItemChecklist(chave, quantidadeSaida);
+
+    if (campo === 'retorno') {
+        const maximo = Math.max(parseInt(quantidadeSaida, 10) || 0, 0);
+        const numero = parseInt(valor, 10);
+        registro.retorno = Number.isInteger(numero)
+            ? Math.max(0, Math.min(numero, maximo))
+            : '';
+
+        if (registro.status !== 'avaria') {
+            if (registro.retorno === '') registro.status = 'pendente';
+            else if (registro.retorno >= maximo) registro.status = 'ok';
+            else registro.status = 'faltando';
+        }
+    }
+
+    if (campo === 'status') {
+        const statusPermitido = ['pendente', 'ok', 'faltando', 'avaria'];
+        registro.status = statusPermitido.includes(valor) ? valor : 'pendente';
+    }
+
+    if (campo === 'observacao') {
+        registro.observacao = String(valor || '').trim().slice(0, 160);
+    }
+
+    checklistConferencia[chave] = registro;
+    window.checklistConferencia = checklistConferencia;
+    if (typeof salvarLocal === 'function') salvarLocal();
+
+    if (campo !== 'observacao') {
+        renderChecklistMontagem();
+    }
+}
+
+function sincronizarConferenciaChecklist(grupos) {
+    if (!checklistConferencia || typeof checklistConferencia !== 'object') {
+        checklistConferencia = {};
+    }
+
+    const chavesValidas = new Set();
+    (grupos || []).forEach(grupo => {
+        (grupo.itens || []).forEach(item => {
+            if (item.chaveConferencia) chavesValidas.add(item.chaveConferencia);
+        });
+    });
+
+    Object.keys(checklistConferencia).forEach(chave => {
+        if (!chavesValidas.has(chave)) delete checklistConferencia[chave];
+    });
+
+    window.checklistConferencia = checklistConferencia;
+}
+
 function obterGruposChecklist() {
     const gruposMap = {};
 
@@ -196,11 +294,13 @@ function obterGruposChecklist() {
         }
 
         const referencia = obterNomeItemChecklist(item);
+        const chaveConferencia = chaveConferenciaChecklist(grupo, referencia);
 
         const qtd = Number(item.quantidade) || 0;
         const linhaAtual = gruposMap[grupo].itens.get(referencia) || {
             nome: referencia,
-            quantidade: 0
+            quantidade: 0,
+            chaveConferencia
         };
 
         linhaAtual.quantidade += qtd;
@@ -233,7 +333,10 @@ function obterGruposChecklist() {
         .map(chave => ({
             ...gruposMap[chave],
             modelos: Array.from(gruposMap[chave].modelos),
-            itens: Array.from(gruposMap[chave].itens.values())
+            itens: Array.from(gruposMap[chave].itens.values()).map(item => ({
+                ...item,
+                conferencia: obterConferenciaItemChecklist(item.chaveConferencia, item.quantidade)
+            }))
         }));
 }
 
@@ -247,6 +350,7 @@ function renderChecklistMontagem() {
     }
 
     const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
 
     container.innerHTML = `
         <div class="checklist-preview-grid">
@@ -257,7 +361,7 @@ function renderChecklistMontagem() {
                             <strong>${escaparHTMLChecklist(grupo.titulo)}</strong>
                             ${grupo.modelos.length ? `<div style="font-size:0.8rem;color:var(--text-light);margin-top:3px;">${grupo.modelos.map(escaparHTMLChecklist).join(' • ')}</div>` : ''}
                         </div>
-                        <span>${grupo.total} item(ns)</span>
+                        <span>${grupo.total} item(ns) • ${grupo.itens.filter(item => item.conferencia.status === 'ok').length}/${grupo.itens.length} conferidos</span>
                     </div>
                     <table class="checklist-preview-table">
                         <thead>
@@ -265,6 +369,8 @@ function renderChecklistMontagem() {
                                 <th>Item</th>
                                 <th>Saída</th>
                                 <th>Retorno</th>
+                                <th>Status</th>
+                                <th>Observação</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -272,7 +378,34 @@ function renderChecklistMontagem() {
                                 <tr>
                                     <td>${escaparHTMLChecklist(item.nome)}</td>
                                     <td>${item.quantidade}</td>
-                                    <td>_______</td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="${item.quantidade}"
+                                            class="checklist-input-retorno"
+                                            value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
+                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'retorno', this.value, ${item.quantidade})">
+                                    </td>
+                                    <td>
+                                        <select
+                                            class="checklist-select-status"
+                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'status', this.value, ${item.quantidade})">
+                                            <option value="pendente" ${item.conferencia.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                                            <option value="ok" ${item.conferencia.status === 'ok' ? 'selected' : ''}>Conferido</option>
+                                            <option value="faltando" ${item.conferencia.status === 'faltando' ? 'selected' : ''}>Faltando</option>
+                                            <option value="avaria" ${item.conferencia.status === 'avaria' ? 'selected' : ''}>Avaria</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            maxlength="160"
+                                            class="checklist-input-obs"
+                                            value="${escaparHTMLChecklist(item.conferencia.observacao || '')}"
+                                            placeholder="Observacao rapida"
+                                            onchange="atualizarConferenciaChecklist('${item.chaveConferencia}', 'observacao', this.value, ${item.quantidade})">
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -285,7 +418,7 @@ function renderChecklistMontagem() {
 
 function gerarPDFChecklistMontagem() {
     if (!checklistMontagem || !checklistMontagem.length) {
-        alert('Nenhum item no checklist para gerar PDF.');
+        mostrarToast('Nenhum item no checklist para gerar PDF.', 'erro');
         return;
     }
 
@@ -293,14 +426,23 @@ function gerarPDFChecklistMontagem() {
     const modalRelatorio = document.getElementById('modalRelatorio');
 
     if (!printArea) {
-        alert('printArea não encontrada.');
+        mostrarToast('Area de impressao nao encontrada.', 'erro');
         return;
     }
 
     const dados = obterDadosCabecalhoChecklist();
+    if (!dados.cliente || !dados.evento) {
+        mostrarToast('Preencha pelo menos cliente e evento antes de gerar o PDF.', 'erro');
+        return;
+    }
+
     const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
     const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
     const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
+    const totalConferidos = grupos.reduce((total, grupo) => (
+        total + grupo.itens.filter(item => item.conferencia.status === 'ok').length
+    ), 0);
 
     const infoCard = (label, value) => `
         <div style="border:1px solid #d7dde8;border-radius:10px;padding:10px 12px;background:#f8fafc;">
@@ -335,18 +477,32 @@ function gerarPDFChecklistMontagem() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${grupo.itens.map((item, linhaIndex) => `
-                        <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">${escaparHTMLChecklist(item.nome)}</td>
-                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#111827;font-weight:800;">${item.quantidade}</td>
-                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">
-                                <span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>
-                            </td>
-                            <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
-                                <span style="display:block;border-bottom:1px solid #cbd5e1;height:14px;"></span>
-                            </td>
-                        </tr>
-                    `).join('')}
+                    ${grupo.itens.map((item, linhaIndex) => {
+                        const retorno = item.conferencia.retorno === '' ? '' : String(item.conferencia.retorno);
+                        const mapaStatus = {
+                            pendente: 'Pendente',
+                            ok: 'Conferido',
+                            faltando: 'Faltando',
+                            avaria: 'Avaria'
+                        };
+                        const statusTexto = mapaStatus[item.conferencia.status] || 'Pendente';
+                        const observacoes = [statusTexto !== 'Pendente' ? statusTexto : '', item.conferencia.observacao || '']
+                            .filter(Boolean)
+                            .join(' • ');
+
+                        return `
+                            <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">${escaparHTMLChecklist(item.nome)}</td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#111827;font-weight:800;">${item.quantidade}</td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#0f172a;font-weight:800;">
+                                    ${retorno || '<span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>'}
+                                </td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#475569;">
+                                    ${observacoes ? escaparHTMLChecklist(observacoes) : '<span style="display:block;border-bottom:1px solid #cbd5e1;height:14px;"></span>'}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
                 </tbody>
             </table>
         </section>
@@ -376,6 +532,7 @@ function gerarPDFChecklistMontagem() {
                 ${infoCard('Resp. saída', dados.respSaida)}
                 ${infoCard('Resp. retorno', dados.respRetorno)}
                 ${infoCard('Itens', `${totalItens} peças • ${totalLinhas} linhas`)}
+                ${infoCard('Conferidos', `${totalConferidos}/${totalLinhas}`)}
             </div>
 
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
@@ -548,5 +705,6 @@ window.popularChecklistModeloSelect = popularChecklistModeloSelect;
 window.adicionarModeloAoChecklist = adicionarModeloAoChecklist;
 window.removerItemChecklistMontagem = removerItemChecklistMontagem;
 window.limparChecklistMontagem = limparChecklistMontagem;
+window.atualizarConferenciaChecklist = atualizarConferenciaChecklist;
 window.renderChecklistMontagem = renderChecklistMontagem;
 window.gerarPDFChecklistMontagem = gerarPDFChecklistMontagem;

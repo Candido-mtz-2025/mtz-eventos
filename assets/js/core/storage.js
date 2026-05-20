@@ -14,6 +14,7 @@ function criarBackupEmergencia() {
     modelosChecklist,
     checklistsGerados,
     checklistMontagem,
+    checklistConferencia,
     checklistEtapasMontagem
 };
     localStorage.setItem('mtzBackupEmergencia', JSON.stringify(backup));
@@ -90,8 +91,10 @@ async function sincronizar(modo) {
             modelosChecklist = dadosNuvem.modelosChecklist || [];
             checklistsGerados = dadosNuvem.checklistsGerados || [];
             checklistMontagem = dadosNuvem.checklistMontagem || [];
+            checklistConferencia = dadosNuvem.checklistConferencia || {};
 
             window.checklistMontagem = checklistMontagem;
+            window.checklistConferencia = checklistConferencia;
 
             salvarLocal();
             renderTudo();
@@ -109,6 +112,7 @@ async function sincronizar(modo) {
              modelosChecklist,
              checklistsGerados,
              checklistMontagem,
+             checklistConferencia,
              ultimaEdicao: timestamp
            };
 
@@ -156,7 +160,8 @@ function iniciarBackupAutomatico() {
          config,
          modelosChecklist,
          checklistsGerados,
-         checklistMontagem
+         checklistMontagem,
+         checklistConferencia
    };
 
         localStorage.setItem('mtzBackupAutomatico', JSON.stringify(backup));
@@ -190,8 +195,10 @@ function restaurarBackupEmergencia() {
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
         checklistMontagem = dados.checklistMontagem || [];
+        checklistConferencia = dados.checklistConferencia || {};
 
         window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
 
         salvarLocal();
         renderTudo();
@@ -254,8 +261,10 @@ function tentarRecuperacaoAutomatica() {
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
         checklistMontagem = dados.checklistMontagem || [];
+        checklistConferencia = dados.checklistConferencia || {};
 
         window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
 
         salvarLocal();
         renderTudo();
@@ -295,6 +304,7 @@ const dados = {
     modelosChecklist,
     checklistsGerados,
     checklistMontagem,
+    checklistConferencia,
 
 };
 
@@ -364,10 +374,12 @@ function carregarLocal() {
         modelosChecklist = dados.modelosChecklist || [];
         checklistsGerados = dados.checklistsGerados || [];
         checklistMontagem = dados.checklistMontagem || [];
+        checklistConferencia = dados.checklistConferencia || {};
         checklistEtapasMontagem = dados.checklistEtapasMontagem || [];
         window.checklistEtapasMontagem = checklistEtapasMontagem;
         
         window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
         
@@ -418,6 +430,10 @@ function carregarLocal() {
             locacoes = [];
             devolucoes = [];
             tipos = [];
+            checklistMontagem = [];
+            checklistConferencia = {};
+            window.checklistMontagem = checklistMontagem;
+            window.checklistConferencia = checklistConferencia;
         }
     }
 }
