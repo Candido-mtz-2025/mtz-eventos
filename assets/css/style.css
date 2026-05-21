@@ -4647,3 +4647,14 @@ textarea::placeholder {
         flex-wrap: wrap !important;
     }
 }
+
+/* HOTFIX ESTRUTURAL: reserva real de largura da coluna de ações em locações */
+#tab-locacoes .table {
+    table-layout: fixed;
+}
+
+#tab-locacoes .table th:nth-child(5),
+#tab-locacoes .table td:nth-child(5) {
+    width: 188px !important;
+    min-width: 188px !important;
+}
