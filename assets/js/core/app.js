@@ -30,6 +30,54 @@ const TAB_TOPBAR_CONFIG = {
     config: { icon: 'bi-gear', titulo: 'Configurações', descricao: 'Ajustes gerais e políticas de acesso.', meta: 'Administração' }
 };
 
+const TAB_QUICK_ACTIONS = {
+    dashboard: [
+        { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' },
+        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' }
+    ],
+    locadores: [
+        { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
+        { id: 'qa_busca_cliente', icon: 'bi-search', label: 'Buscar cliente' },
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' }
+    ],
+    tipos: [
+        { id: 'qa_novo_tipo', icon: 'bi-tags', label: 'Novo tipo' },
+        { id: 'qa_ir_estoque', icon: 'bi-box-seam', label: 'Ir para estoque' },
+        { id: 'qa_abrir_auditoria', icon: 'bi-shield-check', label: 'Ver auditoria' }
+    ],
+    estoque: [
+        { id: 'qa_novo_item', icon: 'bi-box2', label: 'Novo item' },
+        { id: 'qa_busca_estoque', icon: 'bi-search', label: 'Buscar item' },
+        { id: 'qa_importar_excel', icon: 'bi-file-earmark-spreadsheet', label: 'Importar Excel' }
+    ],
+    checklist: [
+        { id: 'qa_novo_checklist', icon: 'bi-check2-square', label: 'Preencher checklist' },
+        { id: 'qa_modelo_checklist', icon: 'bi-diagram-3', label: 'Selecionar modelo' },
+        { id: 'qa_gerar_pdf_checklist', icon: 'bi-printer', label: 'Gerar PDF' }
+    ],
+    locacoes: [
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' },
+        { id: 'qa_filtro_aberto', icon: 'bi-play-circle', label: 'Em aberto' },
+        { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Atrasados' }
+    ],
+    devolucoes: [
+        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' },
+        { id: 'qa_filtro_dev_parcial', icon: 'bi-hourglass-split', label: 'Parciais' },
+        { id: 'qa_filtro_dev_total', icon: 'bi-check2-circle', label: 'Concluidas' }
+    ],
+    auditoria: [
+        { id: 'qa_log_locacao', icon: 'bi-cart', label: 'Logs de locacoes' },
+        { id: 'qa_log_sistema', icon: 'bi-cpu', label: 'Logs do sistema' },
+        { id: 'qa_busca_auditoria', icon: 'bi-search', label: 'Buscar logs' }
+    ],
+    config: [
+        { id: 'qa_editar_config', icon: 'bi-gear', label: 'Editar config' },
+        { id: 'qa_backup_json', icon: 'bi-download', label: 'Baixar backup' },
+        { id: 'qa_ir_estoque', icon: 'bi-box-seam', label: 'Voltar estoque' }
+    ]
+};
+
 function atualizarTopbarModulo(tabId) {
     const topbar = document.getElementById('moduleTopbar');
     const titleEl = document.getElementById('moduleTopbarTitle');
@@ -49,6 +97,160 @@ function atualizarTopbarModulo(tabId) {
     metaEl.textContent = cfg.meta;
     topbar.style.display = 'flex';
 }
+
+function focarCampo(id, selecionar = false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    setTimeout(() => {
+        try {
+            el.focus({ preventScroll: false });
+        } catch (_) {
+            el.focus();
+        }
+
+        if (selecionar && typeof el.select === 'function') {
+            el.select();
+        }
+
+        const bloco = el.closest('.card, .panel-block, .dash-section');
+        if (bloco && typeof bloco.scrollIntoView === 'function') {
+            bloco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 90);
+}
+
+function aplicarFiltroDevolucoes(valor) {
+    const select = document.getElementById('devFiltroHistorico');
+    if (select) select.value = valor;
+    if (typeof renderDevolucoes === 'function') renderDevolucoes();
+}
+
+function atualizarAtalhosRapidos(tabId) {
+    const barra = document.getElementById('quickActionsBar');
+    const lista = document.getElementById('quickActionsList');
+    if (!barra || !lista) return;
+
+    const atalhos = TAB_QUICK_ACTIONS[tabId] || [];
+    if (!atalhos.length) {
+        barra.style.display = 'none';
+        lista.innerHTML = '';
+        return;
+    }
+
+    lista.innerHTML = atalhos.map((atalho) => `
+        <button class="btn btn-sm btn-secondary quick-action-btn" type="button" data-quick-action="${atalho.id}">
+            <i class="bi ${atalho.icon}"></i>
+            <span>${atalho.label}</span>
+        </button>
+    `).join('');
+
+    barra.style.display = 'flex';
+}
+
+function executarAtalhoRapido(atalhoId) {
+    switch (atalhoId) {
+        case 'qa_novo_cliente':
+            abrirTab('locadores');
+            focarCampo('locNome');
+            return;
+        case 'qa_busca_cliente':
+            abrirTab('locadores');
+            focarCampo('buscaCliente', true);
+            return;
+        case 'qa_nova_locacao':
+            abrirTab('locacoes');
+            if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
+            focarCampo('aluguelCliente');
+            return;
+        case 'qa_filtro_aberto':
+            abrirTab('locacoes');
+            if (typeof mudarFiltro === 'function') mudarFiltro('ativo');
+            return;
+        case 'qa_filtro_atrasado':
+            abrirTab('locacoes');
+            if (typeof mudarFiltro === 'function') mudarFiltro('atrasado');
+            return;
+        case 'qa_registrar_devolucao':
+            abrirTab('devolucoes');
+            focarCampo('devLocacao');
+            return;
+        case 'qa_filtro_dev_parcial':
+            abrirTab('devolucoes');
+            aplicarFiltroDevolucoes('parcial');
+            return;
+        case 'qa_filtro_dev_total':
+            abrirTab('devolucoes');
+            aplicarFiltroDevolucoes('total');
+            return;
+        case 'qa_novo_tipo':
+            abrirTab('tipos');
+            focarCampo('tipoNome');
+            return;
+        case 'qa_ir_estoque':
+            abrirTab('estoque');
+            focarCampo('pecaNome');
+            return;
+        case 'qa_novo_item':
+            abrirTab('estoque');
+            focarCampo('pecaNome');
+            return;
+        case 'qa_busca_estoque':
+            abrirTab('estoque');
+            focarCampo('buscaEstoque', true);
+            return;
+        case 'qa_importar_excel':
+            abrirTab('estoque');
+            setTimeout(() => {
+                const inputExcel = document.getElementById('inputExcel');
+                if (inputExcel) inputExcel.click();
+            }, 100);
+            return;
+        case 'qa_novo_checklist':
+            abrirTab('checklist');
+            focarCampo('checklistCliente');
+            return;
+        case 'qa_modelo_checklist':
+            abrirTab('checklist');
+            focarCampo('checklistModeloSelect');
+            return;
+        case 'qa_gerar_pdf_checklist':
+            abrirTab('checklist');
+            if (typeof gerarPDFChecklistMontagem === 'function') gerarPDFChecklistMontagem();
+            return;
+        case 'qa_log_locacao':
+            abrirTab('auditoria');
+            if (typeof renderLogs === 'function') renderLogs('locacao');
+            return;
+        case 'qa_log_sistema':
+            abrirTab('auditoria');
+            if (typeof renderLogs === 'function') renderLogs('sistema');
+            return;
+        case 'qa_busca_auditoria':
+            abrirTab('auditoria');
+            focarCampo('auditBusca', true);
+            return;
+        case 'qa_editar_config':
+            abrirTab('config');
+            focarCampo('confRodape');
+            return;
+        case 'qa_backup_json':
+            abrirTab('config');
+            if (typeof baixarBackup === 'function') baixarBackup();
+            return;
+        case 'qa_abrir_auditoria':
+            abrirTab('auditoria');
+            return;
+        default:
+            return;
+    }
+}
+
+document.addEventListener('click', function(event) {
+    const botaoAtalho = event.target.closest('[data-quick-action]');
+    if (!botaoAtalho) return;
+    executarAtalhoRapido(botaoAtalho.dataset.quickAction);
+});
 
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
@@ -124,6 +326,7 @@ function atualizarTopbarModulo(tabId) {
         });
 
         atualizarTopbarModulo(id);
+        atualizarAtalhosRapidos(id);
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
