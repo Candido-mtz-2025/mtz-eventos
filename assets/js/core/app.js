@@ -132,6 +132,34 @@ function aplicarFiltroDevolucoes(valor) {
     if (typeof renderDevolucoes === 'function') renderDevolucoes();
 }
 
+function avisarAtalhoIndisponivel(mensagem) {
+    if (typeof mostrarToast === 'function') {
+        mostrarToast(mensagem, 'erro');
+        return;
+    }
+    console.warn(mensagem);
+}
+
+function focarCampoAtalho(id, selecionar = false, alinhamento = 'center', rotulo = 'campo') {
+    const el = document.getElementById(id);
+    if (!el) {
+        avisarAtalhoIndisponivel(`Atalho indisponível: ${rotulo} não encontrado.`);
+        return false;
+    }
+    focarCampo(id, selecionar, alinhamento);
+    return true;
+}
+
+function clicarSeletorAtalho(seletor, mensagemErro) {
+    const el = document.querySelector(seletor);
+    if (!el) {
+        avisarAtalhoIndisponivel(mensagemErro || 'Atalho indisponível no momento.');
+        return false;
+    }
+    el.click();
+    return true;
+}
+
 function atualizarAtalhosRapidos(tabId) {
     const barra = document.getElementById('quickActionsBar');
     const lista = document.getElementById('quickActionsList');
@@ -158,28 +186,36 @@ function executarAtalhoRapido(atalhoId) {
     switch (atalhoId) {
         case 'qa_novo_cliente':
             abrirTab('locadores');
-            focarCampo('locNome');
+            focarCampoAtalho('locNome', false, 'center', 'Nome do cliente');
             return;
         case 'qa_busca_cliente':
             abrirTab('locadores');
-            focarCampo('buscaCliente', true);
+            focarCampoAtalho('buscaCliente', true, 'center', 'Busca de clientes');
             return;
         case 'qa_nova_locacao':
             abrirTab('locacoes');
             if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
-            focarCampo('aluguelCliente');
+            focarCampoAtalho('aluguelCliente', false, 'center', 'Cliente da locação');
             return;
         case 'qa_filtro_aberto':
             abrirTab('locacoes');
-            if (typeof mudarFiltro === 'function') mudarFiltro('ativo');
+            if (typeof mudarFiltro === 'function') {
+                mudarFiltro('ativo');
+            } else {
+                clicarSeletorAtalho('[data-action="mudarFiltro"][data-arg="ativo"]', 'Filtro Em Aberto indisponível.');
+            }
             return;
         case 'qa_filtro_atrasado':
             abrirTab('locacoes');
-            if (typeof mudarFiltro === 'function') mudarFiltro('atrasado');
+            if (typeof mudarFiltro === 'function') {
+                mudarFiltro('atrasado');
+            } else {
+                clicarSeletorAtalho('[data-action="mudarFiltro"][data-arg="atrasado"]', 'Filtro Atrasados indisponível.');
+            }
             return;
         case 'qa_registrar_devolucao':
             abrirTab('devolucoes');
-            focarCampo('devLocacao');
+            focarCampoAtalho('devLocacao', false, 'center', 'Locação pendente');
             return;
         case 'qa_filtro_dev_parcial':
             abrirTab('devolucoes');
@@ -191,36 +227,38 @@ function executarAtalhoRapido(atalhoId) {
             return;
         case 'qa_novo_tipo':
             abrirTab('tipos');
-            focarCampo('tipoNome');
+            focarCampoAtalho('tipoNome', false, 'center', 'Nome do tipo');
             return;
         case 'qa_ir_estoque':
             abrirTab('estoque');
-            focarCampo('pecaNome');
+            focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_novo_item':
             abrirTab('estoque');
-            focarCampo('pecaNome');
+            focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_busca_estoque':
             abrirTab('estoque');
-            setTimeout(() => {
-                focarCampo('buscaEstoque', true, 'none');
-            }, 60);
+            focarCampoAtalho('buscaEstoque', true, 'none', 'Busca do estoque');
             return;
         case 'qa_importar_excel':
             abrirTab('estoque');
-            setTimeout(() => {
+            {
                 const inputExcel = document.getElementById('inputExcel');
-                if (inputExcel) inputExcel.click();
-            }, 100);
+                if (!inputExcel) {
+                    avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
+                    return;
+                }
+                inputExcel.click();
+            }
             return;
         case 'qa_novo_checklist':
             abrirTab('checklist');
-            focarCampo('checklistCliente');
+            focarCampoAtalho('checklistCliente', false, 'center', 'Cliente do checklist');
             return;
         case 'qa_modelo_checklist':
             abrirTab('checklist');
-            focarCampo('checklistModeloSelect');
+            focarCampoAtalho('checklistModeloSelect', false, 'center', 'Modelo do checklist');
             return;
         case 'qa_gerar_pdf_checklist':
             abrirTab('checklist');
@@ -228,19 +266,27 @@ function executarAtalhoRapido(atalhoId) {
             return;
         case 'qa_log_locacao':
             abrirTab('auditoria');
-            if (typeof renderLogs === 'function') renderLogs('locacao');
+            if (typeof renderLogs === 'function') {
+                renderLogs('locacao');
+            } else {
+                clicarSeletorAtalho('[data-action="renderLogs"][data-arg="locacao"]', 'Filtro de logs de locações indisponível.');
+            }
             return;
         case 'qa_log_sistema':
             abrirTab('auditoria');
-            if (typeof renderLogs === 'function') renderLogs('sistema');
+            if (typeof renderLogs === 'function') {
+                renderLogs('sistema');
+            } else {
+                clicarSeletorAtalho('[data-action="renderLogs"][data-arg="sistema"]', 'Filtro de logs do sistema indisponível.');
+            }
             return;
         case 'qa_busca_auditoria':
             abrirTab('auditoria');
-            focarCampo('auditBusca', true);
+            focarCampoAtalho('auditBusca', true, 'center', 'Busca da auditoria');
             return;
         case 'qa_editar_config':
             abrirTab('config');
-            focarCampo('confRodape');
+            focarCampoAtalho('confRodape', false, 'center', 'Rodapé da configuração');
             return;
         case 'qa_backup_json':
             abrirTab('config');

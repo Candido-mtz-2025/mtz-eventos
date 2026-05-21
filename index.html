@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=16.8">
+    <link rel="stylesheet" href="./assets/css/style.css?v=16.9">
 </head>
 <body>
 
@@ -328,6 +328,8 @@
                     </div>
 
                     <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
+                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-keyup="buscarComDebounce" data-arg="estoque">
+                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
 
                     <div class="panel-block">
                         <h3>Novo Item</h3>
@@ -393,9 +395,6 @@
                         <h3>Modelos de Estrutura Salvos</h3>
                         <div id="listaModelosChecklist"></div>
                     </div>
-
-                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-keyup="buscarComDebounce" data-arg="estoque">
-                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
 
                     <div class="inline-chip-row">
                         <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
