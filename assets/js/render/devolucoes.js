@@ -54,10 +54,15 @@ function renderDevolucoes() {
     const kpiRegistros = document.getElementById('devKpiRegistros');
     const kpiConcluidas = document.getElementById('devKpiConcluidas');
     const kpiParciais = document.getElementById('devKpiParciais');
+    const kpiPendentes = document.getElementById('devKpiPendentes');
+    const totalPendentes = Array.isArray(locacoes)
+        ? locacoes.filter((x) => x && x.status !== 'devolvido').length
+        : 0;
 
     if (kpiRegistros) kpiRegistros.textContent = String(filtrados.length);
     if (kpiConcluidas) kpiConcluidas.textContent = String(filtrados.filter((x) => x.tipoNormalizado === 'total').length);
     if (kpiParciais) kpiParciais.textContent = String(filtrados.filter((x) => x.tipoNormalizado === 'parcial').length);
+    if (kpiPendentes) kpiPendentes.textContent = String(totalPendentes);
 
     if (lista.length === 0) {
         const mapFiltro = {
@@ -92,12 +97,15 @@ function renderDevolucoes() {
         const itensTexto = registro.qtdItens > 0 ? `| ${registro.qtdItens} item(ns)` : '';
 
         return `
-            <tr>
+            <tr class="devolucao-row devolucao-row--${registro.tipoNormalizado}">
                 <td>
                     <div class="table-cell-title">${cliente}</div>
                     <div class="table-cell-sub">${locacaoId} ${itensTexto}</div>
                 </td>
-                <td>${formatarData(registro.dataDevolucao)}</td>
+                <td>
+                    <div class="table-cell-title">${formatarData(registro.dataDevolucao)}</div>
+                    <div class="table-cell-sub">Registro #${registro.id.toString().slice(-4)}</div>
+                </td>
                 <td><span class="badge ${badge}">${tipo}</span></td>
                 <td class="col-actions">
                     <button class="btn btn-sm btn-secondary" data-action="gerarReciboDevolucao" data-arg="${registro.id}">

@@ -5220,3 +5220,98 @@ header {
 [data-theme="dark"] #tab-locacoes .table tbody .locacao-row:hover td {
     background: #18263a;
 }
+
+/* === V15.5 | DEVOLUÇÕES EXECUTIVO === */
+#tab-devolucoes .section-toolbar {
+    align-items: flex-end;
+    gap: 14px;
+}
+
+#tab-devolucoes .section-toolbar h3 {
+    margin-bottom: 0;
+}
+
+#tab-devolucoes .section-toolbar .inline-chip-row {
+    gap: 10px;
+}
+
+#tab-devolucoes .section-toolbar .inline-chip-row select,
+#tab-devolucoes .section-toolbar .inline-chip-row input {
+    min-height: 40px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+#tab-devolucoes .devolucao-kpis {
+    grid-template-columns: repeat(4, minmax(130px, 1fr));
+    margin-bottom: 12px;
+}
+
+#tab-devolucoes .devolucao-kpi {
+    border: 1px solid #d8e3f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+#tab-devolucoes .devolucao-kpi:nth-child(1) {
+    border-left: 3px solid #2563eb;
+}
+
+#tab-devolucoes .devolucao-kpi:nth-child(2) {
+    border-left: 3px solid #16a34a;
+}
+
+#tab-devolucoes .devolucao-kpi:nth-child(3) {
+    border-left: 3px solid #f59e0b;
+}
+
+#tab-devolucoes .devolucao-kpi:nth-child(4) {
+    border-left: 3px solid #dc2626;
+}
+
+#tab-devolucoes .table tbody .devolucao-row td {
+    vertical-align: middle;
+}
+
+#tab-devolucoes .table tbody .devolucao-row:hover td {
+    background: #f7fbff;
+}
+
+#tab-devolucoes .table tbody .devolucao-row--total td:first-child {
+    box-shadow: inset 3px 0 0 #16a34a;
+}
+
+#tab-devolucoes .table tbody .devolucao-row--parcial td:first-child {
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+#tab-devolucoes .table td.col-actions .btn {
+    min-width: 40px;
+    min-height: 36px;
+    border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+    #tab-devolucoes .section-toolbar {
+        align-items: stretch;
+    }
+
+    #tab-devolucoes .devolucao-kpis {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    #tab-devolucoes .devolucao-kpis {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] #tab-devolucoes .devolucao-kpi {
+    border-color: #334155;
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-devolucoes .table tbody .devolucao-row:hover td {
+    background: #18263a;
+}
