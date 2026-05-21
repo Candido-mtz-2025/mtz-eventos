@@ -6028,3 +6028,108 @@ textarea:focus {
     background: #321616;
     color: #f5b4b4;
 }
+
+/* === V16.5 | BARRA DE ATALHOS RAPIDOS POR ABA === */
+.quick-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border: 1px solid #cfdef1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f8fbff 0%, #f2f7ff 100%);
+}
+
+.quick-actions-label {
+    color: #4f678a;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.quick-actions-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+}
+
+.quick-action-btn {
+    min-height: 34px !important;
+    padding: 0 11px !important;
+    border: 1px solid #c8d9ef !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    color: #3e587c !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px;
+    box-shadow: none !important;
+}
+
+.quick-action-btn:hover:not(:disabled) {
+    border-color: #9cbcea !important;
+    background: #eef5ff !important;
+    color: #1f3f6e !important;
+}
+
+.quick-action-btn i {
+    font-size: 0.86rem;
+}
+
+.quick-action-btn span {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+[data-theme="dark"] .quick-actions-bar {
+    border-color: #334155;
+    background: linear-gradient(180deg, #132238 0%, #0f1b2f 100%);
+}
+
+[data-theme="dark"] .quick-actions-label {
+    color: #9fb6d8;
+}
+
+[data-theme="dark"] .quick-action-btn {
+    border-color: #3a4c66 !important;
+    background: #14243b !important;
+    color: #c0d7f7 !important;
+}
+
+[data-theme="dark"] .quick-action-btn:hover:not(:disabled) {
+    border-color: #6fa0de !important;
+    background: #1b3252 !important;
+    color: #dbeafe !important;
+}
+
+@media (max-width: 900px) {
+    .quick-actions-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .quick-actions-list {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 640px) {
+    .quick-actions-bar {
+        padding: 9px 10px;
+        gap: 8px;
+    }
+
+    .quick-action-btn {
+        min-height: 32px !important;
+        padding: 0 9px !important;
+    }
+
+    .quick-action-btn span {
+        font-size: 0.76rem;
+    }
+}
