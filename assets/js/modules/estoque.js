@@ -423,12 +423,26 @@ function adicionarItemModeloChecklist() {
     mostrarToast("Peça adicionada!");
 }
 
+function criarEstadoEstoquePainel(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação'
+        });
+    }
+    return `<p class="muted-note">${opcoes.mensagem || 'Sem dados para mostrar.'}</p>`;
+}
+
 function renderItensModeloChecklistTemp() {
     const lista = document.getElementById('listaItensModeloChecklist');
     if (!lista) return;
 
     if (itensModeloChecklistTemp.length === 0) {
-        lista.innerHTML = '<p>Nenhuma peça adicionada.</p>';
+        lista.innerHTML = criarEstadoEstoquePainel({
+            tipo: 'empty',
+            titulo: 'Lista vazia',
+            mensagem: 'Nenhuma peça adicionada ao modelo.'
+        });
         return;
     }
 
@@ -494,7 +508,11 @@ function renderModelosChecklist() {
     if (!lista) return;
 
     if (!modelosChecklist || modelosChecklist.length === 0) {
-        lista.innerHTML = '<p>Nenhum modelo salvo.</p>';
+        lista.innerHTML = criarEstadoEstoquePainel({
+            tipo: 'empty',
+            titulo: 'Sem modelos salvos',
+            mensagem: 'Crie um modelo para reaproveitar estruturas no checklist.'
+        });
         return;
     }
 

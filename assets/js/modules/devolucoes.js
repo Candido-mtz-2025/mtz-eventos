@@ -15,6 +15,16 @@ function escaparHTMLDevolucao(valor) {
     return div.innerHTML;
 }
 
+function criarEstadoDevolucaoPainel(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação'
+        });
+    }
+    return `<small class="muted-note">${escaparHTMLDevolucao(opcoes.mensagem || 'Sem dados para mostrar.')}</small>`;
+}
+
 function atualizarResumoConferenciaDevolucao() {
     const resumo = document.getElementById('devResumoLive');
     if (!resumo) return;
@@ -83,13 +93,21 @@ function carregarItensDevolucao() {
 
     div.innerHTML = "";
     if (!id) {
-        div.innerHTML = '<small style="color:var(--text-light)">Selecione uma locação para conferir.</small>';
+        div.innerHTML = criarEstadoDevolucaoPainel({
+            tipo: 'info',
+            titulo: 'Selecione uma locação',
+            mensagem: 'Escolha uma locação em aberto para iniciar a conferência.'
+        });
         return;
     }
 
     const l = locacoes.find(x => x.id == id);
     if (!l) {
-        div.innerHTML = '<small style="color:var(--text-light)">Locação não encontrada.</small>';
+        div.innerHTML = criarEstadoDevolucaoPainel({
+            tipo: 'error',
+            titulo: 'Locação não encontrada',
+            mensagem: 'Atualize a lista e tente novamente.'
+        });
         return;
     }
 
@@ -98,7 +116,11 @@ function carregarItensDevolucao() {
     const totalPendente = itensPendentes.reduce((total, item) => total + getQtdPendenteItem(item), 0);
 
     if (itensPendentes.length === 0) {
-        div.innerHTML = '<small style="color:var(--text-light)">Todos os itens desta locação já foram devolvidos.</small>';
+        div.innerHTML = criarEstadoDevolucaoPainel({
+            tipo: 'success',
+            titulo: 'Conferência finalizada',
+            mensagem: 'Todos os itens desta locação já foram devolvidos.'
+        });
         return;
     }
 

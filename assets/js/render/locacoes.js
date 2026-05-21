@@ -43,7 +43,33 @@ function renderLocacoes() {
     const itensPagina = filtrados.slice(inicio, inicio + ITENS_POR_PAGINA);
     
     if (itensPagina.length === 0) {
-        tbody.innerHTML = '<tr class="table-empty-row"><td colspan="5">Nenhum registro.</td></tr>';
+        const mapaVazio = {
+            todos: {
+                titulo: 'Sem locações registradas',
+                mensagem: 'Crie a primeira locação para começar o histórico.'
+            },
+            ativo: {
+                titulo: 'Nenhuma locação em aberto',
+                mensagem: 'Neste momento não há contratos ativos.'
+            },
+            atrasado: {
+                titulo: 'Sem atrasos',
+                mensagem: 'Ótimo: nenhuma locação está vencida neste filtro.'
+            },
+            devolvido: {
+                titulo: 'Sem devoluções no filtro',
+                mensagem: 'Não há locações devolvidas para exibir agora.'
+            }
+        };
+        const estadoAtual = mapaVazio[filtroAtual] || mapaVazio.todos;
+
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(5, {
+                tipo: filtroAtual === 'atrasado' ? 'success' : 'empty',
+                titulo: estadoAtual.titulo,
+                mensagem: estadoAtual.mensagem
+            })
+            : `<tr class="table-empty-row"><td colspan="5">${estadoAtual.titulo}</td></tr>`;
         return;
     }
     

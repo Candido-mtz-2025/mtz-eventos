@@ -77,7 +77,7 @@ function montarUrlSyncComToken(urlBase, token) {
 
 async function fetchComTimeout(url, options = {}, timeoutMs = SYNC_TIMEOUT_MS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = setTimeout(() => controller.abort('timeout'), timeoutMs);
 
     try {
         return await fetch(url, { ...options, signal: controller.signal });
@@ -232,13 +232,24 @@ async function sincronizar(modo) {
 
         updStatus('online');
     } catch (erro) {
-        console.error('❌ Erro na sincronização:', erro);
+        const mensagemErro = String(erro?.message || '').toLowerCase();
+        const erroAbortado =
+            erro?.name === 'AbortError' ||
+            mensagemErro.includes('aborted') ||
+            mensagemErro.includes('abort');
+
         updStatus('offline');
-        if (erro?.name === 'AbortError') {
-            mostrarToast('⚠️ Nuvem demorou para responder. Seguimos no modo local.', 'erro');
-        } else {
-            mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.', 'erro');
+
+        if (erroAbortado) {
+            console.warn('⚠️ Sincronização abortada por timeout/cancelamento. Mantendo modo local.');
+            if (navigator.onLine) {
+                mostrarToast('⚠️ Nuvem demorou para responder. Seguimos no modo local.', 'erro');
+            }
+            return;
         }
+
+        console.error('❌ Erro na sincronização:', erro);
+        mostrarToast('⚠️ Erro ao sincronizar. Dados salvos localmente.', 'erro');
     } finally {
         sincronizacaoEmAndamento = false;
 

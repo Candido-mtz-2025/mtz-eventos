@@ -3,14 +3,19 @@ function renderDevolucoes() {
     if (!tbody) return;
 
     if (!Array.isArray(devolucoes)) {
-        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
-            ? criarLinhaTabelaVazia(4, 'Dados não carregados.')
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(4, {
+                tipo: 'error',
+                titulo: 'Falha ao carregar devoluções',
+                mensagem: 'Atualize a tela para tentar novamente.'
+            })
             : '<tr class="table-empty-row"><td colspan="4">Dados não carregados.</td></tr>';
         return;
     }
 
     const filtro = document.getElementById('devFiltroHistorico')?.value || 'todos';
-    const termo = (document.getElementById('devBuscaHistorico')?.value || '').trim().toLowerCase();
+    const termoRaw = (document.getElementById('devBuscaHistorico')?.value || '').trim();
+    const termo = termoRaw.toLowerCase();
 
     const listaComContexto = devolucoes.map((registro) => {
         const locacao = locacoes.find((x) => x.id === registro.locacaoId);
@@ -55,9 +60,26 @@ function renderDevolucoes() {
     if (kpiParciais) kpiParciais.textContent = String(filtrados.filter((x) => x.tipoNormalizado === 'parcial').length);
 
     if (lista.length === 0) {
-        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
-            ? criarLinhaTabelaVazia(4, 'Nenhuma devolução registrada para este filtro.')
-            : '<tr class="table-empty-row"><td colspan="4">Nenhuma devolução registrada para este filtro.</td></tr>';
+        const mapFiltro = {
+            todos: 'Nenhuma devolução registrada.',
+            total: 'Nenhuma devolução concluída neste filtro.',
+            parcial: 'Nenhuma devolução parcial neste filtro.'
+        };
+        const mensagem = termoRaw
+            ? `Nenhuma devolução encontrada para "${termoRaw}".`
+            : (mapFiltro[filtro] || 'Nenhuma devolução registrada para este filtro.');
+        const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;
+        const fallback = termoRaw
+            ? `Nenhuma devolução encontrada para "${termoSeguro}".`
+            : (mapFiltro[filtro] || 'Nenhuma devolução registrada para este filtro.');
+
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(4, {
+                tipo: 'empty',
+                titulo: 'Sem devoluções para mostrar',
+                mensagem
+            })
+            : `<tr class="table-empty-row"><td colspan="4">${fallback}</td></tr>`;
         return;
     }
 

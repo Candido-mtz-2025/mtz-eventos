@@ -6,12 +6,61 @@ const GOOGLE_SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile'
 ].join(' ');
+const GOOGLE_SDK_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_SESSION_TTL_MS = 55 * 60 * 1000;
 const LAST_GOOGLE_USER_KEY = 'mtzLastGoogleUser';
 const AUTH_MODE_KEY = 'mtzAuthMode';
 
 let loginEventosRegistrados = false;
-let aguardandoSDKGoogle = false;
+let carregamentoSDKGooglePromise = null;
+
+function carregarSDKGoogleSobDemanda() {
+    if (window.google?.accounts?.oauth2) {
+        return Promise.resolve(true);
+    }
+
+    if (carregamentoSDKGooglePromise) {
+        return carregamentoSDKGooglePromise;
+    }
+
+    carregamentoSDKGooglePromise = new Promise((resolve) => {
+        const scriptExistente = document.querySelector('script[data-google-gsi="true"]');
+        if (scriptExistente) {
+            const timeoutExistente = setTimeout(() => resolve(false), 8000);
+            scriptExistente.addEventListener('load', () => {
+                clearTimeout(timeoutExistente);
+                resolve(!!window.google?.accounts?.oauth2);
+            }, { once: true });
+            scriptExistente.addEventListener('error', () => {
+                clearTimeout(timeoutExistente);
+                resolve(false);
+            }, { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = GOOGLE_SDK_URL;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleGsi = 'true';
+
+        const timeout = setTimeout(() => resolve(false), 8000);
+        script.onload = () => {
+            clearTimeout(timeout);
+            resolve(!!window.google?.accounts?.oauth2);
+        };
+        script.onerror = () => {
+            clearTimeout(timeout);
+            resolve(false);
+        };
+
+        document.head.appendChild(script);
+    }).finally(() => {
+        carregamentoSDKGooglePromise = null;
+    });
+
+    return carregamentoSDKGooglePromise;
+}
 
 function atualizarStatusLogin(texto, tipo = 'info') {
     const box = document.getElementById('loginStatus');
@@ -266,7 +315,6 @@ function gisLoaded() {
         }
     });
 
-    aguardandoSDKGoogle = false;
     if (loginVisivel() && !localStorage.getItem('gToken')) {
         atualizarStatusLogin('Google pronto para login.', 'info');
     }
@@ -320,19 +368,23 @@ async function processarRespostaGoogle(resp, origem = 'login') {
     sincronizar('carregar');
 }
 
-function solicitarTokenGoogle(promptValue = 'consent', origem = 'login') {
+async function solicitarTokenGoogle(promptValue = 'consent', origem = 'login') {
     if (!navigator.onLine) {
         atualizarStatusLogin('Sem internet. Use o modo offline ou conecte a internet.', 'warn');
         return;
     }
 
-    if (!tokenClient) {
-        if (window.google) {
-            gisLoaded();
-        } else {
-            atualizarStatusLogin('Carregando serviço Google. Aguarde alguns segundos.', 'warn');
+    if (!window.google?.accounts?.oauth2) {
+        atualizarStatusLogin('Conectando ao serviço Google...', 'info');
+        const sdkCarregado = await carregarSDKGoogleSobDemanda();
+        if (!sdkCarregado) {
+            atualizarStatusLogin('Não foi possível carregar o login Google nesta rede. Você pode continuar offline e tentar novamente depois.', 'warn');
             return;
         }
+    }
+
+    if (!tokenClient) {
+        gisLoaded();
     }
 
     if (!tokenClient) {
@@ -458,28 +510,6 @@ function tentarRevalidacaoSilenciosa() {
     return false;
 }
 
-function aguardarSDKGoogle() {
-    if (aguardandoSDKGoogle) return;
-    aguardandoSDKGoogle = true;
-
-    let tentativas = 0;
-    const timer = setInterval(() => {
-        tentativas += 1;
-
-        if (window.google?.accounts?.oauth2) {
-            clearInterval(timer);
-            gisLoaded();
-            return;
-        }
-
-        if (tentativas > 20) {
-            clearInterval(timer);
-            aguardandoSDKGoogle = false;
-            atualizarStatusLogin('Não foi possível carregar o Google agora. Tente novamente.', 'error');
-        }
-    }, 500);
-}
-
 function inicializarSessaoLogin() {
     registrarEventosRedeLogin();
     alternarBotoesLogin(false);
@@ -494,11 +524,7 @@ function inicializarSessaoLogin() {
         atualizarStatusLogin('Pronto para entrar.', 'info');
     }
 
-    if (window.google?.accounts?.oauth2) {
-        gisLoaded();
-    } else {
-        aguardarSDKGoogle();
-    }
+    if (window.google?.accounts?.oauth2) gisLoaded();
 
     if (!localStorage.getItem('gToken')) return;
     tentarRevalidacaoSilenciosa();

@@ -3,7 +3,8 @@
 // 🔥 RENDERIZAR LOCADORES OTIMIZADA
 // ========================================
 function renderLocadores() {
-    const termo = String(DOM.get('buscaCliente')?.value || '').toLowerCase();
+    const termoRaw = String(DOM.get('buscaCliente')?.value || '').trim();
+    const termo = termoRaw.toLowerCase();
     const tbody = DOM.get('tblLocadores');
     if (!tbody) return;
     
@@ -13,9 +14,20 @@ function renderLocadores() {
     );
     
     if (clientesFiltrados.length === 0) {
-        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
-            ? criarLinhaTabelaVazia(4, 'Nenhum cliente encontrado.')
-            : '<tr class="table-empty-row"><td colspan="4">Nenhum cliente encontrado.</td></tr>';
+        const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;
+        const mensagem = termoRaw
+            ? `Nenhum cliente combina com "${termoSeguro}".`
+            : 'Cadastre o primeiro cliente para começar.';
+
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(4, {
+                tipo: 'empty',
+                titulo: 'Sem clientes para mostrar',
+                mensagem: termoRaw
+                    ? `Nenhum cliente combina com "${termoRaw}".`
+                    : 'Cadastre o primeiro cliente para começar.'
+            })
+            : `<tr class="table-empty-row"><td colspan="4">${mensagem}</td></tr>`;
         return;
     }
     
@@ -63,8 +75,12 @@ function renderTipos() {
     if(!tbody) return;
 
     if (!tipos.length) {
-        tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
-            ? criarLinhaTabelaVazia(3, 'Nenhum tipo cadastrado.')
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(3, {
+                tipo: 'empty',
+                titulo: 'Nenhum tipo cadastrado',
+                mensagem: 'Cadastre um tipo para organizar o estoque.'
+            })
             : '<tr class="table-empty-row"><td colspan="3">Nenhum tipo cadastrado.</td></tr>';
         return;
     }

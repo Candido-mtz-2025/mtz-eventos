@@ -87,6 +87,17 @@ function escaparHTML(valor) {
     return div.innerHTML;
 }
 
+function criarEstadoLocacaoPainel(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação',
+            compacto: opcoes.compacto === true
+        });
+    }
+    return `<small class="muted-note">${escaparHTML(opcoes.mensagem || 'Sem dados para mostrar.')}</small>`;
+}
+
 function parseDataIso(dataIso) {
     if (!dataIso) return null;
     const data = new Date(`${dataIso}T00:00:00`);
@@ -151,7 +162,11 @@ function montarResumoFinalLocacao() {
     const dataFim = parseDataIso(fim);
 
     if (!cliente || !dataInicio || !dataFim || carrinhoLocacao.length === 0) {
-        boxResumo.innerHTML = '<small class="muted-note">Preencha cliente, periodo e itens para revisar a locacao.</small>';
+        boxResumo.innerHTML = criarEstadoLocacaoPainel({
+            tipo: 'info',
+            titulo: 'Revisão indisponível',
+            mensagem: 'Preencha cliente, período e itens para revisar a locação.'
+        });
         return;
     }
 
@@ -312,7 +327,12 @@ function renderCarrinhoLocacao() {
     if (!lista) return;
 
     if (carrinhoLocacao.length === 0) {
-        lista.innerHTML = '<i><i class="bi bi-info-circle"></i> Nenhum item adicionado a lista.</i>';
+        lista.innerHTML = criarEstadoLocacaoPainel({
+            tipo: 'empty',
+            titulo: 'Pedido vazio',
+            mensagem: 'Nenhum item adicionado à lista.',
+            compacto: true
+        });
     } else {
         lista.innerHTML = carrinhoLocacao.map((item, index) => {
             const valor = parseFloat(item.valor) || 0;

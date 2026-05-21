@@ -156,6 +156,16 @@ function escaparHTMLChecklist(valor) {
     return div.innerHTML;
 }
 
+function criarEstadoChecklistPainel(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação'
+        });
+    }
+    return `<p class="muted-note">${escaparHTMLChecklist(opcoes.mensagem || 'Sem dados para mostrar.')}</p>`;
+}
+
 function formatarDataChecklist(valor) {
     if (!valor) return '-';
     const data = new Date(`${valor}T00:00:00`);
@@ -345,7 +355,11 @@ function renderChecklistMontagem() {
     if (!container) return;
 
     if (!checklistMontagem || !checklistMontagem.length) {
-        container.innerHTML = `<p>Nenhum item adicionado.</p>`;
+        container.innerHTML = criarEstadoChecklistPainel({
+            tipo: 'empty',
+            titulo: 'Checklist vazio',
+            mensagem: 'Adicione itens ou modelos para iniciar a separação.'
+        });
         return;
     }
 
@@ -640,7 +654,11 @@ function renderChecklistEtapasMontagem() {
     if (!container) return;
 
     if (!checklistEtapasMontagem || !checklistEtapasMontagem.length) {
-        container.innerHTML = '<p>Nenhuma etapa de montagem adicionada.</p>';
+        container.innerHTML = criarEstadoChecklistPainel({
+            tipo: 'empty',
+            titulo: 'Nenhuma etapa cadastrada',
+            mensagem: 'Adicione uma etapa manual ou gere a partir da separação.'
+        });
         return;
     }
 

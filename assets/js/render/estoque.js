@@ -36,10 +36,21 @@ function renderEstoque() {
   // -----------------------------
 
   if (itensFiltrados.length === 0) {
+    const buscaAtiva = Boolean(String(termoRaw || '').trim());
     const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;
-    tbody.innerHTML = typeof criarLinhaTabelaVazia === 'function'
-      ? criarLinhaTabelaVazia(8, `Nenhum item encontrado para "${termoSeguro}".`)
-      : `<tr class="table-empty-row"><td colspan="8">Nenhum item encontrado para "${termoSeguro}".</td></tr>`;
+    const mensagemFallback = buscaAtiva
+      ? `Nenhum item encontrado para "${termoSeguro}".`
+      : 'Cadastre uma peça para iniciar o estoque.';
+
+    tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+      ? criarLinhaTabelaEstado(8, {
+          tipo: 'empty',
+          titulo: buscaAtiva ? 'Nenhum item encontrado' : 'Estoque vazio',
+          mensagem: buscaAtiva
+            ? `A busca por "${termoRaw}" não retornou itens.`
+            : 'Cadastre uma peça para iniciar o estoque.'
+      })
+      : `<tr class="table-empty-row"><td colspan="8">${mensagemFallback}</td></tr>`;
     return;
   }
 

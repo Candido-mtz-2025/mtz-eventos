@@ -39,6 +39,17 @@ function escaparTextoDashboard(texto) {
     return div.innerHTML;
 }
 
+function criarEstadoDashboard(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação',
+            compacto: true
+        });
+    }
+    return `<small class="muted-note">${escaparTextoDashboard(opcoes.mensagem || 'Sem dados para mostrar.')}</small>`;
+}
+
 function resumoClientesAlerta(lista, limite) {
     const nomes = [...new Set(lista.map((item) => item.cliente))].filter(Boolean);
     if (nomes.length === 0) return 'Sem clientes listados.';
@@ -94,7 +105,11 @@ function renderGraficoReceitaMensal(serie) {
     if (!box) return;
 
     if (!Array.isArray(serie) || serie.length === 0) {
-        box.innerHTML = '<small class="muted-note">Sem dados para o gráfico.</small>';
+        box.innerHTML = criarEstadoDashboard({
+            tipo: 'empty',
+            titulo: 'Sem dados de receita',
+            mensagem: 'Cadastre locações para visualizar a evolução mensal.'
+        });
         return;
     }
 
@@ -131,7 +146,11 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
     const total = dados.reduce((acc, item) => acc + item.valor, 0);
 
     if (total === 0) {
-        box.innerHTML = '<small class="muted-note">Sem dados para o gráfico.</small>';
+        box.innerHTML = criarEstadoDashboard({
+            tipo: 'empty',
+            titulo: 'Sem status para comparar',
+            mensagem: 'Assim que houver locações, este painel será preenchido.'
+        });
         return;
     }
 
@@ -214,7 +233,11 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
     }
 
     if (acoes.length === 0) {
-        box.innerHTML = '<small class="muted-note">Nenhuma ação urgente no momento.</small>';
+        box.innerHTML = criarEstadoDashboard({
+            tipo: 'success',
+            titulo: 'Rotina em dia',
+            mensagem: 'Nenhuma ação urgente no momento.'
+        });
         return;
     }
 
@@ -394,7 +417,11 @@ function renderStats() {
         }
 
         if (cards.length === 0) {
-            listaAlertas.innerHTML = '<small class="muted-note">Sistema operando normalmente.</small>';
+            listaAlertas.innerHTML = criarEstadoDashboard({
+                tipo: 'success',
+                titulo: 'Operação estável',
+                mensagem: 'Sistema operando normalmente.'
+            });
         } else {
             listaAlertas.innerHTML = `<div class="alert-list">${cards.join('')}</div>`;
         }
@@ -414,7 +441,13 @@ function renderStats() {
     const tabelaDevolucoes = document.getElementById('tblDashDevolucoes');
     if (tabelaDevolucoes) {
         if (!proximas.length) {
-            tabelaDevolucoes.innerHTML = '<tr class="table-empty-row"><td colspan="3">Nada previsto.</td></tr>';
+            tabelaDevolucoes.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+                ? criarLinhaTabelaEstado(3, {
+                    tipo: 'info',
+                    titulo: 'Agenda livre',
+                    mensagem: 'Nenhuma devolução prevista para os próximos dias.'
+                })
+                : '<tr class="table-empty-row"><td colspan="3">Nada previsto.</td></tr>';
         } else {
             tabelaDevolucoes.innerHTML = proximas.slice(0, 5).map((locacao) => {
                 const status = statusPrazo(locacao.diffDias);
