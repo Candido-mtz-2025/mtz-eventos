@@ -150,6 +150,33 @@ function atualizarAtalhosRapidos(tabId) {
         </button>
     `).join('');
 
+    if (tabId === 'estoque') {
+        lista.insertAdjacentHTML('beforeend', `
+            <label class="quick-search-inline" for="qaBuscaEstoque">
+                <i class="bi bi-search"></i>
+                <input id="qaBuscaEstoque" type="text" placeholder="Buscar item no topo...">
+            </label>
+        `);
+
+        const inputRapido = document.getElementById('qaBuscaEstoque');
+        const inputPrincipal = document.getElementById('buscaEstoque');
+        if (inputRapido && inputPrincipal) {
+            inputRapido.value = inputPrincipal.value || '';
+
+            inputRapido.addEventListener('input', () => {
+                inputPrincipal.value = inputRapido.value;
+                if (typeof buscarComDebounce === 'function') buscarComDebounce('estoque');
+            });
+
+            inputRapido.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (typeof renderEstoque === 'function') renderEstoque();
+                }
+            });
+        }
+    }
+
     barra.style.display = 'flex';
 }
 
@@ -202,7 +229,15 @@ function executarAtalhoRapido(atalhoId) {
             return;
         case 'qa_busca_estoque':
             abrirTab('estoque');
-            focarCampo('buscaEstoque', true, 'start');
+            setTimeout(() => {
+                const inputRapido = document.getElementById('qaBuscaEstoque');
+                if (inputRapido) {
+                    inputRapido.focus();
+                    inputRapido.select();
+                    return;
+                }
+                focarCampo('buscaEstoque', true, 'start');
+            }, 60);
             return;
         case 'qa_importar_excel':
             abrirTab('estoque');

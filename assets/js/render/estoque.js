@@ -33,6 +33,10 @@ function atualizarResumoExecutivoEstoque() {
 
 function renderEstoque() {
   const termoRaw = DOM.get('buscaEstoque')?.value || '';
+  const buscaTopo = document.getElementById('qaBuscaEstoque');
+  if (buscaTopo && buscaTopo.value !== termoRaw) {
+    buscaTopo.value = termoRaw;
+  }
   
   const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
