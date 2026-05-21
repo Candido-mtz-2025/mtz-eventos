@@ -4911,3 +4911,99 @@ header {
         --app-tabs-sticky-gap: 2px;
     }
 }
+
+/* === V15.2 | TABELAS PREMIUM (TIPOS + ESTOQUE + AUDITORIA) === */
+#tab-tipos .table-responsive,
+#tab-estoque .table-responsive,
+#tab-auditoria .table-responsive {
+    border: 1px solid #d8e3f1 !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+#tab-tipos .table thead th,
+#tab-estoque .table thead th,
+#tab-auditoria .table thead th {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fc 100%) !important;
+    color: #53627a !important;
+    border-bottom: 1px solid #d8e3f2 !important;
+    font-size: 0.79rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+#tab-tipos .table tbody td,
+#tab-estoque .table tbody td,
+#tab-auditoria .table tbody td {
+    padding-top: 11px;
+    padding-bottom: 11px;
+    vertical-align: middle;
+    border-top: 1px solid #e4ebf5;
+}
+
+#tab-tipos .table tbody tr:nth-child(even) td,
+#tab-estoque .table tbody tr:nth-child(even) td,
+#tab-auditoria .table tbody tr:nth-child(even) td {
+    background: #fbfdff;
+}
+
+#tab-tipos .table tbody tr:hover td,
+#tab-estoque .table tbody tr:hover td,
+#tab-auditoria .table tbody tr:hover td {
+    background: #f3f8ff;
+}
+
+#tab-tipos .actions-cell,
+#tab-estoque .actions-cell,
+#tab-auditoria .actions-cell {
+    gap: 7px;
+    flex-wrap: nowrap;
+}
+
+#tab-tipos .actions-cell .btn,
+#tab-estoque .actions-cell .btn,
+#tab-auditoria .actions-cell .btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+[data-theme="dark"] #tab-tipos .table-responsive,
+[data-theme="dark"] #tab-estoque .table-responsive,
+[data-theme="dark"] #tab-auditoria .table-responsive {
+    background: #0f1a2b !important;
+    border-color: #334155 !important;
+    box-shadow: none;
+}
+
+[data-theme="dark"] #tab-tipos .table thead th,
+[data-theme="dark"] #tab-estoque .table thead th,
+[data-theme="dark"] #tab-auditoria .table thead th {
+    background: #17263a !important;
+    border-bottom-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] #tab-tipos .table tbody td,
+[data-theme="dark"] #tab-estoque .table tbody td,
+[data-theme="dark"] #tab-auditoria .table tbody td {
+    border-top-color: #243449;
+}
+
+[data-theme="dark"] #tab-tipos .table tbody tr:nth-child(even) td,
+[data-theme="dark"] #tab-estoque .table tbody tr:nth-child(even) td,
+[data-theme="dark"] #tab-auditoria .table tbody tr:nth-child(even) td {
+    background: #121f33;
+}
+
+[data-theme="dark"] #tab-tipos .table tbody tr:hover td,
+[data-theme="dark"] #tab-estoque .table tbody tr:hover td,
+[data-theme="dark"] #tab-auditoria .table tbody tr:hover td {
+    background: #1a2b44;
+}
