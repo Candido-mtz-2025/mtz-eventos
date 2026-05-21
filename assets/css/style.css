@@ -5477,3 +5477,143 @@ header {
 [data-theme="dark"] #tab-estoque .table tbody .estoque-row:hover td {
     background: #18263a;
 }
+
+/* === V15.9 | POLIMENTO FINAL MOBILE/TABLET === */
+@media (max-width: 980px) {
+    .container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .card,
+    .dash-section,
+    .panel-block {
+        padding: 14px !important;
+        border-radius: 12px !important;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .header-user {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .header-user > div {
+        min-width: 0;
+    }
+
+    .header-user strong,
+    .header-user span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tabs {
+        scroll-snap-type: x mandatory;
+        gap: 6px;
+        padding: 6px !important;
+    }
+
+    .tab-btn {
+        scroll-snap-align: start;
+        min-height: 38px !important;
+        padding: 0 12px !important;
+        font-size: 0.84rem !important;
+    }
+
+    .section-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .section-toolbar .btn {
+        width: 100%;
+    }
+
+    #tab-locadores .form-row,
+    #tab-tipos .form-row,
+    #tab-estoque .form-row,
+    #tab-locacoes .form-row,
+    #tab-checklist .form-row,
+    #tab-devolucoes .form-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+}
+
+@media (max-width: 900px) {
+    #appArea .container > .tabs-container {
+        margin-bottom: 10px !important;
+    }
+
+    #tab-locacoes .locacao-flow {
+        grid-template-columns: 1fr !important;
+    }
+
+    #tab-locacoes .filters-row,
+    #tab-auditoria .filters-row {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+    }
+}
+
+@media (max-width: 760px) {
+    #tab-locadores .table-responsive,
+    #tab-tipos .table-responsive,
+    #tab-estoque .table-responsive,
+    #tab-locacoes .table-responsive,
+    #tab-devolucoes .table-responsive,
+    #tab-auditoria .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    #tab-locadores .table,
+    #tab-tipos .table,
+    #tab-devolucoes .table,
+    #tab-auditoria .table {
+        min-width: 640px;
+    }
+
+    #tab-estoque .table {
+        min-width: 860px;
+    }
+
+    #tab-locacoes .table {
+        min-width: 760px;
+    }
+}
+
+@media (max-width: 640px) {
+    #loginArea {
+        padding: 14px;
+    }
+
+    .login-box {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 14px;
+        padding: 20px 14px;
+    }
+
+    .btn-login-google,
+    .btn-login-offline,
+    .btn-login-quick {
+        width: 100%;
+    }
+
+    .header-controls .btn {
+        min-width: 38px;
+    }
+}
