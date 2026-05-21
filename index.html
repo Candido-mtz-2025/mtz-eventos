@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=15.7">
+    <link rel="stylesheet" href="./assets/css/style.css?v=15.8">
 </head>
 <body>
 
@@ -264,6 +264,20 @@
             <div id="tab-tipos" class="tab-content">
                 <div class="card">
                     <h3>Novo Tipo</h3>
+                    <div class="tipos-kpi-grid" aria-label="Resumo de tipos">
+                        <div class="tipos-kpi-card" data-tone="total">
+                            <small>Tipos</small>
+                            <strong id="tiposKpiTotal">0</strong>
+                        </div>
+                        <div class="tipos-kpi-card" data-tone="uso">
+                            <small>Com uso</small>
+                            <strong id="tiposKpiComUso">0</strong>
+                        </div>
+                        <div class="tipos-kpi-card" data-tone="sem-uso">
+                            <small>Sem uso</small>
+                            <strong id="tiposKpiSemUso">0</strong>
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group"><label>Nome</label><input type="text" id="tipoNome"></div>
                         <div class="form-group"><label>Descrição</label><input type="text" id="tipoDesc"></div>
@@ -280,6 +294,24 @@
                     <div class="section-toolbar">
                         <h2>Stock de Peças</h2>
                         <button class="btn btn-success" data-action="triggerClick" data-target-id="inputExcel"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
+                    </div>
+                    <div class="estoque-kpi-grid" aria-label="Resumo de estoque">
+                        <div class="estoque-kpi-card" data-tone="total">
+                            <small>Itens cadastrados</small>
+                            <strong id="estoqueKpiTotal">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="disponivel">
+                            <small>Disponíveis</small>
+                            <strong id="estoqueKpiDisponiveis">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="critico">
+                            <small>Críticos</small>
+                            <strong id="estoqueKpiCriticos">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="valor">
+                            <small>Valor em estoque</small>
+                            <strong id="estoqueKpiValor">R$ 0,00</strong>
+                        </div>
                     </div>
                     <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 

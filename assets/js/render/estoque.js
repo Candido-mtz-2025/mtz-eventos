@@ -1,4 +1,36 @@
 // --- RENDERIZAR ESTOQUE (COM ORDEM ALFABÉTICA) ---
+function formatarMoedaResumoEstoque(valor) {
+  return (Number(valor) || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+}
+
+function atualizarResumoExecutivoEstoque() {
+  const lista = Array.isArray(pecas) ? pecas : [];
+
+  const totalItens = lista.length;
+  const totalDisponiveis = lista.reduce((acc, p) => acc + Math.max(Number(p.disponivel) || 0, 0), 0);
+  const totalCriticos = lista.filter((p) => (Number(p.disponivel) || 0) <= 3).length;
+  const valorEstoque = lista.reduce((acc, p) => {
+    const valor = Number(p.valor) || 0;
+    const disponivel = Math.max(Number(p.disponivel) || 0, 0);
+    return acc + (valor * disponivel);
+  }, 0);
+
+  const mapa = [
+    ['estoqueKpiTotal', String(totalItens)],
+    ['estoqueKpiDisponiveis', String(totalDisponiveis)],
+    ['estoqueKpiCriticos', String(totalCriticos)],
+    ['estoqueKpiValor', formatarMoedaResumoEstoque(valorEstoque)]
+  ];
+
+  mapa.forEach(([id, valor]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = valor;
+  });
+}
+
 function renderEstoque() {
   const termoRaw = DOM.get('buscaEstoque')?.value || '';
   
@@ -7,6 +39,7 @@ function renderEstoque() {
   const termo = normalizar(termoRaw);
   const tbody = DOM.get('tblEstoque');
   if (!tbody) return;
+  atualizarResumoExecutivoEstoque();
 
   let itensFiltrados = pecas.filter(p => {
     const nome = normalizar(p.nome || '');
@@ -75,6 +108,11 @@ function renderEstoque() {
     const marcado = (window.estoqueSelecionados && window.estoqueSelecionados.has(p.id)) ? 'checked' : '';
 
     const tr = document.createElement('tr');
+    const classeLinha =
+      p.disponivel === 0 ? 'estoque-row estoque-row--critical' :
+      p.disponivel <= 3 ? 'estoque-row estoque-row--warning' :
+      'estoque-row estoque-row--ok';
+    tr.className = classeLinha;
     tr.innerHTML = `
       <td class="table-select-col">
         <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}

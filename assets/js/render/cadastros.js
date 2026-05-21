@@ -70,9 +70,31 @@ function renderLocadores() {
 }
 
 // --- TIPOS (RECOLOCAR) ---
+function atualizarResumoTiposExecutivo() {
+    const totalTipos = Array.isArray(tipos) ? tipos.length : 0;
+
+    const tiposComUso = Array.isArray(tipos)
+        ? tipos.filter((t) => (Array.isArray(pecas) ? pecas.some((p) => Number(p.tipoId) === Number(t.id)) : false)).length
+        : 0;
+
+    const tiposSemUso = Math.max(totalTipos - tiposComUso, 0);
+
+    const mapa = [
+        ['tiposKpiTotal', totalTipos],
+        ['tiposKpiComUso', tiposComUso],
+        ['tiposKpiSemUso', tiposSemUso]
+    ];
+
+    mapa.forEach(([id, valor]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(valor);
+    });
+}
+
 function renderTipos() {
     const tbody = document.getElementById('tblTipos');
     if(!tbody) return;
+    atualizarResumoTiposExecutivo();
 
     if (!tipos.length) {
         tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
@@ -85,12 +107,23 @@ function renderTipos() {
         return;
     }
     
+    const totalPorTipo = new Map();
+    (Array.isArray(pecas) ? pecas : []).forEach((p) => {
+        const chave = String(p.tipoId || 0);
+        totalPorTipo.set(chave, (totalPorTipo.get(chave) || 0) + 1);
+    });
+
     tbody.innerHTML = tipos.map((t) => {
         const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.nome || '') : (t.nome || '');
         const desc = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.desc || '-') : (t.desc || '-');
+        const itensVinculados = totalPorTipo.get(String(t.id)) || 0;
+        const classeLinha = itensVinculados > 0 ? 'tipo-row tipo-row--ativo' : 'tipo-row tipo-row--sem-uso';
         return `
-        <tr>
-            <td><b>${nome}</b></td>
+        <tr class="${classeLinha}">
+            <td>
+                <div class="table-cell-title">${nome}</div>
+                <div class="table-cell-sub">${itensVinculados} item(ns) no estoque</div>
+            </td>
             <td>${desc}</td>
             <td class="col-actions">
                 <div class="actions-cell">

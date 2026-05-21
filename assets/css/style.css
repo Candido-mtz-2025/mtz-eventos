@@ -5315,3 +5315,165 @@ header {
 [data-theme="dark"] #tab-devolucoes .table tbody .devolucao-row:hover td {
     background: #18263a;
 }
+
+/* === V15.8 | TIPOS + ESTOQUE EXECUTIVO === */
+#tab-tipos .tipos-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 6px 0 14px;
+}
+
+#tab-tipos .tipos-kpi-card {
+    border: 1px solid #d8e3f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 10px 12px;
+    min-height: 76px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#tab-tipos .tipos-kpi-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+#tab-tipos .tipos-kpi-card strong {
+    font-size: 1.3rem;
+    line-height: 1.05;
+    color: #0f172a;
+    font-weight: 900;
+}
+
+#tab-tipos .tipos-kpi-card[data-tone="total"] {
+    border-left: 3px solid #2563eb;
+}
+
+#tab-tipos .tipos-kpi-card[data-tone="uso"] {
+    border-left: 3px solid #16a34a;
+}
+
+#tab-tipos .tipos-kpi-card[data-tone="sem-uso"] {
+    border-left: 3px solid #94a3b8;
+}
+
+#tab-tipos .table tbody .tipo-row--ativo td:first-child {
+    box-shadow: inset 3px 0 0 #16a34a;
+}
+
+#tab-tipos .table tbody .tipo-row--sem-uso td:first-child {
+    box-shadow: inset 3px 0 0 #94a3b8;
+}
+
+#tab-estoque .estoque-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 2px 0 14px;
+}
+
+#tab-estoque .estoque-kpi-card {
+    border: 1px solid #d8e3f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 10px 12px;
+    min-height: 78px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#tab-estoque .estoque-kpi-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+#tab-estoque .estoque-kpi-card strong {
+    font-size: 1.28rem;
+    line-height: 1.05;
+    color: #0f172a;
+    font-weight: 900;
+}
+
+#tab-estoque .estoque-kpi-card[data-tone="total"] {
+    border-left: 3px solid #2563eb;
+}
+
+#tab-estoque .estoque-kpi-card[data-tone="disponivel"] {
+    border-left: 3px solid #16a34a;
+}
+
+#tab-estoque .estoque-kpi-card[data-tone="critico"] {
+    border-left: 3px solid #ef4444;
+}
+
+#tab-estoque .estoque-kpi-card[data-tone="valor"] {
+    border-left: 3px solid #0ea5e9;
+}
+
+#tab-estoque .panel-block > h3 {
+    margin-bottom: 14px;
+}
+
+#tab-estoque .table tbody .estoque-row td {
+    vertical-align: middle;
+}
+
+#tab-estoque .table tbody .estoque-row:hover td {
+    background: #f7fbff;
+}
+
+#tab-estoque .table tbody .estoque-row--critical td:first-child {
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+#tab-estoque .table tbody .estoque-row--warning td:first-child {
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+#tab-estoque .table tbody .estoque-row--ok td:first-child {
+    box-shadow: inset 3px 0 0 #16a34a;
+}
+
+@media (max-width: 980px) {
+    #tab-estoque .estoque-kpi-grid {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    #tab-tipos .tipos-kpi-grid,
+    #tab-estoque .estoque-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] #tab-tipos .tipos-kpi-card,
+[data-theme="dark"] #tab-estoque .estoque-kpi-card {
+    border-color: #334155;
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-tipos .tipos-kpi-card small,
+[data-theme="dark"] #tab-estoque .estoque-kpi-card small {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] #tab-tipos .tipos-kpi-card strong,
+[data-theme="dark"] #tab-estoque .estoque-kpi-card strong {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] #tab-estoque .table tbody .estoque-row:hover td {
+    background: #18263a;
+}
