@@ -98,7 +98,7 @@ function atualizarTopbarModulo(tabId) {
     topbar.style.display = 'flex';
 }
 
-function focarCampo(id, selecionar = false) {
+function focarCampo(id, selecionar = false, alinhamento = 'center') {
     const el = document.getElementById(id);
     if (!el) return;
 
@@ -113,9 +113,14 @@ function focarCampo(id, selecionar = false) {
             el.select();
         }
 
+        if (alinhamento === 'none') return;
+
         const bloco = el.closest('.card, .panel-block, .dash-section');
         if (bloco && typeof bloco.scrollIntoView === 'function') {
-            bloco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            bloco.scrollIntoView({
+                behavior: 'smooth',
+                block: alinhamento === 'start' ? 'start' : 'center'
+            });
         }
     }, 90);
 }
@@ -197,7 +202,7 @@ function executarAtalhoRapido(atalhoId) {
             return;
         case 'qa_busca_estoque':
             abrirTab('estoque');
-            focarCampo('buscaEstoque', true);
+            focarCampo('buscaEstoque', true, 'start');
             return;
         case 'qa_importar_excel':
             abrirTab('estoque');
