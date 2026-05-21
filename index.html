@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=15.5">
+    <link rel="stylesheet" href="./assets/css/style.css?v=15.6">
 </head>
 <body>
 
@@ -511,6 +511,25 @@
             <div id="tab-checklist" class="tab-content">
                 <div class="card">
                     <h2>Checklist</h2>
+
+                    <div class="checklist-kpi-grid" aria-label="Resumo do checklist">
+                        <div class="checklist-kpi-card" data-tone="grupos">
+                            <small>Grupos</small>
+                            <strong id="checkKpiGrupos">0</strong>
+                        </div>
+                        <div class="checklist-kpi-card" data-tone="itens">
+                            <small>Itens de saída</small>
+                            <strong id="checkKpiItens">0</strong>
+                        </div>
+                        <div class="checklist-kpi-card" data-tone="ok">
+                            <small>Conferidos</small>
+                            <strong id="checkKpiConferidos">0</strong>
+                        </div>
+                        <div class="checklist-kpi-card" data-tone="pendente">
+                            <small>Pendências</small>
+                            <strong id="checkKpiPendentes">0</strong>
+                        </div>
+                    </div>
                     
                     <div class="form-row">
                         <div class="form-group">

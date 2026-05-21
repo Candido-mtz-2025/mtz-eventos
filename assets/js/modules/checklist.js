@@ -173,6 +173,29 @@ function formatarDataChecklist(valor) {
     return data.toLocaleDateString('pt-BR');
 }
 
+function atualizarResumoExecutivoChecklist(grupos) {
+    const gruposLista = Array.isArray(grupos) ? grupos : [];
+    const totalGrupos = gruposLista.length;
+    const totalItensSaida = gruposLista.reduce((acc, grupo) => acc + (Number(grupo.total) || 0), 0);
+    const totalLinhas = gruposLista.reduce((acc, grupo) => acc + ((grupo.itens || []).length), 0);
+    const totalConferidos = gruposLista.reduce((acc, grupo) => (
+        acc + (grupo.itens || []).filter((item) => item.conferencia?.status === 'ok').length
+    ), 0);
+    const totalPendentes = Math.max(totalLinhas - totalConferidos, 0);
+
+    const mapa = [
+        ['checkKpiGrupos', totalGrupos],
+        ['checkKpiItens', totalItensSaida],
+        ['checkKpiConferidos', totalConferidos],
+        ['checkKpiPendentes', totalPendentes]
+    ];
+
+    mapa.forEach(([id, valor]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(valor);
+    });
+}
+
 function obterDadosCabecalhoChecklist() {
     return {
         cliente: document.getElementById('checklistCliente')?.value || '',
@@ -355,6 +378,7 @@ function renderChecklistMontagem() {
     if (!container) return;
 
     if (!checklistMontagem || !checklistMontagem.length) {
+        atualizarResumoExecutivoChecklist([]);
         container.innerHTML = criarEstadoChecklistPainel({
             tipo: 'empty',
             titulo: 'Checklist vazio',
@@ -365,6 +389,7 @@ function renderChecklistMontagem() {
 
     const grupos = obterGruposChecklist();
     sincronizarConferenciaChecklist(grupos);
+    atualizarResumoExecutivoChecklist(grupos);
 
     container.innerHTML = `
         <div class="checklist-preview-grid">
@@ -389,7 +414,7 @@ function renderChecklistMontagem() {
                         </thead>
                         <tbody>
                             ${grupo.itens.map(item => `
-                                <tr>
+                                <tr class="checklist-row checklist-row--${item.conferencia.status}">
                                     <td>${escaparHTMLChecklist(item.nome)}</td>
                                     <td>${item.quantidade}</td>
                                     <td>

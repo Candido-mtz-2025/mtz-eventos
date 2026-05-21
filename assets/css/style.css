@@ -5315,3 +5315,140 @@ header {
 [data-theme="dark"] #tab-devolucoes .table tbody .devolucao-row:hover td {
     background: #18263a;
 }
+
+/* === V15.6 | CHECKLIST EXECUTIVO === */
+#tab-checklist .checklist-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 6px 0 14px;
+}
+
+#tab-checklist .checklist-kpi-card {
+    border: 1px solid #d8e3f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 10px 12px;
+    min-height: 76px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#tab-checklist .checklist-kpi-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+#tab-checklist .checklist-kpi-card strong {
+    font-size: 1.32rem;
+    line-height: 1.05;
+    color: #0f172a;
+    font-weight: 900;
+}
+
+#tab-checklist .checklist-kpi-card[data-tone="grupos"] {
+    border-left: 3px solid #2563eb;
+}
+
+#tab-checklist .checklist-kpi-card[data-tone="itens"] {
+    border-left: 3px solid #14b8a6;
+}
+
+#tab-checklist .checklist-kpi-card[data-tone="ok"] {
+    border-left: 3px solid #16a34a;
+}
+
+#tab-checklist .checklist-kpi-card[data-tone="pendente"] {
+    border-left: 3px solid #f59e0b;
+}
+
+#tab-checklist #listaChecklistMontagem {
+    background: #fcfdff;
+}
+
+#tab-checklist .checklist-preview-head {
+    background: #f8fbff;
+}
+
+#tab-checklist .checklist-preview-head span {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eef5ff;
+    color: #1d4ed8;
+    font-weight: 800;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row td {
+    vertical-align: middle;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row:hover td {
+    background: #f8fbff;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row--ok td:first-child {
+    box-shadow: inset 3px 0 0 #16a34a;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row--faltando td:first-child {
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row--avaria td:first-child {
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+#tab-checklist .checklist-preview-table tbody .checklist-row--pendente td:first-child {
+    box-shadow: inset 3px 0 0 #94a3b8;
+}
+
+#tab-checklist .checklist-input-retorno,
+#tab-checklist .checklist-select-status,
+#tab-checklist .checklist-input-obs {
+    min-height: 36px;
+    border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+    #tab-checklist .checklist-kpi-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    #tab-checklist .checklist-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] #tab-checklist .checklist-kpi-card {
+    border-color: #334155;
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-checklist .checklist-kpi-card small {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] #tab-checklist .checklist-kpi-card strong {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] #tab-checklist #listaChecklistMontagem,
+[data-theme="dark"] #tab-checklist .checklist-preview-head {
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-checklist .checklist-preview-head span {
+    background: rgba(37, 99, 235, 0.24);
+    color: #bfdbfe;
+}
+
+[data-theme="dark"] #tab-checklist .checklist-preview-table tbody .checklist-row:hover td {
+    background: #18263a;
+}
