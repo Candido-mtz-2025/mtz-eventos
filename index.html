@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=16.2">
+    <link rel="stylesheet" href="./assets/css/style.css?v=16.3">
 </head>
 <body>
 
@@ -528,11 +528,11 @@
                     </div>
                 </div>
 
-               <div class="filters-row">
-                    <button class="btn btn-sm btn-secondary" data-filtro="todos" data-action="mudarFiltro" data-arg="todos">Todos</button>
-                    <button class="btn btn-sm btn-success" data-filtro="ativo" data-action="mudarFiltro" data-arg="ativo">Em Aberto</button>
-                    <button class="btn btn-sm btn-danger" data-filtro="atrasado" data-action="mudarFiltro" data-arg="atrasado">Atrasados</button>
-                    <button class="btn btn-sm btn-info" data-filtro="devolvido" data-action="mudarFiltro" data-arg="devolvido">Histórico</button>
+               <div class="filters-row filters-segmented">
+                    <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro="todos" data-action="mudarFiltro" data-arg="todos"><i class="bi bi-list-ul"></i> Todos</button>
+                    <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro="ativo" data-action="mudarFiltro" data-arg="ativo"><i class="bi bi-play-circle"></i> Em Aberto</button>
+                    <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro="atrasado" data-action="mudarFiltro" data-arg="atrasado"><i class="bi bi-clock-history"></i> Atrasados</button>
+                    <button class="btn btn-sm btn-info" data-tone="info" data-filtro="devolvido" data-action="mudarFiltro" data-arg="devolvido"><i class="bi bi-archive"></i> Histórico</button>
                 </div> 
 
                  <div class="panel-block panel-block-spaced">
@@ -711,13 +711,13 @@
       </div>
     </div>
 
-    <div class="filters-row">
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="todos" data-action="renderLogs" data-arg="todos">Todos</button>
-      <button class="btn btn-sm btn-success audit-filter" data-filter="cliente" data-action="renderLogs" data-arg="cliente">Clientes</button>
-      <button class="btn btn-sm btn-success audit-filter" data-filter="item" data-action="renderLogs" data-arg="item">Itens</button>
-      <button class="btn btn-sm btn-warning audit-filter" data-filter="locacao" data-action="renderLogs" data-arg="locacao">Locações</button>
-      <button class="btn btn-sm btn-info audit-filter" data-filter="devolucao" data-action="renderLogs" data-arg="devolucao">Devoluções</button>
-      <button class="btn btn-sm btn-secondary audit-filter" data-filter="sistema" data-action="renderLogs" data-arg="sistema">Sistema</button>
+    <div class="filters-row filters-segmented audit-filters">
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="renderLogs" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="renderLogs" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="renderLogs" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="renderLogs" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="renderLogs" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="renderLogs" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
     </div>
     <div class="form-row">
       <div class="form-group">
