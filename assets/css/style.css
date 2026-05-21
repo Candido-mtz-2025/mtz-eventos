@@ -4658,3 +4658,145 @@ textarea::placeholder {
     width: 188px !important;
     min-width: 188px !important;
 }
+
+/* === V14.7 | RESPONSIVO PROFISSIONAL (TABLET + MOBILE) === */
+@media (max-width: 1180px) {
+    .container {
+        padding: 14px !important;
+    }
+
+    header .container {
+        padding: 10px 0 !important;
+    }
+
+    .logo h1 {
+        font-size: 1.72rem !important;
+    }
+
+    .card,
+    .dash-section,
+    #tab-config .config-card,
+    #tab-config .config-actions-card {
+        padding: 16px !important;
+    }
+
+    .tabs {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .tab-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 900px) {
+    header .container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .logo {
+        text-align: center;
+    }
+
+    .logo-subtitle {
+        display: block;
+        text-align: center;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .header-user {
+        max-width: 100%;
+    }
+
+    .sync-badge {
+        min-width: 94px;
+    }
+
+    .form-row {
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .section-toolbar {
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .section-toolbar .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .inline-chip-row {
+        gap: 8px;
+    }
+
+    #tab-locacoes .locacao-flow {
+        grid-template-columns: 1fr !important;
+    }
+
+    #tab-locacoes .locacao-step {
+        justify-content: flex-start;
+    }
+
+    #tab-locadores .table,
+    #tab-tipos .table,
+    #tab-estoque .table,
+    #tab-locacoes .table,
+    #tab-devolucoes .table,
+    #tab-auditoria .table {
+        min-width: 760px;
+    }
+
+    #tab-locacoes .table {
+        table-layout: auto !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .container {
+        padding: 12px !important;
+    }
+
+    .card,
+    .dash-section,
+    #tab-config .config-card,
+    #tab-config .config-actions-card {
+        padding: 14px !important;
+        border-radius: 12px !important;
+    }
+
+    .tabs {
+        padding: 5px;
+        gap: 6px;
+    }
+
+    .tab-btn {
+        min-height: 36px !important;
+        font-size: 0.82rem !important;
+        padding: 0 11px !important;
+    }
+
+    #tab-locacoes .table th:nth-child(5),
+    #tab-locacoes .table td:nth-child(5) {
+        width: auto !important;
+        min-width: 1% !important;
+    }
+
+    #tblLocacoes td.col-actions {
+        text-align: right !important;
+    }
+}
