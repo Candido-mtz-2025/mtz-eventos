@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=16.0">
+    <link rel="stylesheet" href="./assets/css/style.css?v=16.1">
 </head>
 <body>
 
@@ -121,6 +121,14 @@
         <button class="tab-btn" data-tab="config" data-action="abrirTab" data-arg="config"><i class="bi bi-gear"></i> Config</button>
     </div>
 </div>
+
+            <div id="moduleTopbar" class="module-topbar" style="display:none;">
+                <div class="module-topbar-main">
+                    <h2 id="moduleTopbarTitle"><i class="bi bi-grid"></i> Dashboard</h2>
+                    <p id="moduleTopbarDesc">Visão geral da operação.</p>
+                </div>
+                <small id="moduleTopbarMeta">Resumo</small>
+            </div>
 
             <div id="tab-dashboard" class="tab-content active">
                 <div class="dashboard-topbar">

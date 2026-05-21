@@ -5737,3 +5737,81 @@ textarea:focus {
         min-height: 34px;
     }
 }
+
+/* === V16.1 | TOPO CONTEXTUAL DAS ABAS === */
+.module-topbar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 14px;
+    padding: 14px 18px;
+    border: 1px solid #c8d9f1;
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 247, 255, 0.95));
+}
+
+.module-topbar-main {
+    min-width: 0;
+}
+
+.module-topbar h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.06rem;
+    font-weight: 800;
+    color: #11223f;
+}
+
+.module-topbar h2 i {
+    color: #2563eb;
+}
+
+.module-topbar p {
+    margin: 3px 0 0;
+    color: #5e7392;
+    font-size: 0.86rem;
+}
+
+.module-topbar small {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #e7f0ff;
+    color: #34527c;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .module-topbar {
+    border-color: #2f4363;
+    background: linear-gradient(135deg, rgba(17, 26, 43, 0.95), rgba(23, 38, 63, 0.95));
+}
+
+[data-theme="dark"] .module-topbar h2 {
+    color: #dbeafe;
+}
+
+[data-theme="dark"] .module-topbar p {
+    color: #9db1cf;
+}
+
+[data-theme="dark"] .module-topbar small {
+    background: rgba(37, 99, 235, 0.22);
+    color: #bfdbfe;
+}
+
+@media (max-width: 760px) {
+    .module-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 14px;
+    }
+}

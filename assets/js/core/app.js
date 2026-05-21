@@ -18,6 +18,38 @@ function renderTudo() {
     if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 
+const TAB_TOPBAR_CONFIG = {
+    dashboard: { icon: 'bi-grid', titulo: 'Dashboard', descricao: 'Visão executiva da operação.', meta: 'Tempo real' },
+    locadores: { icon: 'bi-people', titulo: 'Clientes', descricao: 'Cadastro e relacionamento com clientes.', meta: 'Base comercial' },
+    tipos: { icon: 'bi-tags', titulo: 'Tipos', descricao: 'Organização das categorias de itens.', meta: 'Catálogo' },
+    estoque: { icon: 'bi-box-seam', titulo: 'Estoque', descricao: 'Controle completo de itens e disponibilidade.', meta: 'Inventário' },
+    checklist: { icon: 'bi-check2-square', titulo: 'Checklist', descricao: 'Separação e conferência de montagem.', meta: 'Operação de campo' },
+    locacoes: { icon: 'bi-cart', titulo: 'Locações', descricao: 'Gestão ponta a ponta dos pedidos.', meta: 'Fluxo comercial' },
+    devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
+    auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
+    config: { icon: 'bi-gear', titulo: 'Configurações', descricao: 'Ajustes gerais e políticas de acesso.', meta: 'Administração' }
+};
+
+function atualizarTopbarModulo(tabId) {
+    const topbar = document.getElementById('moduleTopbar');
+    const titleEl = document.getElementById('moduleTopbarTitle');
+    const descEl = document.getElementById('moduleTopbarDesc');
+    const metaEl = document.getElementById('moduleTopbarMeta');
+
+    if (!topbar || !titleEl || !descEl || !metaEl) return;
+
+    if (tabId === 'dashboard') {
+        topbar.style.display = 'none';
+        return;
+    }
+
+    const cfg = TAB_TOPBAR_CONFIG[tabId] || TAB_TOPBAR_CONFIG.dashboard;
+    titleEl.innerHTML = `<i class="bi ${cfg.icon}"></i> ${cfg.titulo}`;
+    descEl.textContent = cfg.descricao;
+    metaEl.textContent = cfg.meta;
+    topbar.style.display = 'flex';
+}
+
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
     carregarLocal();
@@ -90,6 +122,8 @@ function renderTudo() {
             btn.classList.toggle('active', ativa);
             btn.setAttribute('aria-pressed', ativa ? 'true' : 'false');
         });
+
+        atualizarTopbarModulo(id);
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
