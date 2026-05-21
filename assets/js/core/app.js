@@ -103,8 +103,9 @@ function focarCampo(id, selecionar = false, alinhamento = 'center') {
     if (!el) return;
 
     setTimeout(() => {
+        const semRolagem = alinhamento === 'none';
         try {
-            el.focus({ preventScroll: false });
+            el.focus({ preventScroll: semRolagem });
         } catch (_) {
             el.focus();
         }
@@ -113,7 +114,7 @@ function focarCampo(id, selecionar = false, alinhamento = 'center') {
             el.select();
         }
 
-        if (alinhamento === 'none') return;
+        if (semRolagem) return;
 
         const bloco = el.closest('.card, .panel-block, .dash-section');
         if (bloco && typeof bloco.scrollIntoView === 'function') {
@@ -149,33 +150,6 @@ function atualizarAtalhosRapidos(tabId) {
             <span>${atalho.label}</span>
         </button>
     `).join('');
-
-    if (tabId === 'estoque') {
-        lista.insertAdjacentHTML('beforeend', `
-            <label class="quick-search-inline" for="qaBuscaEstoque">
-                <i class="bi bi-search"></i>
-                <input id="qaBuscaEstoque" type="text" placeholder="Buscar item no topo...">
-            </label>
-        `);
-
-        const inputRapido = document.getElementById('qaBuscaEstoque');
-        const inputPrincipal = document.getElementById('buscaEstoque');
-        if (inputRapido && inputPrincipal) {
-            inputRapido.value = inputPrincipal.value || '';
-
-            inputRapido.addEventListener('input', () => {
-                inputPrincipal.value = inputRapido.value;
-                if (typeof buscarComDebounce === 'function') buscarComDebounce('estoque');
-            });
-
-            inputRapido.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    if (typeof renderEstoque === 'function') renderEstoque();
-                }
-            });
-        }
-    }
 
     barra.style.display = 'flex';
 }
@@ -230,13 +204,7 @@ function executarAtalhoRapido(atalhoId) {
         case 'qa_busca_estoque':
             abrirTab('estoque');
             setTimeout(() => {
-                const inputRapido = document.getElementById('qaBuscaEstoque');
-                if (inputRapido) {
-                    inputRapido.focus();
-                    inputRapido.select();
-                    return;
-                }
-                focarCampo('buscaEstoque', true, 'start');
+                focarCampo('buscaEstoque', true, 'none');
             }, 60);
             return;
         case 'qa_importar_excel':
