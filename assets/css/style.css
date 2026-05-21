@@ -5815,3 +5815,89 @@ textarea:focus {
         padding: 12px 14px;
     }
 }
+
+/* === V16.2 | AÇÕES DE TABELA UNIFICADAS (PADRÃO PREMIUM) === */
+#tab-locadores .actions-cell,
+#tab-tipos .actions-cell,
+#tab-estoque .actions-cell,
+#tab-locacoes td.col-actions .actions-cell,
+#tab-locacoes td.col-actions .locacao-actions,
+#tab-devolucoes td.col-actions .actions-cell,
+#tab-auditoria .actions-cell {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+}
+
+#tab-locadores .actions-cell .btn,
+#tab-tipos .actions-cell .btn,
+#tab-estoque .actions-cell .btn,
+#tab-locacoes td.col-actions .actions-cell .btn,
+#tab-locacoes td.col-actions .locacao-actions .btn,
+#tab-locacoes td.col-actions .locacao-action-btn,
+#tab-devolucoes td.col-actions .btn,
+#tab-auditoria .actions-cell .btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 11px !important;
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 6px 12px rgba(15, 23, 42, 0.07);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+#tab-locadores .actions-cell .btn:hover:not(:disabled),
+#tab-tipos .actions-cell .btn:hover:not(:disabled),
+#tab-estoque .actions-cell .btn:hover:not(:disabled),
+#tab-locacoes td.col-actions .actions-cell .btn:hover:not(:disabled),
+#tab-locacoes td.col-actions .locacao-actions .btn:hover:not(:disabled),
+#tab-locacoes td.col-actions .locacao-action-btn:hover:not(:disabled),
+#tab-devolucoes td.col-actions .btn:hover:not(:disabled),
+#tab-auditoria .actions-cell .btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: saturate(1.05);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.13);
+}
+
+#tab-locacoes .col-actions,
+#tblLocacoes td.col-actions,
+#tab-locacoes .table th:nth-child(5),
+#tab-locacoes .table td:nth-child(5) {
+    width: 216px !important;
+    min-width: 216px !important;
+}
+
+[data-theme="dark"] #tab-locadores .actions-cell .btn,
+[data-theme="dark"] #tab-tipos .actions-cell .btn,
+[data-theme="dark"] #tab-estoque .actions-cell .btn,
+[data-theme="dark"] #tab-locacoes td.col-actions .actions-cell .btn,
+[data-theme="dark"] #tab-locacoes td.col-actions .locacao-actions .btn,
+[data-theme="dark"] #tab-locacoes td.col-actions .locacao-action-btn,
+[data-theme="dark"] #tab-devolucoes td.col-actions .btn,
+[data-theme="dark"] #tab-auditoria .actions-cell .btn {
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    box-shadow: 0 6px 12px rgba(2, 6, 23, 0.4);
+}
+
+@media (max-width: 760px) {
+    #tab-locadores .actions-cell .btn,
+    #tab-tipos .actions-cell .btn,
+    #tab-estoque .actions-cell .btn,
+    #tab-locacoes td.col-actions .actions-cell .btn,
+    #tab-locacoes td.col-actions .locacao-actions .btn,
+    #tab-locacoes td.col-actions .locacao-action-btn,
+    #tab-devolucoes td.col-actions .btn,
+    #tab-auditoria .actions-cell .btn {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+    }
+}
