@@ -2653,7 +2653,7 @@ input[type="file"]::-webkit-file-upload-button {
 }
 
 .locacao-actions {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px;
 }
 
@@ -4137,9 +4137,9 @@ textarea::placeholder {
 
 /* === V13.4 | DASHBOARD VISUAL FORÇADO (SOBRESCREVE BLOCOS ANTIGOS) === */
 #tab-dashboard .dashboard-topbar {
-    background: linear-gradient(135deg, #0f172a 0%, #1e40af 60%, #0b4f6c 100%) !important;
-    border: 1px solid #1d4ed8 !important;
-    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.24) !important;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 58%, #12445f 100%) !important;
+    border: 1px solid #1e40af !important;
+    box-shadow: 0 14px 24px rgba(15, 23, 42, 0.2) !important;
 }
 
 #tab-dashboard .dashboard-topbar h2,
@@ -4154,39 +4154,92 @@ textarea::placeholder {
 }
 
 #tab-dashboard .stat-card.card-blue {
-    background: linear-gradient(180deg, #f5faff 0%, #e9f2ff 100%) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
 }
 
 #tab-dashboard .stat-card.card-orange {
-    background: linear-gradient(180deg, #fff9f0 0%, #fff0d8 100%) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fffaf4 100%) !important;
 }
 
 #tab-dashboard .stat-card.card-green {
-    background: linear-gradient(180deg, #f3fff8 0%, #e7f9ef 100%) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fdfa 100%) !important;
 }
 
 #tab-dashboard .stat-card.card-purple {
-    background: linear-gradient(180deg, #faf7ff 0%, #eee9ff 100%) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfaff 100%) !important;
 }
 
 #tab-dashboard .stat-card {
-    border: 1px solid #cbd9eb !important;
-    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08) !important;
+    border: 1px solid #d5dfed !important;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.07) !important;
+}
+
+#tab-dashboard .stat-card.card-blue::before {
+    background: #3b82f6 !important;
+}
+
+#tab-dashboard .stat-card.card-orange::before {
+    background: #f59e0b !important;
+}
+
+#tab-dashboard .stat-card.card-green::before {
+    background: #10b981 !important;
+}
+
+#tab-dashboard .stat-card.card-purple::before {
+    background: #8b5cf6 !important;
+}
+
+#tab-dashboard .card-blue .stat-icon {
+    background: #edf4ff !important;
+    color: #2563eb !important;
+}
+
+#tab-dashboard .card-orange .stat-icon {
+    background: #fff6e8 !important;
+    color: #d97706 !important;
+}
+
+#tab-dashboard .card-green .stat-icon {
+    background: #e9f9f0 !important;
+    color: #059669 !important;
+}
+
+#tab-dashboard .card-purple .stat-icon {
+    background: #f1edff !important;
+    color: #7c3aed !important;
 }
 
 #tab-dashboard .stat-info h3 {
-    font-size: 1.9rem !important;
+    font-size: 2rem !important;
     line-height: 1 !important;
+    font-weight: 850 !important;
+    color: #0f172a !important;
+}
+
+#tab-dashboard .dash-receita-main {
+    color: #1d4ed8 !important;
+    font-weight: 900 !important;
+}
+
+#tab-dashboard .dash-receita-sub {
+    color: #475569 !important;
+    font-weight: 700 !important;
 }
 
 #tab-dashboard .finance-kpi {
-    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%) !important;
-    border: 1px solid #d4e0ef !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%) !important;
+    border: 1px solid #d8e2ef !important;
+}
+
+#tab-dashboard .finance-kpi strong {
+    font-weight: 850 !important;
+    color: #0f172a !important;
 }
 
 #tab-dashboard .dash-section {
-    border: 1px solid #d4dfef !important;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08) !important;
+    border: 1px solid #d7e1ef !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
 }
 
 [data-theme="dark"] #tab-dashboard .dashboard-topbar {
@@ -4217,4 +4270,380 @@ textarea::placeholder {
 [data-theme="dark"] #tab-dashboard .stat-card.card-purple {
     background: linear-gradient(180deg, #1f1a30 0%, #161126 100%) !important;
 }
-    
+
+/* === V13.6 | ABAS OPERACIONAIS COM PADRÃO PROFISSIONAL === */
+#tab-locadores.active,
+#tab-estoque.active,
+#tab-locacoes.active {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#tab-locadores .card,
+#tab-estoque .card,
+#tab-locacoes > .card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
+    border: 1px solid #d5dfed !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
+}
+
+#tab-locadores .card::before,
+#tab-estoque .card::before,
+#tab-locacoes > .card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    pointer-events: none;
+}
+
+#tab-locadores .card::before {
+    background: linear-gradient(90deg, #3b82f6 0%, #0ea5e9 100%);
+}
+
+#tab-estoque .card::before {
+    background: linear-gradient(90deg, #10b981 0%, #0ea5a6 100%);
+}
+
+#tab-locacoes > .card::before {
+    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+#tab-locadores .card h3,
+#tab-estoque .section-toolbar h2,
+#tab-locacoes > .card > h3 {
+    margin-top: 2px;
+    margin-bottom: 14px;
+    font-size: 1.18rem;
+    font-weight: 820;
+    color: #0f172a;
+}
+
+#tab-estoque .panel-block {
+    background: linear-gradient(180deg, #fbfdff 0%, #f6f9ff 100%);
+    border: 1px solid #d7e3f1 !important;
+}
+
+#tab-locacoes .locacao-step-panel,
+#tab-locacoes .box-carrinho,
+#tab-locacoes .checkout-bar,
+#tab-locacoes #carrinhoList {
+    background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+    border-color: #d8e3f1 !important;
+}
+
+#tab-locadores .search-input,
+#tab-estoque .search-input,
+#tab-locacoes #inputBuscaPeca {
+    border: 1px solid #ccd8ea !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+#tab-locadores .search-input:focus,
+#tab-estoque .search-input:focus,
+#tab-locacoes #inputBuscaPeca:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+#tab-locadores .table-responsive,
+#tab-estoque .table-responsive,
+#tab-locacoes .table-responsive {
+    border: 1px solid #d9e3f1 !important;
+    background: #ffffff;
+}
+
+#tab-locadores .table thead th,
+#tab-estoque .table thead th,
+#tab-locacoes .table thead th {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fc 100%);
+    color: #53627a;
+    border-bottom: 1px solid #d8e3f2;
+}
+
+#tab-locadores .actions-cell .btn,
+#tab-estoque .actions-cell .btn,
+#tab-locacoes .locacao-action-btn {
+    border-radius: 10px;
+}
+
+#tab-locacoes .filters-row {
+    border: 1px solid #d6e1ef;
+    background: linear-gradient(180deg, #fbfdff 0%, #f6f9ff 100%);
+}
+
+#tab-locacoes .locacao-cell-main,
+#tab-locacoes .locacao-period-meta,
+#tab-locacoes .locacao-cell-main + .badge {
+    color: #0f172a;
+}
+
+#tab-locacoes .col-actions {
+    width: 188px;
+    min-width: 188px;
+    white-space: nowrap !important;
+}
+
+#tab-locacoes td.col-actions .actions-cell.locacao-actions {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 36px;
+    justify-content: end;
+    align-items: center;
+    gap: 7px !important;
+    width: max-content;
+    margin-left: auto;
+}
+
+#tab-locacoes td.col-actions .actions-cell.locacao-actions .locacao-action-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px !important;
+    padding: 0 !important;
+    flex: 0 0 36px;
+}
+
+#tab-locacoes td.col-actions .locacao-action-btn {
+    display: inline-flex !important;
+    vertical-align: middle;
+    margin-left: 7px;
+}
+
+#tab-locacoes td.col-actions .locacao-action-btn:first-child {
+    margin-left: 0;
+}
+
+[data-theme="dark"] #tab-locadores .card,
+[data-theme="dark"] #tab-estoque .card,
+[data-theme="dark"] #tab-locacoes > .card {
+    background: linear-gradient(180deg, #132136 0%, #0f1a2b 100%) !important;
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #tab-estoque .panel-block,
+[data-theme="dark"] #tab-locacoes .locacao-step-panel,
+[data-theme="dark"] #tab-locacoes .box-carrinho,
+[data-theme="dark"] #tab-locacoes .checkout-bar,
+[data-theme="dark"] #tab-locacoes #carrinhoList,
+[data-theme="dark"] #tab-locadores .table-responsive,
+[data-theme="dark"] #tab-estoque .table-responsive,
+[data-theme="dark"] #tab-locacoes .table-responsive {
+    background: #0f1a2b;
+    border-color: #334155 !important;
+}
+
+[data-theme="dark"] #tab-locadores .table thead th,
+[data-theme="dark"] #tab-estoque .table thead th,
+[data-theme="dark"] #tab-locacoes .table thead th {
+    background: #17263a;
+    border-bottom-color: #334155;
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] #tab-locadores .search-input,
+[data-theme="dark"] #tab-estoque .search-input,
+[data-theme="dark"] #tab-locacoes #inputBuscaPeca {
+    background: #0f1a2b;
+    border-color: #334155 !important;
+    color: #e2e8f0;
+    box-shadow: none;
+}
+
+[data-theme="dark"] #tab-locadores .card h3,
+[data-theme="dark"] #tab-estoque .section-toolbar h2,
+[data-theme="dark"] #tab-locacoes > .card > h3,
+[data-theme="dark"] #tab-locacoes .locacao-cell-main,
+[data-theme="dark"] #tab-locacoes .locacao-period-meta {
+    color: #f8fafc;
+}
+
+@media (max-width: 640px) {
+    #tab-locacoes .col-actions {
+        width: 1%;
+        min-width: 1%;
+    }
+
+    #tab-locacoes td.col-actions .actions-cell.locacao-actions {
+        flex-wrap: wrap !important;
+        grid-auto-flow: row;
+        grid-template-columns: repeat(2, 36px);
+        justify-content: end;
+    }
+}
+
+/* === V13.8 | TIPOS + DEVOLUÇÕES + CONFIG NO PADRÃO PROFISSIONAL === */
+#tab-tipos.active,
+#tab-devolucoes.active,
+#tab-config.active {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+#tab-tipos .card,
+#tab-devolucoes .card,
+#tab-config .config-card,
+#tab-config .config-actions-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%) !important;
+    border: 1px solid #d5dfed !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
+}
+
+#tab-tipos .card::before,
+#tab-devolucoes .card::before,
+#tab-config .config-card::before,
+#tab-config .config-actions-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    pointer-events: none;
+}
+
+#tab-tipos .card::before {
+    background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%);
+}
+
+#tab-devolucoes .card::before {
+    background: linear-gradient(90deg, #0ea5e9 0%, #2563eb 100%);
+}
+
+#tab-config .config-card::before,
+#tab-config .config-actions-card::before {
+    background: linear-gradient(90deg, #0f766e 0%, #0ea5a6 100%);
+}
+
+#tab-tipos .card h3,
+#tab-devolucoes .card h3,
+#tab-config .config-card h3,
+#tab-config .config-actions-card h3 {
+    margin-top: 2px;
+    margin-bottom: 14px;
+    font-size: 1.16rem;
+    font-weight: 820;
+    color: #0f172a;
+}
+
+#tab-tipos .table-responsive,
+#tab-devolucoes .table-responsive {
+    border: 1px solid #d9e3f1 !important;
+    background: #ffffff;
+}
+
+#tab-tipos .table thead th,
+#tab-devolucoes .table thead th {
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fc 100%);
+    color: #53627a;
+    border-bottom: 1px solid #d8e3f2;
+}
+
+#tab-devolucoes #divItensDevolucao {
+    background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+    border-color: #d8e3f1 !important;
+}
+
+#tab-devolucoes .devolucao-kpi {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid #d7e3f1;
+}
+
+#tab-config .field-hint {
+    color: #607089;
+}
+
+#tab-config .config-actions-card .inline-chip-row {
+    gap: 10px;
+}
+
+#tab-config .config-actions-card .btn {
+    min-height: 42px;
+}
+
+[data-theme="dark"] #tab-tipos .card,
+[data-theme="dark"] #tab-devolucoes .card,
+[data-theme="dark"] #tab-config .config-card,
+[data-theme="dark"] #tab-config .config-actions-card {
+    background: linear-gradient(180deg, #132136 0%, #0f1a2b 100%) !important;
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #tab-tipos .table-responsive,
+[data-theme="dark"] #tab-devolucoes .table-responsive,
+[data-theme="dark"] #tab-devolucoes #divItensDevolucao,
+[data-theme="dark"] #tab-devolucoes .devolucao-kpi {
+    background: #0f1a2b;
+    border-color: #334155 !important;
+}
+
+[data-theme="dark"] #tab-tipos .table thead th,
+[data-theme="dark"] #tab-devolucoes .table thead th {
+    background: #17263a;
+    border-bottom-color: #334155;
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] #tab-tipos .card h3,
+[data-theme="dark"] #tab-devolucoes .card h3,
+[data-theme="dark"] #tab-config .config-card h3,
+[data-theme="dark"] #tab-config .config-actions-card h3,
+[data-theme="dark"] #tab-config .field-hint {
+    color: #e2e8f0;
+}
+
+/* HOTFIX FINAL: coluna de ações da tabela de locações sempre horizontal no desktop */
+#tblLocacoes td.col-actions {
+    min-width: 188px !important;
+    width: 188px !important;
+    white-space: nowrap !important;
+    text-align: right !important;
+}
+
+#tblLocacoes td.col-actions .actions-cell,
+#tblLocacoes td.col-actions .locacao-actions {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 7px !important;
+    width: auto !important;
+}
+
+#tblLocacoes td.col-actions button,
+#tblLocacoes td.col-actions .btn,
+#tblLocacoes td.col-actions .locacao-action-btn {
+    display: inline-flex !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    float: none !important;
+    clear: none !important;
+}
+
+@media (max-width: 640px) {
+    #tblLocacoes td.col-actions {
+        min-width: 1% !important;
+        width: 1% !important;
+    }
+
+    #tblLocacoes td.col-actions .actions-cell,
+    #tblLocacoes td.col-actions .locacao-actions {
+        flex-wrap: wrap !important;
+    }
+}
