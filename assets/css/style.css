@@ -1279,6 +1279,147 @@ header .container {
     }
 }
 
+/* === V13.3 | DASHBOARD IMPACTO VISUAL (BEM VISÍVEL) === */
+#tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 58%, #0c4a6e 100%);
+    border: 1px solid #1e40af !important;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.22) !important;
+}
+
+#tab-dashboard .dashboard-topbar h2,
+#tab-dashboard .dashboard-topbar p,
+#tab-dashboard .dashboard-topbar-meta small,
+#tab-dashboard .dashboard-topbar-meta strong {
+    color: #f8fafc !important;
+}
+
+#tab-dashboard .dashboard-topbar p {
+    opacity: 0.9;
+}
+
+#tab-dashboard .dashboard-grid {
+    gap: 14px;
+}
+
+#tab-dashboard .stat-card {
+    border: 1px solid #c9d7ea !important;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+#tab-dashboard .stat-card.card-blue {
+    background: linear-gradient(180deg, #f8fbff 0%, #edf5ff 100%);
+}
+
+#tab-dashboard .stat-card.card-orange {
+    background: linear-gradient(180deg, #fffaf0 0%, #fff2da 100%);
+}
+
+#tab-dashboard .stat-card.card-green {
+    background: linear-gradient(180deg, #f4fff8 0%, #e9f9f0 100%);
+}
+
+#tab-dashboard .stat-card.card-purple {
+    background: linear-gradient(180deg, #fbf9ff 0%, #f0ecff 100%);
+}
+
+#tab-dashboard .stat-info h3 {
+    font-size: 1.9rem;
+    line-height: 1;
+}
+
+#tab-dashboard .stat-info p {
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+#tab-dashboard .finance-strip {
+    gap: 12px;
+}
+
+#tab-dashboard .finance-kpi {
+    background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+    border: 1px solid #d4deec !important;
+    padding: 14px 16px;
+}
+
+#tab-dashboard .finance-kpi small {
+    color: #64748b;
+}
+
+#tab-dashboard .finance-kpi strong {
+    font-size: 1.22rem !important;
+    color: #0f172a;
+}
+
+#tab-dashboard .dash-section {
+    border: 1px solid #d3deee !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08) !important;
+}
+
+#tab-dashboard .dash-section h3 {
+    font-size: 1.04rem;
+}
+
+#tab-dashboard .dash-section-meta {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+#tab-dashboard .dash-status-item,
+#tab-dashboard .dash-action-item {
+    border: 1px solid #d3deee;
+}
+
+#tab-dashboard .table-responsive {
+    border: 1px solid #d3deee;
+}
+
+[data-theme="dark"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #17263a 0%, #1e3a8a 62%, #0b3b57 100%);
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card {
+    border-color: #334155 !important;
+    box-shadow: none;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-blue {
+    background: linear-gradient(180deg, #132136 0%, #0f1a2b 100%);
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-orange {
+    background: linear-gradient(180deg, #2a2214 0%, #1f1a11 100%);
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-green {
+    background: linear-gradient(180deg, #16261e 0%, #0f1c16 100%);
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-purple {
+    background: linear-gradient(180deg, #1f1a30 0%, #161126 100%);
+}
+
+[data-theme="dark"] #tab-dashboard .finance-kpi,
+[data-theme="dark"] #tab-dashboard .dash-section,
+[data-theme="dark"] #tab-dashboard .table-responsive,
+[data-theme="dark"] #tab-dashboard .dash-status-item,
+[data-theme="dark"] #tab-dashboard .dash-action-item {
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+    #tab-dashboard .dashboard-topbar {
+        border-radius: 12px !important;
+    }
+
+    #tab-dashboard .stat-info h3 {
+        font-size: 1.65rem;
+    }
+}
+
 /* === CAMADA VISUAL GLOBAL (PADRÃO ENTRE ABAS) === */
 .logo-subtitle {
     font-size: 0.85rem;
@@ -3827,5 +3968,253 @@ textarea {
 
 [data-theme="dark"] .ui-state--info .ui-state-icon {
     color: #bfdbfe;
+}
+
+/* === V13.2 | REFINO PREMIUM SAAS (NAVEGAÇÃO + HIERARQUIA + LEITURA) === */
+:root {
+    --pro-sticky-top: 10px;
+    --pro-surface-glass: color-mix(in srgb, var(--surface) 84%, #ffffff 16%);
+    --pro-border-subtle: color-mix(in srgb, var(--border) 78%, #ffffff 22%);
+}
+
+#appArea .container > .tabs-container {
+    position: sticky;
+    top: var(--pro-sticky-top);
+    z-index: 30;
+    margin-bottom: 16px;
+    padding-top: 4px;
+}
+
+#appArea .container > .tabs-container::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 12px;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.08), transparent);
+    opacity: 0.18;
+}
+
+.tabs {
+    background: var(--pro-surface-glass);
+    backdrop-filter: blur(10px);
+    border-color: var(--pro-border-subtle) !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.tab-btn {
+    min-height: 40px;
+    font-size: 0.84rem;
+    gap: 7px;
+}
+
+.tab-btn.active {
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
+}
+
+.card,
+#tab-dashboard .dash-section,
+#tab-dashboard .dashboard-topbar {
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.card:hover,
+#tab-dashboard .dash-section:hover {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border)) !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.09) !important;
+}
+
+#tab-dashboard .dashboard-topbar:hover {
+    border-color: color-mix(in srgb, var(--primary) 20%, var(--border)) !important;
+}
+
+.section-toolbar h2,
+.section-toolbar h3 {
+    letter-spacing: 0;
+}
+
+.section-toolbar {
+    margin-bottom: 16px;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: color-mix(in srgb, var(--text-light) 86%, #ffffff 14%);
+}
+
+.table {
+    font-variant-numeric: tabular-nums;
+}
+
+.table thead th {
+    box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border) 86%, transparent);
+}
+
+.table tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--surface) 95%, var(--surface-soft) 5%);
+}
+
+.table tbody tr:hover td {
+    background: color-mix(in srgb, var(--surface) 72%, #dbeafe 28%);
+}
+
+.table tbody tr:focus-within td {
+    background: color-mix(in srgb, var(--surface) 68%, #bfdbfe 32%);
+}
+
+.dash-section-head {
+    margin-bottom: 10px !important;
+}
+
+.dash-section-head h3 {
+    margin-bottom: 0;
+}
+
+.finance-kpi {
+    border-width: 1px;
+    box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.04);
+}
+
+.ui-state {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .tabs {
+    background: color-mix(in srgb, #0f1a2b 86%, #17263a 14%);
+    border-color: #334155 !important;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .tab-btn.active {
+    box-shadow: none;
+}
+
+[data-theme="dark"] #appArea .container > .tabs-container::after {
+    opacity: 0.12;
+}
+
+[data-theme="dark"] .card:hover,
+[data-theme="dark"] #tab-dashboard .dash-section:hover {
+    box-shadow: none !important;
+    border-color: #3b4b62 !important;
+}
+
+[data-theme="dark"] .table tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, #0f1a2b 82%, #17263a 18%);
+}
+
+[data-theme="dark"] .table tbody tr:hover td,
+[data-theme="dark"] .table tbody tr:focus-within td {
+    background: color-mix(in srgb, #0f1a2b 62%, #1d4ed8 38%);
+}
+
+@media (max-width: 768px) {
+    :root {
+        --pro-sticky-top: 4px;
+    }
+
+    #appArea .container > .tabs-container {
+        margin-bottom: 12px;
+    }
+
+    #appArea .container > .tabs-container::after {
+        display: none;
+    }
+
+    .tabs {
+        box-shadow: none;
+        backdrop-filter: none;
+    }
+
+    .card:hover,
+    #tab-dashboard .dash-section:hover {
+        transform: none;
+        box-shadow: var(--pro-shadow-soft) !important;
+    }
+}
+
+/* === V13.4 | DASHBOARD VISUAL FORÇADO (SOBRESCREVE BLOCOS ANTIGOS) === */
+#tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #0f172a 0%, #1e40af 60%, #0b4f6c 100%) !important;
+    border: 1px solid #1d4ed8 !important;
+    box-shadow: 0 16px 28px rgba(15, 23, 42, 0.24) !important;
+}
+
+#tab-dashboard .dashboard-topbar h2,
+#tab-dashboard .dashboard-topbar p,
+#tab-dashboard .dashboard-topbar-meta small,
+#tab-dashboard .dashboard-topbar-meta strong {
+    color: #f8fafc !important;
+}
+
+#tab-dashboard .dashboard-topbar p {
+    opacity: 0.9;
+}
+
+#tab-dashboard .stat-card.card-blue {
+    background: linear-gradient(180deg, #f5faff 0%, #e9f2ff 100%) !important;
+}
+
+#tab-dashboard .stat-card.card-orange {
+    background: linear-gradient(180deg, #fff9f0 0%, #fff0d8 100%) !important;
+}
+
+#tab-dashboard .stat-card.card-green {
+    background: linear-gradient(180deg, #f3fff8 0%, #e7f9ef 100%) !important;
+}
+
+#tab-dashboard .stat-card.card-purple {
+    background: linear-gradient(180deg, #faf7ff 0%, #eee9ff 100%) !important;
+}
+
+#tab-dashboard .stat-card {
+    border: 1px solid #cbd9eb !important;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08) !important;
+}
+
+#tab-dashboard .stat-info h3 {
+    font-size: 1.9rem !important;
+    line-height: 1 !important;
+}
+
+#tab-dashboard .finance-kpi {
+    background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%) !important;
+    border: 1px solid #d4e0ef !important;
+}
+
+#tab-dashboard .dash-section {
+    border: 1px solid #d4dfef !important;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="dark"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #17263a 0%, #1e3a8a 62%, #0d3b56 100%) !important;
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card,
+[data-theme="dark"] #tab-dashboard .finance-kpi,
+[data-theme="dark"] #tab-dashboard .dash-section {
+    border-color: #334155 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-blue {
+    background: linear-gradient(180deg, #132136 0%, #0f1a2b 100%) !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-orange {
+    background: linear-gradient(180deg, #2a2214 0%, #1f1a11 100%) !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-green {
+    background: linear-gradient(180deg, #16261e 0%, #0f1c16 100%) !important;
+}
+
+[data-theme="dark"] #tab-dashboard .stat-card.card-purple {
+    background: linear-gradient(180deg, #1f1a30 0%, #161126 100%) !important;
 }
     
