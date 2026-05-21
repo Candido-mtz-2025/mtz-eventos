@@ -5007,3 +5007,103 @@ header {
 [data-theme="dark"] #tab-auditoria .table tbody tr:hover td {
     background: #1a2b44;
 }
+
+/* === V15.3 | CLIENTES + DEVOLUÇÕES + CONFIG EM PADRÃO EXECUTIVO === */
+#tab-locadores .card,
+#tab-devolucoes .card,
+#tab-config .config-card,
+#tab-config .config-actions-card {
+    border-radius: 14px !important;
+}
+
+#tab-locadores .table td:nth-child(2),
+#tab-locadores .table td:nth-child(3),
+#tab-devolucoes .table td:nth-child(2) {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+#tab-locadores .table .table-cell-sub,
+#tab-devolucoes .table .table-cell-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+#tab-devolucoes .devolucao-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+#tab-devolucoes .devolucao-kpi {
+    border: 1px solid #d8e3f1;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 10px 12px;
+}
+
+#tab-devolucoes .devolucao-kpi small {
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #64748b;
+}
+
+#tab-devolucoes .devolucao-kpi strong {
+    font-size: 1.45rem;
+    line-height: 1.05;
+    color: #0f172a;
+    font-weight: 900;
+}
+
+#tab-devolucoes #divItensDevolucao {
+    border: 1px dashed #cdd9ea !important;
+}
+
+#tab-config .config-card textarea,
+#tab-config .config-card input[type="text"],
+#tab-config .config-card input[type="email"] {
+    background: #fbfdff;
+}
+
+#tab-config #previewLogo {
+    min-height: 70px;
+    border-radius: 12px;
+}
+
+#tab-config .config-actions-card .btn {
+    min-height: 44px;
+    font-weight: 800;
+}
+
+@media (max-width: 900px) {
+    #tab-devolucoes .devolucao-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-config .config-actions-card .inline-chip-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] #tab-locadores .table td:nth-child(2),
+[data-theme="dark"] #tab-locadores .table td:nth-child(3),
+[data-theme="dark"] #tab-devolucoes .table td:nth-child(2),
+[data-theme="dark"] #tab-devolucoes .devolucao-kpi strong {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] #tab-locadores .table .table-cell-sub,
+[data-theme="dark"] #tab-devolucoes .table .table-cell-sub,
+[data-theme="dark"] #tab-devolucoes .devolucao-kpi small {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] #tab-devolucoes .devolucao-kpi {
+    border-color: #334155;
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-config .config-card textarea,
+[data-theme="dark"] #tab-config .config-card input[type="text"],
+[data-theme="dark"] #tab-config .config-card input[type="email"] {
+    background: #0f1a2b;
+}
