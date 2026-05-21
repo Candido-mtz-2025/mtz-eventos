@@ -131,6 +131,33 @@ function criarLinhaTabelaCarregando(colspan, mensagem) {
     });
 }
 
+function atualizarMetaBusca(id, opcoes = {}) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const total = Math.max(0, Number(opcoes.total ?? 0));
+    const filtrados = Math.max(0, Number(opcoes.filtrados ?? total));
+    const rotulo = String(opcoes.rotulo || 'registros').trim();
+    const termo = String(opcoes.termo || '').trim();
+    const filtro = String(opcoes.filtro || '').trim().toLowerCase();
+    const filtroLabel = String(opcoes.filtroLabel || opcoes.filtro || '').trim();
+
+    const partes = [`${filtrados} de ${total} ${rotulo}`];
+    if (termo) {
+        partes.push(`Busca: "${termo}"`);
+    } else if (filtro && filtro !== 'todos') {
+        partes.push(`Filtro: ${filtroLabel || filtro}`);
+    } else {
+        partes.push('Lista completa');
+    }
+
+    el.textContent = partes.join(' • ');
+
+    const ativo = Boolean(termo) || (filtro && filtro !== 'todos') || filtrados !== total;
+    el.classList.toggle('is-active', ativo);
+    el.classList.toggle('is-empty', filtrados === 0);
+}
+
 window.sanitizarTexto = sanitizarTexto;
 window.sanitizarImagemURL = sanitizarImagemURL;
 window.criarEstadoUI = criarEstadoUI;
@@ -138,6 +165,7 @@ window.criarEstadoPainel = criarEstadoPainel;
 window.criarLinhaTabelaEstado = criarLinhaTabelaEstado;
 window.criarLinhaTabelaVazia = criarLinhaTabelaVazia;
 window.criarLinhaTabelaCarregando = criarLinhaTabelaCarregando;
+window.atualizarMetaBusca = atualizarMetaBusca;
 window.buscarComDebounce = buscarComDebounce;
 
     // --- FORMATAÇÃO DE DATA ---

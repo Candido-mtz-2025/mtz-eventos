@@ -12,6 +12,15 @@ function renderLocadores() {
         String(c.nome || '').toLowerCase().includes(termo) || 
         String(c.documento || '').toLowerCase().includes(termo)
     );
+
+    if (typeof atualizarMetaBusca === 'function') {
+        atualizarMetaBusca('metaBuscaLocadores', {
+            total: Array.isArray(locadores) ? locadores.length : 0,
+            filtrados: clientesFiltrados.length,
+            termo: termoRaw,
+            rotulo: 'clientes'
+        });
+    }
     
     if (clientesFiltrados.length === 0) {
         const termoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(termoRaw) : termoRaw;

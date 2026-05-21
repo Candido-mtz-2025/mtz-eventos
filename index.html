@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=16.3">
+    <link rel="stylesheet" href="./assets/css/style.css?v=16.4">
 </head>
 <body>
 
@@ -260,6 +260,7 @@
                 </div>
                 <div class="card">
                     <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-keyup="buscarComDebounce" data-arg="locadores">
+                    <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -389,6 +390,7 @@
                     </div>
 
                     <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-keyup="buscarComDebounce" data-arg="estoque">
+                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
 
                     <div class="inline-chip-row">
                         <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
@@ -534,6 +536,7 @@
                     <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro="atrasado" data-action="mudarFiltro" data-arg="atrasado"><i class="bi bi-clock-history"></i> Atrasados</button>
                     <button class="btn btn-sm btn-info" data-tone="info" data-filtro="devolvido" data-action="mudarFiltro" data-arg="devolvido"><i class="bi bi-archive"></i> Histórico</button>
                 </div> 
+                <div id="metaBuscaLocacoes" class="search-meta" aria-live="polite"></div>
 
                  <div class="panel-block panel-block-spaced">
                     <div class="table-responsive">
@@ -642,6 +645,7 @@
                     <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." data-input="renderDevolucoes">
                 </div>
             </div>
+            <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
             <div class="devolucao-kpis">
                 <div class="devolucao-kpi"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
                 <div class="devolucao-kpi"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
@@ -725,6 +729,7 @@
         <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." data-input="renderLogs" data-arg="__filtro_log__">
       </div>
     </div>
+    <div id="metaBuscaAuditoria" class="search-meta" aria-live="polite"></div>
 
     <div class="table-responsive">
       <table class="table">

@@ -89,7 +89,8 @@ function renderLogs(filtro = 'todos') {
     const btnAtivo = document.querySelector(`.audit-filter[data-filter="${filtro}"]`);
     if (btnAtivo) btnAtivo.classList.add('active');
 
-    const termoBusca = (document.getElementById('auditBusca')?.value || '').trim().toLowerCase();
+    const termoBuscaRaw = (document.getElementById('auditBusca')?.value || '').trim();
+    const termoBusca = termoBuscaRaw.toLowerCase();
 
     let logsFiltrados = logsAuditoria;
     if (filtro !== 'todos') {
@@ -108,6 +109,25 @@ function renderLogs(filtro = 'todos') {
                 tipo.includes(termoBusca) ||
                 acao.includes(termoBusca)
             );
+        });
+    }
+
+    if (typeof atualizarMetaBusca === 'function') {
+        const rotulosFiltro = {
+            todos: 'Todos',
+            cliente: 'Clientes',
+            item: 'Itens',
+            locacao: 'Locacoes',
+            devolucao: 'Devolucoes',
+            sistema: 'Sistema'
+        };
+        atualizarMetaBusca('metaBuscaAuditoria', {
+            total: Array.isArray(logsAuditoria) ? logsAuditoria.length : 0,
+            filtrados: logsFiltrados.length,
+            termo: termoBuscaRaw,
+            rotulo: 'logs',
+            filtro,
+            filtroLabel: rotulosFiltro[filtro] || filtro
         });
     }
 

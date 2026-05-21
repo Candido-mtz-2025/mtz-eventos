@@ -48,6 +48,22 @@ function renderDevolucoes() {
         });
     }
 
+    if (typeof atualizarMetaBusca === 'function') {
+        const rotulosFiltro = {
+            todos: 'Todos',
+            parcial: 'Parciais',
+            total: 'Concluidas'
+        };
+        atualizarMetaBusca('metaBuscaDevolucoes', {
+            total: listaComContexto.length,
+            filtrados: filtrados.length,
+            termo: termoRaw,
+            rotulo: 'devolucoes',
+            filtro,
+            filtroLabel: rotulosFiltro[filtro] || filtro
+        });
+    }
+
     const ordenados = filtrados.slice().sort((a, b) => b.id - a.id);
     const lista = ordenados.slice(0, 40);
 

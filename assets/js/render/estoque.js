@@ -54,6 +54,15 @@ function renderEstoque() {
            medida.includes(termo);
   });
 
+  if (typeof atualizarMetaBusca === 'function') {
+    atualizarMetaBusca('metaBuscaEstoque', {
+      total: Array.isArray(pecas) ? pecas.length : 0,
+      filtrados: itensFiltrados.length,
+      termo: termoRaw,
+      rotulo: 'itens'
+    });
+  }
+
   // --- PARTE NOVA: ORDENAÇÃO ---
   itensFiltrados.sort((a, b) => {
       const tipoA = tipos.find(t => t.id === a.tipoId)?.nome || "ZZZ"; 

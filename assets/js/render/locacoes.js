@@ -64,6 +64,22 @@ function renderLocacoes() {
     
     const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
     filtrados.sort((a, b) => b.id - a.id);
+
+    if (typeof atualizarMetaBusca === 'function') {
+        const rotulosFiltro = {
+            todos: 'Todos',
+            ativo: 'Em aberto',
+            atrasado: 'Atrasados',
+            devolvido: 'Historico'
+        };
+        atualizarMetaBusca('metaBuscaLocacoes', {
+            total: lista.length,
+            filtrados: filtrados.length,
+            rotulo: 'locacoes',
+            filtro: filtroAtual,
+            filtroLabel: rotulosFiltro[filtroAtual] || filtroAtual
+        });
+    }
     
     // Paginação
     const totalPaginas = Math.max(1, Math.ceil(filtrados.length / ITENS_POR_PAGINA));

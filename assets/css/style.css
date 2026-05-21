@@ -5986,3 +5986,45 @@ textarea:focus {
         font-size: 0.82rem;
     }
 }
+
+/* === V16.4 | META DE BUSCA E RESULTADOS === */
+.search-meta {
+    margin: 8px 2px 12px;
+    padding: 7px 10px;
+    border: 1px dashed #cfe0f5;
+    border-radius: 9px;
+    background: #f7fbff;
+    color: #607798;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.search-meta.is-active {
+    border-color: #b7d0ee;
+    background: #eef5ff;
+    color: #2d4f7f;
+}
+
+.search-meta.is-empty {
+    border-color: #f5d0d0;
+    background: #fff5f5;
+    color: #a63e3e;
+}
+
+[data-theme="dark"] .search-meta {
+    border-color: #334155;
+    background: #0f1a2b;
+    color: #9cb2d2;
+}
+
+[data-theme="dark"] .search-meta.is-active {
+    border-color: #446082;
+    background: #14253d;
+    color: #c6dcfb;
+}
+
+[data-theme="dark"] .search-meta.is-empty {
+    border-color: #7a2c2c;
+    background: #321616;
+    color: #f5b4b4;
+}
