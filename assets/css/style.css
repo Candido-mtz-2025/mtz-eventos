@@ -4800,3 +4800,114 @@ textarea::placeholder {
         text-align: right !important;
     }
 }
+
+/* === V14.8 | ESTABILIDADE DO TOPO (HEADER + ABAS) === */
+:root {
+    --app-header-height: 96px;
+    --app-tabs-sticky-gap: 8px;
+}
+
+#appArea .container > .tabs-container {
+    position: sticky;
+    top: calc(var(--app-header-height) + var(--app-tabs-sticky-gap)) !important;
+    z-index: 1150;
+    padding-top: 0 !important;
+    margin-bottom: 14px;
+}
+
+#appArea .container > .tabs-container::after {
+    display: none !important;
+}
+
+.tabs {
+    backdrop-filter: none;
+}
+
+@media (max-width: 900px) {
+    :root {
+        --app-header-height: 148px;
+        --app-tabs-sticky-gap: 6px;
+    }
+
+    #appArea .container > .tabs-container {
+        margin-bottom: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --app-header-height: 142px;
+        --app-tabs-sticky-gap: 4px;
+    }
+}
+
+/* === V14.9 | REMOVE FAIXA GHOST DO TOPO === */
+header {
+    background: var(--bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* === V15.0 | CORREÇÃO FINAL DO HEADER FANTASMA === */
+header {
+    position: relative !important;
+    top: auto !important;
+    z-index: 20 !important;
+}
+
+#appArea .container > .tabs-container {
+    top: 8px !important;
+}
+
+@media (max-width: 900px) {
+    #appArea .container > .tabs-container {
+        top: 6px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    #appArea .container > .tabs-container {
+        top: 4px !important;
+    }
+}
+
+/* === V15.1 | TOPO FIXO SEM CORTE (HEADER + ABAS) === */
+:root {
+    --app-header-height: 94px;
+    --app-tabs-sticky-gap: 6px;
+}
+
+header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1300 !important;
+    background: var(--bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#appArea .container > .tabs-container {
+    position: sticky !important;
+    top: calc(var(--app-header-height) + var(--app-tabs-sticky-gap)) !important;
+    z-index: 1200 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+#appArea .container > .tabs-container::after {
+    display: none !important;
+}
+
+@media (max-width: 900px) {
+    :root {
+        --app-header-height: 142px;
+        --app-tabs-sticky-gap: 4px;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --app-header-height: 136px;
+        --app-tabs-sticky-gap: 2px;
+    }
+}
