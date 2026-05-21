@@ -5107,3 +5107,116 @@ header {
 [data-theme="dark"] #tab-config .config-card input[type="email"] {
     background: #0f1a2b;
 }
+
+/* === V15.4 | LOCAÇÕES COM RESUMO EXECUTIVO === */
+#tab-locacoes .locacao-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 10px;
+    margin: 2px 0 12px;
+}
+
+#tab-locacoes .locacao-kpi-card {
+    border: 1px solid #d8e3f1;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    padding: 10px 12px;
+    min-height: 78px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#tab-locacoes .locacao-kpi-card small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+
+#tab-locacoes .locacao-kpi-card strong {
+    font-size: 1.34rem;
+    line-height: 1.05;
+    color: #0f172a;
+    font-weight: 900;
+    letter-spacing: 0;
+}
+
+#tab-locacoes .locacao-kpi-card[data-tone="aberto"] {
+    border-left: 3px solid #10b981;
+}
+
+#tab-locacoes .locacao-kpi-card[data-tone="atrasado"] {
+    border-left: 3px solid #ef4444;
+}
+
+#tab-locacoes .locacao-kpi-card[data-tone="pendente"] {
+    border-left: 3px solid #f59e0b;
+}
+
+#tab-locacoes .locacao-kpi-card[data-tone="total"] {
+    border-left: 3px solid #2563eb;
+}
+
+#tab-locacoes .filters-row {
+    align-items: center;
+    gap: 8px;
+}
+
+#tab-locacoes .filters-row [data-filtro] {
+    min-height: 36px;
+    font-weight: 800;
+    border-radius: 11px;
+    letter-spacing: 0;
+}
+
+#tab-locacoes .table tbody .locacao-row td {
+    vertical-align: middle;
+}
+
+#tab-locacoes .table tbody .locacao-row:hover td {
+    background: #f7fbff;
+}
+
+#tab-locacoes .table tbody .locacao-row--atrasado td:first-child {
+    box-shadow: inset 3px 0 0 #ef4444;
+}
+
+#tab-locacoes .table tbody .locacao-row--ativo td:first-child {
+    box-shadow: inset 3px 0 0 #10b981;
+}
+
+#tab-locacoes .table tbody .locacao-row--devolvido td:first-child {
+    box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+@media (max-width: 900px) {
+    #tab-locacoes .locacao-kpi-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    #tab-locacoes .locacao-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] #tab-locacoes .locacao-kpi-card {
+    border-color: #334155;
+    background: #0f1a2b;
+}
+
+[data-theme="dark"] #tab-locacoes .locacao-kpi-card small {
+    color: #94a3b8;
+}
+
+[data-theme="dark"] #tab-locacoes .locacao-kpi-card strong {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] #tab-locacoes .table tbody .locacao-row:hover td {
+    background: #18263a;
+}

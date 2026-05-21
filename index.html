@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=15.3">
+    <link rel="stylesheet" href="./assets/css/style.css?v=15.4">
 </head>
 <body>
 
@@ -469,7 +469,25 @@
                 </div>
             </div>
 
-                 
+               <div class="locacao-kpi-grid" aria-label="Resumo de locacoes">
+                    <div class="locacao-kpi-card" data-tone="total">
+                        <small>Registros</small>
+                        <strong id="locacaoKpiTotal">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="aberto">
+                        <small>Em aberto</small>
+                        <strong id="locacaoKpiAbertas">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="atrasado">
+                        <small>Atrasadas</small>
+                        <strong id="locacaoKpiAtrasadas">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="pendente">
+                        <small>Valor pendente</small>
+                        <strong id="locacaoKpiPendente">R$ 0,00</strong>
+                    </div>
+                </div>
+
                <div class="filters-row">
                     <button class="btn btn-sm btn-secondary" data-filtro="todos" data-action="mudarFiltro" data-arg="todos">Todos</button>
                     <button class="btn btn-sm btn-success" data-filtro="ativo" data-action="mudarFiltro" data-arg="ativo">Em Aberto</button>

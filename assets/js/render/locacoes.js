@@ -8,6 +8,35 @@ function atualizarFiltroVisualLocacoes() {
     });
 }
 
+function formatarMoedaResumoLocacoes(valor) {
+    return (Number(valor) || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    });
+}
+
+function atualizarResumoExecutivoLocacoes(lista) {
+    const total = lista.length;
+    const emAberto = lista.filter((l) => l.statusVisual === 'ativo').length;
+    const atrasadas = lista.filter((l) => l.statusVisual === 'atrasado').length;
+    const pendente = lista.reduce((acc, l) => {
+        if (!l.pago && l.statusVisual !== 'devolvido') return acc + (Number(l.valorTotal) || 0);
+        return acc;
+    }, 0);
+
+    const campos = [
+        ['locacaoKpiTotal', String(total)],
+        ['locacaoKpiAbertas', String(emAberto)],
+        ['locacaoKpiAtrasadas', String(atrasadas)],
+        ['locacaoKpiPendente', formatarMoedaResumoLocacoes(pendente)]
+    ];
+
+    campos.forEach(([id, valor]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor;
+    });
+}
+
 function renderLocacoes() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -31,6 +60,7 @@ function renderLocacoes() {
         
         return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false };
     });
+    atualizarResumoExecutivoLocacoes(lista);
     
     const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
     filtrados.sort((a, b) => b.id - a.id);
@@ -97,7 +127,7 @@ function renderLocacoes() {
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
         const statusPagamentoLabel = l.pago ? 'Marcar como pendente' : 'Marcar como pago';
-        tr.className = 'locacao-row';
+        tr.className = `locacao-row locacao-row--${statusVisual}`;
         tr.innerHTML = `
             <td>
                 <div class="locacao-cell-main">${nomeCliente}</div>
