@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mtz-eventos-v38';
+const CACHE_NAME = 'mtz-eventos-v39';
 const APP_SHELL = [
   './',
   './index.html',
