@@ -243,25 +243,8 @@ function executarAtalhoFiltroLocacoes(filtro) {
 }
 
 function atualizarAtalhosRapidos(tabId) {
-    const barra = document.getElementById('quickActionsBar');
-    const lista = document.getElementById('quickActionsList');
-    if (!barra || !lista) return;
-
-    const atalhos = TAB_QUICK_ACTIONS[tabId] || [];
-    if (!atalhos.length) {
-        barra.style.display = 'none';
-        lista.innerHTML = '';
-        return;
-    }
-
-    lista.innerHTML = atalhos.map((atalho) => `
-        <button class="btn btn-sm btn-secondary quick-action-btn" type="button" data-quick-action="${atalho.id}">
-            <i class="bi ${atalho.icon}"></i>
-            <span>${atalho.label}</span>
-        </button>
-    `).join('');
-
-    barra.style.display = 'flex';
+    // Atalhos rápidos desativados por decisão de usabilidade.
+    return;
 }
 
 function executarAtalhoRapido(atalhoId) {
@@ -371,12 +354,6 @@ function executarAtalhoRapido(atalhoId) {
     }
 }
 
-document.addEventListener('click', function(event) {
-    const botaoAtalho = event.target.closest('[data-quick-action]');
-    if (!botaoAtalho) return;
-    executarAtalhoRapido(botaoAtalho.dataset.quickAction);
-});
-
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
     carregarLocal();
@@ -451,7 +428,6 @@ document.addEventListener('click', function(event) {
         });
 
         atualizarTopbarModulo(id);
-        atualizarAtalhosRapidos(id);
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }

@@ -1,6 +1,6 @@
 // 1. Registra o Service Worker (Obrigatório para instalar)
 if ('serviceWorker' in navigator) {
-    const SW_VERSION = 'v51';
+    const SW_VERSION = 'v52';
     window.addEventListener('load', () => {
         navigator.serviceWorker.register(`./sw.js?${SW_VERSION}`, { updateViaCache: 'none' })
             .then((registration) => {
