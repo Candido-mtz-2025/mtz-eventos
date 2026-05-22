@@ -163,8 +163,8 @@ function renderLocacoes() {
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
                 </span>
             </td>
-            <td class="col-actions" style="min-width:188px;width:188px;white-space:nowrap;text-align:right;">
-                <div style="display:inline-flex;align-items:center;justify-content:flex-end;gap:7px;white-space:nowrap;">
+            <td class="col-actions">
+                <div class="actions-cell locacao-actions">
                 <button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
                     <i class="bi bi-currency-dollar"></i>
                 </button>

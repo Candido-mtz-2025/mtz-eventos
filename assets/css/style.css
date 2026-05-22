@@ -4385,8 +4385,8 @@ textarea::placeholder {
 }
 
 #tab-locacoes .col-actions {
-    width: 188px;
-    min-width: 188px;
+    width: 252px;
+    min-width: 252px;
     white-space: nowrap !important;
 }
 
@@ -4604,10 +4604,17 @@ textarea::placeholder {
 
 /* HOTFIX FINAL: coluna de ações da tabela de locações sempre horizontal no desktop */
 #tblLocacoes td.col-actions {
-    min-width: 188px !important;
-    width: 188px !important;
+    min-width: 252px !important;
+    width: 252px !important;
     white-space: nowrap !important;
     text-align: right !important;
+}
+
+#tab-locacoes .table td.col-actions,
+#tblLocacoes td.col-actions {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    overflow: visible !important;
 }
 
 #tblLocacoes td.col-actions .actions-cell,
@@ -4655,8 +4662,8 @@ textarea::placeholder {
 
 #tab-locacoes .table th:nth-child(5),
 #tab-locacoes .table td:nth-child(5) {
-    width: 188px !important;
-    min-width: 188px !important;
+    width: 252px !important;
+    min-width: 252px !important;
 }
 
 /* === V14.7 | RESPONSIVO PROFISSIONAL (TABLET + MOBILE) === */
@@ -5870,8 +5877,8 @@ textarea:focus {
 #tblLocacoes td.col-actions,
 #tab-locacoes .table th:nth-child(5),
 #tab-locacoes .table td:nth-child(5) {
-    width: 216px !important;
-    min-width: 216px !important;
+    width: 252px !important;
+    min-width: 252px !important;
 }
 
 [data-theme="dark"] #tab-locadores .actions-cell .btn,
