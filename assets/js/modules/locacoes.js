@@ -540,6 +540,12 @@ function mudarFiltro(n) {
 
 function irParaLocacoes(f) {
     const filtroDestino = f || 'todos';
+
+    if (typeof executarAtalhoFiltroLocacoes === 'function') {
+        executarAtalhoFiltroLocacoes(filtroDestino);
+        return;
+    }
+
     abrirTab('locacoes');
 
     setTimeout(() => {

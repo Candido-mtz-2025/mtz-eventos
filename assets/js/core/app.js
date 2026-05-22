@@ -181,19 +181,32 @@ function obterOffsetCabecalhoApp() {
 
 function rolarParaElementoAtalho(elemento, block = 'start') {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
+    const rect = elemento.getBoundingClientRect();
+    const topoDocumento = window.pageYOffset + rect.top;
+    const offsetCabecalho = obterOffsetCabecalhoApp();
+    let destino = topoDocumento - offsetCabecalho;
 
-    elemento.scrollIntoView({ behavior: 'smooth', block });
-    const offset = obterOffsetCabecalhoApp();
-    if (offset > 0) {
-        window.scrollBy({ top: -offset, behavior: 'smooth' });
+    if (block === 'center') {
+        destino = topoDocumento - Math.max(16, ((window.innerHeight - rect.height) / 2));
+    } else if (block === 'end') {
+        destino = topoDocumento - Math.max(16, (window.innerHeight - rect.height - 24));
     }
+
+    const destinoFinal = Math.max(0, Math.round(destino));
+    const atual = Math.round(window.pageYOffset);
+    if (Math.abs(destinoFinal - atual) < 3) return true;
+
+    window.scrollTo({ top: destinoFinal, behavior: 'smooth' });
     return true;
 }
 
-function focarCampoDepoisDaRolagem(idCampo, selecionar = false) {
+function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
     setTimeout(() => {
         const campo = document.getElementById(idCampo);
-        if (!campo) return;
+        if (!campo) {
+            if (tentativa < 2) focarCampoDepoisDaRolagem(idCampo, selecionar, tentativa + 1);
+            return;
+        }
         try {
             campo.focus({ preventScroll: true });
         } catch (_) {
@@ -206,6 +219,7 @@ function focarCampoDepoisDaRolagem(idCampo, selecionar = false) {
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque() {
     abrirTab('estoque');
+    if (typeof renderEstoque === 'function') renderEstoque();
 
     setTimeout(() => {
         const campoBusca = document.getElementById('buscaEstoque');
@@ -216,7 +230,7 @@ function executarAtalhoBuscaEstoque() {
 
         rolarParaElementoAtalho(campoBusca, 'start');
         focarCampoDepoisDaRolagem('buscaEstoque', true);
-    }, 140);
+    }, 160);
 }
 
 // Fluxo completo do atalho de filtros: abre locações, aplica filtro, rola para a lista e evidencia o estado ativo.
@@ -230,16 +244,20 @@ function executarAtalhoFiltroLocacoes(filtro) {
             return;
         }
 
+        if (typeof renderLocacoes === 'function') renderLocacoes();
+
         if (typeof atualizarFiltroVisualLocacoes === 'function') {
             atualizarFiltroVisualLocacoes();
         }
 
-        const alvoLista = document.getElementById('locacoesLista')
-            || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
-        if (alvoLista) {
-            rolarParaElementoAtalho(alvoLista, 'start');
-        }
-    }, 150);
+        setTimeout(() => {
+            const alvoLista = document.getElementById('locacoesLista')
+                || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
+            if (alvoLista) {
+                rolarParaElementoAtalho(alvoLista, 'start');
+            }
+        }, 90);
+    }, 140);
 }
 
 function atualizarAtalhosRapidos(tabId) {
