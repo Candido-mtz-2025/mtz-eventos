@@ -179,6 +179,14 @@ function obterOffsetCabecalhoApp() {
     return Math.max(0, Math.min(offset, Math.round(window.innerHeight * 0.45)));
 }
 
+function obterAlvoInicialDaTab(tabId) {
+    const tab = document.getElementById(`tab-${tabId}`);
+    if (!tab) return null;
+
+    const alvoPrioritario = tab.querySelector('.dashboard-topbar, .card, .panel-block, .dash-section');
+    return alvoPrioritario || tab;
+}
+
 function rolarParaElementoAtalho(elemento, block = 'start') {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
     const rect = elemento.getBoundingClientRect();
@@ -218,7 +226,7 @@ function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
 
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque() {
-    abrirTab('estoque');
+    abrirTab('estoque', { semRolagem: true });
     if (typeof renderEstoque === 'function') renderEstoque();
 
     setTimeout(() => {
@@ -235,7 +243,7 @@ function executarAtalhoBuscaEstoque() {
 
 // Fluxo completo do atalho de filtros: abre locações, aplica filtro, rola para a lista e evidencia o estado ativo.
 function executarAtalhoFiltroLocacoes(filtro) {
-    abrirTab('locacoes');
+    abrirTab('locacoes', { semRolagem: true });
 
     setTimeout(() => {
         if (typeof mudarFiltro === 'function') {
@@ -268,15 +276,15 @@ function atualizarAtalhosRapidos(tabId) {
 function executarAtalhoRapido(atalhoId) {
     switch (atalhoId) {
         case 'qa_novo_cliente':
-            abrirTab('locadores');
+            abrirTab('locadores', { semRolagem: true });
             focarCampoAtalho('locNome', false, 'center', 'Nome do cliente');
             return;
         case 'qa_busca_cliente':
-            abrirTab('locadores');
+            abrirTab('locadores', { semRolagem: true });
             focarCampoAtalho('buscaCliente', true, 'center', 'Busca de clientes');
             return;
         case 'qa_nova_locacao':
-            abrirTab('locacoes');
+            abrirTab('locacoes', { semRolagem: true });
             if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
             focarCampoAtalho('aluguelCliente', false, 'center', 'Cliente da locação');
             return;
@@ -287,34 +295,34 @@ function executarAtalhoRapido(atalhoId) {
             executarAtalhoFiltroLocacoes('atrasado');
             return;
         case 'qa_registrar_devolucao':
-            abrirTab('devolucoes');
+            abrirTab('devolucoes', { semRolagem: true });
             focarCampoAtalho('devLocacao', false, 'center', 'Locação pendente');
             return;
         case 'qa_filtro_dev_parcial':
-            abrirTab('devolucoes');
+            abrirTab('devolucoes', { semRolagem: true });
             aplicarFiltroDevolucoes('parcial');
             return;
         case 'qa_filtro_dev_total':
-            abrirTab('devolucoes');
+            abrirTab('devolucoes', { semRolagem: true });
             aplicarFiltroDevolucoes('total');
             return;
         case 'qa_novo_tipo':
-            abrirTab('tipos');
+            abrirTab('tipos', { semRolagem: true });
             focarCampoAtalho('tipoNome', false, 'center', 'Nome do tipo');
             return;
         case 'qa_ir_estoque':
-            abrirTab('estoque');
+            abrirTab('estoque', { semRolagem: true });
             focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_novo_item':
-            abrirTab('estoque');
+            abrirTab('estoque', { semRolagem: true });
             focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_busca_estoque':
             executarAtalhoBuscaEstoque();
             return;
         case 'qa_importar_excel':
-            abrirTab('estoque');
+            abrirTab('estoque', { semRolagem: true });
             {
                 const inputExcel = document.getElementById('inputExcel');
                 if (!inputExcel) {
@@ -325,19 +333,19 @@ function executarAtalhoRapido(atalhoId) {
             }
             return;
         case 'qa_novo_checklist':
-            abrirTab('checklist');
+            abrirTab('checklist', { semRolagem: true });
             focarCampoAtalho('checklistCliente', false, 'center', 'Cliente do checklist');
             return;
         case 'qa_modelo_checklist':
-            abrirTab('checklist');
+            abrirTab('checklist', { semRolagem: true });
             focarCampoAtalho('checklistModeloSelect', false, 'center', 'Modelo do checklist');
             return;
         case 'qa_gerar_pdf_checklist':
-            abrirTab('checklist');
+            abrirTab('checklist', { semRolagem: true });
             if (typeof gerarPDFChecklistMontagem === 'function') gerarPDFChecklistMontagem();
             return;
         case 'qa_log_locacao':
-            abrirTab('auditoria');
+            abrirTab('auditoria', { semRolagem: true });
             if (typeof renderLogs === 'function') {
                 renderLogs('locacao');
             } else {
@@ -345,7 +353,7 @@ function executarAtalhoRapido(atalhoId) {
             }
             return;
         case 'qa_log_sistema':
-            abrirTab('auditoria');
+            abrirTab('auditoria', { semRolagem: true });
             if (typeof renderLogs === 'function') {
                 renderLogs('sistema');
             } else {
@@ -353,19 +361,19 @@ function executarAtalhoRapido(atalhoId) {
             }
             return;
         case 'qa_busca_auditoria':
-            abrirTab('auditoria');
+            abrirTab('auditoria', { semRolagem: true });
             focarCampoAtalho('auditBusca', true, 'center', 'Busca da auditoria');
             return;
         case 'qa_editar_config':
-            abrirTab('config');
+            abrirTab('config', { semRolagem: true });
             focarCampoAtalho('confRodape', false, 'center', 'Rodapé da configuração');
             return;
         case 'qa_backup_json':
-            abrirTab('config');
+            abrirTab('config', { semRolagem: true });
             if (typeof baixarBackup === 'function') baixarBackup();
             return;
         case 'qa_abrir_auditoria':
-            abrirTab('auditoria');
+            abrirTab('auditoria', { semRolagem: true });
             return;
         default:
             return;
@@ -416,7 +424,7 @@ function executarAtalhoRapido(atalhoId) {
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
     const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
-    abrirTab(btnInicial?.dataset.tab || 'dashboard');
+    abrirTab(btnInicial?.dataset.tab || 'dashboard', { semRolagem: true });
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
@@ -428,8 +436,11 @@ function executarAtalhoRapido(atalhoId) {
         localStorage.setItem('theme', isDark ? 'light' : 'dark');
     }
 
-    function abrirTab(id) {
+    function abrirTab(id, opcoes = {}) {
         const alvoId = `tab-${id}`;
+        const tabAtivaAnterior = document.querySelector('.tab-content.active')?.id || '';
+        const houveTroca = tabAtivaAnterior !== alvoId;
+
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach((tab) => {
             const ativa = tab.id === alvoId;
@@ -446,6 +457,15 @@ function executarAtalhoRapido(atalhoId) {
         });
 
         atualizarTopbarModulo(id);
+
+        if (opcoes.semRolagem) return;
+
+        if (houveTroca || opcoes.forcarRolagem) {
+            setTimeout(() => {
+                const alvo = obterAlvoInicialDaTab(id);
+                if (alvo) rolarParaElementoAtalho(alvo, 'start');
+            }, 80);
+        }
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }

@@ -546,7 +546,7 @@ function irParaLocacoes(f) {
         return;
     }
 
-    abrirTab('locacoes');
+    abrirTab('locacoes', { semRolagem: true });
 
     setTimeout(() => {
         mudarFiltro(filtroDestino);
