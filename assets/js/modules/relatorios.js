@@ -361,6 +361,36 @@ function gerarRelatorioAnual(clienteId) {
     }
 }
 
+function aplicarCabecalhoRodapePDF(pdf, paginaAtual, totalPaginas, tituloDoc, dataGeracao, margem, alturaCabecalho, alturaRodape) {
+    const larguraPagina = pdf.internal.pageSize.getWidth();
+    const alturaPagina = pdf.internal.pageSize.getHeight();
+    const tituloCurto = String(tituloDoc || 'Documento MTZ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 72);
+
+    pdf.setDrawColor(203, 213, 225);
+    pdf.setLineWidth(0.2);
+    pdf.line(margem, margem + alturaCabecalho - 1.6, larguraPagina - margem, margem + alturaCabecalho - 1.6);
+    pdf.line(margem, alturaPagina - margem - alturaRodape + 1.8, larguraPagina - margem, alturaPagina - margem - alturaRodape + 1.8);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(tituloCurto, margem, margem + 4.6);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.setTextColor(71, 85, 105);
+    pdf.text(dataGeracao, larguraPagina - margem, margem + 4.6, { align: 'right' });
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(30, 41, 59);
+    const textoPagina = `Pagina ${paginaAtual} de ${totalPaginas}`;
+    pdf.text(textoPagina, larguraPagina - margem, alturaPagina - margem - 2.2, { align: 'right' });
+}
+
 function gerarPDF() {
     if (!window.jspdf || !window.html2canvas) {
         mostrarToast('Aguarde o carregamento das bibliotecas...', 'erro');
@@ -381,6 +411,8 @@ function gerarPDF() {
     }
 
     const { jsPDF } = window.jspdf;
+    const tituloDoc = (document.querySelector('#printArea h1, #printArea h2')?.textContent || 'Documento MTZ').trim();
+    const dataGeracao = new Date().toLocaleString('pt-BR');
     const opcoesCanvas = {
         scale: Math.min(window.devicePixelRatio || 2, 2),
         useCORS: true,
@@ -396,22 +428,33 @@ function gerarPDF() {
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const margem = 6;
-            const larguraUtil = pdf.internal.pageSize.getWidth() - (margem * 2);
-            const alturaUtil = pdf.internal.pageSize.getHeight() - (margem * 2);
+            const alturaCabecalho = 8;
+            const alturaRodape = 8;
+            const larguraPagina = pdf.internal.pageSize.getWidth();
+            const alturaPagina = pdf.internal.pageSize.getHeight();
+            const larguraUtil = larguraPagina - (margem * 2);
+            const topoConteudo = margem + alturaCabecalho;
+            const alturaUtil = alturaPagina - (margem * 2) - alturaCabecalho - alturaRodape;
             const imgLargura = larguraUtil;
             const imgAltura = (canvas.height * imgLargura) / canvas.width;
 
             let alturaRestante = imgAltura;
-            let posicaoY = margem;
+            let posicaoY = topoConteudo;
 
             pdf.addImage(imgData, 'PNG', margem, posicaoY, imgLargura, imgAltura, undefined, 'FAST');
             alturaRestante -= alturaUtil;
 
             while (alturaRestante > 0.01) {
                 pdf.addPage();
-                posicaoY = margem - (imgAltura - alturaRestante);
+                posicaoY = topoConteudo - (imgAltura - alturaRestante);
                 pdf.addImage(imgData, 'PNG', margem, posicaoY, imgLargura, imgAltura, undefined, 'FAST');
                 alturaRestante -= alturaUtil;
+            }
+
+            const totalPaginas = pdf.getNumberOfPages();
+            for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+                pdf.setPage(pagina);
+                aplicarCabecalhoRodapePDF(pdf, pagina, totalPaginas, tituloDoc, dataGeracao, margem, alturaCabecalho, alturaRodape);
             }
 
             pdf.save(gerarNomeArquivoPDF());
