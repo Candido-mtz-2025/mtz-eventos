@@ -160,6 +160,88 @@ function clicarSeletorAtalho(seletor, mensagemErro) {
     return true;
 }
 
+function obterOffsetCabecalhoApp() {
+    const candidatos = [
+        document.querySelector('#appArea > header'),
+        document.querySelector('#appArea .container > .tabs-container')
+    ];
+
+    let offset = 12;
+    candidatos.forEach((el) => {
+        if (!el) return;
+        const estilos = window.getComputedStyle(el);
+        if (estilos.display === 'none' || estilos.visibility === 'hidden') return;
+        if (estilos.position === 'sticky' || estilos.position === 'fixed') {
+            offset += el.getBoundingClientRect().height;
+        }
+    });
+
+    return Math.max(0, Math.min(offset, Math.round(window.innerHeight * 0.45)));
+}
+
+function rolarParaElementoAtalho(elemento, block = 'start') {
+    if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
+
+    elemento.scrollIntoView({ behavior: 'smooth', block });
+    const offset = obterOffsetCabecalhoApp();
+    if (offset > 0) {
+        window.scrollBy({ top: -offset, behavior: 'smooth' });
+    }
+    return true;
+}
+
+function focarCampoDepoisDaRolagem(idCampo, selecionar = false) {
+    setTimeout(() => {
+        const campo = document.getElementById(idCampo);
+        if (!campo) return;
+        try {
+            campo.focus({ preventScroll: true });
+        } catch (_) {
+            campo.focus();
+        }
+        if (selecionar && typeof campo.select === 'function') campo.select();
+    }, 220);
+}
+
+// Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
+function executarAtalhoBuscaEstoque() {
+    abrirTab('estoque');
+
+    setTimeout(() => {
+        const campoBusca = document.getElementById('buscaEstoque');
+        if (!campoBusca) {
+            avisarAtalhoIndisponivel('Busca do estoque não encontrada.');
+            return;
+        }
+
+        rolarParaElementoAtalho(campoBusca, 'start');
+        focarCampoDepoisDaRolagem('buscaEstoque', true);
+    }, 140);
+}
+
+// Fluxo completo do atalho de filtros: abre locações, aplica filtro, rola para a lista e evidencia o estado ativo.
+function executarAtalhoFiltroLocacoes(filtro) {
+    abrirTab('locacoes');
+
+    setTimeout(() => {
+        if (typeof mudarFiltro === 'function') {
+            mudarFiltro(filtro);
+        } else if (!clicarSeletorAtalho(`[data-action="mudarFiltro"][data-arg="${filtro}"]`, `Filtro ${filtro} indisponível.`)) {
+            return;
+        }
+
+        if (typeof atualizarFiltroVisualLocacoes === 'function') {
+            atualizarFiltroVisualLocacoes();
+        }
+
+        const alvoLista = document.getElementById('locacoesLista')
+            || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
+        if (alvoLista) {
+            rolarParaElementoAtalho(alvoLista, 'start');
+        }
+    }, 150);
+}
+
 function atualizarAtalhosRapidos(tabId) {
     const barra = document.getElementById('quickActionsBar');
     const lista = document.getElementById('quickActionsList');
@@ -198,20 +280,10 @@ function executarAtalhoRapido(atalhoId) {
             focarCampoAtalho('aluguelCliente', false, 'center', 'Cliente da locação');
             return;
         case 'qa_filtro_aberto':
-            abrirTab('locacoes');
-            if (typeof mudarFiltro === 'function') {
-                mudarFiltro('ativo');
-            } else {
-                clicarSeletorAtalho('[data-action="mudarFiltro"][data-arg="ativo"]', 'Filtro Em Aberto indisponível.');
-            }
+            executarAtalhoFiltroLocacoes('ativo');
             return;
         case 'qa_filtro_atrasado':
-            abrirTab('locacoes');
-            if (typeof mudarFiltro === 'function') {
-                mudarFiltro('atrasado');
-            } else {
-                clicarSeletorAtalho('[data-action="mudarFiltro"][data-arg="atrasado"]', 'Filtro Atrasados indisponível.');
-            }
+            executarAtalhoFiltroLocacoes('atrasado');
             return;
         case 'qa_registrar_devolucao':
             abrirTab('devolucoes');
@@ -238,8 +310,7 @@ function executarAtalhoRapido(atalhoId) {
             focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_busca_estoque':
-            abrirTab('estoque');
-            focarCampoAtalho('buscaEstoque', true, 'none', 'Busca do estoque');
+            executarAtalhoBuscaEstoque();
             return;
         case 'qa_importar_excel':
             abrirTab('estoque');

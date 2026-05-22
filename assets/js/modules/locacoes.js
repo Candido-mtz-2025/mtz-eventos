@@ -539,8 +539,25 @@ function mudarFiltro(n) {
 }
 
 function irParaLocacoes(f) {
+    const filtroDestino = f || 'todos';
     abrirTab('locacoes');
-    setTimeout(() => mudarFiltro(f), 100);
+
+    setTimeout(() => {
+        mudarFiltro(filtroDestino);
+
+        if (typeof atualizarFiltroVisualLocacoes === 'function') {
+            atualizarFiltroVisualLocacoes();
+        }
+
+        const alvoLista = document.getElementById('locacoesLista')
+            || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
+
+        if (alvoLista && typeof rolarParaElementoAtalho === 'function') {
+            rolarParaElementoAtalho(alvoLista, 'start');
+        } else if (alvoLista && typeof alvoLista.scrollIntoView === 'function') {
+            alvoLista.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 150);
 }
 
 function alternarPagamento(id) {
