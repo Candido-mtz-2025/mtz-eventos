@@ -321,6 +321,18 @@ function irParaEstoqueBusca() {
     executarAtalhoBuscaEstoque();
 }
 
+function irParaEstoqueCadastro() {
+    abrirTab('estoque', { semRolagem: true });
+    if (typeof renderEstoque === 'function') renderEstoque();
+    setTimeout(() => {
+        const alvo = document.getElementById('pecaNome')
+            || document.querySelector('#tab-estoque .panel-block')
+            || document.querySelector('#tab-estoque .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('pecaNome', false);
+    }, 140);
+}
+
 function irParaChecklistOperacional() {
     abrirTab('checklist', { semRolagem: true });
     setTimeout(() => {
@@ -333,6 +345,41 @@ function irParaChecklistOperacional() {
 
 function irParaLocacoesCobrancas() {
     executarAtalhoFiltroLocacoes('ativo');
+}
+
+function irParaLocacoesFormulario() {
+    abrirTab('locacoes', { semRolagem: true });
+    if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
+    setTimeout(() => {
+        const alvo = document.getElementById('aluguelCliente')
+            || document.querySelector('#tab-locacoes #locacaoEtapa1')
+            || document.querySelector('#tab-locacoes .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('aluguelCliente', false);
+    }, 140);
+}
+
+function irParaAuditoriaBusca() {
+    abrirTab('auditoria', { semRolagem: true });
+    if (typeof renderLogs === 'function') renderLogs(window.filtroLogAtual || 'todos');
+    setTimeout(() => {
+        const alvo = document.getElementById('auditBusca')
+            || document.querySelector('#tab-auditoria .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('auditBusca', true);
+    }, 140);
+}
+
+function irParaConfigGeral() {
+    abrirTab('config', { semRolagem: true });
+    if (typeof renderConfig === 'function') renderConfig();
+    setTimeout(() => {
+        const alvo = document.getElementById('confRodape')
+            || document.querySelector('#tab-config .config-card')
+            || document.querySelector('#tab-config .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('confRodape', false);
+    }, 140);
 }
 
 function atualizarAtalhosRapidos(tabId) {
@@ -350,9 +397,7 @@ function executarAtalhoRapido(atalhoId) {
             irParaClientesLista();
             return;
         case 'qa_nova_locacao':
-            abrirTab('locacoes', { semRolagem: true });
-            if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
-            focarCampoAtalho('aluguelCliente', false, 'center', 'Cliente da locação');
+            irParaLocacoesFormulario();
             return;
         case 'qa_filtro_aberto':
             executarAtalhoFiltroLocacoes('ativo');
@@ -361,8 +406,7 @@ function executarAtalhoRapido(atalhoId) {
             executarAtalhoFiltroLocacoes('atrasado');
             return;
         case 'qa_registrar_devolucao':
-            abrirTab('devolucoes', { semRolagem: true });
-            focarCampoAtalho('devLocacao', false, 'center', 'Locação pendente');
+            irParaDevolucoesFormulario();
             return;
         case 'qa_filtro_dev_parcial':
             abrirTab('devolucoes', { semRolagem: true });
@@ -376,12 +420,10 @@ function executarAtalhoRapido(atalhoId) {
             irParaTiposCadastro();
             return;
         case 'qa_ir_estoque':
-            abrirTab('estoque', { semRolagem: true });
-            focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
+            irParaEstoqueCadastro();
             return;
         case 'qa_novo_item':
-            abrirTab('estoque', { semRolagem: true });
-            focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
+            irParaEstoqueCadastro();
             return;
         case 'qa_busca_estoque':
             irParaEstoqueBusca();
@@ -398,8 +440,7 @@ function executarAtalhoRapido(atalhoId) {
             }
             return;
         case 'qa_novo_checklist':
-            abrirTab('checklist', { semRolagem: true });
-            focarCampoAtalho('checklistCliente', false, 'center', 'Cliente do checklist');
+            irParaChecklistOperacional();
             return;
         case 'qa_modelo_checklist':
             abrirTab('checklist', { semRolagem: true });
@@ -416,6 +457,10 @@ function executarAtalhoRapido(atalhoId) {
             } else {
                 clicarSeletorAtalho('[data-action="renderLogs"][data-arg="locacao"]', 'Filtro de logs de locações indisponível.');
             }
+            setTimeout(() => {
+                const alvo = document.querySelector('#tab-auditoria .card');
+                if (alvo) rolarParaElementoAtalho(alvo, 'start');
+            }, 120);
             return;
         case 'qa_log_sistema':
             abrirTab('auditoria', { semRolagem: true });
@@ -424,21 +469,28 @@ function executarAtalhoRapido(atalhoId) {
             } else {
                 clicarSeletorAtalho('[data-action="renderLogs"][data-arg="sistema"]', 'Filtro de logs do sistema indisponível.');
             }
+            setTimeout(() => {
+                const alvo = document.querySelector('#tab-auditoria .card');
+                if (alvo) rolarParaElementoAtalho(alvo, 'start');
+            }, 120);
             return;
         case 'qa_busca_auditoria':
-            abrirTab('auditoria', { semRolagem: true });
-            focarCampoAtalho('auditBusca', true, 'center', 'Busca da auditoria');
+            irParaAuditoriaBusca();
             return;
         case 'qa_editar_config':
-            abrirTab('config', { semRolagem: true });
-            focarCampoAtalho('confRodape', false, 'center', 'Rodapé da configuração');
+            irParaConfigGeral();
             return;
         case 'qa_backup_json':
             abrirTab('config', { semRolagem: true });
+            setTimeout(() => {
+                const alvo = document.querySelector('#tab-config .config-actions-card')
+                    || document.querySelector('#tab-config .card');
+                if (alvo) rolarParaElementoAtalho(alvo, 'start');
+            }, 120);
             if (typeof baixarBackup === 'function') baixarBackup();
             return;
         case 'qa_abrir_auditoria':
-            abrirTab('auditoria', { semRolagem: true });
+            irParaAuditoriaBusca();
             return;
         default:
             return;
