@@ -651,6 +651,8 @@
 .tab-content {
   display: none;
   animation: fadeIn 0.3s;
+  position: relative;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
 .tab-content.active {
@@ -661,9 +663,32 @@
   display: none !important;
 }
 
+.tab-content.is-switching {
+  opacity: 0.62;
+  transform: translateY(2px);
+  pointer-events: none;
+}
+
+.tab-content.is-switching::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: tabLoadingPulse 0.7s linear infinite;
+  opacity: 0.88;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tabLoadingPulse {
+  from { transform: translateX(-35%); }
+  to { transform: translateX(35%); }
 }
     /* Linha de filtros (Auditoria e outras áreas) */
 .filters-row{

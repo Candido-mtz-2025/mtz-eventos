@@ -78,6 +78,8 @@ const TAB_QUICK_ACTIONS = {
     ]
 };
 
+let timeoutFeedbackTrocaAba = null;
+
 function atualizarTopbarModulo(tabId) {
     const topbar = document.getElementById('moduleTopbar');
     const titleEl = document.getElementById('moduleTopbarTitle');
@@ -96,6 +98,32 @@ function atualizarTopbarModulo(tabId) {
     descEl.textContent = cfg.descricao;
     metaEl.textContent = cfg.meta;
     topbar.style.display = 'flex';
+}
+
+function aplicarFeedbackTrocaAba(tabId) {
+    const tab = document.getElementById(`tab-${tabId}`);
+    if (!tab) return;
+
+    tab.classList.add('is-switching');
+    tab.setAttribute('aria-busy', 'true');
+
+    const topbarMeta = document.getElementById('moduleTopbarMeta');
+    const metaOriginal = TAB_TOPBAR_CONFIG[tabId]?.meta || 'Resumo';
+    if (topbarMeta && tabId !== 'dashboard') {
+        topbarMeta.textContent = 'Carregando...';
+    }
+
+    if (timeoutFeedbackTrocaAba) {
+        clearTimeout(timeoutFeedbackTrocaAba);
+    }
+
+    timeoutFeedbackTrocaAba = setTimeout(() => {
+        tab.classList.remove('is-switching');
+        tab.setAttribute('aria-busy', 'false');
+        if (topbarMeta && tabId !== 'dashboard') {
+            topbarMeta.textContent = metaOriginal;
+        }
+    }, 260);
 }
 
 function focarCampo(id, selecionar = false, alinhamento = 'center') {
@@ -572,6 +600,7 @@ function executarAtalhoRapido(atalhoId) {
         });
 
         atualizarTopbarModulo(id);
+        aplicarFeedbackTrocaAba(id);
 
         if (opcoes.semRolagem) return;
 
