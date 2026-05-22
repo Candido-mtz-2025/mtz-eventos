@@ -165,19 +165,19 @@ function renderLocacoes() {
             </td>
             <td class="col-actions">
                 <div class="actions-cell locacao-actions">
-                <button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
                     <i class="bi bi-currency-dollar"></i>
                 </button>
-                <button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
                     <i class="bi bi-whatsapp"></i>
                 </button>
-                <button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                     <i class="bi bi-truck"></i>
                 </button>
-                <button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm locacao-action-btn locacao-action-relatorio" title="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>
-                ${l.status !== 'devolvido' ? `<button style="display:inline-flex;width:36px;height:36px;min-height:36px;padding:0;align-items:center;justify-content:center;" class="btn btn-sm btn-danger locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
+                ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;

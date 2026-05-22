@@ -141,8 +141,8 @@ function renderEstoque() {
       </td>
       <td class="col-actions">
         <div class="actions-cell">
-          <button class="btn btn-sm btn-info" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${p.id}"><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger" data-acesso="admin" data-action="removerItem" data-arg="pecas" data-arg2="${p.id}"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-sm btn-info table-action-btn" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${p.id}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-danger table-action-btn" data-acesso="admin" data-action="removerItem" data-arg="pecas" data-arg2="${p.id}"><i class="bi bi-trash"></i></button>
         </div>
       </td>
     `;

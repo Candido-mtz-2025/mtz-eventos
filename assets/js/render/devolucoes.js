@@ -124,9 +124,11 @@ function renderDevolucoes() {
                 </td>
                 <td><span class="badge ${badge}">${tipo}</span></td>
                 <td class="col-actions">
-                    <button class="btn btn-sm btn-secondary" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
-                        <i class="bi bi-printer"></i>
-                    </button>
+                    <div class="actions-cell">
+                        <button class="btn btn-sm btn-secondary table-action-btn" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
+                            <i class="bi bi-printer"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
