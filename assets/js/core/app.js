@@ -296,6 +296,31 @@ function irParaDevolucoesFormulario() {
     }, 140);
 }
 
+function irParaClientesLista() {
+    abrirTab('locadores', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.getElementById('buscaCliente')
+            || document.querySelector('#tab-locadores .card:last-of-type')
+            || document.querySelector('#tab-locadores .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('buscaCliente', true);
+    }, 140);
+}
+
+function irParaTiposCadastro() {
+    abrirTab('tipos', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.getElementById('tipoNome')
+            || document.querySelector('#tab-tipos .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('tipoNome', false);
+    }, 140);
+}
+
+function irParaEstoqueBusca() {
+    executarAtalhoBuscaEstoque();
+}
+
 function irParaChecklistOperacional() {
     abrirTab('checklist', { semRolagem: true });
     setTimeout(() => {
@@ -322,8 +347,7 @@ function executarAtalhoRapido(atalhoId) {
             focarCampoAtalho('locNome', false, 'center', 'Nome do cliente');
             return;
         case 'qa_busca_cliente':
-            abrirTab('locadores', { semRolagem: true });
-            focarCampoAtalho('buscaCliente', true, 'center', 'Busca de clientes');
+            irParaClientesLista();
             return;
         case 'qa_nova_locacao':
             abrirTab('locacoes', { semRolagem: true });
@@ -349,8 +373,7 @@ function executarAtalhoRapido(atalhoId) {
             aplicarFiltroDevolucoes('total');
             return;
         case 'qa_novo_tipo':
-            abrirTab('tipos', { semRolagem: true });
-            focarCampoAtalho('tipoNome', false, 'center', 'Nome do tipo');
+            irParaTiposCadastro();
             return;
         case 'qa_ir_estoque':
             abrirTab('estoque', { semRolagem: true });
@@ -361,7 +384,7 @@ function executarAtalhoRapido(atalhoId) {
             focarCampoAtalho('pecaNome', false, 'center', 'Nome do item');
             return;
         case 'qa_busca_estoque':
-            executarAtalhoBuscaEstoque();
+            irParaEstoqueBusca();
             return;
         case 'qa_importar_excel':
             abrirTab('estoque', { semRolagem: true });
