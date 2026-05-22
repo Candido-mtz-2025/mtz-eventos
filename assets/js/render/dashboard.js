@@ -199,7 +199,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
                     <strong>${vencemHoje} devolução(ões) vencem hoje</strong>
                     <small>Organize equipe e logística para conferência.</small>
                 </div>
-                <button class="btn btn-sm btn-warning" data-action="abrirTab" data-arg="devolucoes">Conferir</button>
+                <button class="btn btn-sm btn-warning" data-action="irParaDevolucoesFormulario">Conferir</button>
             </div>
         `);
     }
@@ -210,7 +210,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
                     <strong>${pendentesFinanceiros} locação(ões) pendentes de pagamento</strong>
                     <small>Validar cobranças para reduzir saldo em aberto.</small>
                 </div>
-                <button class="btn btn-sm btn-info" data-action="abrirTab" data-arg="locacoes">Cobranças</button>
+                <button class="btn btn-sm btn-info" data-action="irParaLocacoesCobrancas">Cobranças</button>
             </div>
         `);
     }
@@ -221,7 +221,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
                     <strong>${iniciamHoje} locação(ões) iniciam hoje</strong>
                     <small>Revisar checklist de saída e disponibilidade.</small>
                 </div>
-                <button class="btn btn-sm btn-secondary" data-action="abrirTab" data-arg="checklist">Checklist</button>
+                <button class="btn btn-sm btn-secondary" data-action="irParaChecklistOperacional">Checklist</button>
             </div>
         `);
     }

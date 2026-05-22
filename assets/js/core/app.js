@@ -183,6 +183,24 @@ function obterAlvoInicialDaTab(tabId) {
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return null;
 
+    const mapaAlvos = {
+        dashboard: '#tab-dashboard .dashboard-topbar',
+        locadores: '#tab-locadores .card',
+        tipos: '#tab-tipos .card',
+        estoque: '#tab-estoque .card',
+        checklist: '#tab-checklist .card',
+        locacoes: '#tab-locacoes .card',
+        devolucoes: '#tab-devolucoes .card',
+        auditoria: '#tab-auditoria .card',
+        config: '#tab-config .card'
+    };
+
+    const seletor = mapaAlvos[tabId];
+    if (seletor) {
+        const alvoMapeado = document.querySelector(seletor);
+        if (alvoMapeado) return alvoMapeado;
+    }
+
     const alvoPrioritario = tab.querySelector('.dashboard-topbar, .card, .panel-block, .dash-section');
     return alvoPrioritario || tab;
 }
@@ -266,6 +284,30 @@ function executarAtalhoFiltroLocacoes(filtro) {
             }
         }, 90);
     }, 140);
+}
+
+function irParaDevolucoesFormulario() {
+    abrirTab('devolucoes', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.getElementById('devLocacao')
+            || document.querySelector('#tab-devolucoes .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('devLocacao', false);
+    }, 140);
+}
+
+function irParaChecklistOperacional() {
+    abrirTab('checklist', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.getElementById('checklistCliente')
+            || document.querySelector('#tab-checklist .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        focarCampoDepoisDaRolagem('checklistCliente', false);
+    }, 140);
+}
+
+function irParaLocacoesCobrancas() {
+    executarAtalhoFiltroLocacoes('ativo');
 }
 
 function atualizarAtalhosRapidos(tabId) {
@@ -438,8 +480,6 @@ function executarAtalhoRapido(atalhoId) {
 
     function abrirTab(id, opcoes = {}) {
         const alvoId = `tab-${id}`;
-        const tabAtivaAnterior = document.querySelector('.tab-content.active')?.id || '';
-        const houveTroca = tabAtivaAnterior !== alvoId;
 
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach((tab) => {
@@ -460,12 +500,12 @@ function executarAtalhoRapido(atalhoId) {
 
         if (opcoes.semRolagem) return;
 
-        if (houveTroca || opcoes.forcarRolagem) {
-            setTimeout(() => {
-                const alvo = obterAlvoInicialDaTab(id);
-                if (alvo) rolarParaElementoAtalho(alvo, 'start');
-            }, 80);
-        }
+        setTimeout(() => {
+            const alvo = opcoes.seletorAlvo
+                ? document.querySelector(opcoes.seletorAlvo)
+                : obterAlvoInicialDaTab(id);
+            if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        }, Number(opcoes.delayMs) || 80);
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
