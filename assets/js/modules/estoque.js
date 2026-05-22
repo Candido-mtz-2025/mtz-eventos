@@ -567,56 +567,104 @@ function gerarChecklistModelo(id) {
         });
     });
 
+    const escapar = (valor) => {
+        const div = document.createElement('div');
+        div.textContent = valor ?? '';
+        return div.innerHTML;
+    };
+
+    const tituloGrupo = (grupo) => {
+        const mapa = {
+            estrutura: 'Estrutura',
+            cobertura: 'Cobertura',
+            eletrica: 'Elétrica',
+            moveis: 'Móveis',
+            acabamento: 'Acabamento',
+            outros: 'Outros'
+        };
+        return mapa[grupo] || 'Outros';
+    };
+
     const ordemGrupos = ['estrutura', 'cobertura', 'eletrica', 'moveis', 'acabamento', 'outros'];
+    const gruposOrdenados = ordemGrupos.filter(grupo => grupos[grupo] && grupos[grupo].length > 0);
+    const totalLinhas = gruposOrdenados.reduce((acc, grupo) => acc + grupos[grupo].length, 0);
 
-    const secoes = ordemGrupos
-        .filter(grupo => grupos[grupo] && grupos[grupo].length > 0)
-        .map(grupo => {
-            const linhas = grupos[grupo].map(item => `
-                <tr>
-                    <td style="padding:8px; border:1px solid #ccc;">${item.nome}</td>
-                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">${item.qtd}</td>
-                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">_______</td>
-                    <td style="padding:8px; border:1px solid #ccc;">&nbsp;</td>
-                </tr>
-            `).join('');
+    const secoes = gruposOrdenados.map((grupo, index) => {
+        const linhas = grupos[grupo].map((item, linhaIndex) => `
+            <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                <td style="padding:9px 10px; border-bottom:1px solid #e5e7eb;">${escapar(item.nome)}</td>
+                <td style="padding:9px 10px; border-bottom:1px solid #e5e7eb; text-align:center; font-weight:700;">${item.qtd}</td>
+                <td style="padding:9px 10px; border-bottom:1px solid #e5e7eb; text-align:center;">_______</td>
+                <td style="padding:9px 10px; border-bottom:1px solid #e5e7eb;">&nbsp;</td>
+            </tr>
+        `).join('');
 
-            return `
-                <div style="margin-bottom:25px;">
-                    <h3 style="margin:0 0 10px 0; text-transform:uppercase; border-bottom:2px solid #000; padding-bottom:5px;">
-                        ${grupo}
-                    </h3>
-                    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                        <thead>
-                            <tr style="background:#000; color:#fff;">
-                                <th style="padding:8px; border:1px solid #000; text-align:left;">Item</th>
-                                <th style="padding:8px; border:1px solid #000; text-align:center; width:80px;">Qtd</th>
-                                <th style="padding:8px; border:1px solid #000; text-align:center; width:120px;">Conferido</th>
-                                <th style="padding:8px; border:1px solid #000; text-align:left;">Observação</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${linhas}
-                        </tbody>
-                    </table>
+        return `
+            <section style="margin-bottom:16px; border:1px solid #d7dde8; border-radius:12px; overflow:hidden; break-inside:avoid;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#111827; color:#ffffff; padding:10px 12px;">
+                    <div style="font-size:14px; font-weight:800;">${escapar(tituloGrupo(grupo))}</div>
+                    <div style="font-size:11px; font-weight:800; background:#2563eb; border-radius:999px; padding:4px 8px;">Grupo ${String(index + 1).padStart(2, '0')}</div>
                 </div>
-            `;
-        }).join('');
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="padding:9px 10px; border-bottom:1px solid #d7dde8; text-align:left; color:#475569; font-size:11px;">Item</th>
+                            <th style="padding:9px 10px; border-bottom:1px solid #d7dde8; text-align:center; color:#475569; width:90px; font-size:11px;">Qtd</th>
+                            <th style="padding:9px 10px; border-bottom:1px solid #d7dde8; text-align:center; color:#475569; width:130px; font-size:11px;">Conferido</th>
+                            <th style="padding:9px 10px; border-bottom:1px solid #d7dde8; text-align:left; color:#475569; font-size:11px;">Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${linhas}
+                    </tbody>
+                </table>
+            </section>
+        `;
+    }).join('');
 
     const layout = `
-        <div style="font-family:Arial,sans-serif; background:#fff; color:#000; padding:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:25px; border-bottom:2px solid #000; padding-bottom:10px;">
+        <div style="font-family:Inter,Arial,sans-serif; background:#fff; color:#111827; padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border-bottom:3px solid #111827; padding-bottom:14px; margin-bottom:14px;">
                 <div>
-                    <h2 style="margin:0;">CHECKLIST DE SEPARAÇÃO</h2>
-                    <div style="margin-top:6px; font-size:14px;"><strong>Modelo:</strong> ${modelo.nome}</div>
-                    <div style="margin-top:4px; font-size:14px;"><strong>Família:</strong> ${modelo.familiaEstrutural || 'Não informada'}</div>
+                    <div style="font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:#2563eb; font-weight:900;">MTZ Eventos</div>
+                    <h2 style="margin:4px 0 0 0; font-size:24px;">Checklist de Separação</h2>
+                    <div style="margin-top:4px; font-size:12px; color:#64748b; font-weight:700;">Conferência operacional por modelo</div>
                 </div>
-                <div style="text-align:right; font-size:12px;">
+                <div style="text-align:right; font-size:11px;">
+                    <img src="./logo.png" alt="MTZ Eventos" style="height:54px; object-fit:contain; margin-bottom:4px;">
                     <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
                 </div>
             </div>
 
-            ${secoes || '<p>Nenhuma peça encontrada para este modelo.</p>'}
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;">
+                <div style="border:1px solid #d7dde8; border-radius:8px; padding:8px 10px; background:#f8fafc;">
+                    <div style="font-size:9px; text-transform:uppercase; color:#64748b; font-weight:800;">Modelo</div>
+                    <div style="font-size:12px; font-weight:800; margin-top:3px;">${escapar(modelo.nome || '-')}</div>
+                </div>
+                <div style="border:1px solid #d7dde8; border-radius:8px; padding:8px 10px; background:#f8fafc;">
+                    <div style="font-size:9px; text-transform:uppercase; color:#64748b; font-weight:800;">Família</div>
+                    <div style="font-size:12px; font-weight:800; margin-top:3px;">${escapar(modelo.familiaEstrutural || 'Não informada')}</div>
+                </div>
+                <div style="border:1px solid #d7dde8; border-radius:8px; padding:8px 10px; background:#f8fafc;">
+                    <div style="font-size:9px; text-transform:uppercase; color:#64748b; font-weight:800;">Grupos</div>
+                    <div style="font-size:12px; font-weight:800; margin-top:3px;">${gruposOrdenados.length}</div>
+                </div>
+                <div style="border:1px solid #d7dde8; border-radius:8px; padding:8px 10px; background:#f8fafc;">
+                    <div style="font-size:9px; text-transform:uppercase; color:#64748b; font-weight:800;">Itens</div>
+                    <div style="font-size:12px; font-weight:800; margin-top:3px;">${totalLinhas}</div>
+                </div>
+            </div>
+
+            ${secoes || '<p style="padding:12px; border:1px solid #d7dde8; border-radius:10px;">Nenhuma peça encontrada para este modelo.</p>'}
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:26px;">
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827; padding-top:8px; font-size:10px; font-weight:800; text-transform:uppercase;">Responsável pela Separação</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827; padding-top:8px; font-size:10px; font-weight:800; text-transform:uppercase;">Responsável pela Conferência</div>
+                </div>
+            </div>
         </div>
     `;
 
