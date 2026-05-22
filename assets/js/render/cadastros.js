@@ -4,14 +4,24 @@
 // ========================================
 function renderLocadores() {
     const termoRaw = String(DOM.get('buscaCliente')?.value || '').trim();
-    const termo = termoRaw.toLowerCase();
+    const normalizar = (valor) => String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    const termo = normalizar(termoRaw);
     const tbody = DOM.get('tblLocadores');
     if (!tbody) return;
     
-    const clientesFiltrados = locadores.filter(c => 
-        String(c.nome || '').toLowerCase().includes(termo) || 
-        String(c.documento || '').toLowerCase().includes(termo)
-    );
+    const clientesFiltrados = locadores.filter((c) => {
+        const alvo = [
+            c.nome,
+            c.documento,
+            c.email,
+            c.telefone,
+            c.endereco
+        ].map(normalizar).join(' ');
+        return alvo.includes(termo);
+    });
 
     if (typeof atualizarMetaBusca === 'function') {
         atualizarMetaBusca('metaBuscaLocadores', {
@@ -165,8 +175,20 @@ function renderTipos() {
             return `<option value="${l.id}">#${l.id.toString().slice(-4)} - ${nome}</option>`;
         }).join(''); 
         
-        // 4. Tipos
-        const tOpts = '<option value="0">Geral</option>'+tipos.map((x) => {
+        // 4. Tipos (garante um "Geral" real para evitar id inválido = 0)
+        let tipoGeral = tipos.find((x) => String(x?.nome || '').trim().toLowerCase() === 'geral');
+        if (!tipoGeral) {
+            tipoGeral = {
+                id: Date.now(),
+                nome: 'Geral',
+                desc: 'Itens sem categoria específica'
+            };
+            tipos.push(tipoGeral);
+        }
+
+        const tOpts = `<option value="${tipoGeral.id}">Geral</option>` + tipos
+            .filter((x) => String(x.id) !== String(tipoGeral.id))
+            .map((x) => {
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');
             return `<option value="${x.id}">${nome}</option>`;
         }).join('');

@@ -1,5 +1,18 @@
 // 🔥 RENDERIZAR LOCAÇÕES OTIMIZADA
 // ========================================
+function obterDataLocalLocacao(valor) {
+    if (!valor) return null;
+
+    if (typeof parseDataIso === 'function') {
+        return parseDataIso(valor);
+    }
+
+    const data = new Date(`${valor}T00:00:00`);
+    if (Number.isNaN(data.getTime())) return null;
+    data.setHours(0, 0, 0, 0);
+    return data;
+}
+
 function atualizarFiltroVisualLocacoes() {
     const botoes = document.querySelectorAll('#tab-locacoes .filters-row [data-filtro]');
     botoes.forEach((btn) => {
@@ -47,7 +60,7 @@ function renderLocacoes() {
     
     // Processar dados
     const lista = locacoes.map(l => {
-        let dataD = l.dataDevolucaoPrevisao ? new Date(l.dataDevolucaoPrevisao) : null;
+        let dataD = obterDataLocalLocacao(l.dataDevolucaoPrevisao);
         let st = l.status;
         if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
         const qtdDevolvida = (l.items || []).reduce((total, item) => total + (parseInt(item.devolvidos) || 0), 0);

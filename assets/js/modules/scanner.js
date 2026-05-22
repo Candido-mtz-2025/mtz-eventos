@@ -1,5 +1,6 @@
 // --- FUNÇÕES DO SCANNER ---
     let scannerAtivo = false;
+    let scannerHandlerAtivo = null;
     function iniciarScanner(modo) {
         const modal = document.getElementById('modalScanner');
         modal.classList.add('active');
@@ -20,7 +21,11 @@
             scannerAtivo = true;
         });
 
-        Quagga.onDetected(function(result) {
+        if (scannerHandlerAtivo && typeof Quagga.offDetected === 'function') {
+            Quagga.offDetected(scannerHandlerAtivo);
+        }
+
+        scannerHandlerAtivo = function(result) {
             const code = result.codeResult.code;
             if (modo === 'cadastro') {
                 document.getElementById('pecaBar').value = code;
@@ -35,7 +40,9 @@
                 }
             }
             fecharScanner();
-        });
+        };
+
+        Quagga.onDetected(scannerHandlerAtivo);
     }
 
     function fecharScanner() {
@@ -43,5 +50,9 @@
         if (scannerAtivo) {
             Quagga.stop();
             scannerAtivo = false;
+        }
+        if (scannerHandlerAtivo && typeof Quagga.offDetected === 'function') {
+            Quagga.offDetected(scannerHandlerAtivo);
+            scannerHandlerAtivo = null;
         }
     }

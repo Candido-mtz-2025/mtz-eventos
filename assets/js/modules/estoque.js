@@ -33,7 +33,29 @@
         console.log('✅ Disponibilidade recalculada');
     }
 
-    function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
+function obterOuCriarTipoGeral() {
+    const nomePadrao = 'geral';
+    let tipo = tipos.find((t) => String(t?.nome || '').trim().toLowerCase() === nomePadrao);
+
+    if (!tipo) {
+        tipo = {
+            id: Date.now(),
+            nome: 'Geral',
+            desc: 'Itens sem categoria específica'
+        };
+        tipos.push(tipo);
+    }
+
+    return Number(tipo.id);
+}
+
+function resolverTipoSelecionado(valorSelecionado) {
+    const tipoId = Number(valorSelecionado);
+    if (Number.isFinite(tipoId) && tipoId > 0) {
+        return tipoId;
+    }
+    return obterOuCriarTipoGeral();
+}
     
 function salvarPeca() {
     if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode cadastrar ou alterar valores de estoque.')) {
@@ -43,7 +65,7 @@ function salvarPeca() {
     const n = (document.getElementById('pecaNome').value || '').trim();
     const valor = parseFloat(document.getElementById('pecaValor').value);
     const quantidade = parseInt(document.getElementById('pecaQtd').value, 10);
-    const tipoId = parseInt(document.getElementById('pecaTipo').value, 10);
+    const tipoId = resolverTipoSelecionado(document.getElementById('pecaTipo').value);
 
     if (!n) {
         mostrarToast("Informe o nome da peca.", "erro");
@@ -57,11 +79,6 @@ function salvarPeca() {
         mostrarToast("Informe uma quantidade valida (maior ou igual a zero).", "erro");
         return;
     }
-    if (!tipoId) {
-        mostrarToast("Selecione um tipo para a peca.", "erro");
-        return;
-    }
-
     pecas.push({
         id: Date.now(),
         nome: n,
@@ -85,35 +102,6 @@ function salvarPeca() {
     document.getElementById('pecaNome').value = "";
     mostrarToast("Item Salvo!");
 }
-    function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
-
-    function removerItem(t, id) {
-        confirmarAcao("Tem certeza que deseja remover este registro?", () => {
-            if(t === 'locadores') {
-                const item = locadores.find(x => x.id == id);
-                locadores = locadores.filter(x => x.id !== id);
-                registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
-            }
-            if(t === 'pecas') {
-                const item = pecas.find(x => x.id == id);
-                pecas = pecas.filter(x => x.id !== id);
-                registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
-            }
-            if(t === 'tipos') {
-                const item = tipos.find(x => x.id == id);
-                tipos = tipos.filter(x => x.id !== id);
-                registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
-            }
-            
-            salvarLocal();
-            renderTudo();
-            sincronizar('salvar');
-        }, {
-            titulo: "Remover registro",
-            textoConfirmar: "Remover",
-            classeConfirmar: "btn-danger"
-        });
-    }
 
   function abrirEditarPeca(id) {
     if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode editar itens de estoque.')) {
@@ -165,7 +153,7 @@ function salvarPeca() {
     p.nome = document.getElementById('editPecaNome').value;
     p.medida = document.getElementById('editPecaMedida').value;
     p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
-    p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
+    p.tipoId = resolverTipoSelecionado(document.getElementById('editPecaTipo').value);
     p.quantidade = novaQtd;
     p.disponivel = (p.disponivel || 0) + diff;
     p.barras = document.getElementById('editPecaBar').value;

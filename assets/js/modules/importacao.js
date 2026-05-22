@@ -9,6 +9,14 @@ function processarExcelInteligente(input) {
     if (typeof pecas === 'undefined' || !Array.isArray(pecas)) pecas = [];
     if (typeof tipos === 'undefined' || !Array.isArray(tipos)) tipos = [];
 
+    const gerarIdImportacao = (() => {
+        let sequencia = Date.now();
+        return () => {
+            sequencia += 1;
+            return sequencia;
+        };
+    })();
+
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -77,7 +85,7 @@ function processarExcelInteligente(input) {
         const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
         let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
         if (!cat) {
-            cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
+            cat = { id: gerarIdImportacao(), nome: nome, desc: "Importado Excel" };
             tipos.push(cat);
             stats.categorias++;
         }
@@ -107,7 +115,7 @@ function processarExcelInteligente(input) {
 
         if (!existe) {
             pecas.push({
-                id: Date.now() + Math.random(),
+                id: gerarIdImportacao(),
                 codigo: 'IMP-' + Math.floor(Math.random() * 100000),
                 nome: nome,
                 quantidade: qtd,
