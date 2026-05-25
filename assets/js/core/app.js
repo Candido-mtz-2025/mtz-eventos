@@ -461,6 +461,36 @@ function irParaConfigGeral() {
     }, 140);
 }
 
+function obterAbaAtivaAtual() {
+    const ativa = document.querySelector('.tab-content.active');
+    if (!ativa?.id) return 'dashboard';
+    return ativa.id.replace('tab-', '');
+}
+
+function focoBuscaPorAba(abaId) {
+    const mapaBusca = {
+        locadores: 'buscaCliente',
+        estoque: 'buscaEstoque',
+        locacoes: 'buscaLocacoes',
+        devolucoes: 'devBuscaHistorico',
+        auditoria: 'auditBusca'
+    };
+    const idCampo = mapaBusca[abaId];
+    if (!idCampo) return false;
+
+    const campo = document.getElementById(idCampo);
+    if (!campo) return false;
+
+    rolarParaElementoAtalho(campo, 'start');
+    focarCampoDepoisDaRolagem(idCampo, true);
+    return true;
+}
+
+function ativarBuscaRapidaDaAbaAtual() {
+    const abaAtual = obterAbaAtivaAtual();
+    return focoBuscaPorAba(abaAtual);
+}
+
 function atualizarAtalhosRapidos(tabId) {
     // Atalhos rápidos desativados por decisão de usabilidade.
     return;
@@ -644,3 +674,20 @@ function executarAtalhoRapido(atalhoId) {
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }
+
+document.addEventListener('keydown', (event) => {
+    const alvo = event.target;
+    const tag = alvo?.tagName?.toLowerCase();
+    const digitando = tag === 'input' || tag === 'textarea' || tag === 'select' || alvo?.isContentEditable;
+
+    if (!digitando && event.key === '/') {
+        event.preventDefault();
+        ativarBuscaRapidaDaAbaAtual();
+        return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        ativarBuscaRapidaDaAbaAtual();
+    }
+});
