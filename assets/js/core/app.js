@@ -78,6 +78,21 @@ const TAB_QUICK_ACTIONS = {
     ]
 };
 
+const STORAGE_BUSCAS_RAPIDAS = 'mtz:buscasRapidas';
+const CAMPOS_BUSCA_PERSISTENTES = [
+    'buscaCliente',
+    'buscaTipos',
+    'buscaEstoque',
+    'buscaLocacoes',
+    'devBuscaHistorico',
+    'auditBusca'
+];
+const IDS_CAMPOS_BUSCA_PERSISTENTES = new Set(CAMPOS_BUSCA_PERSISTENTES);
+const IDS_CAMPOS_BUSCA_ESCAPE = new Set([
+    ...CAMPOS_BUSCA_PERSISTENTES,
+    'inputBuscaPeca'
+]);
+
 let timeoutFeedbackTrocaAba = null;
 
 function atualizarTopbarModulo(tabId) {
@@ -496,6 +511,63 @@ function obterAbaAtivaAtual() {
     return ativa.id.replace('tab-', '');
 }
 
+function lerBuscasRapidasPersistidas() {
+    try {
+        const bruto = localStorage.getItem(STORAGE_BUSCAS_RAPIDAS);
+        if (!bruto) return {};
+        const dados = JSON.parse(bruto);
+        return dados && typeof dados === 'object' ? dados : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function gravarBuscasRapidasPersistidas(payload) {
+    try {
+        localStorage.setItem(STORAGE_BUSCAS_RAPIDAS, JSON.stringify(payload || {}));
+    } catch (_) {
+        // Falha de storage não deve bloquear fluxo.
+    }
+}
+
+function atualizarPersistenciaBuscaRapida(idCampo, valor) {
+    if (!IDS_CAMPOS_BUSCA_PERSISTENTES.has(String(idCampo || ''))) return;
+    const estado = lerBuscasRapidasPersistidas();
+    const texto = String(valor || '');
+    if (!texto.trim()) {
+        delete estado[idCampo];
+    } else {
+        estado[idCampo] = texto;
+    }
+    gravarBuscasRapidasPersistidas(estado);
+}
+
+function restaurarBuscasRapidasPersistidas() {
+    const estado = lerBuscasRapidasPersistidas();
+
+    CAMPOS_BUSCA_PERSISTENTES.forEach((idCampo) => {
+        const campo = document.getElementById(idCampo);
+        if (!campo) return;
+
+        const valor = typeof estado[idCampo] === 'string' ? estado[idCampo] : '';
+        if (!valor) return;
+
+        campo.value = valor;
+        if (typeof buscarComDebounce === 'function') {
+            buscarComDebounce(campo.dataset.arg || '');
+        }
+    });
+}
+
+function inicializarPersistenciaBuscasRapidas() {
+    document.addEventListener('input', (event) => {
+        const alvo = event.target;
+        if (!(alvo instanceof HTMLInputElement || alvo instanceof HTMLTextAreaElement)) return;
+        if (!IDS_CAMPOS_BUSCA_PERSISTENTES.has(alvo.id)) return;
+        atualizarPersistenciaBuscaRapida(alvo.id, alvo.value);
+    });
+}
+
 function focoBuscaPorAba(abaId) {
     const mapaBusca = {
         locadores: 'buscaCliente',
@@ -795,6 +867,8 @@ function executarAtalhoRapido(atalhoId) {
         ? ultimaAba
         : (btnInicial?.dataset.tab || 'dashboard');
     abrirTab(abaInicial, { semRolagem: true });
+    inicializarPersistenciaBuscasRapidas();
+    restaurarBuscasRapidasPersistidas();
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
@@ -848,15 +922,6 @@ document.addEventListener('keydown', (event) => {
     const digitando = tag === 'input' || tag === 'textarea' || tag === 'select' || alvo?.isContentEditable;
     const modalAtalhosAberto = document.getElementById('modalShortcuts')?.classList.contains('active');
     const idCampoBusca = String(alvo?.id || '');
-    const camposBuscaRapida = new Set([
-        'buscaCliente',
-        'buscaTipos',
-        'buscaEstoque',
-        'buscaLocacoes',
-        'devBuscaHistorico',
-        'auditBusca',
-        'inputBuscaPeca'
-    ]);
 
     if (event.key === 'Escape' && modalAtalhosAberto) {
         event.preventDefault();
@@ -864,11 +929,14 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (event.key === 'Escape' && camposBuscaRapida.has(idCampoBusca)) {
+    if (event.key === 'Escape' && IDS_CAMPOS_BUSCA_ESCAPE.has(idCampoBusca)) {
         const valorAtual = String(alvo?.value || '');
         if (valorAtual.length) {
             event.preventDefault();
             alvo.value = '';
+            if (IDS_CAMPOS_BUSCA_PERSISTENTES.has(idCampoBusca)) {
+                atualizarPersistenciaBuscaRapida(idCampoBusca, '');
+            }
             if (alvo.dataset.input) {
                 alvo.dispatchEvent(new Event('input', { bubbles: true }));
             }
