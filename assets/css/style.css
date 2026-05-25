@@ -6255,3 +6255,9 @@ textarea:focus {
     }
 
 }
+
+[data-action][role="button"]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 10px;
+}

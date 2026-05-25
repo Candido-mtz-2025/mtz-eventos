@@ -38,6 +38,8 @@ const ACTIONS_ESPECIAIS_DISPATCH = new Set([
     'confirmarLimparLogsAntigos'
 ]);
 
+const TAGS_ACIONAVEIS_NATIVOS = new Set(['BUTTON', 'A', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY']);
+
 const ACTIONS_ALIAS = Object.freeze({
     removerSelecionadosEstoque: 'excluirSelecionadosEstoque'
 });
@@ -68,6 +70,33 @@ function acaoTemBloqueioCurto(actionName) {
 function resolverNomeAcao(actionName) {
     const nome = String(actionName || '').trim();
     return ACTIONS_ALIAS[nome] || nome;
+}
+
+function elementoAcaoNaoNativo(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    return !TAGS_ACIONAVEIS_NATIVOS.has(el.tagName);
+}
+
+function prepararAcessibilidadeAcoes(contexto = document) {
+    const raiz = (contexto instanceof HTMLElement || contexto instanceof Document) ? contexto : document;
+    const elementos = raiz.querySelectorAll('[data-action]');
+
+    elementos.forEach((el) => {
+        if (!elementoAcaoNaoNativo(el)) return;
+        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+        if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+    });
+}
+
+let observerAcessibilidadeAcoes = null;
+let rafPrepararAcoes = null;
+
+function agendarPrepararAcessibilidadeAcoes() {
+    if (rafPrepararAcoes != null) return;
+    rafPrepararAcoes = window.requestAnimationFrame(() => {
+        rafPrepararAcoes = null;
+        prepararAcessibilidadeAcoes(document);
+    });
 }
 
 function travarBotaoAcao(element) {
@@ -158,6 +187,16 @@ function auditarAcoesDaInterface() {
 document.addEventListener('DOMContentLoaded', function () {
     // Pequeno atraso para garantir que scripts dos módulos já tenham registrado funções globais.
     setTimeout(auditarAcoesDaInterface, 120);
+    prepararAcessibilidadeAcoes(document);
+
+    if (observerAcessibilidadeAcoes) return;
+    observerAcessibilidadeAcoes = new MutationObserver(() => {
+        agendarPrepararAcessibilidadeAcoes();
+    });
+    observerAcessibilidadeAcoes.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 });
 
 document.addEventListener('click', function (event) {
@@ -193,6 +232,17 @@ document.addEventListener('keyup', function (event) {
 
 // Fecha a lista ao pressionar ESC
 document.addEventListener('keydown', function (event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (actionEl && !actionEl.disabled && elementoAcaoNaoNativo(actionEl) && (event.key === 'Enter' || event.key === ' ')) {
+        const tag = event.target?.tagName?.toLowerCase();
+        const digitando = tag === 'input' || tag === 'textarea' || tag === 'select' || event.target?.isContentEditable;
+        if (!digitando) {
+            event.preventDefault();
+            runDataAction(actionEl.dataset.action, actionEl, event);
+            return;
+        }
+    }
+
     if (event.key === 'Escape') {
         const lista = document.getElementById('listaSugestoes');
         if (lista) lista.classList.remove('ativo');
