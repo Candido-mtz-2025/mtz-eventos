@@ -38,6 +38,10 @@ const ACTIONS_ESPECIAIS_DISPATCH = new Set([
     'confirmarLimparLogsAntigos'
 ]);
 
+const ACTIONS_ALIAS = Object.freeze({
+    removerSelecionadosEstoque: 'excluirSelecionadosEstoque'
+});
+
 const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
     'salvarLocador',
     'salvarTipo',
@@ -47,15 +51,23 @@ const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
     'salvarEdicaoTipo',
     'salvarEdicaoPeca',
     'salvarModeloChecklistForm',
+    'adicionarModeloAoChecklist',
+    'addItemCarrinho',
     'finalizarLocacao',
     'confirmarDevolucao',
     'removerItem',
     'excluirModeloChecklistUI',
-    'removerSelecionadosEstoque'
+    'excluirSelecionadosEstoque',
+    'arquivarHistorico'
 ]);
 
 function acaoTemBloqueioCurto(actionName) {
     return ACTIONS_COM_BLOQUEIO_CURTO.has(String(actionName || '').trim());
+}
+
+function resolverNomeAcao(actionName) {
+    const nome = String(actionName || '').trim();
+    return ACTIONS_ALIAS[nome] || nome;
 }
 
 function travarBotaoAcao(element) {
@@ -75,8 +87,9 @@ function travarBotaoAcao(element) {
 
 function runDataAction(actionName, element, event) {
     if (!actionName) return;
+    const acaoResolvida = resolverNomeAcao(actionName);
 
-    if (actionName === 'triggerClick') {
+    if (acaoResolvida === 'triggerClick') {
         const targetId = element.dataset.targetId;
         if (!targetId) return;
         const target = document.getElementById(targetId);
@@ -84,24 +97,24 @@ function runDataAction(actionName, element, event) {
         return;
     }
 
-    if (actionName === 'confirmarLimparLogsAntigos') {
+    if (acaoResolvida === 'confirmarLimparLogsAntigos') {
         if (window.confirm('Limpar logs antigos?') && typeof window.limparLogsAntigos === 'function') {
             window.limparLogsAntigos();
         }
         return;
     }
 
-    const actionFn = window[actionName];
+    const actionFn = window[acaoResolvida];
     if (typeof actionFn !== 'function') {
-        console.warn(`Ação "${actionName}" não encontrada.`);
+        console.warn(`Ação "${acaoResolvida}" não encontrada.`);
         if (typeof mostrarToast === 'function') {
-            mostrarToast(`Ação indisponível: ${actionName}.`, 'erro');
+            mostrarToast('Esta ação ainda não está disponível.', 'erro');
         }
         return;
     }
 
     const args = collectActionArgs(element, event);
-    const deveBloquear = acaoTemBloqueioCurto(actionName);
+    const deveBloquear = acaoTemBloqueioCurto(acaoResolvida);
     const liberar = deveBloquear ? travarBotaoAcao(element) : null;
     if (deveBloquear && liberar === false) return;
 
@@ -116,7 +129,7 @@ function runDataAction(actionName, element, event) {
         }
     } catch (erro) {
         if (liberar) liberar();
-        console.error(`Erro ao executar ação "${actionName}":`, erro);
+        console.error(`Erro ao executar ação "${acaoResolvida}":`, erro);
         if (typeof mostrarToast === 'function') {
             mostrarToast('Não foi possível concluir essa ação agora.', 'erro');
         }
@@ -131,7 +144,8 @@ function auditarAcoesDaInterface() {
         elementos.map((el) => String(el.dataset.action || '').trim()).filter(Boolean)
     ));
 
-    const faltantes = nomes.filter((nome) => {
+    const faltantes = nomes.filter((nomeBruto) => {
+        const nome = resolverNomeAcao(nomeBruto);
         if (ACTIONS_ESPECIAIS_DISPATCH.has(nome)) return false;
         return typeof window[nome] !== 'function';
     });
