@@ -33,6 +33,11 @@ function collectActionArgs(element, event) {
     return args;
 }
 
+const ACTIONS_ESPECIAIS_DISPATCH = new Set([
+    'triggerClick',
+    'confirmarLimparLogsAntigos'
+]);
+
 const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
     'salvarLocador',
     'salvarTipo',
@@ -89,6 +94,9 @@ function runDataAction(actionName, element, event) {
     const actionFn = window[actionName];
     if (typeof actionFn !== 'function') {
         console.warn(`Ação "${actionName}" não encontrada.`);
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(`Ação indisponível: ${actionName}.`, 'erro');
+        }
         return;
     }
 
@@ -109,9 +117,34 @@ function runDataAction(actionName, element, event) {
     } catch (erro) {
         if (liberar) liberar();
         console.error(`Erro ao executar ação "${actionName}":`, erro);
-        throw erro;
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Não foi possível concluir essa ação agora.', 'erro');
+        }
     }
 }
+
+function auditarAcoesDaInterface() {
+    const elementos = Array.from(document.querySelectorAll('[data-action]'));
+    if (!elementos.length) return;
+
+    const nomes = Array.from(new Set(
+        elementos.map((el) => String(el.dataset.action || '').trim()).filter(Boolean)
+    ));
+
+    const faltantes = nomes.filter((nome) => {
+        if (ACTIONS_ESPECIAIS_DISPATCH.has(nome)) return false;
+        return typeof window[nome] !== 'function';
+    });
+
+    if (!faltantes.length) return;
+
+    console.warn('Ações não mapeadas na interface:', faltantes);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Pequeno atraso para garantir que scripts dos módulos já tenham registrado funções globais.
+    setTimeout(auditarAcoesDaInterface, 120);
+});
 
 document.addEventListener('click', function (event) {
     const actionEl = event.target.closest('[data-action]');
