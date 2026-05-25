@@ -25,6 +25,19 @@ function criarEstadoDevolucaoPainel(opcoes = {}) {
     return `<small class="muted-note">${escaparHTMLDevolucao(opcoes.mensagem || 'Sem dados para mostrar.')}</small>`;
 }
 
+function focarCampoDevolucao(idCampo) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return;
+
+    setTimeout(() => {
+        try {
+            campo.focus({ preventScroll: false });
+        } catch (_) {
+            campo.focus();
+        }
+    }, 40);
+}
+
 function atualizarResumoConferenciaDevolucao() {
     const resumo = document.getElementById('devResumoLive');
     if (!resumo) return;
@@ -98,6 +111,7 @@ function carregarItensDevolucao() {
             titulo: 'Selecione uma locação',
             mensagem: 'Escolha uma locação em aberto para iniciar a conferência.'
         });
+        focarCampoDevolucao('devLocacao');
         return;
     }
 
@@ -108,6 +122,7 @@ function carregarItensDevolucao() {
             titulo: 'Locação não encontrada',
             mensagem: 'Atualize a lista e tente novamente.'
         });
+        focarCampoDevolucao('devLocacao');
         return;
     }
 
@@ -172,6 +187,10 @@ function carregarItensDevolucao() {
     `;
 
     atualizarResumoConferenciaDevolucao();
+    const primeiroCampoQtd = div.querySelector('.dev-qtd');
+    if (primeiroCampoQtd instanceof HTMLElement) {
+        setTimeout(() => primeiroCampoQtd.focus(), 80);
+    }
 }
 
 function validarQtdDevolucao(input) {
@@ -188,17 +207,23 @@ function confirmarDevolucao() {
     const id = document.getElementById('devLocacao').value;
     if (!id) {
         mostrarToast("Selecione uma locacao para devolver.", "erro");
+        focarCampoDevolucao('devLocacao');
         return;
     }
 
     const dataDevolucao = document.getElementById('devData').value;
     if (!dataDevolucao) {
         mostrarToast("Informe a data da devolucao.", "erro");
+        focarCampoDevolucao('devData');
         return;
     }
 
     const l = locacoes.find(x => x.id == id);
-    if (!l) return mostrarToast("Locação não encontrada.", "erro");
+    if (!l) {
+        mostrarToast("Locação não encontrada.", "erro");
+        focarCampoDevolucao('devLocacao');
+        return;
+    }
 
     const itensDevolvidos = [];
     const pendencias = [];
@@ -218,6 +243,8 @@ function confirmarDevolucao() {
 
         if ((qtdDevolvida + qtdAvaria) > pendenteAntes) {
             mostrarToast(`"${item.nome}" excedeu a quantidade pendente (${pendenteAntes}).`, "erro");
+            const primeiroCampoInvalido = inputQtd || inputAvaria;
+            if (primeiroCampoInvalido instanceof HTMLElement) primeiroCampoInvalido.focus();
             validacaoFalhou = true;
             return;
         }
@@ -237,6 +264,8 @@ function confirmarDevolucao() {
 
     if (pendencias.length === 0) {
         mostrarToast("Informe pelo menos uma quantidade para devolucao ou avaria.", "erro");
+        const primeiroCampoQtd = document.querySelector('.dev-qtd');
+        if (primeiroCampoQtd instanceof HTMLElement) primeiroCampoQtd.focus();
         return;
     }
 
