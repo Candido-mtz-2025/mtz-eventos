@@ -528,6 +528,34 @@ function abrirModalAtalhos() {
     return true;
 }
 
+function obterModalAtiva() {
+    const ativos = Array.from(document.querySelectorAll('.modal.active'));
+    return ativos.length ? ativos[ativos.length - 1] : null;
+}
+
+function fecharModalAtiva() {
+    const modal = obterModalAtiva();
+    if (!modal?.id) return false;
+
+    if (modal.id === 'modalScanner' && typeof fecharScanner === 'function') {
+        fecharScanner();
+        return true;
+    }
+
+    if (modal.id === 'modalModeloChecklist' && typeof fecharModalModeloChecklist === 'function') {
+        fecharModalModeloChecklist();
+        return true;
+    }
+
+    if (typeof fecharModal === 'function') {
+        fecharModal(modal.id);
+        return true;
+    }
+
+    modal.classList.remove('active');
+    return true;
+}
+
 function navegarParaAbaPorAtalho(numero) {
     const mapa = {
         '1': 'dashboard',
@@ -777,6 +805,15 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
+    if (event.key === 'Escape') {
+        const modalAtivo = obterModalAtiva();
+        if (modalAtivo) {
+            event.preventDefault();
+            fecharModalAtiva();
+            return;
+        }
+    }
+
     if (!digitando && (event.key === '?' || event.key === 'F1')) {
         event.preventDefault();
         abrirModalAtalhos();
@@ -799,4 +836,12 @@ document.addEventListener('keydown', (event) => {
         event.preventDefault();
         navegarParaAbaPorAtalho(event.key);
     }
+});
+
+document.addEventListener('click', (event) => {
+    const alvo = event.target;
+    if (!(alvo instanceof HTMLElement)) return;
+    if (!alvo.classList.contains('modal') || !alvo.classList.contains('active')) return;
+    if (alvo.querySelector('.modal-content')?.contains(event.target)) return;
+    fecharModalAtiva();
 });
