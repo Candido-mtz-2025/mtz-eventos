@@ -114,8 +114,34 @@ function renderTipos() {
     const tbody = document.getElementById('tblTipos');
     if(!tbody) return;
     atualizarResumoTiposExecutivo();
+    const termoRaw = String(document.getElementById('buscaTipos')?.value || '').trim();
+    const normalizar = (valor) => String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    const termo = normalizar(termoRaw);
+    const listaTipos = Array.isArray(tipos) ? tipos : [];
 
-    if (!tipos.length) {
+    const tiposFiltrados = listaTipos.filter((t) => {
+        if (!termo) return true;
+        const alvo = normalizar([
+            t.nome || '',
+            t.desc || '',
+            `#${t.id || ''}`
+        ].join(' '));
+        return alvo.includes(termo);
+    });
+
+    if (typeof atualizarMetaBusca === 'function') {
+        atualizarMetaBusca('metaBuscaTipos', {
+            total: listaTipos.length,
+            filtrados: tiposFiltrados.length,
+            termo: termoRaw,
+            rotulo: 'tipos'
+        });
+    }
+
+    if (!listaTipos.length) {
         tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
             ? criarLinhaTabelaEstado(3, {
                 tipo: 'empty',
@@ -125,6 +151,17 @@ function renderTipos() {
             : '<tr class="table-empty-row"><td colspan="3">Nenhum tipo cadastrado.</td></tr>';
         return;
     }
+
+    if (!tiposFiltrados.length) {
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(3, {
+                tipo: 'empty',
+                titulo: 'Nenhum tipo encontrado',
+                mensagem: `Nenhum tipo combina com "${termoRaw}".`
+            })
+            : '<tr class="table-empty-row"><td colspan="3">Nenhum tipo encontrado.</td></tr>';
+        return;
+    }
     
     const totalPorTipo = new Map();
     (Array.isArray(pecas) ? pecas : []).forEach((p) => {
@@ -132,7 +169,7 @@ function renderTipos() {
         totalPorTipo.set(chave, (totalPorTipo.get(chave) || 0) + 1);
     });
 
-    tbody.innerHTML = tipos.map((t) => {
+    tbody.innerHTML = tiposFiltrados.map((t) => {
         const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.nome || '') : (t.nome || '');
         const desc = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.desc || '-') : (t.desc || '-');
         const itensVinculados = totalPorTipo.get(String(t.id)) || 0;

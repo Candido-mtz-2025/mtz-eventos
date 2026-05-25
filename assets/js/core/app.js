@@ -470,6 +470,7 @@ function obterAbaAtivaAtual() {
 function focoBuscaPorAba(abaId) {
     const mapaBusca = {
         locadores: 'buscaCliente',
+        tipos: 'buscaTipos',
         estoque: 'buscaEstoque',
         locacoes: 'buscaLocacoes',
         devolucoes: 'devBuscaHistorico',

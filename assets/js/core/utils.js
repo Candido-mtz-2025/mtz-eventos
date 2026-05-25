@@ -32,6 +32,11 @@ const buscarComDebounce = debounce(function(tipo) {
         return;
     }
 
+    if (alvo === 'tipos' && typeof renderTipos === 'function') {
+        renderTipos();
+        return;
+    }
+
     if (alvo === 'auditoria' && typeof renderLogs === 'function') {
         renderLogs(window.filtroLogAtual || 'todos');
     }
