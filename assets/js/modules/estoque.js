@@ -69,14 +69,17 @@ function salvarPeca() {
 
     if (!n) {
         mostrarToast("Informe o nome da peca.", "erro");
+        document.getElementById('pecaNome')?.focus();
         return;
     }
     if (!Number.isFinite(valor) || valor < 0) {
         mostrarToast("Informe um valor valido (maior ou igual a zero).", "erro");
+        document.getElementById('pecaValor')?.focus();
         return;
     }
     if (!Number.isInteger(quantidade) || quantidade < 0) {
         mostrarToast("Informe uma quantidade valida (maior ou igual a zero).", "erro");
+        document.getElementById('pecaQtd')?.focus();
         return;
     }
     const novoId = Date.now();

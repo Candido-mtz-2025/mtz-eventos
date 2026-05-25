@@ -4,6 +4,18 @@ let fluxoLocacaoInicializado = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
 
+function focarCampoLocacao(idCampo) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return;
+    setTimeout(() => {
+        try {
+            campo.focus({ preventScroll: false });
+        } catch (_) {
+            campo.focus();
+        }
+    }, 40);
+}
+
 function normalizarFiltroLocacoes(valor) {
     const filtro = String(valor || '').trim().toLowerCase();
     return FILTROS_LOCACOES_VALIDOS.has(filtro) ? filtro : 'todos';
@@ -142,29 +154,44 @@ function validarDadosBaseLocacao(exibirErro) {
     const fim = document.getElementById('aluguelFim')?.value;
 
     if (!cli) {
-        if (exibirErro) mostrarToast('Selecione o cliente para continuar.', 'erro');
+        if (exibirErro) {
+            mostrarToast('Selecione o cliente para continuar.', 'erro');
+            focarCampoLocacao('aluguelCliente');
+        }
         return false;
     }
 
     if (!obterClienteLocacaoAtual()) {
-        if (exibirErro) mostrarToast('Cliente selecionado invalido.', 'erro');
+        if (exibirErro) {
+            mostrarToast('Cliente selecionado invalido.', 'erro');
+            focarCampoLocacao('aluguelCliente');
+        }
         return false;
     }
 
     if (!ini || !fim) {
-        if (exibirErro) mostrarToast('Informe inicio e previsao de fim.', 'erro');
+        if (exibirErro) {
+            mostrarToast('Informe inicio e previsao de fim.', 'erro');
+            focarCampoLocacao(!ini ? 'aluguelIni' : 'aluguelFim');
+        }
         return false;
     }
 
     const dataInicio = parseDataIso(ini);
     const dataFim = parseDataIso(fim);
     if (!dataInicio || !dataFim) {
-        if (exibirErro) mostrarToast('Datas invalidas. Confira os campos.', 'erro');
+        if (exibirErro) {
+            mostrarToast('Datas invalidas. Confira os campos.', 'erro');
+            focarCampoLocacao('aluguelIni');
+        }
         return false;
     }
 
     if (dataFim < dataInicio) {
-        if (exibirErro) mostrarToast('A previsao de fim nao pode ser antes do inicio.', 'erro');
+        if (exibirErro) {
+            mostrarToast('A previsao de fim nao pode ser antes do inicio.', 'erro');
+            focarCampoLocacao('aluguelFim');
+        }
         return false;
     }
 
@@ -317,6 +344,7 @@ function irEtapaLocacao(etapa) {
     if (destino >= 2 && !validarDadosBaseLocacao(true)) return;
     if (destino === 3 && carrinhoLocacao.length === 0) {
         mostrarToast('Adicione pelo menos 1 item para revisar a locacao.', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
         return;
     }
 
@@ -407,7 +435,11 @@ function limparCarrinhoLocacao() {
 
 function addItemCarrinho() {
     var id = document.getElementById('aluguelItemSelect').value;
-    if (!id) return mostrarToast('Busque e selecione um item!', 'erro');
+    if (!id) {
+        mostrarToast('Busque e selecione um item!', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
+        return;
+    }
 
     var campoQtd = document.getElementById('aluguelQtd');
     var qtd = parseInt(campoQtd?.value, 10);
@@ -418,9 +450,14 @@ function addItemCarrinho() {
     }
 
     var p = pecas.find(function (x) { return x.id == id; });
-    if (!p) return mostrarToast('Item nao encontrado.', 'erro');
+    if (!p) {
+        mostrarToast('Item nao encontrado.', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
+        return;
+    }
     if ((parseInt(p.disponivel, 10) || 0) <= 0) {
         mostrarToast('Esse item esta sem estoque disponivel.', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
         return;
     }
 
@@ -464,17 +501,20 @@ function finalizarLocacao() {
 
     if (!cli || carrinhoLocacao.length === 0) {
         mostrarToast('Preencha cliente e itens!', 'erro');
+        focarCampoLocacao(!cli ? 'aluguelCliente' : 'inputBuscaPeca');
         return;
     }
 
     const cliente = locadores.find((x) => String(x.id) === String(cli));
     if (!cliente) {
         mostrarToast('Cliente selecionado e invalido.', 'erro');
+        focarCampoLocacao('aluguelCliente');
         return;
     }
 
     if (!ini || !fim) {
         mostrarToast('Informe as datas da locacao.', 'erro');
+        focarCampoLocacao(!ini ? 'aluguelIni' : 'aluguelFim');
         return;
     }
 
@@ -482,16 +522,19 @@ function finalizarLocacao() {
     const dataFim = new Date(`${fim}T00:00:00`);
     if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
         mostrarToast('Datas invalidas. Confira inicio e fim.', 'erro');
+        focarCampoLocacao('aluguelIni');
         return;
     }
 
     if (dataFim < dataInicio) {
         mostrarToast('A previsao de fim nao pode ser antes do inicio.', 'erro');
+        focarCampoLocacao('aluguelFim');
         return;
     }
 
     if (!Number.isFinite(divInput) || divInput <= 0) {
         mostrarToast('Divisor invalido. Informe um valor acima de zero.', 'erro');
+        focarCampoLocacao('aluguelDivisor');
         return;
     }
 
@@ -503,6 +546,7 @@ function finalizarLocacao() {
 
     if (itensInvalidos.length > 0) {
         mostrarToast('Existem itens com quantidade/valor invalido no pedido.', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
         return;
     }
 
