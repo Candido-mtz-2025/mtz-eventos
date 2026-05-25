@@ -521,6 +521,13 @@ function ativarBuscaRapidaDaAbaAtual() {
     return focoBuscaPorAba(abaAtual);
 }
 
+function abrirModalAtalhos() {
+    const modal = document.getElementById('modalShortcuts');
+    if (!modal) return false;
+    modal.classList.add('active');
+    return true;
+}
+
 function navegarParaAbaPorAtalho(numero) {
     const mapa = {
         '1': 'dashboard',
@@ -737,6 +744,7 @@ document.addEventListener('keydown', (event) => {
     const alvo = event.target;
     const tag = alvo?.tagName?.toLowerCase();
     const digitando = tag === 'input' || tag === 'textarea' || tag === 'select' || alvo?.isContentEditable;
+    const modalAtalhosAberto = document.getElementById('modalShortcuts')?.classList.contains('active');
     const idCampoBusca = String(alvo?.id || '');
     const camposBuscaRapida = new Set([
         'buscaCliente',
@@ -747,6 +755,12 @@ document.addEventListener('keydown', (event) => {
         'auditBusca',
         'inputBuscaPeca'
     ]);
+
+    if (event.key === 'Escape' && modalAtalhosAberto) {
+        event.preventDefault();
+        fecharModal('modalShortcuts');
+        return;
+    }
 
     if (event.key === 'Escape' && camposBuscaRapida.has(idCampoBusca)) {
         const valorAtual = String(alvo?.value || '');
@@ -760,6 +774,12 @@ document.addEventListener('keydown', (event) => {
                 alvo.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
             }
         }
+        return;
+    }
+
+    if (!digitando && (event.key === '?' || event.key === 'F1')) {
+        event.preventDefault();
+        abrirModalAtalhos();
         return;
     }
 
