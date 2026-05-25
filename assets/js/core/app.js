@@ -610,6 +610,159 @@ function obterAbaAtivaAtual() {
     return ativa.id.replace('tab-', '');
 }
 
+const IDS_BUSCA_ENTER_LIVRE = new Set([
+    ...CAMPOS_BUSCA_PERSISTENTES,
+    'inputBuscaPeca'
+]);
+
+function focarElementoSemRolar(elemento, selecionar = false) {
+    if (!(elemento instanceof HTMLElement)) return false;
+    setTimeout(() => {
+        try {
+            elemento.focus({ preventScroll: true });
+        } catch (_) {
+            elemento.focus();
+        }
+        if (selecionar && typeof elemento.select === 'function') {
+            elemento.select();
+        }
+    }, 40);
+    return true;
+}
+
+function tentarSelecionarPrimeiraSugestaoLocacao() {
+    const lista = document.getElementById('listaSugestoes');
+    if (!lista || !lista.classList.contains('ativo')) return false;
+
+    const primeiroItem = lista.querySelector('.sugestao-item');
+    if (!(primeiroItem instanceof HTMLElement)) return false;
+
+    primeiroItem.click();
+    return true;
+}
+
+function executarAtalhoEnterFormulario(event) {
+    if (event.defaultPrevented) return false;
+    if (event.key !== 'Enter') return false;
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+
+    const alvo = event.target;
+    if (!(alvo instanceof HTMLElement)) return false;
+
+    const modalAtivo = obterModalAtiva();
+    if (modalAtivo && modalAtivo.contains(alvo)) return false;
+
+    const tag = alvo.tagName?.toLowerCase();
+    if (tag !== 'input' && tag !== 'select') return false;
+
+    if (alvo instanceof HTMLInputElement) {
+        const tipo = String(alvo.type || '').toLowerCase();
+        const tiposIgnorados = new Set(['button', 'submit', 'reset', 'file', 'checkbox', 'radio']);
+        if (tiposIgnorados.has(tipo)) return false;
+    }
+
+    const idAtual = String(alvo.id || '').trim();
+    if (!idAtual) return false;
+
+    if (alvo.classList.contains('search-input') && idAtual !== 'inputBuscaPeca') {
+        return false;
+    }
+
+    const abaAtual = obterAbaAtivaAtual();
+    const escopoAba = document.getElementById(`tab-${abaAtual}`) || document;
+
+    if (abaAtual === 'locacoes') {
+        const etapa1Ativa = document.getElementById('locacaoEtapa1')?.classList.contains('is-active');
+        const etapa2Ativa = document.getElementById('locacaoEtapa2')?.classList.contains('is-active');
+
+        if (etapa1Ativa) {
+            const ordemEtapa1 = ['aluguelCliente', 'aluguelDivisor', 'aluguelIni', 'aluguelFim']
+                .map((id) => document.getElementById(id))
+                .filter(elementoAcionavelVisivel);
+
+            const indiceAtual = ordemEtapa1.indexOf(alvo);
+            if (indiceAtual >= 0) {
+                event.preventDefault();
+                if (indiceAtual < ordemEtapa1.length - 1) {
+                    focarElementoSemRolar(ordemEtapa1[indiceAtual + 1], true);
+                    return true;
+                }
+                const botaoEtapa2 = document.getElementById('btnIrEtapa2');
+                if (elementoAcionavelVisivel(botaoEtapa2)) {
+                    botaoEtapa2.click();
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        if (etapa2Ativa && idAtual === 'inputBuscaPeca') {
+            event.preventDefault();
+            const itemSelecionado = document.getElementById('aluguelItemSelect')?.value;
+            if (!itemSelecionado) {
+                tentarSelecionarPrimeiraSugestaoLocacao();
+            }
+            focarElementoSemRolar(document.getElementById('aluguelQtd'), true);
+            return true;
+        }
+
+        if (etapa2Ativa && idAtual === 'aluguelQtd') {
+            event.preventDefault();
+            acionarPrimeiraAcaoDisponivel(['addItemCarrinho'], escopoAba);
+            return true;
+        }
+    }
+
+    if (!IDS_BUSCA_ENTER_LIVRE.has(idAtual)) {
+        const fluxos = {
+            locadores: {
+                campos: ['locNome', 'locDoc', 'locEnd', 'locEmail', 'locTel'],
+                acoes: ['salvarLocador']
+            },
+            tipos: {
+                campos: ['tipoNome', 'tipoDesc'],
+                acoes: ['salvarTipo']
+            },
+            estoque: {
+                campos: [
+                    'pecaCod',
+                    'pecaTipo',
+                    'pecaNome',
+                    'pecaMedida',
+                    'pecaValor',
+                    'pecaQtd',
+                    'pecaBar',
+                    'pecaGrupoChecklist',
+                    'pecaFamiliaEstrutural',
+                    'pecaSubtipoEstrutural',
+                    'pecaPodeCompor'
+                ],
+                acoes: ['salvarPeca']
+            }
+        };
+
+        const fluxo = fluxos[abaAtual];
+        if (!fluxo) return false;
+
+        const ordemCampos = fluxo.campos
+            .map((id) => document.getElementById(id))
+            .filter(elementoAcionavelVisivel);
+
+        const indiceAtual = ordemCampos.indexOf(alvo);
+        if (indiceAtual < 0) return false;
+
+        event.preventDefault();
+        if (indiceAtual < ordemCampos.length - 1) {
+            focarElementoSemRolar(ordemCampos[indiceAtual + 1], true);
+            return true;
+        }
+
+        return acionarPrimeiraAcaoDisponivel(fluxo.acoes, escopoAba);
+    }
+
+    return false;
+}
+
 function lerBuscasRapidasPersistidas() {
     try {
         const bruto = localStorage.getItem(STORAGE_BUSCAS_RAPIDAS);
@@ -1064,6 +1217,10 @@ document.addEventListener('keydown', (event) => {
     if (!digitando && event.key === '/') {
         event.preventDefault();
         ativarBuscaRapidaDaAbaAtual();
+        return;
+    }
+
+    if (digitando && executarAtalhoEnterFormulario(event)) {
         return;
     }
 
