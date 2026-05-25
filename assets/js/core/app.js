@@ -574,6 +574,80 @@ function navegarParaAbaPorAtalho(numero) {
     return true;
 }
 
+function elementoAcionavelVisivel(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.disabled) return false;
+    if (el.hidden) return false;
+    if (el.getAttribute('aria-hidden') === 'true') return false;
+
+    const estilos = window.getComputedStyle(el);
+    if (estilos.display === 'none' || estilos.visibility === 'hidden') return false;
+
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+}
+
+function acionarPrimeiraAcaoDisponivel(listaAcoes = [], raiz = document) {
+    for (const acao of listaAcoes) {
+        const candidatos = Array.from(raiz.querySelectorAll(`[data-action="${acao}"]`));
+        const alvo = candidatos.find(elementoAcionavelVisivel);
+        if (!alvo) continue;
+        alvo.click();
+        return true;
+    }
+    return false;
+}
+
+function executarSalvarModalAtivo(modal) {
+    if (!modal?.id) return false;
+
+    const acoesPorModal = {
+        modalEditarLocador: ['salvarEdicaoLocador'],
+        modalEditarTipo: ['salvarEdicaoTipo'],
+        modalEditarPeca: ['salvarEdicaoPeca'],
+        modalModeloChecklist: ['salvarModeloChecklistForm']
+    };
+
+    const lista = acoesPorModal[modal.id];
+    if (Array.isArray(lista) && acionarPrimeiraAcaoDisponivel(lista, modal)) {
+        return true;
+    }
+
+    // Fallback seguro para modais novos que usem padrão "salvar*".
+    const fallback = Array.from(modal.querySelectorAll('[data-action^="salvar"]'));
+    const botaoSalvar = fallback.find(elementoAcionavelVisivel);
+    if (!botaoSalvar) return false;
+    botaoSalvar.click();
+    return true;
+}
+
+function executarAtalhoSalvarContextual() {
+    const modalAtivo = obterModalAtiva();
+    if (modalAtivo && executarSalvarModalAtivo(modalAtivo)) {
+        return true;
+    }
+
+    const abaAtual = obterAbaAtivaAtual();
+    const escopoAba = document.getElementById(`tab-${abaAtual}`) || document;
+    const acoesPorAba = {
+        locadores: ['salvarLocador'],
+        tipos: ['salvarTipo'],
+        estoque: ['salvarPeca'],
+        locacoes: ['finalizarLocacao'],
+        devolucoes: ['confirmarDevolucao'],
+        config: ['salvarConfig']
+    };
+
+    if (acionarPrimeiraAcaoDisponivel(acoesPorAba[abaAtual] || [], escopoAba)) {
+        return true;
+    }
+
+    if (typeof mostrarToast === 'function') {
+        mostrarToast('Nenhuma ação de salvar disponível nesta tela.', 'info');
+    }
+    return false;
+}
+
 function atualizarAtalhosRapidos(tabId) {
     // Atalhos rápidos desativados por decisão de usabilidade.
     return;
@@ -823,6 +897,12 @@ document.addEventListener('keydown', (event) => {
     if (!digitando && event.key === '/') {
         event.preventDefault();
         ativarBuscaRapidaDaAbaAtual();
+        return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        executarAtalhoSalvarContextual();
         return;
     }
 
