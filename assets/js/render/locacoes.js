@@ -186,6 +186,7 @@ function renderLocacoes() {
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
         const statusPagamentoLabel = l.pago ? 'Marcar como pendente' : 'Marcar como pago';
+        tr.setAttribute('data-locacao-id', String(l.id));
         tr.className = `locacao-row locacao-row--${statusVisual}`;
         tr.innerHTML = `
             <td>

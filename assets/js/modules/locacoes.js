@@ -551,9 +551,10 @@ function finalizarLocacao() {
     }
 
     var itensParaSalvar = carrinhoLocacao.map((item) => ({ ...item }));
+    const novaLocacaoId = Date.now();
 
     locacoes.push({
-        id: Date.now(),
+        id: novaLocacaoId,
         locadorId: parseInt(cli, 10),
         dataAluguel: ini,
         dataDevolucaoPrevisao: fim,
@@ -574,6 +575,9 @@ function finalizarLocacao() {
     if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'locacao', id: novaLocacaoId, limparBusca: true });
+    }
 
     registrarLog('locacao', 'criar', `Locacao criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
 

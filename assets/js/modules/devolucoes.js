@@ -259,9 +259,10 @@ function confirmarDevolucao() {
 
     const devolucaoTotal = locacaoEstaTotalmenteDevolvida(l);
     l.status = devolucaoTotal ? 'devolvido' : 'ativo';
+    const novaDevolucaoId = Date.now();
 
     devolucoes.push({
-        id: Date.now(),
+        id: novaDevolucaoId,
         locacaoId: l.id,
         dataDevolucao,
         tipo: devolucaoTotal ? 'total' : 'parcial',
@@ -272,6 +273,9 @@ function confirmarDevolucao() {
     if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'devolucao', id: novaDevolucaoId, limparBusca: false });
+    }
     sincronizar('salvar');
 
     const cliente = locadores.find(x => x.id === l.locadorId);

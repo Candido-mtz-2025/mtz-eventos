@@ -360,6 +360,28 @@ function focarRegistroRecemSalvo(opcoes = {}) {
             attr: 'data-peca-id',
             buscaId: 'buscaEstoque',
             renderFn: 'renderEstoque'
+        },
+        locacao: {
+            tabId: 'locacoes',
+            tabelaId: 'tblLocacoes',
+            attr: 'data-locacao-id',
+            buscaId: 'buscaLocacoes',
+            renderFn: 'renderLocacoes',
+            preparar: () => {
+                if (typeof mudarFiltro === 'function') mudarFiltro('ativo');
+            }
+        },
+        devolucao: {
+            tabId: 'devolucoes',
+            tabelaId: 'tblDevolucoes',
+            attr: 'data-devolucao-id',
+            buscaId: 'devBuscaHistorico',
+            renderFn: 'renderDevolucoes',
+            preparar: () => {
+                if (typeof aplicarFiltroHistoricoDevolucoes === 'function') {
+                    aplicarFiltroHistoricoDevolucoes('todos', false, false);
+                }
+            }
         }
     };
 
@@ -374,6 +396,10 @@ function focarRegistroRecemSalvo(opcoes = {}) {
             campoBusca.value = '';
             atualizarPersistenciaBuscaRapida(cfg.buscaId, '');
         }
+    }
+
+    if (typeof cfg.preparar === 'function') {
+        cfg.preparar();
     }
 
     const renderRef = window[cfg.renderFn];

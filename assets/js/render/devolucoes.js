@@ -113,7 +113,7 @@ function renderDevolucoes() {
         const itensTexto = registro.qtdItens > 0 ? `| ${registro.qtdItens} item(ns)` : '';
 
         return `
-            <tr class="devolucao-row devolucao-row--${registro.tipoNormalizado}">
+            <tr class="devolucao-row devolucao-row--${registro.tipoNormalizado}" data-devolucao-id="${registro.id}">
                 <td>
                     <div class="table-cell-title">${cliente}</div>
                     <div class="table-cell-sub">${locacaoId} ${itensTexto}</div>
