@@ -79,8 +79,9 @@ function salvarPeca() {
         mostrarToast("Informe uma quantidade valida (maior ou igual a zero).", "erro");
         return;
     }
+    const novoId = Date.now();
     pecas.push({
-        id: Date.now(),
+        id: novoId,
         nome: n,
         codigo: document.getElementById('pecaCod').value,
         valor,
@@ -97,6 +98,9 @@ function salvarPeca() {
 
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'peca', id: novoId, limparBusca: true });
+    }
     sincronizar('salvar');
 
     document.getElementById('pecaNome').value = "";
@@ -168,11 +172,11 @@ function salvarPeca() {
 
     salvarLocal();
     sincronizar('salvar');
-
-    const busca = document.getElementById('buscaEstoque');
-    if (busca) busca.value = '';
-
-    renderEstoque();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'peca', id: p.id, limparBusca: true });
+    } else {
+        renderEstoque();
+    }
 
     registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
     mostrarToast("Item atualizado!");

@@ -59,6 +59,7 @@ function renderLocadores() {
         const email = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.email || '-') : (c.email || '-');
         const telefone = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.telefone || '-') : (c.telefone || '-');
         const tr = document.createElement('tr');
+        tr.setAttribute('data-locador-id', String(c.id));
         tr.innerHTML = `
             <td>
                 <div class="table-cell-title">${nome}</div>
@@ -175,7 +176,7 @@ function renderTipos() {
         const itensVinculados = totalPorTipo.get(String(t.id)) || 0;
         const classeLinha = itensVinculados > 0 ? 'tipo-row tipo-row--ativo' : 'tipo-row tipo-row--sem-uso';
         return `
-        <tr class="${classeLinha}">
+        <tr class="${classeLinha}" data-tipo-id="${t.id}">
             <td>
                 <div class="table-cell-title">${nome}</div>
                 <div class="table-cell-sub">${itensVinculados} item(ns) no estoque</div>

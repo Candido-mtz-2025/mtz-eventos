@@ -117,6 +117,7 @@ function renderEstoque() {
     const marcado = (window.estoqueSelecionados && window.estoqueSelecionados.has(p.id)) ? 'checked' : '';
 
     const tr = document.createElement('tr');
+    tr.setAttribute('data-peca-id', String(p.id));
     const classeLinha =
       p.disponivel === 0 ? 'estoque-row estoque-row--critical' :
       p.disponivel <= 3 ? 'estoque-row estoque-row--warning' :

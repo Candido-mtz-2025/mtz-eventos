@@ -334,6 +334,79 @@ function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
     }, 220);
 }
 
+function focarRegistroRecemSalvo(opcoes = {}) {
+    const tipo = String(opcoes.tipo || '').trim().toLowerCase();
+    const idRegistro = String(opcoes.id ?? '').trim();
+    if (!tipo || !idRegistro) return false;
+
+    const mapa = {
+        locador: {
+            tabId: 'locadores',
+            tabelaId: 'tblLocadores',
+            attr: 'data-locador-id',
+            buscaId: 'buscaCliente',
+            renderFn: 'renderLocadores'
+        },
+        tipo: {
+            tabId: 'tipos',
+            tabelaId: 'tblTipos',
+            attr: 'data-tipo-id',
+            buscaId: 'buscaTipos',
+            renderFn: 'renderTipos'
+        },
+        peca: {
+            tabId: 'estoque',
+            tabelaId: 'tblEstoque',
+            attr: 'data-peca-id',
+            buscaId: 'buscaEstoque',
+            renderFn: 'renderEstoque'
+        }
+    };
+
+    const cfg = mapa[tipo];
+    if (!cfg) return false;
+
+    abrirTab(cfg.tabId, { semRolagem: true });
+
+    if (opcoes.limparBusca && cfg.buscaId) {
+        const campoBusca = document.getElementById(cfg.buscaId);
+        if (campoBusca && campoBusca.value) {
+            campoBusca.value = '';
+            atualizarPersistenciaBuscaRapida(cfg.buscaId, '');
+        }
+    }
+
+    const renderRef = window[cfg.renderFn];
+    if (typeof renderRef === 'function') {
+        renderRef();
+    }
+
+    const maxTentativas = 5;
+    const destacar = (tentativa = 0) => {
+        const seletor = `#${cfg.tabelaId} tr[${cfg.attr}="${idRegistro}"]`;
+        const linha = document.querySelector(seletor);
+
+        if (!linha) {
+            if (tentativa < maxTentativas) {
+                setTimeout(() => destacar(tentativa + 1), 100);
+            }
+            return;
+        }
+
+        rolarParaElementoAtalho(linha, 'center');
+        linha.classList.remove('table-row-recent');
+        // Força reinício da animação caso o usuário salve o mesmo registro em sequência.
+        void linha.offsetWidth;
+        linha.classList.add('table-row-recent');
+        setTimeout(() => linha.classList.remove('table-row-recent'), 2800);
+    };
+
+    setTimeout(() => destacar(0), 120);
+    return true;
+}
+
+window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
+
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque() {
     abrirTab('estoque', { semRolagem: true });

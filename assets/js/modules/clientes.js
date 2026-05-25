@@ -11,8 +11,9 @@ function salvarLocador() {
         return;
     }
 
+    const novoId = Date.now();
     locadores.push({
-        id: Date.now(),
+        id: novoId,
         nome,
         email: limparTextoCliente(document.getElementById('locEmail')?.value),
         telefone: limparTextoCliente(document.getElementById('locTel')?.value),
@@ -22,6 +23,9 @@ function salvarLocador() {
 
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'locador', id: novoId, limparBusca: true });
+    }
     sincronizar('salvar');
 
     document.getElementById('locNome').value = "";
@@ -67,6 +71,9 @@ function salvarEdicaoLocador() {
 
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'locador', id: c.id, limparBusca: true });
+    }
     sincronizar('salvar');
 
     document.getElementById('modalEditarLocador').classList.remove('active');

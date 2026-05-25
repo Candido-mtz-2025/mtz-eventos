@@ -25,9 +25,13 @@ function salvarTipo() {
         return;
     }
 
-    tipos.push({ id: Date.now(), nome, desc });
+    const novoId = Date.now();
+    tipos.push({ id: novoId, nome, desc });
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'tipo', id: novoId, limparBusca: true });
+    }
     sincronizar('salvar');
     document.getElementById('tipoNome').value = "";
     document.getElementById('tipoDesc').value = "";
@@ -68,6 +72,9 @@ function salvarEdicaoTipo() {
     t.desc = desc;
     salvarLocal();
     renderTudo();
+    if (typeof focarRegistroRecemSalvo === 'function') {
+        focarRegistroRecemSalvo({ tipo: 'tipo', id: t.id, limparBusca: true });
+    }
     sincronizar('salvar');
     document.getElementById('modalEditarTipo').classList.remove('active');
     mostrarToast("Tipo atualizado!");
