@@ -641,6 +641,46 @@ function tentarSelecionarPrimeiraSugestaoLocacao() {
     return true;
 }
 
+function executarAtalhoEnterModal(event, modalAtivo, alvo) {
+    if (!modalAtivo?.id || !(alvo instanceof HTMLElement)) return false;
+
+    const mapaCamposModal = {
+        modalEditarLocador: ['editLocNome', 'editLocEmail', 'editLocTel'],
+        modalEditarTipo: ['editTipoNome', 'editTipoDesc'],
+        modalEditarPeca: [
+            'editPecaCod',
+            'editPecaTipo',
+            'editPecaNome',
+            'editPecaMedida',
+            'editPecaValor',
+            'editPecaQtd',
+            'editPecaBar',
+            'editPecaGrupoChecklist',
+            'editPecaFamiliaEstrutural',
+            'editPecaSubtipoEstrutural',
+            'editPecaPodeCompor'
+        ]
+    };
+
+    const ordemIds = mapaCamposModal[modalAtivo.id];
+    if (!Array.isArray(ordemIds) || !ordemIds.length) return false;
+
+    const ordemCampos = ordemIds
+        .map((id) => modalAtivo.querySelector(`#${id}`))
+        .filter(elementoAcionavelVisivel);
+
+    const indiceAtual = ordemCampos.indexOf(alvo);
+    if (indiceAtual < 0) return false;
+
+    event.preventDefault();
+    if (indiceAtual < ordemCampos.length - 1) {
+        focarElementoSemRolar(ordemCampos[indiceAtual + 1], true);
+        return true;
+    }
+
+    return executarSalvarModalAtivo(modalAtivo);
+}
+
 function executarAtalhoEnterFormulario(event) {
     if (event.defaultPrevented) return false;
     if (event.key !== 'Enter') return false;
@@ -650,7 +690,9 @@ function executarAtalhoEnterFormulario(event) {
     if (!(alvo instanceof HTMLElement)) return false;
 
     const modalAtivo = obterModalAtiva();
-    if (modalAtivo && modalAtivo.contains(alvo)) return false;
+    if (modalAtivo && modalAtivo.contains(alvo)) {
+        return executarAtalhoEnterModal(event, modalAtivo, alvo);
+    }
 
     const tag = alvo.tagName?.toLowerCase();
     if (tag !== 'input' && tag !== 'select') return false;
