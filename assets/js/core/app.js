@@ -307,14 +307,19 @@ function executarAtalhoBuscaEstoque() {
     }, 160);
 }
 
-// Fluxo completo do atalho de filtros: abre locações, aplica filtro, rola para a lista e evidencia o estado ativo.
-function executarAtalhoFiltroLocacoes(filtro) {
+// Fluxo completo do filtro em locações: abre tab, aplica filtro, rola para lista e evidencia estado ativo.
+function aplicarFiltroLocacoesLista(filtro) {
     abrirTab('locacoes', { semRolagem: true });
 
     setTimeout(() => {
         if (typeof mudarFiltro === 'function') {
             mudarFiltro(filtro);
-        } else if (!clicarSeletorAtalho(`[data-action="mudarFiltro"][data-arg="${filtro}"]`, `Filtro ${filtro} indisponível.`)) {
+        } else if (
+            !clicarSeletorAtalho(
+                `[data-action="aplicarFiltroLocacoesLista"][data-arg="${filtro}"], [data-action="mudarFiltro"][data-arg="${filtro}"]`,
+                `Filtro ${filtro} indisponível.`
+            )
+        ) {
             return;
         }
 
@@ -332,6 +337,11 @@ function executarAtalhoFiltroLocacoes(filtro) {
             }
         }, 90);
     }, 140);
+}
+
+// Mantém compatibilidade com atalhos já existentes.
+function executarAtalhoFiltroLocacoes(filtro) {
+    aplicarFiltroLocacoesLista(filtro);
 }
 
 function executarAtalhoFiltroDevolucoes(filtro) {
