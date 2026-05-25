@@ -420,7 +420,7 @@
                 </div>
             </div>
    <div id="tab-locacoes" class="tab-content">
-        <div class="card">
+        <div id="devolucoesHistoricoCard" class="card">
             <h3>Nova Locação</h3>
             <div id="locacaoFlow" class="locacao-flow">
                 <button type="button" id="locacaoStep1" class="locacao-step is-active" data-action="irEtapaLocacao" data-arg="1">
@@ -637,7 +637,7 @@
             <div class="section-toolbar">
                 <h3>Histórico Recente</h3>
                 <div class="inline-chip-row">
-                    <select id="devFiltroHistorico" data-change="renderDevolucoes">
+                    <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes">
                         <option value="todos">Todos</option>
                         <option value="parcial">Parciais</option>
                         <option value="total">Concluídas</option>
@@ -700,7 +700,7 @@
         
 <!-- ABA AUDITORIA -->
 <div id="tab-auditoria" class="tab-content">
-  <div class="card">
+  <div id="auditoriaCard" class="card">
 
     <div class="audit-header">
       <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
@@ -716,12 +716,12 @@
     </div>
 
     <div class="filters-row filters-segmented audit-filters">
-      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="renderLogs" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
-      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="renderLogs" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
-      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="renderLogs" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
-      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="renderLogs" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
-      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="renderLogs" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="renderLogs" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="aplicarFiltroAuditoria" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="aplicarFiltroAuditoria" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="aplicarFiltroAuditoria" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="aplicarFiltroAuditoria" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="aplicarFiltroAuditoria" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="aplicarFiltroAuditoria" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -967,7 +967,7 @@
     <script src="./assets/js/render/dashboard.js"></script>
     <script src="./assets/js/render/devolucoes.js"></script>
     <script src="./assets/js/ui/eventos.js"></script>
-    <script src="./assets/js/core/app.js"></script>
+    <script src="./assets/js/core/app.js?v=17.1"></script>
         
 </body>
 </html>

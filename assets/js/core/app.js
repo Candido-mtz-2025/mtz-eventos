@@ -160,6 +160,26 @@ function aplicarFiltroDevolucoes(valor) {
     if (typeof renderDevolucoes === 'function') renderDevolucoes();
 }
 
+function obterAlvoHistoricoDevolucoes() {
+    return document.getElementById('devolucoesHistoricoCard')
+        || document.getElementById('tblDevolucoes')?.closest('.card')
+        || document.querySelector('#tab-devolucoes .card:nth-of-type(2)')
+        || document.querySelector('#tab-devolucoes .card');
+}
+
+function aplicarFiltroHistoricoDevolucoes(filtro = null, focarBusca = false) {
+    const select = document.getElementById('devFiltroHistorico');
+    if (select && typeof filtro === 'string' && filtro.trim()) {
+        select.value = filtro;
+    }
+
+    if (typeof renderDevolucoes === 'function') renderDevolucoes();
+
+    const alvo = obterAlvoHistoricoDevolucoes();
+    if (alvo) rolarParaElementoAtalho(alvo, 'start');
+    if (focarBusca) focarCampoDepoisDaRolagem('devBuscaHistorico', true);
+}
+
 function avisarAtalhoIndisponivel(mensagem) {
     if (typeof mostrarToast === 'function') {
         mostrarToast(mensagem, 'erro');
@@ -314,6 +334,14 @@ function executarAtalhoFiltroLocacoes(filtro) {
     }, 140);
 }
 
+function executarAtalhoFiltroDevolucoes(filtro) {
+    abrirTab('devolucoes', { semRolagem: true });
+
+    setTimeout(() => {
+        aplicarFiltroHistoricoDevolucoes(filtro, false);
+    }, 140);
+}
+
 function irParaDevolucoesFormulario() {
     abrirTab('devolucoes', { semRolagem: true });
     setTimeout(() => {
@@ -398,6 +426,19 @@ function irParaAuditoriaBusca() {
     }, 140);
 }
 
+function aplicarFiltroAuditoria(filtro = 'todos', focarBusca = false) {
+    abrirTab('auditoria', { semRolagem: true });
+    if (typeof renderLogs === 'function') renderLogs(filtro || 'todos');
+
+    setTimeout(() => {
+        const alvo = document.getElementById('auditoriaCard')
+            || document.getElementById('tblLogs')?.closest('.card')
+            || document.querySelector('#tab-auditoria .card');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start');
+        if (focarBusca) focarCampoDepoisDaRolagem('auditBusca', true);
+    }, 140);
+}
+
 function irParaConfigGeral() {
     abrirTab('config', { semRolagem: true });
     if (typeof renderConfig === 'function') renderConfig();
@@ -437,12 +478,10 @@ function executarAtalhoRapido(atalhoId) {
             irParaDevolucoesFormulario();
             return;
         case 'qa_filtro_dev_parcial':
-            abrirTab('devolucoes', { semRolagem: true });
-            aplicarFiltroDevolucoes('parcial');
+            executarAtalhoFiltroDevolucoes('parcial');
             return;
         case 'qa_filtro_dev_total':
-            abrirTab('devolucoes', { semRolagem: true });
-            aplicarFiltroDevolucoes('total');
+            executarAtalhoFiltroDevolucoes('total');
             return;
         case 'qa_novo_tipo':
             irParaTiposCadastro();
@@ -479,28 +518,10 @@ function executarAtalhoRapido(atalhoId) {
             if (typeof gerarPDFChecklistMontagem === 'function') gerarPDFChecklistMontagem();
             return;
         case 'qa_log_locacao':
-            abrirTab('auditoria', { semRolagem: true });
-            if (typeof renderLogs === 'function') {
-                renderLogs('locacao');
-            } else {
-                clicarSeletorAtalho('[data-action="renderLogs"][data-arg="locacao"]', 'Filtro de logs de locações indisponível.');
-            }
-            setTimeout(() => {
-                const alvo = document.querySelector('#tab-auditoria .card');
-                if (alvo) rolarParaElementoAtalho(alvo, 'start');
-            }, 120);
+            aplicarFiltroAuditoria('locacao', false);
             return;
         case 'qa_log_sistema':
-            abrirTab('auditoria', { semRolagem: true });
-            if (typeof renderLogs === 'function') {
-                renderLogs('sistema');
-            } else {
-                clicarSeletorAtalho('[data-action="renderLogs"][data-arg="sistema"]', 'Filtro de logs do sistema indisponível.');
-            }
-            setTimeout(() => {
-                const alvo = document.querySelector('#tab-auditoria .card');
-                if (alvo) rolarParaElementoAtalho(alvo, 'start');
-            }, 120);
+            aplicarFiltroAuditoria('sistema', false);
             return;
         case 'qa_busca_auditoria':
             irParaAuditoriaBusca();
