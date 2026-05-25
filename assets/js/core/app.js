@@ -649,7 +649,11 @@ function executarAtalhoRapido(atalhoId) {
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
     const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
-    abrirTab(btnInicial?.dataset.tab || 'dashboard', { semRolagem: true });
+    const ultimaAba = String(localStorage.getItem('mtz:lastTab') || '').trim();
+    const abaInicial = document.querySelector(`.tab-btn[data-tab="${ultimaAba}"]`)
+        ? ultimaAba
+        : (btnInicial?.dataset.tab || 'dashboard');
+    abrirTab(abaInicial, { semRolagem: true });
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
@@ -663,6 +667,8 @@ function executarAtalhoRapido(atalhoId) {
 
     function abrirTab(id, opcoes = {}) {
         const alvoId = `tab-${id}`;
+        const tabExiste = document.getElementById(alvoId);
+        if (!tabExiste) return;
 
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach((tab) => {
@@ -681,6 +687,7 @@ function executarAtalhoRapido(atalhoId) {
 
         atualizarTopbarModulo(id);
         aplicarFeedbackTrocaAba(id);
+        localStorage.setItem('mtz:lastTab', id);
 
         if (opcoes.semRolagem) return;
 
