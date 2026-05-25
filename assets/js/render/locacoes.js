@@ -53,6 +53,12 @@ function atualizarResumoExecutivoLocacoes(lista) {
 function renderLocacoes() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
+    const termoRaw = String(document.getElementById('buscaLocacoes')?.value || '').trim();
+    const normalizar = (valor) => String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    const termo = normalizar(termoRaw);
     
     const tbody = DOM.get('tblLocacoes');
     if (!tbody) return;
@@ -71,11 +77,32 @@ function renderLocacoes() {
         let div = parseFloat(l.divisorFatura) || 1;
         if (div <= 0) div = 1;
         
-        return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false };
+        const clienteNome = locadores.find((x) => x.id === l.locadorId)?.nome || 'Removido';
+        return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false, clienteNome };
     });
     atualizarResumoExecutivoLocacoes(lista);
     
-    const filtrados = lista.filter(l => filtroAtual === 'todos' || l.statusVisual === filtroAtual);
+    const filtrados = lista.filter((l) => {
+        if (filtroAtual !== 'todos' && l.statusVisual !== filtroAtual) {
+            return false;
+        }
+        if (!termo) return true;
+
+        const idTexto = String(l.id || '');
+        const periodoTexto = `${l.dataAluguel || ''} ${l.dataDevolucaoPrevisao || ''}`;
+        const valorTexto = String((Number(l.valorTotal) || 0).toFixed(2)).replace('.', ',');
+        const alvo = normalizar([
+            l.clienteNome,
+            idTexto,
+            `#${idTexto.slice(-4)}`,
+            periodoTexto,
+            l.statusVisual,
+            l.pago ? 'pago' : 'pendente',
+            valorTexto
+        ].join(' '));
+
+        return alvo.includes(termo);
+    });
     filtrados.sort((a, b) => b.id - a.id);
 
     if (typeof atualizarMetaBusca === 'function') {
@@ -89,6 +116,7 @@ function renderLocacoes() {
             total: lista.length,
             filtrados: filtrados.length,
             rotulo: 'locacoes',
+            termo: termoRaw,
             filtro: filtroAtual,
             filtroLabel: rotulosFiltro[filtroAtual] || filtroAtual
         });
@@ -121,12 +149,15 @@ function renderLocacoes() {
             }
         };
         const estadoAtual = mapaVazio[filtroAtual] || mapaVazio.todos;
+        const mensagem = termoRaw
+            ? `Nenhuma locação encontrada para "${termoRaw}".`
+            : estadoAtual.mensagem;
 
         tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
             ? criarLinhaTabelaEstado(5, {
                 tipo: filtroAtual === 'atrasado' ? 'success' : 'empty',
-                titulo: estadoAtual.titulo,
-                mensagem: estadoAtual.mensagem
+                titulo: termoRaw ? 'Nenhuma locação encontrada' : estadoAtual.titulo,
+                mensagem
             })
             : `<tr class="table-empty-row"><td colspan="5">${estadoAtual.titulo}</td></tr>`;
         return;
@@ -136,10 +167,9 @@ function renderLocacoes() {
     const fragment = document.createDocumentFragment();
     
     itensPagina.forEach((l) => {
-        const c = locadores.find((x) => x.id === l.locadorId);
         const nomeCliente = typeof sanitizarTexto === 'function'
-            ? sanitizarTexto(c ? c.nome : 'Removido')
-            : (c ? c.nome : 'Removido');
+            ? sanitizarTexto(l.clienteNome || 'Removido')
+            : (l.clienteNome || 'Removido');
 
         const statusVisual = l.statusVisual === 'atrasado'
             ? 'atrasado'

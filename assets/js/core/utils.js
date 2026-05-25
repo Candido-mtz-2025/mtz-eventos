@@ -27,6 +27,11 @@ const buscarComDebounce = debounce(function(tipo) {
         return;
     }
 
+    if (alvo === 'locacoes' && typeof renderLocacoes === 'function') {
+        renderLocacoes();
+        return;
+    }
+
     if (alvo === 'auditoria' && typeof renderLogs === 'function') {
         renderLogs(window.filtroLogAtual || 'todos');
     }
