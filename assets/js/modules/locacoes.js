@@ -1,6 +1,32 @@
 // Busca inteligente e operacoes de locacao
 let locacaoEtapaAtual = 1;
 let fluxoLocacaoInicializado = false;
+const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
+const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
+
+function normalizarFiltroLocacoes(valor) {
+    const filtro = String(valor || '').trim().toLowerCase();
+    return FILTROS_LOCACOES_VALIDOS.has(filtro) ? filtro : 'todos';
+}
+
+function restaurarFiltroLocacoesPersistido() {
+    try {
+        const salvo = localStorage.getItem(CHAVE_FILTRO_LOCACOES);
+        filtroAtual = normalizarFiltroLocacoes(salvo || filtroAtual);
+    } catch (_) {
+        filtroAtual = normalizarFiltroLocacoes(filtroAtual);
+    }
+}
+
+function persistirFiltroLocacoesAtual() {
+    try {
+        localStorage.setItem(CHAVE_FILTRO_LOCACOES, normalizarFiltroLocacoes(filtroAtual));
+    } catch (_) {
+        // Ignore falhas de storage e mantém experiência padrão.
+    }
+}
+
+restaurarFiltroLocacoesPersistido();
 
 function filtrarItensLocacao() {
     const termoInput = document.getElementById('inputBuscaPeca');
@@ -534,7 +560,8 @@ function cancelarLocacao(id) {
 }
 
 function mudarFiltro(n) {
-    filtroAtual = n;
+    filtroAtual = normalizarFiltroLocacoes(n);
+    persistirFiltroLocacoesAtual();
     renderLocacoes();
 }
 

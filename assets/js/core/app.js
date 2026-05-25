@@ -167,13 +167,42 @@ function obterAlvoHistoricoDevolucoes() {
         || document.querySelector('#tab-devolucoes .card');
 }
 
-function aplicarFiltroHistoricoDevolucoes(filtro = null, focarBusca = false) {
+function normalizarFiltroDevolucoes(valor) {
+    const filtrosValidos = new Set(['todos', 'parcial', 'total']);
+    const filtro = String(valor || '').trim().toLowerCase();
+    return filtrosValidos.has(filtro) ? filtro : 'todos';
+}
+
+function obterFiltroDevolucoesPersistido() {
+    try {
+        return normalizarFiltroDevolucoes(localStorage.getItem('mtz:devolucoesFiltro'));
+    } catch (_) {
+        return 'todos';
+    }
+}
+
+function aplicarFiltroHistoricoDevolucoes(filtro = null, focarBusca = false, rolar = true) {
     const select = document.getElementById('devFiltroHistorico');
-    if (select && typeof filtro === 'string' && filtro.trim()) {
-        select.value = filtro;
+    const filtroNormalizado = normalizarFiltroDevolucoes(
+        (typeof filtro === 'string' && filtro.trim()) ? filtro : (select?.value || 'todos')
+    );
+
+    if (select) {
+        select.value = filtroNormalizado;
+    }
+
+    try {
+        localStorage.setItem('mtz:devolucoesFiltro', filtroNormalizado);
+    } catch (_) {
+        // Falha de storage não impede uso do filtro.
     }
 
     if (typeof renderDevolucoes === 'function') renderDevolucoes();
+
+    if (!rolar) {
+        if (focarBusca) focarCampoDepoisDaRolagem('devBuscaHistorico', true);
+        return;
+    }
 
     const alvo = obterAlvoHistoricoDevolucoes();
     if (alvo) rolarParaElementoAtalho(alvo, 'start');
@@ -610,6 +639,9 @@ function executarAtalhoRapido(atalhoId) {
     carregarLocal();
     if(typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     renderTudo();
+    if (typeof aplicarFiltroHistoricoDevolucoes === 'function') {
+        aplicarFiltroHistoricoDevolucoes(obterFiltroDevolucoesPersistido(), false, false);
+    }
         
     const checklistData = document.getElementById('checklistData');
     if (checklistData && !checklistData.value) {
