@@ -698,6 +698,31 @@ document.addEventListener('keydown', (event) => {
     const alvo = event.target;
     const tag = alvo?.tagName?.toLowerCase();
     const digitando = tag === 'input' || tag === 'textarea' || tag === 'select' || alvo?.isContentEditable;
+    const idCampoBusca = String(alvo?.id || '');
+    const camposBuscaRapida = new Set([
+        'buscaCliente',
+        'buscaTipos',
+        'buscaEstoque',
+        'buscaLocacoes',
+        'devBuscaHistorico',
+        'auditBusca',
+        'inputBuscaPeca'
+    ]);
+
+    if (event.key === 'Escape' && camposBuscaRapida.has(idCampoBusca)) {
+        const valorAtual = String(alvo?.value || '');
+        if (valorAtual.length) {
+            event.preventDefault();
+            alvo.value = '';
+            if (alvo.dataset.input) {
+                alvo.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (alvo.dataset.keyup) {
+                alvo.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
+            }
+        }
+        return;
+    }
 
     if (!digitando && event.key === '/') {
         event.preventDefault();
