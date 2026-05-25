@@ -530,12 +530,13 @@
                     </div>
                 </div>
 
-               <div id="locacoesFiltros" class="filters-row filters-segmented">
+                <div id="locacoesFiltros" class="filters-row filters-segmented">
                     <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro="todos" data-action="aplicarFiltroLocacoesLista" data-arg="todos"><i class="bi bi-list-ul"></i> Todos</button>
                     <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro="ativo" data-action="aplicarFiltroLocacoesLista" data-arg="ativo"><i class="bi bi-play-circle"></i> Em Aberto</button>
                     <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro="atrasado" data-action="aplicarFiltroLocacoesLista" data-arg="atrasado"><i class="bi bi-clock-history"></i> Atrasados</button>
                     <button class="btn btn-sm btn-info" data-tone="info" data-filtro="devolvido" data-action="aplicarFiltroLocacoesLista" data-arg="devolvido"><i class="bi bi-archive"></i> Histórico</button>
                 </div> 
+                <input type="text" id="buscaLocacoes" class="search-input" placeholder="🔍 Buscar cliente, código, período ou status..." data-input="buscarComDebounce" data-arg="locacoes">
                 <div id="metaBuscaLocacoes" class="search-meta" aria-live="polite"></div>
 
                  <div id="locacoesLista" class="panel-block panel-block-spaced">
@@ -941,7 +942,7 @@
     
     <script src="./assets/js/core/dom.js"></script>
     <script src="./assets/js/core/state.js"></script>
-    <script src="./assets/js/core/utils.js?v=2.0"></script>
+    <script src="./assets/js/core/utils.js?v=2.1"></script>
     <script src="./assets/js/ui/toast.js"></script>
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>
@@ -961,7 +962,7 @@
     <script src="./assets/js/modules/backup-tools.js"></script>
     <script src="./assets/js/modules/whatsapp.js"></script>
     <script src="./assets/js/modules/shared-actions.js"></script>
-    <script src="./assets/js/render/locacoes.js?v=14.5"></script>
+    <script src="./assets/js/render/locacoes.js?v=14.6"></script>
     <script src="./assets/js/render/cadastros.js"></script>
     <script src="./assets/js/render/estoque.js"></script>
     <script src="./assets/js/render/dashboard.js"></script>
