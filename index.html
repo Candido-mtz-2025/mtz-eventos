@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=16.9">
+    <link rel="stylesheet" href="./assets/css/style.css?v=17.0">
 </head>
 <body>
 
@@ -158,7 +158,7 @@
                         </div>
                         <div class="stat-icon"><i class="bi bi-cart"></i></div>
                     </div>
-                    <div class="stat-card card-green">
+                    <div class="stat-card card-green" data-action="irParaLocacoesCobrancas">
                         <div class="stat-info">
                             <small id="dashTagReceita" class="stat-tag">Recebimento</small>
                             <h3 id="dashFaturamento" class="metric-value-compact">R$ 0,00</h3>
@@ -259,7 +259,7 @@
                     <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-keyup="buscarComDebounce" data-arg="locadores">
+                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-input="buscarComDebounce" data-arg="locadores">
                     <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
                     <div class="table-responsive">
                         <table class="table">
@@ -389,7 +389,7 @@
                         <div id="listaModelosChecklist"></div>
                     </div>
 
-                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-keyup="buscarComDebounce" data-arg="estoque">
+                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
                     <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
 
                     <div class="inline-chip-row">
@@ -642,7 +642,7 @@
                         <option value="parcial">Parciais</option>
                         <option value="total">Concluídas</option>
                     </select>
-                    <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." data-input="renderDevolucoes">
+                    <input type="text" id="devBuscaHistorico" placeholder="Buscar cliente..." data-input="buscarComDebounce" data-arg="devolucoes">
                 </div>
             </div>
             <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
@@ -726,7 +726,7 @@
     <div class="form-row">
       <div class="form-group">
         <label>Busca rápida em logs</label>
-        <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." data-input="renderLogs" data-arg="__filtro_log__">
+        <input type="text" id="auditBusca" placeholder="Digite descrição, usuário, tipo ou ação..." data-input="buscarComDebounce" data-arg="auditoria">
       </div>
     </div>
     <div id="metaBuscaAuditoria" class="search-meta" aria-live="polite"></div>
@@ -941,7 +941,7 @@
     
     <script src="./assets/js/core/dom.js"></script>
     <script src="./assets/js/core/state.js"></script>
-    <script src="./assets/js/core/utils.js"></script>
+    <script src="./assets/js/core/utils.js?v=2.0"></script>
     <script src="./assets/js/ui/toast.js"></script>
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>

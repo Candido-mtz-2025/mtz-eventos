@@ -8,10 +8,29 @@ function debounce(func, delay) {
 }
 
 // === BUSCA COM DEBOUNCE (ANTI-LAG) ===
+// Centraliza o comportamento de busca por área para reduzir re-render em digitação.
 const buscarComDebounce = debounce(function(tipo) {
-    if (tipo === 'locadores') renderLocadores();
-    if (tipo === 'estoque') renderEstoque();
-}, 300);
+    const alvo = String(tipo || '').toLowerCase();
+
+    if (alvo === 'locadores' && typeof renderLocadores === 'function') {
+        renderLocadores();
+        return;
+    }
+
+    if (alvo === 'estoque' && typeof renderEstoque === 'function') {
+        renderEstoque();
+        return;
+    }
+
+    if (alvo === 'devolucoes' && typeof renderDevolucoes === 'function') {
+        renderDevolucoes();
+        return;
+    }
+
+    if (alvo === 'auditoria' && typeof renderLogs === 'function') {
+        renderLogs(window.filtroLogAtual || 'todos');
+    }
+}, 280);
 
 function sanitizarTexto(valor) {
     const div = document.createElement('div');
