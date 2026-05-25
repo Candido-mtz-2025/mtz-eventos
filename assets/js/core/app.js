@@ -492,6 +492,24 @@ function ativarBuscaRapidaDaAbaAtual() {
     return focoBuscaPorAba(abaAtual);
 }
 
+function navegarParaAbaPorAtalho(numero) {
+    const mapa = {
+        '1': 'dashboard',
+        '2': 'locadores',
+        '3': 'tipos',
+        '4': 'estoque',
+        '5': 'checklist',
+        '6': 'locacoes',
+        '7': 'devolucoes',
+        '8': 'auditoria',
+        '9': 'config'
+    };
+    const tab = mapa[String(numero)];
+    if (!tab) return false;
+    abrirTab(tab);
+    return true;
+}
+
 function atualizarAtalhosRapidos(tabId) {
     // Atalhos rápidos desativados por decisão de usabilidade.
     return;
@@ -690,5 +708,11 @@ document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         ativarBuscaRapidaDaAbaAtual();
+        return;
+    }
+
+    if (!digitando && (event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
+        event.preventDefault();
+        navegarParaAbaPorAtalho(event.key);
     }
 });
