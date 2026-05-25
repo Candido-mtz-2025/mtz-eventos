@@ -713,6 +713,71 @@ function executarAtalhoEnterFormulario(event) {
         }
     }
 
+    if (abaAtual === 'checklist') {
+        const ordemChecklist = [
+            'checklistCliente',
+            'checklistLocal',
+            'checklistMontagemData',
+            'checklistHorario',
+            'checklistEvento',
+            'checklistDesmontagemData',
+            'checklistRespSaida',
+            'checklistRespRetorno',
+            'checklistModeloSelect'
+        ]
+            .map((id) => document.getElementById(id))
+            .filter(elementoAcionavelVisivel);
+
+        const indiceChecklist = ordemChecklist.indexOf(alvo);
+        if (indiceChecklist >= 0) {
+            event.preventDefault();
+            if (indiceChecklist < ordemChecklist.length - 1) {
+                focarElementoSemRolar(ordemChecklist[indiceChecklist + 1], true);
+                return true;
+            }
+
+            return acionarPrimeiraAcaoDisponivel(['adicionarModeloAoChecklist'], escopoAba);
+        }
+    }
+
+    if (abaAtual === 'devolucoes') {
+        const ordemCadastroDevolucao = ['devLocacao', 'devData']
+            .map((id) => document.getElementById(id))
+            .filter(elementoAcionavelVisivel);
+
+        const indiceCadastro = ordemCadastroDevolucao.indexOf(alvo);
+        if (indiceCadastro >= 0) {
+            event.preventDefault();
+            if (indiceCadastro < ordemCadastroDevolucao.length - 1) {
+                focarElementoSemRolar(ordemCadastroDevolucao[indiceCadastro + 1], true);
+                return true;
+            }
+
+            const camposConferencia = Array.from(document.querySelectorAll('#divItensDevolucao .dev-qtd, #divItensDevolucao .dev-avaria'))
+                .filter(elementoAcionavelVisivel);
+            if (camposConferencia.length) {
+                focarElementoSemRolar(camposConferencia[0], true);
+                return true;
+            }
+
+            return acionarPrimeiraAcaoDisponivel(['confirmarDevolucao'], escopoAba);
+        }
+
+        if (alvo.classList.contains('dev-qtd') || alvo.classList.contains('dev-avaria')) {
+            event.preventDefault();
+
+            const camposConferencia = Array.from(document.querySelectorAll('#divItensDevolucao .dev-qtd, #divItensDevolucao .dev-avaria'))
+                .filter(elementoAcionavelVisivel);
+            const indiceConferencia = camposConferencia.indexOf(alvo);
+            if (indiceConferencia >= 0 && indiceConferencia < camposConferencia.length - 1) {
+                focarElementoSemRolar(camposConferencia[indiceConferencia + 1], true);
+                return true;
+            }
+
+            return acionarPrimeiraAcaoDisponivel(['confirmarDevolucao'], escopoAba);
+        }
+    }
+
     if (!IDS_BUSCA_ENTER_LIVRE.has(idAtual)) {
         const fluxos = {
             locadores: {
@@ -738,6 +803,10 @@ function executarAtalhoEnterFormulario(event) {
                     'pecaPodeCompor'
                 ],
                 acoes: ['salvarPeca']
+            },
+            config: {
+                campos: ['confRodape', 'confTel', 'confEmail'],
+                acoes: ['salvarConfig']
             }
         };
 
