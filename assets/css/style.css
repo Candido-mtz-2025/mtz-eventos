@@ -563,6 +563,7 @@
         /* BOTÕES & BADGES */
         .btn { padding: 10px 18px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: 0.2s; }
         .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+        .btn.is-busy { cursor: progress; pointer-events: none; opacity: 0.88; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-success { background: #10b981; color: white; }
         .btn-danger { background: #ef4444; color: white; }

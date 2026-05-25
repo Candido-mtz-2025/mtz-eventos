@@ -33,6 +33,41 @@ function collectActionArgs(element, event) {
     return args;
 }
 
+const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
+    'salvarLocador',
+    'salvarTipo',
+    'salvarPeca',
+    'salvarConfig',
+    'salvarEdicaoLocador',
+    'salvarEdicaoTipo',
+    'salvarEdicaoPeca',
+    'salvarModeloChecklistForm',
+    'finalizarLocacao',
+    'confirmarDevolucao',
+    'removerItem',
+    'excluirModeloChecklistUI',
+    'removerSelecionadosEstoque'
+]);
+
+function acaoTemBloqueioCurto(actionName) {
+    return ACTIONS_COM_BLOQUEIO_CURTO.has(String(actionName || '').trim());
+}
+
+function travarBotaoAcao(element) {
+    if (!(element instanceof HTMLButtonElement)) return null;
+    if (element.dataset.actionBusy === '1') return false;
+
+    element.dataset.actionBusy = '1';
+    element.classList.add('is-busy');
+    element.setAttribute('aria-busy', 'true');
+
+    return () => {
+        element.dataset.actionBusy = '0';
+        element.classList.remove('is-busy');
+        element.setAttribute('aria-busy', 'false');
+    };
+}
+
 function runDataAction(actionName, element, event) {
     if (!actionName) return;
 
@@ -58,7 +93,24 @@ function runDataAction(actionName, element, event) {
     }
 
     const args = collectActionArgs(element, event);
-    actionFn(...args);
+    const deveBloquear = acaoTemBloqueioCurto(actionName);
+    const liberar = deveBloquear ? travarBotaoAcao(element) : null;
+    if (deveBloquear && liberar === false) return;
+
+    try {
+        const retorno = actionFn(...args);
+        if (liberar) {
+            if (retorno && typeof retorno.then === 'function') {
+                retorno.finally(() => liberar());
+            } else {
+                setTimeout(() => liberar(), 900);
+            }
+        }
+    } catch (erro) {
+        if (liberar) liberar();
+        console.error(`Erro ao executar ação "${actionName}":`, erro);
+        throw erro;
+    }
 }
 
 document.addEventListener('click', function (event) {
