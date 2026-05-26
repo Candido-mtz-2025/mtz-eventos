@@ -1164,32 +1164,29 @@ function acionarImportacaoEstoqueViaAtalho() {
     const abrirSeletor = () => {
         const inputExcel = document.getElementById('inputExcel');
         if (!inputExcel) {
-            avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
-            return;
+            return false;
         }
         inputExcel.click();
+        return true;
     };
 
     const abaAtual = obterAbaAtivaAtual();
-    if (abaAtual === 'estoque') {
-        abrirSeletor();
-        return;
+    if (abaAtual !== 'estoque') {
+        abrirTab('estoque', { semRolagem: true });
+    } else if (typeof sincronizarEstadoVisualDaAba === 'function') {
+        sincronizarEstadoVisualDaAba('estoque');
     }
 
-    navegarComFocoAtalho({
-        tabId: 'estoque',
-        render: () => {
-            if (typeof renderEstoque === 'function') renderEstoque();
-        },
-        resolverAlvo: () => document.getElementById('tab-estoque')
-            || document.querySelector('#tab-estoque .card'),
-        alinhamento: 'start',
-        mensagemFalha: 'Tela de estoque não encontrada.'
-    });
+    // Tenta abrir imediatamente no mesmo gesto do usuário (mais compatível em mobile).
+    if (abrirSeletor()) return;
 
     aguardarElementoAtalho(
         () => document.getElementById('inputExcel'),
-        () => abrirSeletor(),
+        () => {
+            if (!abrirSeletor()) {
+                avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
+            }
+        },
         {
             onFalha: () => avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.'),
             maxTentativas: 14,
