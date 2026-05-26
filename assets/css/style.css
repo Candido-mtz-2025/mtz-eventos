@@ -1569,8 +1569,41 @@ header .container {
     background: color-mix(in srgb, #101b2d 86%, #1e3a8a 14%);
 }
 
+.locacoes-search-toolbar {
+    position: sticky;
+    top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 10px);
+    z-index: 17;
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 1px solid #d7e3f2;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 92%, #eff6ff 8%);
+}
+
+.locacoes-search-toolbar .filters-row {
+    margin-bottom: 8px;
+}
+
+.locacoes-search-toolbar .search-input {
+    margin-bottom: 8px;
+}
+
+.locacoes-search-toolbar .search-meta {
+    margin: 0;
+}
+
+[data-theme="dark"] .locacoes-search-toolbar {
+    border-color: #31445f;
+    background: color-mix(in srgb, #101b2d 86%, #1e3a8a 14%);
+}
+
 @media (max-width: 760px) {
     .estoque-search-toolbar {
+        top: calc(var(--app-header-height, 136px) + var(--app-tabs-sticky-gap, 2px) + 8px);
+        padding: 8px;
+    }
+
+    .locacoes-search-toolbar {
         top: calc(var(--app-header-height, 136px) + var(--app-tabs-sticky-gap, 2px) + 8px);
         padding: 8px;
     }
