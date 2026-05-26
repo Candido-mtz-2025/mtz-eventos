@@ -195,6 +195,35 @@ function atualizarTopbarModulo(tabId) {
     topbar.style.display = 'flex';
 }
 
+function sincronizarEstadoVisualDaAba(tabId) {
+    const aba = String(tabId || '').trim();
+    if (!aba) return;
+
+    if (aba === 'locacoes') {
+        if (typeof atualizarFiltroVisualLocacoes === 'function') {
+            atualizarFiltroVisualLocacoes();
+        }
+        return;
+    }
+
+    if (aba === 'devolucoes') {
+        const filtroPersistido = typeof obterFiltroDevolucoesPersistido === 'function'
+            ? obterFiltroDevolucoesPersistido()
+            : 'todos';
+
+        const select = document.getElementById('devFiltroHistorico');
+        if (select && filtroPersistido && select.value !== filtroPersistido) {
+            select.value = filtroPersistido;
+        }
+
+        if (typeof aplicarFiltroHistoricoDevolucoes === 'function') {
+            aplicarFiltroHistoricoDevolucoes(filtroPersistido || select?.value || 'todos', false, false);
+        } else if (typeof renderDevolucoes === 'function') {
+            renderDevolucoes();
+        }
+    }
+}
+
 function aplicarFeedbackTrocaAba(tabId) {
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return;
@@ -1774,6 +1803,7 @@ function executarAtalhoRapido(atalhoId) {
         aplicarFeedbackTrocaAba(id);
         localStorage.setItem('mtz:lastTab', id);
         revalidarAcoesDaInterface(id);
+        setTimeout(() => sincronizarEstadoVisualDaAba(id), 20);
 
         if (opcoes.semRolagem) return;
 
