@@ -337,13 +337,14 @@
 
                     <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 
-                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
-                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
-
-                    <div class="inline-chip-row">
-                        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
-                            <i class="bi bi-trash"></i> Excluir selecionados
-                        </button>
+                    <div class="estoque-search-toolbar">
+                        <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
+                        <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
+                                <i class="bi bi-trash"></i> Excluir selecionados
+                            </button>
+                        </div>
                     </div>
 
                     <div class="panel-block">
