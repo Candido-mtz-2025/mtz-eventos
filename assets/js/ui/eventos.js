@@ -125,6 +125,42 @@ function obterRotuloBusy(actionName, element) {
     return ROTULOS_ACAO_BUSY[String(actionName || '').trim()] || '';
 }
 
+function marcarAcaoIndisponivel(elemento, mensagem) {
+    if (!(elemento instanceof HTMLElement)) return;
+    elemento.dataset.actionUnavailable = '1';
+    elemento.classList.add('is-action-unavailable');
+    if (typeof elemento.dataset.actionTitlePrev === 'undefined') {
+        elemento.dataset.actionTitlePrev = elemento.getAttribute('title') || '';
+    }
+    if (mensagem) elemento.setAttribute('title', mensagem);
+
+    if (elemento instanceof HTMLButtonElement) {
+        elemento.disabled = true;
+    } else {
+        elemento.setAttribute('aria-disabled', 'true');
+    }
+}
+
+function limparMarcacaoAcaoIndisponivel(elemento) {
+    if (!(elemento instanceof HTMLElement)) return;
+    delete elemento.dataset.actionUnavailable;
+    elemento.classList.remove('is-action-unavailable');
+    if (Object.prototype.hasOwnProperty.call(elemento.dataset, 'actionTitlePrev')) {
+        const tituloOriginal = elemento.dataset.actionTitlePrev;
+        if (tituloOriginal) elemento.setAttribute('title', tituloOriginal);
+        else elemento.removeAttribute('title');
+        delete elemento.dataset.actionTitlePrev;
+    }
+
+    if (elemento instanceof HTMLButtonElement) {
+        if (elemento.dataset.actionBusy !== '1') {
+            elemento.disabled = false;
+        }
+    } else {
+        elemento.setAttribute('aria-disabled', 'false');
+    }
+}
+
 function travarBotaoAcao(element, actionName) {
     if (!(element instanceof HTMLButtonElement)) return null;
     if (element.dataset.actionBusy === '1') return false;
@@ -160,13 +196,30 @@ function travarBotaoAcao(element, actionName) {
 
 function runDataAction(actionName, element, event) {
     if (!actionName) return;
+    if (element?.dataset?.actionUnavailable === '1') {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Esta ação está indisponível nesta tela.', 'erro');
+        }
+        return;
+    }
     const acaoResolvida = resolverNomeAcao(actionName);
 
     if (acaoResolvida === 'triggerClick') {
         const targetId = element.dataset.targetId;
-        if (!targetId) return;
+        if (!targetId) {
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Ação de atalho sem destino configurado.', 'erro');
+            }
+            return;
+        }
         const target = document.getElementById(targetId);
-        if (target) target.click();
+        if (!target) {
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Destino do atalho não encontrado na tela.', 'erro');
+            }
+            return;
+        }
+        target.click();
         return;
     }
 
@@ -219,8 +272,31 @@ function auditarAcoesDaInterface() {
 
     const faltantes = nomes.filter((nomeBruto) => {
         const nome = resolverNomeAcao(nomeBruto);
+        if (nome === 'triggerClick') return false;
         if (ACTIONS_ESPECIAIS_DISPATCH.has(nome)) return false;
         return typeof window[nome] !== 'function';
+    });
+
+    elementos.forEach((el) => {
+        const nomeBruto = String(el.dataset.action || '').trim();
+        const nome = resolverNomeAcao(nomeBruto);
+
+        if (nome === 'triggerClick') {
+            const targetId = String(el.dataset.targetId || '').trim();
+            if (!targetId || !document.getElementById(targetId)) {
+                marcarAcaoIndisponivel(el, 'Atalho indisponível: destino não encontrado.');
+            } else {
+                limparMarcacaoAcaoIndisponivel(el);
+            }
+            return;
+        }
+
+        if (ACTIONS_ESPECIAIS_DISPATCH.has(nome) || typeof window[nome] === 'function') {
+            limparMarcacaoAcaoIndisponivel(el);
+            return;
+        }
+
+        marcarAcaoIndisponivel(el, 'Ação indisponível: função não encontrada.');
     });
 
     if (!faltantes.length) return;

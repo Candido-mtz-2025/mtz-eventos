@@ -212,6 +212,11 @@
             transform: none;
         }
 
+        [data-action].is-action-unavailable {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         [data-theme="dark"] {
             --primary: #60a5fa;
             --primary-hover: #3b82f6;
