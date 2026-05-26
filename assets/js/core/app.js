@@ -752,6 +752,81 @@ function irParaConfigGeral() {
     });
 }
 
+function irParaClientesCadastro() {
+    navegarComFocoAtalho({
+        tabId: 'locadores',
+        resolverAlvo: () => document.getElementById('locNome')
+            || document.querySelector('#tab-locadores .card'),
+        idFoco: 'locNome',
+        alinhamento: 'start',
+        mensagemFalha: 'Formulário de cliente não encontrado.'
+    });
+}
+
+function irParaChecklistModelo() {
+    navegarComFocoAtalho({
+        tabId: 'checklist',
+        resolverAlvo: () => document.getElementById('checklistModeloSelect')
+            || document.querySelector('#tab-checklist .card'),
+        idFoco: 'checklistModeloSelect',
+        alinhamento: 'start',
+        mensagemFalha: 'Seleção de modelo do checklist não encontrada.'
+    });
+}
+
+function gerarChecklistPDFViaAtalho() {
+    navegarComFocoAtalho({
+        tabId: 'checklist',
+        resolverAlvo: () => document.querySelector('#tab-checklist .inline-chip-row')
+            || document.getElementById('checklistCardLista')
+            || document.querySelector('#tab-checklist .card'),
+        alinhamento: 'start',
+        mensagemFalha: 'Ações de checklist não encontradas.'
+    });
+    setTimeout(() => {
+        if (typeof gerarPDFChecklistMontagem === 'function') {
+            gerarPDFChecklistMontagem();
+        } else {
+            avisarAtalhoIndisponivel('Geração de PDF do checklist indisponível.');
+        }
+    }, 140);
+}
+
+function acionarImportacaoEstoqueViaAtalho() {
+    navegarComFocoAtalho({
+        tabId: 'estoque',
+        render: () => {
+            if (typeof renderEstoque === 'function') renderEstoque();
+        },
+        resolverAlvo: () => document.getElementById('tab-estoque')
+            || document.querySelector('#tab-estoque .card'),
+        alinhamento: 'start',
+        mensagemFalha: 'Tela de estoque não encontrada.'
+    });
+
+    setTimeout(() => {
+        const inputExcel = document.getElementById('inputExcel');
+        if (!inputExcel) {
+            avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
+            return;
+        }
+        inputExcel.click();
+    }, 120);
+}
+
+function irParaConfigBackup() {
+    navegarComFocoAtalho({
+        tabId: 'config',
+        preparar: () => {
+            if (typeof renderConfig === 'function') renderConfig();
+        },
+        resolverAlvo: () => document.querySelector('#tab-config .config-actions-card')
+            || document.querySelector('#tab-config .card'),
+        alinhamento: 'start',
+        mensagemFalha: 'Área de backup não encontrada.'
+    });
+}
+
 function obterAbaAtivaAtual() {
     const ativa = document.querySelector('.tab-content.active');
     if (!ativa?.id) return 'dashboard';
@@ -1239,8 +1314,7 @@ function atualizarAtalhosRapidos(tabId) {
 function executarAtalhoRapido(atalhoId) {
     switch (atalhoId) {
         case 'qa_novo_cliente':
-            abrirTab('locadores', { semRolagem: true });
-            focarCampoAtalho('locNome', false, 'center', 'Nome do cliente');
+            irParaClientesCadastro();
             return;
         case 'qa_busca_cliente':
             irParaClientesLista();
@@ -1276,26 +1350,16 @@ function executarAtalhoRapido(atalhoId) {
             irParaEstoqueBusca();
             return;
         case 'qa_importar_excel':
-            abrirTab('estoque', { semRolagem: true });
-            {
-                const inputExcel = document.getElementById('inputExcel');
-                if (!inputExcel) {
-                    avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
-                    return;
-                }
-                inputExcel.click();
-            }
+            acionarImportacaoEstoqueViaAtalho();
             return;
         case 'qa_novo_checklist':
             irParaChecklistOperacional();
             return;
         case 'qa_modelo_checklist':
-            abrirTab('checklist', { semRolagem: true });
-            focarCampoAtalho('checklistModeloSelect', false, 'center', 'Modelo do checklist');
+            irParaChecklistModelo();
             return;
         case 'qa_gerar_pdf_checklist':
-            abrirTab('checklist', { semRolagem: true });
-            if (typeof gerarPDFChecklistMontagem === 'function') gerarPDFChecklistMontagem();
+            gerarChecklistPDFViaAtalho();
             return;
         case 'qa_log_locacao':
             aplicarFiltroAuditoria('locacao', false);
@@ -1310,12 +1374,7 @@ function executarAtalhoRapido(atalhoId) {
             irParaConfigGeral();
             return;
         case 'qa_backup_json':
-            abrirTab('config', { semRolagem: true });
-            setTimeout(() => {
-                const alvo = document.querySelector('#tab-config .config-actions-card')
-                    || document.querySelector('#tab-config .card');
-                if (alvo) rolarParaElementoAtalho(alvo, 'start');
-            }, 120);
+            irParaConfigBackup();
             if (typeof baixarBackup === 'function') baixarBackup();
             return;
         case 'qa_abrir_auditoria':
