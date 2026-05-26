@@ -63,6 +63,26 @@ const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
     'arquivarHistorico'
 ]);
 
+const ROTULOS_ACAO_BUSY = Object.freeze({
+    salvarLocador: 'Salvando...',
+    salvarTipo: 'Salvando...',
+    salvarPeca: 'Salvando...',
+    salvarConfig: 'Salvando...',
+    salvarEdicaoLocador: 'Salvando...',
+    salvarEdicaoTipo: 'Salvando...',
+    salvarEdicaoPeca: 'Salvando...',
+    salvarModeloChecklistForm: 'Salvando...',
+    adicionarModeloAoChecklist: 'Adicionando...',
+    addItemCarrinho: 'Adicionando...',
+    finalizarLocacao: 'Concluindo...',
+    confirmarDevolucao: 'Registrando...',
+    excluirSelecionadosEstoque: 'Excluindo...',
+    excluirModeloChecklistUI: 'Excluindo...',
+    arquivarHistorico: 'Arquivando...',
+    exportarLogsCSV: 'Exportando...',
+    baixarBackup: 'Baixando...'
+});
+
 function acaoTemBloqueioCurto(actionName) {
     return ACTIONS_COM_BLOQUEIO_CURTO.has(String(actionName || '').trim());
 }
@@ -99,17 +119,41 @@ function agendarPrepararAcessibilidadeAcoes() {
     });
 }
 
-function travarBotaoAcao(element) {
+function obterRotuloBusy(actionName, element) {
+    const personalizado = String(element?.dataset?.busyText || '').trim();
+    if (personalizado) return personalizado;
+    return ROTULOS_ACAO_BUSY[String(actionName || '').trim()] || '';
+}
+
+function travarBotaoAcao(element, actionName) {
     if (!(element instanceof HTMLButtonElement)) return null;
     if (element.dataset.actionBusy === '1') return false;
 
+    const estavaDesabilitado = element.disabled;
+    const rotuloBusy = obterRotuloBusy(actionName, element);
+    const podeTrocarConteudo = Boolean(rotuloBusy && element.textContent && element.textContent.trim().length >= 3);
+
     element.dataset.actionBusy = '1';
+    element.dataset.actionDisabledPrev = estavaDesabilitado ? '1' : '0';
+    if (podeTrocarConteudo) {
+        element.dataset.actionBusyHtml = element.innerHTML;
+        element.innerHTML = `<span class="inline-loader" aria-hidden="true"></span><span>${rotuloBusy}</span>`;
+    }
     element.classList.add('is-busy');
+    element.disabled = true;
     element.setAttribute('aria-busy', 'true');
 
     return () => {
         element.dataset.actionBusy = '0';
+        const disabledPrev = element.dataset.actionDisabledPrev === '1';
+        const htmlOriginal = element.dataset.actionBusyHtml;
+        if (htmlOriginal) {
+            element.innerHTML = htmlOriginal;
+        }
+        delete element.dataset.actionBusyHtml;
+        delete element.dataset.actionDisabledPrev;
         element.classList.remove('is-busy');
+        element.disabled = disabledPrev;
         element.setAttribute('aria-busy', 'false');
     };
 }
@@ -144,7 +188,7 @@ function runDataAction(actionName, element, event) {
 
     const args = collectActionArgs(element, event);
     const deveBloquear = acaoTemBloqueioCurto(acaoResolvida);
-    const liberar = deveBloquear ? travarBotaoAcao(element) : null;
+    const liberar = deveBloquear ? travarBotaoAcao(element, acaoResolvida) : null;
     if (deveBloquear && liberar === false) return;
 
     try {
