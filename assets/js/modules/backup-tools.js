@@ -39,29 +39,59 @@
         }
     }
 
+    function pad2(valor) {
+        return String(valor).padStart(2, '0');
+    }
+
+    function gerarNomeArquivoData(prefixo, extensao = 'json') {
+        const agora = new Date();
+        const yyyy = agora.getFullYear();
+        const mm = pad2(agora.getMonth() + 1);
+        const dd = pad2(agora.getDate());
+        const hh = pad2(agora.getHours());
+        const mi = pad2(agora.getMinutes());
+        return `${prefixo}_${yyyy}-${mm}-${dd}_${hh}${mi}.${extensao}`;
+    }
+
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
-        const snapshot = typeof gerarSnapshotDadosSistema === 'function'
-            ? gerarSnapshotDadosSistema()
-            : {
-                locadores, pecas, locacoes, devolucoes, tipos, config,
-                logsAuditoria, modelosChecklist, checklistsGerados,
-                checklistMontagem, checklistConferencia, checklistEtapasMontagem
-            };
-        const dados = JSON.stringify({
-            versao: '11.1',
-            data: new Date().toISOString(),
-            ...snapshot
-        });
-        const blob = new Blob([dados], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `MTZ_Backup_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        mostrarToast("Backup baixado!");
+        try {
+            const snapshot = typeof gerarSnapshotDadosSistema === 'function'
+                ? gerarSnapshotDadosSistema()
+                : {
+                    locadores, pecas, locacoes, devolucoes, tipos, config,
+                    logsAuditoria, modelosChecklist, checklistsGerados,
+                    checklistMontagem, checklistConferencia, checklistEtapasMontagem
+                };
+            const dados = JSON.stringify({
+                versao: '11.1',
+                data: new Date().toISOString(),
+                ...snapshot
+            });
+
+            const blob = new Blob([dados], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = gerarNomeArquivoData('MTZ_Backup');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            if (typeof registrarLog === 'function') {
+                registrarLog(
+                    'sistema',
+                    'backup_download',
+                    `Backup JSON exportado (${normalizarListaBackup(snapshot.locadores).length} clientes, ${normalizarListaBackup(snapshot.pecas).length} itens).`
+                );
+            }
+
+            mostrarToast("Backup baixado!");
+        } catch (erro) {
+            console.error('Erro ao gerar backup JSON:', erro);
+            mostrarToast("Não foi possível gerar o backup agora.", "erro");
+        }
     }
 
     function restaurarBackup(input) {
@@ -178,12 +208,14 @@
         });
         
         const blob = new Blob([dadosMortos], {type: "application/json"});
+        const urlArquivo = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `MTZ_Arquivo_Morto_${new Date().toISOString().split('T')[0]}.json`;
+        link.href = urlArquivo;
+        link.download = gerarNomeArquivoData('MTZ_Arquivo_Morto');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(urlArquivo);
 
         locacoes = contratosParaManter;
         devolucoes = devolucoes.filter(d => locacoes.some(l => l.id === d.locacaoId));
@@ -191,6 +223,9 @@
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
+        if (typeof registrarLog === 'function') {
+            registrarLog('sistema', 'arquivar_historico', `Arquivados ${contratosParaArquivar.length} contrato(s) finalizado(s).`);
+        }
         mostrarToast("Sistema limpo e otimizado!");
     }
 
