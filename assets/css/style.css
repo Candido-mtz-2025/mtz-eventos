@@ -6310,3 +6310,70 @@ textarea:focus {
     outline-offset: 2px;
     border-radius: 10px;
 }
+
+/* === V16.6 | AÇÕES DE TABELA (ANTI-CORTE + TOQUE) === */
+#tab-locadores td.col-actions,
+#tab-tipos td.col-actions,
+#tab-estoque td.col-actions,
+#tab-locacoes td.col-actions,
+#tab-devolucoes td.col-actions {
+    overflow: visible !important;
+    padding-right: 16px !important;
+}
+
+#tab-locadores td.col-actions .actions-cell,
+#tab-tipos td.col-actions .actions-cell,
+#tab-estoque td.col-actions .actions-cell,
+#tab-devolucoes td.col-actions .actions-cell {
+    margin-right: 2px;
+}
+
+#tab-locacoes td.col-actions {
+    min-width: 300px !important;
+}
+
+#tab-locacoes td.col-actions .actions-cell,
+#tab-locacoes td.col-actions .locacao-actions {
+    padding-right: 2px;
+}
+
+@media (max-width: 1100px) {
+    #tab-locacoes td.col-actions,
+    #tblLocacoes td.col-actions,
+    #tab-locacoes .table th:nth-child(5),
+    #tab-locacoes .table td:nth-child(5) {
+        width: 272px !important;
+        min-width: 272px !important;
+    }
+}
+
+@media (max-width: 760px) {
+    #tab-locadores td.col-actions .actions-cell .btn,
+    #tab-tipos td.col-actions .actions-cell .btn,
+    #tab-estoque td.col-actions .actions-cell .btn,
+    #tab-locacoes td.col-actions .actions-cell .btn,
+    #tab-locacoes td.col-actions .locacao-actions .btn,
+    #tab-locacoes td.col-actions .locacao-action-btn,
+    #tab-devolucoes td.col-actions .actions-cell .btn {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+    }
+
+    #tab-locacoes td.col-actions,
+    #tblLocacoes td.col-actions,
+    #tab-locacoes .table th:nth-child(5),
+    #tab-locacoes .table td:nth-child(5) {
+        width: 224px !important;
+        min-width: 224px !important;
+    }
+
+    #tab-locacoes td.col-actions .actions-cell,
+    #tab-locacoes td.col-actions .locacao-actions {
+        justify-content: flex-end !important;
+        flex-wrap: wrap !important;
+        row-gap: 6px !important;
+        column-gap: 6px !important;
+    }
+}
