@@ -281,7 +281,7 @@ function obterAlvoInicialDaTab(tabId) {
         tipos: '#tab-tipos .card',
         estoque: '#tab-estoque .card',
         checklist: '#tab-checklist .card',
-        locacoes: '#tab-locacoes .card',
+        locacoes: '#locacoesPrincipalCard',
         devolucoes: '#tab-devolucoes .card',
         auditoria: '#tab-auditoria .card',
         config: '#tab-config .card'
