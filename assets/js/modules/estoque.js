@@ -1,6 +1,6 @@
 // Estoque: cadastro, edição, remoção e seleção em lote
     // === RECALCULAR DISPONIBILIDADE COM CACHE ===
-    function recalcularDisponibilidade(forcar = false) {
+function recalcularDisponibilidade(forcar = false) {
         const agora = Date.now();
         
         if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
@@ -13,7 +13,11 @@
         const aluguelPorPeca = new Map();
         
         locacoes.forEach(l => {
-            if (l.status !== 'devolvido') {
+            const locacaoNormalizada = typeof normalizarLocacaoDominio === 'function'
+                ? normalizarLocacaoDominio(l, { hoje: new Date() })
+                : l;
+            const statusVisual = String(locacaoNormalizada?.statusVisual || locacaoNormalizada?.status || '').toLowerCase();
+            if (statusVisual !== 'devolvido' && statusVisual !== 'cancelado') {
                 (l.items || []).forEach(i => {
                     const qtdAlugada = Math.max((i.quantidade || 0) - (i.devolvidos || 0), 0);
                     const atual = aluguelPorPeca.get(i.pecaId) || 0;
@@ -23,8 +27,15 @@
         });
         
         pecas.forEach(p => {
+            if (typeof normalizarPecaDominio === 'function') {
+                Object.assign(p, normalizarPecaDominio(p));
+            }
             const alugado = aluguelPorPeca.get(p.id) || 0;
-            p.disponivel = (p.quantidade || 0) - alugado;
+            p.reservado = Math.max(alugado, 0);
+            p.disponivel = Math.max((p.quantidadeTotal || p.quantidade || 0) - p.reservado, 0);
+            if (typeof normalizarPecaDominio === 'function') {
+                Object.assign(p, normalizarPecaDominio(p));
+            }
         });
         
         cacheDisponibilidade = true;
@@ -153,13 +164,23 @@ function salvarPeca() {
     }
 
     const novoId = Date.now();
-    pecas.push({
+    const novaPecaBase = {
         id: novoId,
         nome: n,
         codigo,
         valor,
         quantidade,
+        quantidadeTotal: quantidade,
         disponivel: quantidade,
+        reservado: 0,
+        manutencao: 0,
+        avariado: 0,
+        perdido: 0,
+        localizacao: '',
+        historicoMovimentacoes: [],
+        codigoInterno: codigo,
+        qrCode: barras,
+        status: 'ativo',
         tipoId,
         medida,
         barras,
@@ -168,7 +189,12 @@ function salvarPeca() {
         familiaEstrutural: document.getElementById('pecaFamiliaEstrutural').value || '',
         subtipoEstrutural: document.getElementById('pecaSubtipoEstrutural').value || '',
         podeComporEstrutura: document.getElementById('pecaPodeCompor').value === 'sim'
-    });
+    };
+
+    const novaPeca = typeof normalizarPecaDominio === 'function'
+        ? normalizarPecaDominio(novaPecaBase)
+        : novaPecaBase;
+    pecas.push(novaPeca);
 
     salvarLocal();
     renderTudo();
@@ -230,7 +256,9 @@ function salvarEdicaoPeca() {
     const novoBarras = (document.getElementById('editPecaBar').value || '').trim();
     const novoTipoId = resolverTipoSelecionado(document.getElementById('editPecaTipo').value);
     const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
-    const diff = novaQtd - (p.quantidade || 0);
+    const pAtual = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(p) : p;
+    const qtdAnterior = parseInt(pAtual.quantidadeTotal ?? pAtual.quantidade, 10) || 0;
+    const diff = novaQtd - qtdAnterior;
 
     if (!novoNome) {
         mostrarToast("Informe o nome da peca.", "erro");
@@ -271,6 +299,7 @@ function salvarEdicaoPeca() {
     p.medida = novaMedida;
     p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
     p.tipoId = novoTipoId;
+    p.quantidadeTotal = novaQtd;
     p.quantidade = novaQtd;
     p.disponivel = (p.disponivel || 0) + diff;
     p.barras = novoBarras;
@@ -279,6 +308,10 @@ function salvarEdicaoPeca() {
     p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
     p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
     p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
+
+    if (typeof normalizarPecaDominio === 'function') {
+        Object.assign(p, normalizarPecaDominio(p));
+    }
 
     document.getElementById('modalEditarPeca').classList.remove('active');
     document.getElementById('editPecaId').value = "";

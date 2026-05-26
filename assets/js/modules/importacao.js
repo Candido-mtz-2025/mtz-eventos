@@ -168,16 +168,30 @@ function processarExcelInteligente(input) {
 
         if (!existe) {
             const novoId = gerarIdImportacao();
-            pecas.push({
+            const pecaImportadaBase = {
                 id: novoId,
                 codigo: `IMP-${String(novoId).slice(-6)}`,
                 nome: nome,
                 quantidade: qtd,
+                quantidadeTotal: qtd,
                 disponivel: qtd,
+                reservado: 0,
+                manutencao: 0,
+                avariado: 0,
+                perdido: 0,
+                localizacao: '',
+                historicoMovimentacoes: [],
+                codigoInterno: `IMP-${String(novoId).slice(-6)}`,
+                qrCode: '',
+                status: 'ativo',
                 valor: 0,
                 tipoId: catId,
                 medida: ''
-            });
+            };
+            const pecaImportada = typeof normalizarPecaDominio === 'function'
+                ? normalizarPecaDominio(pecaImportadaBase)
+                : pecaImportadaBase;
+            pecas.push(pecaImportada);
             stats.importados++;
         }
     }

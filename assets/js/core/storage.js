@@ -4,7 +4,7 @@ const STORAGE_EDIT_KEY = 'mtzUltimaEdicao';
 const STORAGE_BACKUP_EMERGENCIA = 'mtzBackupEmergencia';
 const STORAGE_BACKUP_AUTO = 'mtzBackupAutomatico';
 const STORAGE_BACKUP_AUTO_TS = 'mtzUltimoBackupAuto';
-const STORAGE_VERSION = '11.1';
+const STORAGE_VERSION = window.SCHEMA_VERSION_V12 || '12.0';
 const SYNC_TIMEOUT_MS = 15000;
 
 let sincronizacaoEmAndamento = false;
@@ -17,6 +17,7 @@ function gerarSnapshotDadosSistema() {
         locacoes: Array.isArray(locacoes) ? locacoes : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
+        usuarios: Array.isArray(usuarios) ? usuarios : [],
         config: config && typeof config === 'object' ? config : {},
         logsAuditoria: Array.isArray(logsAuditoria) ? logsAuditoria : [],
         modelosChecklist: Array.isArray(modelosChecklist) ? modelosChecklist : [],
@@ -27,27 +28,89 @@ function gerarSnapshotDadosSistema() {
     };
 }
 
+function registrarLogsMigracaoV12(logs = [], metadados = {}) {
+    if (!Array.isArray(logs) || logs.length === 0) return;
+
+    const timestampIso = new Date().toISOString();
+    logs.forEach((descricao) => {
+        logsAuditoria.unshift({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            timestamp: timestampIso,
+            data: new Date(timestampIso).toLocaleString('pt-BR'),
+            tipo: 'sistema',
+            acao: 'migracao',
+            descricao,
+            usuario: localStorage.getItem('usuarioEmail') || 'Offline',
+            dados: {
+                origem: metadados.origem || 'desconhecida',
+                versaoOrigem: metadados.versaoOrigem || 'sem-versao',
+                versaoDestino: metadados.versaoDestino || STORAGE_VERSION
+            }
+        });
+    });
+
+    if (logsAuditoria.length > 1000) {
+        logsAuditoria = logsAuditoria.slice(0, 1000);
+    }
+}
+
 function aplicarDadosSistema(dados = {}, opcoes = {}) {
     const manterConfigAtual = !!opcoes.manterConfigAtual;
-    const baseConfig = manterConfigAtual ? (config || {}) : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '' };
-    const configEntrada = dados.config && typeof dados.config === 'object' ? dados.config : {};
+    const origemCarga = opcoes.origem || 'desconhecida';
+    const baseConfig = manterConfigAtual
+        ? (config || {})
+        : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '' };
 
-    locadores = Array.isArray(dados.locadores) ? dados.locadores : [];
-    pecas = Array.isArray(dados.pecas) ? dados.pecas : [];
-    locacoes = Array.isArray(dados.locacoes) ? dados.locacoes : [];
-    devolucoes = Array.isArray(dados.devolucoes) ? dados.devolucoes : [];
-    tipos = Array.isArray(dados.tipos) ? dados.tipos : [];
-    config = { ...baseConfig, ...configEntrada };
-    logsAuditoria = Array.isArray(dados.logsAuditoria) ? dados.logsAuditoria : [];
-    modelosChecklist = Array.isArray(dados.modelosChecklist) ? dados.modelosChecklist : [];
-    checklistsGerados = Array.isArray(dados.checklistsGerados) ? dados.checklistsGerados : [];
-    checklistMontagem = Array.isArray(dados.checklistMontagem) ? dados.checklistMontagem : [];
-    checklistConferencia = dados.checklistConferencia && typeof dados.checklistConferencia === 'object'
-        ? dados.checklistConferencia
+    const resultadoMigracao = typeof migrarDadosParaV12 === 'function'
+        ? migrarDadosParaV12(dados, { origem: origemCarga })
+        : {
+            dadosMigrados: dados,
+            houveMudanca: false,
+            logs: [],
+            versaoOrigem: String(dados?.versao || 'sem-versao'),
+            versaoDestino: STORAGE_VERSION
+        };
+
+    const dadosNormalizados = resultadoMigracao?.dadosMigrados || dados || {};
+    const configEntrada = dadosNormalizados.config && typeof dadosNormalizados.config === 'object'
+        ? dadosNormalizados.config
         : {};
-    checklistEtapasMontagem = Array.isArray(dados.checklistEtapasMontagem)
-        ? dados.checklistEtapasMontagem
+
+    locadores = Array.isArray(dadosNormalizados.locadores) ? dadosNormalizados.locadores : [];
+    pecas = Array.isArray(dadosNormalizados.pecas) ? dadosNormalizados.pecas : [];
+    locacoes = Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [];
+    devolucoes = Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [];
+    tipos = Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [];
+    usuarios = Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [];
+    config = { ...baseConfig, ...configEntrada };
+    config.schemaVersion = STORAGE_VERSION;
+    logsAuditoria = Array.isArray(dadosNormalizados.logsAuditoria) ? dadosNormalizados.logsAuditoria : [];
+    modelosChecklist = Array.isArray(dadosNormalizados.modelosChecklist) ? dadosNormalizados.modelosChecklist : [];
+    checklistsGerados = Array.isArray(dadosNormalizados.checklistsGerados) ? dadosNormalizados.checklistsGerados : [];
+    checklistMontagem = Array.isArray(dadosNormalizados.checklistMontagem) ? dadosNormalizados.checklistMontagem : [];
+    checklistConferencia = dadosNormalizados.checklistConferencia && typeof dadosNormalizados.checklistConferencia === 'object'
+        ? dadosNormalizados.checklistConferencia
+        : {};
+    checklistEtapasMontagem = Array.isArray(dadosNormalizados.checklistEtapasMontagem)
+        ? dadosNormalizados.checklistEtapasMontagem
         : [];
+
+    if (resultadoMigracao?.houveMudanca) {
+        registrarLogsMigracaoV12(resultadoMigracao.logs || [], {
+            origem: origemCarga,
+            versaoOrigem: resultadoMigracao.versaoOrigem,
+            versaoDestino: resultadoMigracao.versaoDestino
+        });
+    }
+
+    window.__mtzUltimaMigracaoV12 = {
+        houveMudanca: !!resultadoMigracao?.houveMudanca,
+        logs: Array.isArray(resultadoMigracao?.logs) ? resultadoMigracao.logs : [],
+        origem: origemCarga,
+        versaoOrigem: resultadoMigracao?.versaoOrigem || String(dados?.versao || 'sem-versao'),
+        versaoDestino: resultadoMigracao?.versaoDestino || STORAGE_VERSION,
+        data: resultadoMigracao?.dataMigracao || new Date().toISOString()
+    };
 
     window.checklistMontagem = checklistMontagem;
     window.checklistConferencia = checklistConferencia;
@@ -195,7 +258,7 @@ async function sincronizar(modo) {
                 }
             }
 
-            aplicarDadosSistema(dadosNuvem, { manterConfigAtual: true });
+            aplicarDadosSistema(dadosNuvem, { manterConfigAtual: true, origem: 'nuvem' });
             salvarLocal();
             renderTudo();
             mostrarToast('✅ Dados carregados da nuvem!');
@@ -294,7 +357,7 @@ function restaurarBackupEmergencia() {
     if (!confirmar) return;
 
     const dados = JSON.parse(backup);
-    aplicarDadosSistema(dados, { manterConfigAtual: true });
+    aplicarDadosSistema(dados, { manterConfigAtual: true, origem: 'backup_emergencia' });
     salvarLocal();
     renderTudo();
     mostrarToast('✅ Backup de emergência restaurado!');
@@ -343,7 +406,10 @@ function tentarRecuperacaoAutomatica() {
         }
 
         const dados = JSON.parse(backup);
-        aplicarDadosSistema(dados, { manterConfigAtual: true });
+        aplicarDadosSistema(dados, {
+            manterConfigAtual: true,
+            origem: fonte === 'Emergência' ? 'backup_emergencia' : 'backup_automatico'
+        });
         salvarLocal();
         renderTudo();
 
@@ -422,7 +488,12 @@ function carregarLocal() {
             throw new Error('Estrutura inválida de dados.');
         }
 
-        aplicarDadosSistema(dados, { manterConfigAtual: true });
+        aplicarDadosSistema(dados, { manterConfigAtual: true, origem: 'localStorage' });
+
+        if (window.__mtzUltimaMigracaoV12?.houveMudanca) {
+            salvarLocal();
+            console.log('🧱 Schema v12 aplicado e persistido no armazenamento local.');
+        }
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
         console.log('✅ Dados locais carregados:', {
@@ -463,7 +534,7 @@ function carregarLocal() {
                 'O sistema será reiniciado vazio.'
             );
 
-            aplicarDadosSistema({}, { manterConfigAtual: false });
+            aplicarDadosSistema({}, { manterConfigAtual: false, origem: 'reset_erro_local' });
         }
     }
 }

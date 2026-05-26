@@ -24,6 +24,9 @@ function obterDataLocal(dataIso) {
 }
 
 function calcularValorLocacao(locacao) {
+    if (typeof calcularValorLocacaoDominio === 'function') {
+        return calcularValorLocacaoDominio(locacao);
+    }
     const subtotal = (locacao.items || []).reduce((total, item) => {
         return total + ((parseFloat(item.valor) || 0) * (parseInt(item.quantidade, 10) || 0));
     }, 0);
@@ -262,19 +265,28 @@ function renderStats() {
     const inicioProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
 
     const locacoesComValor = locacoes.map((locacao) => {
+        const locacaoNormalizada = typeof normalizarLocacaoDominio === 'function'
+            ? normalizarLocacaoDominio(locacao, { hoje })
+            : locacao;
         const cliente = locadores.find((c) => c.id === locacao.locadorId)?.nome || 'Cliente removido';
         const previsao = obterDataLocal(locacao.dataDevolucaoPrevisao);
         const diffDias = previsao ? Math.round((previsao - hoje) / 86400000) : null;
+        const statusVisual = String(locacaoNormalizada?.statusVisual || locacao.status || '').toLowerCase();
+        const pago = typeof locacaoNormalizada?.pago === 'boolean'
+            ? locacaoNormalizada.pago
+            : Boolean(locacao.pago);
         return {
-            ...locacao,
+            ...locacaoNormalizada,
             cliente,
             valorFinal: calcularValorLocacao(locacao),
             previsao,
-            diffDias
+            diffDias,
+            statusVisual,
+            pago
         };
     });
 
-    const ativas = locacoesComValor.filter((locacao) => locacao.status === 'ativo');
+    const ativas = locacoesComValor.filter((locacao) => locacao.statusVisual === 'ativo' || locacao.statusVisual === 'atrasado');
     const elLocacoes = document.getElementById('dashLocacoes');
     if (elLocacoes) elLocacoes.innerText = ativas.length;
     const elTagLocacoes = document.getElementById('dashTagLocacoes');
@@ -332,11 +344,11 @@ function renderStats() {
     const vencemAmanha = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 1);
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
     const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length;
-    const devolvidas = locacoesComValor.filter((locacao) => locacao.status === 'devolvido').length;
+    const devolvidas = locacoesComValor.filter((locacao) => locacao.statusVisual === 'devolvido').length;
     const abertasSemAtraso = Math.max(ativas.length - atrasadas.length, 0);
     const iniciamHoje = locacoesComValor.filter((locacao) => {
         const dataAluguel = obterDataLocal(locacao.dataAluguel);
-        return locacao.status === 'ativo' && dataAluguel && dataAluguel.getTime() === hoje.getTime();
+        return (locacao.statusVisual === 'ativo' || locacao.statusVisual === 'atrasado') && dataAluguel && dataAluguel.getTime() === hoje.getTime();
     }).length;
     const pendentesFinanceiros = ativas.filter((locacao) => !locacao.pago).length;
 

@@ -4,6 +4,20 @@ let fluxoLocacaoInicializado = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
 
+function obterDisponivelPecaLocacao(peca) {
+    if (!peca) return 0;
+    const normalizada = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(peca) : peca;
+    return Math.max(parseInt(normalizada?.disponivel, 10) || 0, 0);
+}
+
+function sincronizarFinanceiroLocacao(localLocacao) {
+    if (!localLocacao || typeof localLocacao !== 'object') return localLocacao;
+    if (typeof normalizarLocacaoDominio === 'function') {
+        return normalizarLocacaoDominio(localLocacao, { incluirDerivados: false });
+    }
+    return localLocacao;
+}
+
 function focarCampoLocacao(idCampo) {
     const campo = document.getElementById(idCampo);
     if (!campo) return;
@@ -78,7 +92,7 @@ function filtrarItensLocacao() {
             if (codigo.startsWith(t)) score += 10;
         });
 
-        score += (p.disponivel > 0 ? 5 : 0);
+        score += (obterDisponivelPecaLocacao(p) > 0 ? 5 : 0);
         return score;
     };
 
@@ -99,7 +113,7 @@ function filtrarItensLocacao() {
         const item = document.createElement('div');
         item.className = 'sugestao-item';
         item.innerHTML = `<span>${p.nome} <small style="opacity:0.6">[${p.codigo}]</small></span>
-                          <span class="sugestao-estoque">(Disp: ${p.disponivel})</span>`;
+                          <span class="sugestao-estoque">(Disp: ${obterDisponivelPecaLocacao(p)})</span>`;
         item.onclick = function () {
             document.getElementById('inputBuscaPeca').value = p.nome;
             document.getElementById('aluguelItemSelect').value = p.id;
@@ -495,7 +509,8 @@ function addItemCarrinho() {
         focarCampoLocacao('inputBuscaPeca');
         return;
     }
-    if ((parseInt(p.disponivel, 10) || 0) <= 0) {
+    const disponivelAtual = obterDisponivelPecaLocacao(p);
+    if (disponivelAtual <= 0) {
         mostrarToast('Esse item esta sem estoque disponivel.', 'erro');
         focarCampoLocacao('inputBuscaPeca');
         return;
@@ -505,9 +520,9 @@ function addItemCarrinho() {
     var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
     var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
 
-    if (qtdTotalSolicitada > p.disponivel) {
-        if (campoQtd) campoQtd.value = String(Math.max((parseInt(p.disponivel, 10) || 1) - qtdJaNoCarrinho, 1));
-        return mostrarToast(`Estoque insuficiente! So restam ${p.disponivel}.`, 'erro');
+    if (qtdTotalSolicitada > disponivelAtual) {
+        if (campoQtd) campoQtd.value = String(Math.max(disponivelAtual - qtdJaNoCarrinho, 1));
+        return mostrarToast(`Estoque insuficiente! So restam ${disponivelAtual}.`, 'erro');
     }
 
     if (itemNoCarrinho) {
@@ -602,10 +617,11 @@ function finalizarLocacao() {
 
     const concluirCriacaoLocacao = () => {
         const novaLocacaoId = Date.now();
-        locacoes.push({
+        const novaLocacao = sincronizarFinanceiroLocacao({
             id: novaLocacaoId,
             ...dadosNovaLocacao
         });
+        locacoes.push(novaLocacao);
 
         carrinhoLocacao = [];
         document.getElementById('aluguelCliente').value = '';
@@ -712,6 +728,13 @@ function alternarPagamento(id) {
     const l = locacoes.find((x) => x.id == id);
     if (l) {
         l.pago = !l.pago;
+        const statusPagamento = l.pago ? 'pago' : 'pendente';
+        l.financeiro = {
+            ...(l.financeiro || {}),
+            statusPagamento
+        };
+        const normalizada = sincronizarFinanceiroLocacao(l);
+        if (normalizada) Object.assign(l, normalizada);
         salvarLocal();
         renderLocacoes();
         renderStats();
@@ -729,9 +752,10 @@ function atualizarLimiteEstoque() {
     var p = pecas.find((x) => x.id == id);
 
     if (p) {
-        inputQtd.max = p.disponivel;
+        const disponivel = obterDisponivelPecaLocacao(p);
+        inputQtd.max = disponivel;
         inputQtd.value = 1;
-        aviso.innerText = `(Max: ${p.disponivel})`;
+        aviso.innerText = `(Max: ${disponivel})`;
     } else {
         aviso.innerText = '';
         inputQtd.removeAttribute('max');

@@ -69,15 +69,16 @@
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
         try {
+            const versaoSchemaAtual = window.SCHEMA_VERSION_V12 || (typeof STORAGE_VERSION !== 'undefined' ? STORAGE_VERSION : '12.0');
             const snapshot = typeof gerarSnapshotDadosSistema === 'function'
                 ? gerarSnapshotDadosSistema()
                 : {
-                    locadores, pecas, locacoes, devolucoes, tipos, config,
+                    locadores, pecas, locacoes, devolucoes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem
                 };
             const dados = JSON.stringify({
-                versao: '11.1',
+                versao: versaoSchemaAtual,
                 data: new Date().toISOString(),
                 ...snapshot
             });
@@ -136,13 +137,14 @@
                     }
 
                     if (typeof aplicarDadosSistema === 'function') {
-                        aplicarDadosSistema(j, { manterConfigAtual: true });
+                        aplicarDadosSistema(j, { manterConfigAtual: true, origem: 'backup_json' });
                     } else {
                         locadores = normalizarListaBackup(j.locadores);
                         pecas = normalizarListaBackup(j.pecas);
                         locacoes = normalizarListaBackup(j.locacoes);
                         devolucoes = normalizarListaBackup(j.devolucoes);
                         tipos = normalizarListaBackup(j.tipos);
+                        usuarios = normalizarListaBackup(j.usuarios);
                         config = j.config || config;
                     }
                     salvarLocal();

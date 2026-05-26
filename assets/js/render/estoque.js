@@ -8,21 +8,24 @@ function formatarMoedaResumoEstoque(valor) {
 
 function atualizarResumoExecutivoEstoque() {
   const lista = Array.isArray(pecas) ? pecas : [];
-
-  const totalItens = lista.length;
-  const totalDisponiveis = lista.reduce((acc, p) => acc + Math.max(Number(p.disponivel) || 0, 0), 0);
-  const totalCriticos = lista.filter((p) => (Number(p.disponivel) || 0) <= 3).length;
-  const valorEstoque = lista.reduce((acc, p) => {
-    const valor = Number(p.valor) || 0;
-    const disponivel = Math.max(Number(p.disponivel) || 0, 0);
-    return acc + (valor * disponivel);
-  }, 0);
+  const resumo = typeof calcularResumoEstoqueDominio === 'function'
+    ? calcularResumoEstoqueDominio(lista)
+    : {
+        totalItens: lista.length,
+        totalDisponiveis: lista.reduce((acc, p) => acc + Math.max(Number(p.disponivel) || 0, 0), 0),
+        totalCriticos: lista.filter((p) => (Number(p.disponivel) || 0) <= 3).length,
+        valorEstoque: lista.reduce((acc, p) => {
+          const valor = Number(p.valor) || 0;
+          const disponivel = Math.max(Number(p.disponivel) || 0, 0);
+          return acc + (valor * disponivel);
+        }, 0)
+      };
 
   const mapa = [
-    ['estoqueKpiTotal', String(totalItens)],
-    ['estoqueKpiDisponiveis', String(totalDisponiveis)],
-    ['estoqueKpiCriticos', String(totalCriticos)],
-    ['estoqueKpiValor', formatarMoedaResumoEstoque(valorEstoque)]
+    ['estoqueKpiTotal', String(resumo.totalItens)],
+    ['estoqueKpiDisponiveis', String(resumo.totalDisponiveis)],
+    ['estoqueKpiCriticos', String(resumo.totalCriticos)],
+    ['estoqueKpiValor', formatarMoedaResumoEstoque(resumo.valorEstoque)]
   ];
 
   mapa.forEach(([id, valor]) => {
@@ -46,11 +49,12 @@ function renderEstoque() {
     (Array.isArray(tipos) ? tipos : []).map((tipo) => [String(tipo.id), tipo.nome || ''])
   );
 
-  let itensFiltrados = pecas.filter(p => {
-    const nome = normalizar(p.nome || '');
-    const codigo = normalizar(p.codigo || '');
-    const medida = normalizar(p.medida || '');
-    const nomeTipo = mapaTiposNomePorId.get(String(p.tipoId)) || '';
+  let itensFiltrados = pecas.filter((pecaOriginal) => {
+    const p = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(pecaOriginal) : pecaOriginal;
+    const nome = normalizar(p?.nome || '');
+    const codigo = normalizar(p?.codigo || '');
+    const medida = normalizar(p?.medida || '');
+    const nomeTipo = mapaTiposNomePorId.get(String(p?.tipoId)) || '';
     const categoria = nomeTipo ? normalizar(nomeTipo) : '';
 
     return nome.includes(termo) || 
@@ -103,7 +107,8 @@ function renderEstoque() {
 
   const fragment = document.createDocumentFragment();
 
-  itensFiltrados.forEach(p => {
+  itensFiltrados.forEach((pecaOriginal) => {
+    const p = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(pecaOriginal) : pecaOriginal;
     const nomeTipo = mapaTiposNomePorId.get(String(p.tipoId)) || '';
     const fotoSegura = typeof sanitizarImagemURL === 'function' ? sanitizarImagemURL(p.foto) : (p.foto || '');
     const codigoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.codigo || '') : (p.codigo || '');

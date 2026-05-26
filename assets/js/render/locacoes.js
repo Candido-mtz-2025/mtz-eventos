@@ -83,19 +83,27 @@ function renderLocacoes() {
     
     // Processar dados
     const lista = locacoes.map(l => {
-        let dataD = obterDataLocalLocacao(l.dataDevolucaoPrevisao);
-        let st = l.status;
-        if (l.status === 'ativo' && dataD && dataD < hoje) st = 'atrasado';
+        const normalizada = typeof normalizarLocacaoDominio === 'function'
+            ? normalizarLocacaoDominio(l, { hoje })
+            : null;
+        const statusVisualCalculado = String(normalizada?.statusVisual || '').trim().toLowerCase();
+        const st = statusVisualCalculado || l.status;
         const qtdDevolvida = (l.items || []).reduce((total, item) => total + (parseInt(item.devolvidos) || 0), 0);
-        const devolucaoParcial = l.status !== 'devolvido' && qtdDevolvida > 0;
-        
-        let total = 0;
-        (l.items || []).forEach(i => total += (parseFloat(i.valor) || 0) * (parseInt(i.quantidade) || 1));
-        let div = parseFloat(l.divisorFatura) || 1;
-        if (div <= 0) div = 1;
-        
+        const devolucaoParcial = st !== 'devolvido' && qtdDevolvida > 0;
+        const valorTotal = typeof calcularValorLocacaoDominio === 'function'
+            ? calcularValorLocacaoDominio(l)
+            : (function () {
+                let total = 0;
+                (l.items || []).forEach(i => total += (parseFloat(i.valor) || 0) * (parseInt(i.quantidade) || 1));
+                let div = parseFloat(l.divisorFatura) || 1;
+                if (div <= 0) div = 1;
+                return total / div;
+            })();
         const clienteNome = mapaLocadoresPorId.get(String(l.locadorId))?.nome || 'Removido';
-        return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false, clienteNome };
+        const pago = typeof normalizada?.pago === 'boolean'
+            ? normalizada.pago
+            : Boolean(l.pago);
+        return { ...l, statusVisual: st, devolucaoParcial, valorTotal, pago, clienteNome };
     });
     atualizarResumoExecutivoLocacoes(lista);
     
@@ -238,7 +246,7 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>
-                ${l.status !== 'devolvido' ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
+                ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;
