@@ -1003,12 +1003,16 @@
         .modal-confirmacao {
           width: min(92vw, 480px);
           border-radius: 14px;
+          max-height: min(84vh, 720px);
+          overflow-y: auto;
         }
 
         .confirmacao-texto {
           color: var(--text-light);
           line-height: 1.45;
           margin: 8px 0 18px;
+          white-space: pre-line;
+          overflow-wrap: anywhere;
         }
 
         .confirmacao-acoes {
