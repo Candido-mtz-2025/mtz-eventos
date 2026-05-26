@@ -49,9 +49,10 @@ function gerarNomeArquivoPDF() {
 }
 
 function getHeaderMTZ() {
+    const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
     return `
     <div style="background:#ffffff;color:#000000;padding:14px 0 16px;text-align:center;border-bottom:2px solid #2563eb;margin-bottom:18px;">
-        <img src="./logo.png" alt="MTZ Eventos" style="height:90px;object-fit:contain;">
+        <img src="${logoPdfSrc}" alt="MTZ Eventos" style="height:90px;object-fit:contain;">
     </div>`;
 }
 

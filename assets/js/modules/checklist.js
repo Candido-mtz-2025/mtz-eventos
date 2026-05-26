@@ -16,10 +16,32 @@ function popularChecklistModeloSelect() {
     });
 }
 
+function focarCampoChecklist(idCampo, selecionar = false) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return;
+
+    const alvoRolagem = campo.closest('.form-group') || campo;
+    if (typeof alvoRolagem.scrollIntoView === 'function') {
+        alvoRolagem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    setTimeout(() => {
+        try {
+            campo.focus({ preventScroll: true });
+        } catch (_) {
+            campo.focus();
+        }
+        if (selecionar && typeof campo.select === 'function') {
+            campo.select();
+        }
+    }, 120);
+}
+
 function adicionarModeloAoChecklist() {
     const select = document.getElementById('checklistModeloSelect');
     if (!select || !select.value) {
         mostrarToast('Selecione um modelo.', 'erro');
+        focarCampoChecklist('checklistModeloSelect');
         return;
     }
 
@@ -445,6 +467,7 @@ function renderChecklistMontagem() {
 function gerarPDFChecklistMontagem() {
     if (!checklistMontagem || !checklistMontagem.length) {
         mostrarToast('Nenhum item no checklist para gerar PDF.', 'erro');
+        focarCampoChecklist('checklistModeloSelect');
         return;
     }
 
@@ -459,8 +482,11 @@ function gerarPDFChecklistMontagem() {
     const dados = obterDadosCabecalhoChecklist();
     if (!dados.cliente || !dados.evento) {
         mostrarToast('Preencha pelo menos cliente e evento antes de gerar o PDF.', 'erro');
+        focarCampoChecklist(!dados.cliente ? 'checklistCliente' : 'checklistEvento', !dados.cliente);
         return;
     }
+
+    const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
 
     const grupos = obterGruposChecklist();
     sincronizarConferenciaChecklist(grupos);
@@ -543,7 +569,7 @@ function gerarPDFChecklistMontagem() {
                     <div style="font-size:12px;color:#64748b;font-weight:700;">Separação, saída e retorno de materiais</div>
                 </div>
                 <div style="text-align:right;">
-                    <img src="./logo.png" alt="MTZ Eventos" style="height:64px;object-fit:contain;margin-bottom:6px;">
+                    <img src="${logoPdfSrc}" alt="MTZ Eventos" style="height:64px;object-fit:contain;margin-bottom:6px;">
                     <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;font-weight:800;">Gerado em</div>
                     <div style="font-size:11px;color:#111827;font-weight:800;">${new Date().toLocaleString('pt-BR')}</div>
                 </div>

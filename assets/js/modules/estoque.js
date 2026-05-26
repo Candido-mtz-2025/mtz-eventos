@@ -617,6 +617,7 @@ function gerarChecklistModelo(id) {
         `;
     }).join('');
 
+    const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
     const layout = `
         <div style="font-family:Inter,Arial,sans-serif; background:#fff; color:#111827; padding:18px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; border-bottom:3px solid #111827; padding-bottom:14px; margin-bottom:14px;">
@@ -626,7 +627,7 @@ function gerarChecklistModelo(id) {
                     <div style="margin-top:4px; font-size:12px; color:#64748b; font-weight:700;">Conferência operacional por modelo</div>
                 </div>
                 <div style="text-align:right; font-size:11px;">
-                    <img src="./logo.png" alt="MTZ Eventos" style="height:54px; object-fit:contain; margin-bottom:4px;">
+                    <img src="${logoPdfSrc}" alt="MTZ Eventos" style="height:54px; object-fit:contain; margin-bottom:4px;">
                     <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
                 </div>
             </div>
