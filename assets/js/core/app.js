@@ -550,7 +550,14 @@ function navegarComFocoAtalho(opcoes = {}) {
     const tabId = String(opcoes.tabId || '').trim();
     if (!tabId) return false;
 
-    abrirTab(tabId, { semRolagem: true });
+    const abaAtual = obterAbaAtivaAtual();
+    const jaNaAbaAlvo = abaAtual === tabId;
+
+    if (!jaNaAbaAlvo) {
+        abrirTab(tabId, { semRolagem: true });
+    } else if (typeof sincronizarEstadoVisualDaAba === 'function') {
+        sincronizarEstadoVisualDaAba(tabId);
+    }
 
     if (typeof opcoes.preparar === 'function') {
         opcoes.preparar();
