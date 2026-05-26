@@ -321,8 +321,11 @@ function clicarSeletorAtalho(seletor, mensagemErro) {
 
 function obterOffsetCabecalhoApp() {
     const candidatos = [
+        document.querySelector('header'),
         document.querySelector('#appArea > header'),
-        document.querySelector('#appArea .container > .tabs-container')
+        document.querySelector('#appArea .tabs-container'),
+        document.querySelector('#appArea .container > .tabs-container'),
+        document.getElementById('moduleTopbar')
     ];
 
     let offset = 12;
@@ -331,7 +334,11 @@ function obterOffsetCabecalhoApp() {
         const estilos = window.getComputedStyle(el);
         if (estilos.display === 'none' || estilos.visibility === 'hidden') return;
         if (estilos.position === 'sticky' || estilos.position === 'fixed') {
-            offset += el.getBoundingClientRect().height;
+            const ret = el.getBoundingClientRect();
+            // Conta apenas elementos realmente ocupando a faixa superior da viewport.
+            if (ret.bottom > 0 && ret.top < Math.max(120, window.innerHeight * 0.35)) {
+                offset += ret.height;
+            }
         }
     });
 

@@ -6311,6 +6311,22 @@ textarea:focus {
     border-radius: 10px;
 }
 
+/* === V16.7 | ANCORA DE ROLAGEM CONSISTENTE (DESKTOP + MOBILE) === */
+#tab-dashboard .dashboard-topbar,
+#tab-dashboard .dash-section,
+#tab-locadores .card,
+#tab-tipos .card,
+#tab-estoque .card,
+#tab-checklist .card,
+#tab-locacoes .card,
+#tab-devolucoes .card,
+#tab-auditoria .card,
+#tab-config .card,
+#tab-estoque .panel-block,
+#tab-locacoes .panel-block {
+    scroll-margin-top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 16px);
+}
+
 /* === V16.6 | AÇÕES DE TABELA (ANTI-CORTE + TOQUE) === */
 #tab-locadores td.col-actions,
 #tab-tipos td.col-actions,
