@@ -204,6 +204,46 @@ function calcularTotalCarrinhoLocacao() {
     }, 0);
 }
 
+function normalizarAssinaturaItensLocacao(itens = []) {
+    return itens
+        .map((item) => ({
+            pecaId: String(item?.pecaId ?? item?.id ?? '').trim(),
+            quantidade: parseInt(item?.quantidade, 10) || 0
+        }))
+        .filter((item) => item.pecaId && item.quantidade > 0)
+        .sort((a, b) => a.pecaId.localeCompare(b.pecaId))
+        .map((item) => `${item.pecaId}:${item.quantidade}`)
+        .join('|');
+}
+
+function normalizarDivisorLocacao(valor) {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero) || numero <= 0) return 1;
+    return Number(numero.toFixed(4));
+}
+
+function encontrarLocacaoPossivelmenteDuplicada(dadosLocacao) {
+    const clienteId = Number(dadosLocacao?.locadorId || 0);
+    const dataInicio = String(dadosLocacao?.dataAluguel || '').trim();
+    const dataFim = String(dadosLocacao?.dataDevolucaoPrevisao || '').trim();
+    const assinaturaItens = normalizarAssinaturaItensLocacao(dadosLocacao?.items || []);
+    const divisor = normalizarDivisorLocacao(dadosLocacao?.divisorFatura);
+
+    if (!clienteId || !dataInicio || !dataFim || !assinaturaItens) return null;
+
+    return locacoes.find((locacao) => {
+        const status = String(locacao?.status || '').toLowerCase();
+        if (status === 'devolvido') return false;
+        if (Number(locacao?.locadorId || 0) !== clienteId) return false;
+        if (String(locacao?.dataAluguel || '').trim() !== dataInicio) return false;
+        if (String(locacao?.dataDevolucaoPrevisao || '').trim() !== dataFim) return false;
+        if (normalizarDivisorLocacao(locacao?.divisorFatura) !== divisor) return false;
+
+        const assinaturaExistente = normalizarAssinaturaItensLocacao(locacao?.items || []);
+        return assinaturaExistente === assinaturaItens;
+    }) || null;
+}
+
 function montarResumoFinalLocacao() {
     const boxResumo = document.getElementById('locacaoResumoFinal');
     if (!boxResumo) return;
@@ -550,42 +590,66 @@ function finalizarLocacao() {
         return;
     }
 
-    var itensParaSalvar = carrinhoLocacao.map((item) => ({ ...item }));
-    const novaLocacaoId = Date.now();
-
-    locacoes.push({
-        id: novaLocacaoId,
+    const itensParaSalvar = carrinhoLocacao.map((item) => ({ ...item }));
+    const dadosNovaLocacao = {
         locadorId: parseInt(cli, 10),
         dataAluguel: ini,
         dataDevolucaoPrevisao: fim,
         items: itensParaSalvar,
         status: 'ativo',
         divisorFatura: divInput
-    });
+    };
 
-    carrinhoLocacao = [];
-    document.getElementById('aluguelCliente').value = '';
-    document.getElementById('aluguelItemSelect').value = '';
-    document.getElementById('aluguelQtd').value = '1';
-    document.getElementById('inputBuscaPeca').value = '';
-    document.getElementById('avisoEstoque').innerText = '';
+    const concluirCriacaoLocacao = () => {
+        const novaLocacaoId = Date.now();
+        locacoes.push({
+            id: novaLocacaoId,
+            ...dadosNovaLocacao
+        });
 
-    renderCarrinhoLocacao();
+        carrinhoLocacao = [];
+        document.getElementById('aluguelCliente').value = '';
+        document.getElementById('aluguelItemSelect').value = '';
+        document.getElementById('aluguelQtd').value = '1';
+        document.getElementById('inputBuscaPeca').value = '';
+        document.getElementById('avisoEstoque').innerText = '';
 
-    if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
-    salvarLocal();
-    renderTudo();
-    if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'locacao', id: novaLocacaoId, limparBusca: true });
+        renderCarrinhoLocacao();
+
+        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
+        salvarLocal();
+        renderTudo();
+        if (typeof focarRegistroRecemSalvo === 'function') {
+            focarRegistroRecemSalvo({ tipo: 'locacao', id: novaLocacaoId, limparBusca: true });
+        }
+
+        registrarLog('locacao', 'criar', `Locacao criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
+
+        locacaoEtapaAtual = 1;
+        inicializarFluxoLocacao();
+
+        mostrarToast('Locacao concluida!');
+        sincronizar('salvar');
+    };
+
+    const locacaoDuplicada = encontrarLocacaoPossivelmenteDuplicada(dadosNovaLocacao);
+    if (locacaoDuplicada) {
+        const sufixo = String(locacaoDuplicada.id || '').slice(-4) || '----';
+        confirmarAcao(
+            `Já existe uma locação parecida em aberto (#${sufixo}). Deseja criar mesmo assim?`,
+            () => {
+                concluirCriacaoLocacao();
+            },
+            {
+                titulo: 'Possível duplicidade',
+                textoConfirmar: 'Criar assim mesmo',
+                classeConfirmar: 'btn-warning'
+            }
+        );
+        return;
     }
 
-    registrarLog('locacao', 'criar', `Locacao criada: ${cliente?.nome || 'Cliente'} - ${itensParaSalvar.length} itens`);
-
-    locacaoEtapaAtual = 1;
-    inicializarFluxoLocacao();
-
-    mostrarToast('Locacao concluida!');
-    sincronizar('salvar');
+    concluirCriacaoLocacao();
 }
 
 function cancelarLocacao(id) {
