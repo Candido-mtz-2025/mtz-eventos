@@ -51,6 +51,20 @@ function atualizarResumoExecutivoLocacoes(lista) {
 }
 
 function renderLocacoes() {
+    const tbody = DOM.get('tblLocacoes');
+    if (!tbody) return;
+
+    if (!Array.isArray(locacoes)) {
+        tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
+            ? criarLinhaTabelaEstado(5, {
+                tipo: 'error',
+                titulo: 'Falha ao carregar locações',
+                mensagem: 'Atualize a tela para tentar novamente.'
+            })
+            : '<tr class="table-empty-row"><td colspan="5">Dados de locações indisponíveis.</td></tr>';
+        return;
+    }
+
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     const termoRaw = String(document.getElementById('buscaLocacoes')?.value || '').trim();
@@ -59,9 +73,12 @@ function renderLocacoes() {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
     const termo = normalizar(termoRaw);
-    
-    const tbody = DOM.get('tblLocacoes');
-    if (!tbody) return;
+
+    // Evita buscas repetidas em locadores.find(...) para cada linha.
+    const mapaLocadoresPorId = new Map(
+        (Array.isArray(locadores) ? locadores : []).map((locador) => [String(locador.id), locador])
+    );
+
     atualizarFiltroVisualLocacoes();
     
     // Processar dados
@@ -77,7 +94,7 @@ function renderLocacoes() {
         let div = parseFloat(l.divisorFatura) || 1;
         if (div <= 0) div = 1;
         
-        const clienteNome = locadores.find((x) => x.id === l.locadorId)?.nome || 'Removido';
+        const clienteNome = mapaLocadoresPorId.get(String(l.locadorId))?.nome || 'Removido';
         return { ...l, statusVisual: st, devolucaoParcial, valorTotal: total / div, pago: l.pago || false, clienteNome };
     });
     atualizarResumoExecutivoLocacoes(lista);
