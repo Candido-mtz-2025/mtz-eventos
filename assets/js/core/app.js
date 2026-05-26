@@ -1161,6 +1161,21 @@ function gerarChecklistPDFViaAtalho() {
 }
 
 function acionarImportacaoEstoqueViaAtalho() {
+    const abrirSeletor = () => {
+        const inputExcel = document.getElementById('inputExcel');
+        if (!inputExcel) {
+            avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
+            return;
+        }
+        inputExcel.click();
+    };
+
+    const abaAtual = obterAbaAtivaAtual();
+    if (abaAtual === 'estoque') {
+        abrirSeletor();
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'estoque',
         render: () => {
@@ -1172,14 +1187,15 @@ function acionarImportacaoEstoqueViaAtalho() {
         mensagemFalha: 'Tela de estoque não encontrada.'
     });
 
-    setTimeout(() => {
-        const inputExcel = document.getElementById('inputExcel');
-        if (!inputExcel) {
-            avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.');
-            return;
+    aguardarElementoAtalho(
+        () => document.getElementById('inputExcel'),
+        () => abrirSeletor(),
+        {
+            onFalha: () => avisarAtalhoIndisponivel('Importação indisponível: seletor de arquivo não encontrado.'),
+            maxTentativas: 14,
+            intervaloMs: 90
         }
-        inputExcel.click();
-    }, 120);
+    );
 }
 
 function irParaConfigBackup() {
