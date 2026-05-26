@@ -3,10 +3,72 @@ function limparTextoCliente(valor) {
     return String(valor || '').trim();
 }
 
+function normalizarTextoCliente(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+}
+
+function normalizarDocumentoCliente(valor) {
+    return String(valor || '').replace(/\D+/g, '');
+}
+
+function normalizarTelefoneCliente(valor) {
+    return String(valor || '').replace(/\D+/g, '');
+}
+
+function normalizarEmailCliente(valor) {
+    return String(valor || '').trim().toLowerCase();
+}
+
+function emailClienteValido(valor) {
+    const email = normalizarEmailCliente(valor);
+    if (!email) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function encontrarLocadorDuplicado(dados, idIgnorar = null) {
+    const nome = normalizarTextoCliente(dados?.nome);
+    const email = normalizarEmailCliente(dados?.email);
+    const telefone = normalizarTelefoneCliente(dados?.telefone);
+    const documento = normalizarDocumentoCliente(dados?.documento);
+
+    return locadores.find((locador) => {
+        if (idIgnorar != null && String(locador.id) === String(idIgnorar)) return false;
+
+        const mesmoNome = normalizarTextoCliente(locador.nome) === nome;
+        const mesmoDocumento = documento && normalizarDocumentoCliente(locador.documento) === documento;
+        const mesmoEmail = email && normalizarEmailCliente(locador.email) === email;
+        const mesmoTelefone = telefone && normalizarTelefoneCliente(locador.telefone) === telefone;
+
+        return Boolean(mesmoDocumento || (mesmoNome && (mesmoEmail || mesmoTelefone)));
+    }) || null;
+}
+
 function salvarLocador() {
     const nome = limparTextoCliente(document.getElementById('locNome')?.value);
+    const documento = limparTextoCliente(document.getElementById('locDoc')?.value);
+    const endereco = limparTextoCliente(document.getElementById('locEnd')?.value);
+    const email = limparTextoCliente(document.getElementById('locEmail')?.value);
+    const telefone = limparTextoCliente(document.getElementById('locTel')?.value);
+
     if (!nome) {
         mostrarToast('Informe o nome do cliente.', 'erro');
+        document.getElementById('locNome')?.focus();
+        return;
+    }
+
+    if (!emailClienteValido(email)) {
+        mostrarToast('Informe um e-mail válido para o cliente.', 'erro');
+        document.getElementById('locEmail')?.focus();
+        return;
+    }
+
+    const duplicado = encontrarLocadorDuplicado({ nome, email, telefone, documento });
+    if (duplicado) {
+        mostrarToast(`Cliente possivelmente duplicado: ${duplicado.nome}.`, 'erro');
         document.getElementById('locNome')?.focus();
         return;
     }
@@ -15,10 +77,10 @@ function salvarLocador() {
     locadores.push({
         id: novoId,
         nome,
-        email: limparTextoCliente(document.getElementById('locEmail')?.value),
-        telefone: limparTextoCliente(document.getElementById('locTel')?.value),
-        documento: limparTextoCliente(document.getElementById('locDoc')?.value),
-        endereco: limparTextoCliente(document.getElementById('locEnd')?.value)
+        email,
+        telefone,
+        documento,
+        endereco
     });
 
     salvarLocal();
@@ -59,15 +121,38 @@ function salvarEdicaoLocador() {
     if (!c) return;
 
     const nome = limparTextoCliente(document.getElementById('editLocNome')?.value);
+    const email = limparTextoCliente(document.getElementById('editLocEmail')?.value);
+    const telefone = limparTextoCliente(document.getElementById('editLocTel')?.value);
     if (!nome) {
         mostrarToast('Informe o nome do cliente.', 'erro');
         document.getElementById('editLocNome')?.focus();
         return;
     }
 
+    if (!emailClienteValido(email)) {
+        mostrarToast('Informe um e-mail válido para o cliente.', 'erro');
+        document.getElementById('editLocEmail')?.focus();
+        return;
+    }
+
+    const duplicado = encontrarLocadorDuplicado(
+        {
+            nome,
+            email,
+            telefone,
+            documento: c.documento
+        },
+        id
+    );
+    if (duplicado) {
+        mostrarToast(`Já existe cliente parecido: ${duplicado.nome}.`, 'erro');
+        document.getElementById('editLocNome')?.focus();
+        return;
+    }
+
     c.nome = nome;
-    c.email = limparTextoCliente(document.getElementById('editLocEmail')?.value);
-    c.telefone = limparTextoCliente(document.getElementById('editLocTel')?.value);
+    c.email = email;
+    c.telefone = telefone;
 
     salvarLocal();
     renderTudo();
