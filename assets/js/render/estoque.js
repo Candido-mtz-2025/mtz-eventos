@@ -41,12 +41,17 @@ function renderEstoque() {
   if (!tbody) return;
   atualizarResumoExecutivoEstoque();
 
+  // Evita varreduras repetidas em `tipos.find(...)` durante filtro/sort/render.
+  const mapaTiposNomePorId = new Map(
+    (Array.isArray(tipos) ? tipos : []).map((tipo) => [String(tipo.id), tipo.nome || ''])
+  );
+
   let itensFiltrados = pecas.filter(p => {
     const nome = normalizar(p.nome || '');
     const codigo = normalizar(p.codigo || '');
     const medida = normalizar(p.medida || '');
-    const tipo = tipos.find(t => t.id === p.tipoId);
-    const categoria = tipo ? normalizar(tipo.nome) : '';
+    const nomeTipo = mapaTiposNomePorId.get(String(p.tipoId)) || '';
+    const categoria = nomeTipo ? normalizar(nomeTipo) : '';
 
     return nome.includes(termo) || 
            codigo.includes(termo) || 
@@ -65,8 +70,8 @@ function renderEstoque() {
 
   // --- PARTE NOVA: ORDENAÇÃO ---
   itensFiltrados.sort((a, b) => {
-      const tipoA = tipos.find(t => t.id === a.tipoId)?.nome || "ZZZ"; 
-      const tipoB = tipos.find(t => t.id === b.tipoId)?.nome || "ZZZ";
+      const tipoA = mapaTiposNomePorId.get(String(a.tipoId)) || "ZZZ";
+      const tipoB = mapaTiposNomePorId.get(String(b.tipoId)) || "ZZZ";
 
       // 1. Compara Categorias
       const comparacaoCategoria = tipoA.localeCompare(tipoB, undefined, {numeric: true});
@@ -99,10 +104,12 @@ function renderEstoque() {
   const fragment = document.createDocumentFragment();
 
   itensFiltrados.forEach(p => {
-    const tipo = tipos.find(x => x.id === p.tipoId);
+    const nomeTipo = mapaTiposNomePorId.get(String(p.tipoId)) || '';
     const fotoSegura = typeof sanitizarImagemURL === 'function' ? sanitizarImagemURL(p.foto) : (p.foto || '');
     const codigoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.codigo || '') : (p.codigo || '');
-    const tipoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(tipo ? tipo.nome : '-') : (tipo ? tipo.nome : '-');
+    const tipoSeguro = typeof sanitizarTexto === 'function'
+      ? sanitizarTexto(nomeTipo || '-')
+      : (nomeTipo || '-');
     const nomeSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.nome || '') : (p.nome || '');
     const medidaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.medida || '') : (p.medida || '');
 
