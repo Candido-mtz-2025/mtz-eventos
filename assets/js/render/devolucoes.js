@@ -17,9 +17,19 @@ function renderDevolucoes() {
     const termoRaw = (document.getElementById('devBuscaHistorico')?.value || '').trim();
     const termo = termoRaw.toLowerCase();
 
+    // Evita buscas O(n²) em locações/clientes quando há muitos registros de devolução.
+    const mapaLocacoesPorId = new Map(
+        (Array.isArray(locacoes) ? locacoes : []).map((locacao) => [String(locacao.id), locacao])
+    );
+    const mapaLocadoresPorId = new Map(
+        (Array.isArray(locadores) ? locadores : []).map((locador) => [String(locador.id), locador])
+    );
+
     const listaComContexto = devolucoes.map((registro) => {
-        const locacao = locacoes.find((x) => x.id === registro.locacaoId);
-        const cliente = locadores.find((x) => x.id === (locacao ? locacao.locadorId : 0));
+        const locacao = mapaLocacoesPorId.get(String(registro.locacaoId)) || null;
+        const cliente = locacao
+            ? (mapaLocadoresPorId.get(String(locacao.locadorId)) || null)
+            : null;
         const tipoNormalizado = registro.tipo === 'parcial' ? 'parcial' : 'total';
         const qtdItens = Array.isArray(registro.itens)
             ? registro.itens.reduce((total, item) => total + (parseInt(item.quantidadeDevolvida, 10) || 0), 0)
