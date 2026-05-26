@@ -312,6 +312,24 @@ function focarCampoAtalho(id, selecionar = false, alinhamento = 'center', rotulo
     return true;
 }
 
+function primeiroElementoVisivelPorSeletores(seletores = []) {
+    if (!Array.isArray(seletores) || seletores.length === 0) return null;
+
+    for (const seletor of seletores) {
+        if (!seletor) continue;
+        const elementos = document.querySelectorAll(seletor);
+        for (const el of elementos) {
+            if (typeof elementoAcionavelVisivel === 'function') {
+                if (elementoAcionavelVisivel(el)) return el;
+            } else if (el instanceof HTMLElement) {
+                return el;
+            }
+        }
+    }
+
+    return null;
+}
+
 function clicarSeletorAtalho(seletor, mensagemErro) {
     const el = document.querySelector(seletor);
     if (!el) {
@@ -730,6 +748,7 @@ function executarAtalhoFiltroDevolucoes(filtro) {
                 () => obterAlvoHistoricoDevolucoes(),
                 (alvoHistorico) => {
                     rolarParaElementoAtalho(alvoHistorico, 'start');
+                    destacarAlvoAtalho(alvoHistorico, 1200);
                 },
                 {
                     onFalha: () => avisarAtalhoIndisponivel('Histórico de devoluções não encontrado.'),
@@ -749,9 +768,18 @@ function executarAtalhoFiltroDevolucoes(filtro) {
 function irParaDevolucoesFormulario() {
     navegarComFocoAtalho({
         tabId: 'devolucoes',
-        resolverAlvo: () => document.getElementById('devLocacao')
+        render: () => {
+            if (typeof renderDevolucoes === 'function') renderDevolucoes();
+        },
+        resolverAlvo: () => document.getElementById('devolucoesFormularioCard')
+            || document.getElementById('devLocacao')
             || document.querySelector('#tab-devolucoes .card'),
-        idFoco: 'devLocacao',
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#devLocacao',
+            '#devData',
+            '#devolucoesFormularioCard select',
+            '#devolucoesFormularioCard input'
+        ]),
         alinhamento: 'start',
         mensagemFalha: 'Formulário de devolução não encontrado.'
     });
@@ -763,7 +791,10 @@ function irParaClientesLista() {
         resolverAlvo: () => document.getElementById('buscaCliente')
             || document.querySelector('#tab-locadores .card:last-of-type')
             || document.querySelector('#tab-locadores .card'),
-        idFoco: 'buscaCliente',
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#buscaCliente',
+            '#tab-locadores .search-input'
+        ]),
         selecionar: true,
         alinhamento: 'start',
         mensagemFalha: 'Busca de clientes não encontrada.'
@@ -775,7 +806,11 @@ function irParaTiposCadastro() {
         tabId: 'tipos',
         resolverAlvo: () => document.getElementById('tipoNome')
             || document.querySelector('#tab-tipos .card'),
-        idFoco: 'tipoNome',
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#tipoNome',
+            '#tipoDesc',
+            '#tab-tipos .card input'
+        ]),
         alinhamento: 'start',
         mensagemFalha: 'Formulário de tipos não encontrado.'
     });
@@ -791,10 +826,17 @@ function irParaEstoqueCadastro() {
         render: () => {
             if (typeof renderEstoque === 'function') renderEstoque();
         },
-        resolverAlvo: () => document.getElementById('pecaNome')
+        resolverAlvo: () => document.getElementById('pecaCod')?.closest('.panel-block')
+            || document.getElementById('pecaCod')
             || document.querySelector('#tab-estoque .panel-block')
             || document.querySelector('#tab-estoque .card'),
-        idFoco: 'pecaNome',
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#pecaCod',
+            '#pecaNome',
+            '#pecaTipo',
+            '#tab-estoque .panel-block input',
+            '#tab-estoque .panel-block select'
+        ]),
         alinhamento: 'start',
         mensagemFalha: 'Formulário do estoque não encontrado.'
     });
@@ -881,9 +923,15 @@ function irParaConfigGeral() {
 function irParaClientesCadastro() {
     navegarComFocoAtalho({
         tabId: 'locadores',
-        resolverAlvo: () => document.getElementById('locNome')
+        resolverAlvo: () => document.getElementById('locNome')?.closest('.card')
+            || document.getElementById('locNome')
             || document.querySelector('#tab-locadores .card'),
-        idFoco: 'locNome',
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#locNome',
+            '#locDoc',
+            '#locEmail',
+            '#tab-locadores .card input'
+        ]),
         alinhamento: 'start',
         mensagemFalha: 'Formulário de cliente não encontrado.'
     });
