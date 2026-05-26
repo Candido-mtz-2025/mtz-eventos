@@ -334,6 +334,34 @@ function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
     }, 220);
 }
 
+function aguardarElementoAtalho(resolverElemento, aoEncontrar, opcoes = {}) {
+    const maxTentativas = Number.isFinite(Number(opcoes.maxTentativas))
+        ? Math.max(1, Number(opcoes.maxTentativas))
+        : 12;
+    const intervaloMs = Number.isFinite(Number(opcoes.intervaloMs))
+        ? Math.max(40, Number(opcoes.intervaloMs))
+        : 90;
+    const onFalha = typeof opcoes.onFalha === 'function' ? opcoes.onFalha : null;
+
+    let tentativas = 0;
+    const tentar = () => {
+        const elemento = typeof resolverElemento === 'function' ? resolverElemento() : null;
+        if (elemento) {
+            if (typeof aoEncontrar === 'function') aoEncontrar(elemento);
+            return;
+        }
+
+        tentativas += 1;
+        if (tentativas >= maxTentativas) {
+            if (onFalha) onFalha();
+            return;
+        }
+        setTimeout(tentar, intervaloMs);
+    };
+
+    tentar();
+}
+
 function focarRegistroRecemSalvo(opcoes = {}) {
     const tipo = String(opcoes.tipo || '').trim().toLowerCase();
     const idRegistro = String(opcoes.id ?? '').trim();
@@ -438,16 +466,30 @@ function executarAtalhoBuscaEstoque() {
     abrirTab('estoque', { semRolagem: true });
     if (typeof renderEstoque === 'function') renderEstoque();
 
-    setTimeout(() => {
-        const campoBusca = document.getElementById('buscaEstoque');
-        if (!campoBusca) {
-            avisarAtalhoIndisponivel('Busca do estoque não encontrada.');
-            return;
+    aguardarElementoAtalho(
+        () => document.getElementById('buscaEstoque')
+            || document.querySelector('#tab-estoque input.search-input'),
+        (campoBusca) => {
+            rolarParaElementoAtalho(campoBusca, 'start');
+            if (campoBusca.id) {
+                focarCampoDepoisDaRolagem(campoBusca.id, true);
+            } else {
+                setTimeout(() => {
+                    try {
+                        campoBusca.focus({ preventScroll: true });
+                    } catch (_) {
+                        campoBusca.focus();
+                    }
+                    if (typeof campoBusca.select === 'function') campoBusca.select();
+                }, 220);
+            }
+        },
+        {
+            onFalha: () => avisarAtalhoIndisponivel('Busca do estoque não encontrada.'),
+            maxTentativas: 14,
+            intervaloMs: 90
         }
-
-        rolarParaElementoAtalho(campoBusca, 'start');
-        focarCampoDepoisDaRolagem('buscaEstoque', true);
-    }, 160);
+    );
 }
 
 // Fluxo completo do filtro em locações: abre tab, aplica filtro, rola para lista e evidencia estado ativo.
@@ -472,13 +514,16 @@ function aplicarFiltroLocacoesLista(filtro) {
             atualizarFiltroVisualLocacoes();
         }
 
-        setTimeout(() => {
-            const alvoLista = document.getElementById('locacoesLista')
-                || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
-            if (alvoLista) {
-                rolarParaElementoAtalho(alvoLista, 'start');
+        aguardarElementoAtalho(
+            () => document.getElementById('locacoesLista')
+                || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block'),
+            (alvoLista) => rolarParaElementoAtalho(alvoLista, 'start'),
+            {
+                onFalha: () => avisarAtalhoIndisponivel('Lista de locações não encontrada.'),
+                maxTentativas: 12,
+                intervaloMs: 80
             }
-        }, 90);
+        );
     }, 140);
 }
 
