@@ -99,6 +99,34 @@ function onInputConferenciaDevolucao(input) {
     atualizarResumoConferenciaDevolucao();
 }
 
+function normalizarAssinaturaItensDevolucao(itens = []) {
+    return itens
+        .map((item) => ({
+            pecaId: String(item?.pecaId ?? '').trim(),
+            qtd: parseInt(item?.quantidadeDevolvida, 10) || 0,
+            avaria: parseInt(item?.quantidadeAvaria, 10) || 0
+        }))
+        .filter((item) => item.pecaId && (item.qtd > 0 || item.avaria > 0))
+        .sort((a, b) => a.pecaId.localeCompare(b.pecaId))
+        .map((item) => `${item.pecaId}:${item.qtd}:${item.avaria}`)
+        .join('|');
+}
+
+function encontrarDevolucaoPossivelmenteDuplicada(dadosDevolucao) {
+    const locacaoId = Number(dadosDevolucao?.locacaoId || 0);
+    const dataDevolucao = String(dadosDevolucao?.dataDevolucao || '').trim();
+    const assinatura = normalizarAssinaturaItensDevolucao(dadosDevolucao?.itens || []);
+
+    if (!locacaoId || !dataDevolucao || !assinatura) return null;
+
+    return devolucoes.find((registro) => {
+        if (Number(registro?.locacaoId || 0) !== locacaoId) return false;
+        if (String(registro?.dataDevolucao || '').trim() !== dataDevolucao) return false;
+        const assinaturaExistente = normalizarAssinaturaItensDevolucao(registro?.itens || []);
+        return assinaturaExistente === assinatura;
+    }) || null;
+}
+
 function carregarItensDevolucao() {
     const id = document.getElementById('devLocacao').value;
     const div = document.getElementById('divItensDevolucao');
@@ -271,8 +299,6 @@ function confirmarDevolucao() {
 
     pendencias.forEach((registro) => {
         const { item, pendenteAntes, qtdDevolvida, qtdAvaria, obs } = registro;
-        item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
-
         itensDevolvidos.push({
             pecaId: item.pecaId,
             nome: item.nome,
@@ -280,37 +306,75 @@ function confirmarDevolucao() {
             quantidadeDevolvida: qtdDevolvida,
             quantidadeAvaria: qtdAvaria,
             quantidadePendenteAntes: pendenteAntes,
-            quantidadePendenteApos: getQtdPendenteItem(item),
+            quantidadePendenteApos: Math.max(pendenteAntes - qtdDevolvida, 0),
             valorUnitario: parseFloat(item.valor) || 0,
             observacao: obs
         });
     });
 
-    const devolucaoTotal = locacaoEstaTotalmenteDevolvida(l);
-    l.status = devolucaoTotal ? 'devolvido' : 'ativo';
-    const novaDevolucaoId = Date.now();
+    const devolucaoTotal = (l.items || []).every((item) => {
+        const reg = pendencias.find((p) => String(p.item?.pecaId) === String(item?.pecaId));
+        const devolvidosAtuais = parseInt(item?.devolvidos, 10) || 0;
+        const qtdDevolvida = reg?.qtdDevolvida || 0;
+        const quantidadeLocada = parseInt(item?.quantidade, 10) || 0;
+        const pendenteApos = Math.max(quantidadeLocada - (devolvidosAtuais + qtdDevolvida), 0);
+        return pendenteApos === 0;
+    });
 
-    devolucoes.push({
-        id: novaDevolucaoId,
+    const dadosNovaDevolucao = {
         locacaoId: l.id,
         dataDevolucao,
         tipo: devolucaoTotal ? 'total' : 'parcial',
         obs: devolucaoTotal ? 'Total' : 'Parcial',
         itens: itensDevolvidos
-    });
+    };
 
-    if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
-    salvarLocal();
-    renderTudo();
-    if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'devolucao', id: novaDevolucaoId, limparBusca: false });
+    const concluirRegistroDevolucao = () => {
+        pendencias.forEach((registro) => {
+            const { item, qtdDevolvida } = registro;
+            item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
+        });
+
+        l.status = devolucaoTotal ? 'devolvido' : 'ativo';
+        const novaDevolucaoId = Date.now();
+
+        devolucoes.push({
+            id: novaDevolucaoId,
+            ...dadosNovaDevolucao
+        });
+
+        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
+        salvarLocal();
+        renderTudo();
+        if (typeof focarRegistroRecemSalvo === 'function') {
+            focarRegistroRecemSalvo({ tipo: 'devolucao', id: novaDevolucaoId, limparBusca: false });
+        }
+        sincronizar('salvar');
+
+        const cliente = locadores.find(x => x.id === l.locadorId);
+        registrarLog('devolucao', devolucaoTotal ? 'criar' : 'parcial', `Devolução ${devolucaoTotal ? 'total' : 'parcial'}: ${cliente?.nome || 'Cliente'} - ${itensDevolvidos.length} item(ns)`);
+
+        mostrarToast(devolucaoTotal ? "Devolução total registrada!" : "Devolução parcial registrada!");
+    };
+
+    const devolucaoDuplicada = encontrarDevolucaoPossivelmenteDuplicada(dadosNovaDevolucao);
+    if (devolucaoDuplicada) {
+        const sufixo = String(devolucaoDuplicada.id || '').slice(-4) || '----';
+        confirmarAcao(
+            `Já existe uma devolução parecida nesta data (#${sufixo}). Deseja registrar mesmo assim?`,
+            () => {
+                concluirRegistroDevolucao();
+            },
+            {
+                titulo: 'Possível duplicidade',
+                textoConfirmar: 'Registrar mesmo assim',
+                classeConfirmar: 'btn-warning'
+            }
+        );
+        return;
     }
-    sincronizar('salvar');
 
-    const cliente = locadores.find(x => x.id === l.locadorId);
-    registrarLog('devolucao', devolucaoTotal ? 'criar' : 'parcial', `Devolução ${devolucaoTotal ? 'total' : 'parcial'}: ${cliente?.nome || 'Cliente'} - ${itensDevolvidos.length} item(ns)`);
-
-    mostrarToast(devolucaoTotal ? "Devolução total registrada!" : "Devolução parcial registrada!");
+    concluirRegistroDevolucao();
 }
 
 window.preencherDevolucaoCompleta = preencherDevolucaoCompleta;
