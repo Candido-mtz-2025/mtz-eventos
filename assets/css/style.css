@@ -566,10 +566,25 @@
             box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.35);
             animation: rowRecentPulse 2.8s ease-out;
         }
+        .shortcut-target-highlight {
+            position: relative;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28), 0 8px 20px rgba(37, 99, 235, 0.14) !important;
+            animation: shortcutTargetPulse 1.2s ease-out;
+        }
         @keyframes rowRecentPulse {
             0% { background-color: rgba(37, 99, 235, 0.20); }
             70% { background-color: rgba(37, 99, 235, 0.10); }
             100% { background-color: transparent; }
+        }
+        @keyframes shortcutTargetPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.30), 0 10px 24px rgba(37, 99, 235, 0.18);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.00), 0 0 0 rgba(37, 99, 235, 0.00);
+            }
         }
         .col-actions { text-align: right !important; width: 1%; white-space: nowrap; }
         .actions-cell { display: flex; justify-content: flex-end; gap: 8px; }

@@ -392,6 +392,17 @@ function rolarParaElementoAtalho(elemento, block = 'start') {
     return true;
 }
 
+function destacarAlvoAtalho(elemento, duracaoMs = 1200) {
+    if (!(elemento instanceof HTMLElement)) return;
+    elemento.classList.remove('shortcut-target-highlight');
+    // Reinicia a animação mesmo em cliques seguidos.
+    void elemento.offsetWidth;
+    elemento.classList.add('shortcut-target-highlight');
+    setTimeout(() => {
+        elemento.classList.remove('shortcut-target-highlight');
+    }, Math.max(400, Number(duracaoMs) || 1200));
+}
+
 function garantirCampoVisivelNaViewport(campo, alinhamentoPreferido = 'start') {
     if (!(campo instanceof HTMLElement)) return false;
 
@@ -611,7 +622,7 @@ window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque() {
-    navegarComFocoAtalho({
+    return navegarComFocoAtalho({
         tabId: 'estoque',
         render: () => {
             if (typeof renderEstoque === 'function') renderEstoque();
@@ -629,6 +640,7 @@ function executarAtalhoBuscaEstoque() {
                     campoBusca.focus();
                 }
                 if (typeof campoBusca.select === 'function') campoBusca.select();
+                destacarAlvoAtalho(campoBusca, 1350);
             }, 220);
         },
         mensagemFalha: 'Busca do estoque não encontrada.',
@@ -671,10 +683,16 @@ function rolarParaListaLocacoesComFiltro(filtro) {
     return navegarComFocoAtalho({
         tabId: 'locacoes',
         preparar: () => {
-            aplicarFiltroLocacoesInterno(destino);
+            const filtroAplicado = aplicarFiltroLocacoesInterno(destino);
+            if (!filtroAplicado) {
+                avisarAtalhoIndisponivel('Não foi possível aplicar o filtro de locações.');
+            }
         },
         resolverAlvo: () => obterAlvoListaLocacoes(),
         alinhamento: 'start',
+        focarCustom: (alvoLista) => {
+            destacarAlvoAtalho(alvoLista, 1300);
+        },
         mensagemFalha: 'Lista de locações não encontrada.',
         maxTentativas: 14,
         intervaloMs: 90

@@ -18,6 +18,7 @@ function atualizarFiltroVisualLocacoes() {
     botoes.forEach((btn) => {
         const ativo = btn.getAttribute('data-filtro') === filtroAtual;
         btn.classList.toggle('is-active', ativo);
+        btn.setAttribute('aria-pressed', ativo ? 'true' : 'false');
     });
 }
 
