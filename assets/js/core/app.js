@@ -848,6 +848,18 @@ function executarAtalhoFiltroDevolucoes(filtro, opcoes = {}) {
 }
 
 function irParaDevolucoesFormulario() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoLocacao = document.getElementById('devLocacao');
+    if (abaAtual === 'devolucoes' && campoLocacao) {
+        const alvo = document.getElementById('devolucoesFormularioCard')
+            || campoLocacao.closest('.card')
+            || campoLocacao;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('devLocacao', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'devolucoes',
         render: () => {
@@ -970,6 +982,19 @@ function irParaLocacoesCobrancas() {
 }
 
 function irParaLocacoesFormulario() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoCliente = document.getElementById('aluguelCliente');
+    if (abaAtual === 'locacoes' && campoCliente) {
+        if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
+        const alvo = document.querySelector('#tab-locacoes #locacaoEtapa1')
+            || campoCliente.closest('.card')
+            || campoCliente;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('aluguelCliente', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'locacoes',
         preparar: () => {
