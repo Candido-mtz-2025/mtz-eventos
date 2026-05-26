@@ -108,6 +108,29 @@ function encontrarPecaDuplicada(dados, idIgnorar = null) {
         return Boolean(mesmoNome && (mesmaMedida || mesmoTipo));
     }) || null;
 }
+
+function limparFormularioCadastroPeca() {
+    const defaults = {
+        pecaCod: '',
+        pecaNome: '',
+        pecaMedida: '',
+        pecaBar: '',
+        pecaValor: '',
+        pecaQtd: '1',
+        pecaFamiliaEstrutural: '',
+        pecaSubtipoEstrutural: '',
+        pecaPodeCompor: 'sim'
+    };
+
+    Object.entries(defaults).forEach(([id, valor]) => {
+        const campo = document.getElementById(id);
+        if (!campo) return;
+        campo.value = valor;
+    });
+
+    const foto = document.getElementById('pecaFoto');
+    if (foto) foto.value = '';
+}
     
 function salvarPeca() {
     if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode cadastrar ou alterar valores de estoque.')) {
@@ -196,14 +219,13 @@ function salvarPeca() {
         : novaPecaBase;
     pecas.push(novaPeca);
 
+    limparFormularioCadastroPeca();
     salvarLocal();
     renderTudo();
     if (typeof focarRegistroRecemSalvo === 'function') {
         focarRegistroRecemSalvo({ tipo: 'peca', id: novoId, limparBusca: true });
     }
     sincronizar('salvar');
-
-    document.getElementById('pecaNome').value = "";
     mostrarToast("Item Salvo!");
 }
 
