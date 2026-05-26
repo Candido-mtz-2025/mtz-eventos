@@ -659,7 +659,22 @@ function focarRegistroRecemSalvo(opcoes = {}) {
 window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
-function executarAtalhoBuscaEstoque() {
+function executarAtalhoBuscaEstoque(opcoes = {}) {
+    const forcarRender = opcoes?.forcarRender === true;
+    const abaAtual = obterAbaAtivaAtual();
+    const campoBuscaAtual = document.getElementById('buscaEstoque');
+
+    // Quando já estamos no estoque, evita render desnecessário para não "pular" a tela.
+    if (!forcarRender && abaAtual === 'estoque' && campoBuscaAtual) {
+        const alvoBusca = campoBuscaAtual.closest('.estoque-search-toolbar')
+            || campoBuscaAtual.closest('.card')
+            || campoBuscaAtual;
+        rolarParaElementoAtalho(alvoBusca, 'start');
+        destacarAlvoAtalho(alvoBusca, 1100);
+        focarCampoDepoisDaRolagem('buscaEstoque', true);
+        return true;
+    }
+
     return navegarComFocoAtalho({
         tabId: 'estoque',
         render: () => {
@@ -1515,7 +1530,7 @@ function executarAtalhoRapido(atalhoId) {
             irParaTiposCadastro();
             return;
         case 'qa_ir_estoque':
-            irParaEstoqueCadastro();
+            irParaEstoqueBusca();
             return;
         case 'qa_novo_item':
             irParaEstoqueCadastro();
@@ -1555,6 +1570,9 @@ function executarAtalhoRapido(atalhoId) {
             irParaAuditoriaBusca();
             return;
         default:
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Atalho rápido não mapeado.', 'erro');
+            }
             return;
     }
 }
