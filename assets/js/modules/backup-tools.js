@@ -1,4 +1,44 @@
 // Ferramentas de backup e limpeza
+    function normalizarListaBackup(valor) {
+        return Array.isArray(valor) ? valor : [];
+    }
+
+    function backupTemEstruturaMinima(dados) {
+        if (!dados || typeof dados !== 'object') return false;
+        const chaves = [
+            'locadores', 'pecas', 'locacoes', 'devolucoes', 'tipos',
+            'modelosChecklist', 'logsAuditoria', 'config'
+        ];
+        return chaves.some((chave) => Object.prototype.hasOwnProperty.call(dados, chave));
+    }
+
+    function montarResumoBackupParaConfirmacao(dados, nomeArquivo) {
+        const dataRaw = String(dados?.data || '').trim();
+        const dataFmt = dataRaw ? new Date(dataRaw).toLocaleString('pt-BR') : 'sem data';
+        const versao = String(dados?.versao || 'desconhecida');
+        const totalLocadores = normalizarListaBackup(dados?.locadores).length;
+        const totalPecas = normalizarListaBackup(dados?.pecas).length;
+        const totalLocacoes = normalizarListaBackup(dados?.locacoes).length;
+        const totalDevolucoes = normalizarListaBackup(dados?.devolucoes).length;
+
+        return (
+            `Arquivo: ${nomeArquivo || 'backup.json'}\n` +
+            `Versao: ${versao}\n` +
+            `Data: ${dataFmt}\n\n` +
+            `Clientes: ${totalLocadores}\n` +
+            `Itens: ${totalPecas}\n` +
+            `Locacoes: ${totalLocacoes}\n` +
+            `Devolucoes: ${totalDevolucoes}\n\n` +
+            'Isso vai substituir os dados atuais. Deseja continuar?'
+        );
+    }
+
+    function limparInputBackup(input) {
+        if (input && typeof input.value === 'string') {
+            input.value = '';
+        }
+    }
+
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
         const snapshot = typeof gerarSnapshotDadosSistema === 'function'
@@ -29,31 +69,77 @@
             return;
         }
 
-        if (!input.files || !input.files[0]) return;
+        if (!input?.files || !input.files[0]) return;
+        const arquivo = input.files[0];
         const reader = new FileReader();
+
         reader.onload = function(e) {
             try {
-                const j = JSON.parse(e.target.result);
-                if (confirm("Isso substituirá todos os dados atuais. Continuar?")) {
+                const j = JSON.parse(e.target?.result || '{}');
+                if (!backupTemEstruturaMinima(j)) {
+                    mostrarToast("Arquivo de backup inválido ou incompleto.", "erro");
+                    limparInputBackup(input);
+                    return;
+                }
+
+                const confirmarRestauro = () => {
+                    // Cria snapshot de segurança antes da substituição.
+                    if (typeof criarBackupEmergencia === 'function') {
+                        try {
+                            criarBackupEmergencia();
+                        } catch (_) {
+                            // Falha nesse backup de segurança não bloqueia o restauro.
+                        }
+                    }
+
                     if (typeof aplicarDadosSistema === 'function') {
                         aplicarDadosSistema(j, { manterConfigAtual: true });
                     } else {
-                        locadores = j.locadores || [];
-                        pecas = j.pecas || [];
-                        locacoes = j.locacoes || [];
-                        devolucoes = j.devolucoes || [];
-                        tipos = j.tipos || [];
+                        locadores = normalizarListaBackup(j.locadores);
+                        pecas = normalizarListaBackup(j.pecas);
+                        locacoes = normalizarListaBackup(j.locacoes);
+                        devolucoes = normalizarListaBackup(j.devolucoes);
+                        tipos = normalizarListaBackup(j.tipos);
                         config = j.config || config;
                     }
                     salvarLocal();
                     renderTudo();
                     sincronizar('salvar');
+                    if (typeof registrarLog === 'function') {
+                        registrarLog(
+                            'sistema',
+                            'restaurar_backup',
+                            `Backup restaurado: ${arquivo.name || 'arquivo.json'} (${normalizarListaBackup(j.locadores).length} clientes, ${normalizarListaBackup(j.pecas).length} itens)`
+                        );
+                    }
                     mostrarToast("Backup restaurado com sucesso!");
+
+                    limparInputBackup(input);
+                };
+
+                const mensagem = montarResumoBackupParaConfirmacao(j, arquivo?.name);
+                if (typeof confirmarAcao === 'function') {
+                    confirmarAcao(mensagem, confirmarRestauro, {
+                        titulo: 'Restaurar backup',
+                        textoConfirmar: 'Restaurar agora',
+                        classeConfirmar: 'btn-warning'
+                    });
+                } else if (confirm(mensagem)) {
+                    confirmarRestauro();
+                } else {
+                    limparInputBackup(input);
                 }
             } catch (erro) {
-                alert("Erro ao ler arquivo de backup: " + erro);
+                mostrarToast("Erro ao ler arquivo de backup.", "erro");
+                console.error('Erro ao restaurar backup:', erro);
+                limparInputBackup(input);
             }
         };
+        reader.onerror = function() {
+            mostrarToast("Não foi possível ler o arquivo selecionado.", "erro");
+            limparInputBackup(input);
+        };
+
         reader.readAsText(input.files[0]);
     }
 
