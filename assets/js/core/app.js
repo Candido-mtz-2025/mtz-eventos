@@ -673,7 +673,12 @@ function focarRegistroRecemSalvo(opcoes = {}) {
     const cfg = mapa[tipo];
     if (!cfg) return false;
 
-    abrirTab(cfg.tabId, { semRolagem: true });
+    const abaAtual = obterAbaAtivaAtual();
+    if (abaAtual !== cfg.tabId) {
+        abrirTab(cfg.tabId, { semRolagem: true });
+    } else if (typeof sincronizarEstadoVisualDaAba === 'function') {
+        sincronizarEstadoVisualDaAba(cfg.tabId);
+    }
 
     if (opcoes.limparBusca && cfg.buscaId) {
         const campoBusca = document.getElementById(cfg.buscaId);
@@ -826,7 +831,12 @@ function executarAtalhoFiltroLocacoes(filtro) {
 function executarAtalhoFiltroDevolucoes(filtro, opcoes = {}) {
     const limparBusca = opcoes?.limparBusca !== false;
 
-    abrirTab('devolucoes', { semRolagem: true });
+    const abaAtual = obterAbaAtivaAtual();
+    if (abaAtual !== 'devolucoes') {
+        abrirTab('devolucoes', { semRolagem: true });
+    } else if (typeof sincronizarEstadoVisualDaAba === 'function') {
+        sincronizarEstadoVisualDaAba('devolucoes');
+    }
 
     aguardarElementoAtalho(
         () => document.getElementById('devFiltroHistorico'),
