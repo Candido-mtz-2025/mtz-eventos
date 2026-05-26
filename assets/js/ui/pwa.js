@@ -1,6 +1,16 @@
 // 1. Registra o Service Worker (Obrigatório para instalar)
 if ('serviceWorker' in navigator) {
-    const SW_VERSION = 'v55';
+    const SW_VERSION = 'v56';
+
+    function ativarWorkerEmEspera(worker) {
+        if (!worker) return;
+        try {
+            worker.postMessage({ type: 'SKIP_WAITING' });
+        } catch (_) {
+            // Se falhar, o fluxo padrão do browser assume.
+        }
+    }
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register(`./sw.js?${SW_VERSION}`, { updateViaCache: 'none' })
             .then((registration) => {
@@ -8,6 +18,10 @@ if ('serviceWorker' in navigator) {
 
                 registration.update();
                 setInterval(() => registration.update(), 30 * 60 * 1000);
+
+                if (registration.waiting) {
+                    ativarWorkerEmEspera(registration.waiting);
+                }
 
                 registration.addEventListener('updatefound', () => {
                     const worker = registration.installing;
@@ -18,6 +32,7 @@ if ('serviceWorker' in navigator) {
                             if (typeof mostrarToast === 'function') {
                                 mostrarToast('Nova versao disponivel. Atualizando...');
                             }
+                            ativarWorkerEmEspera(worker);
                         }
                     });
                 });

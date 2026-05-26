@@ -1,10 +1,26 @@
-const CACHE_NAME = 'mtz-eventos-v55';
+const CACHE_NAME = 'mtz-eventos-v56';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './logo.png'
 ];
+
+async function precacheShellComRede(cache) {
+  const tarefas = APP_SHELL.map(async (recurso) => {
+    try {
+      const request = new Request(recurso, { cache: 'reload' });
+      const response = await fetch(request);
+      if (response && response.ok) {
+        await cache.put(recurso, response.clone());
+      }
+    } catch (_) {
+      // Falha pontual de rede não deve impedir ativação do SW.
+    }
+  });
+
+  await Promise.allSettled(tarefas);
+}
 
 function deveIgnorarRequisicao(request) {
   const url = new URL(request.url);
@@ -73,7 +89,7 @@ function recursoCritico(request) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => precacheShellComRede(cache))
   );
   self.skipWaiting();
 });
@@ -85,6 +101,13 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  const data = event?.data || {};
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
