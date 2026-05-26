@@ -763,12 +763,24 @@ function executarAtalhoFiltroLocacoes(filtro) {
     rolarParaListaLocacoesComFiltro(filtro, { limparBusca: true });
 }
 
-function executarAtalhoFiltroDevolucoes(filtro) {
+function executarAtalhoFiltroDevolucoes(filtro, opcoes = {}) {
+    const limparBusca = opcoes?.limparBusca !== false;
+
     abrirTab('devolucoes', { semRolagem: true });
 
     aguardarElementoAtalho(
         () => document.getElementById('devFiltroHistorico'),
         () => {
+            if (limparBusca) {
+                const campoBusca = document.getElementById('devBuscaHistorico');
+                if (campoBusca && campoBusca.value) {
+                    campoBusca.value = '';
+                    if (typeof atualizarPersistenciaBuscaRapida === 'function') {
+                        atualizarPersistenciaBuscaRapida('devBuscaHistorico', '');
+                    }
+                }
+            }
+
             aplicarFiltroHistoricoDevolucoes(filtro, false, false);
 
             aguardarElementoAtalho(
@@ -1533,10 +1545,10 @@ function executarAtalhoRapido(atalhoId) {
             irParaDevolucoesFormulario();
             return;
         case 'qa_filtro_dev_parcial':
-            executarAtalhoFiltroDevolucoes('parcial');
+            executarAtalhoFiltroDevolucoes('parcial', { limparBusca: true });
             return;
         case 'qa_filtro_dev_total':
-            executarAtalhoFiltroDevolucoes('total');
+            executarAtalhoFiltroDevolucoes('total', { limparBusca: true });
             return;
         case 'qa_novo_tipo':
             irParaTiposCadastro();
