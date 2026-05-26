@@ -135,7 +135,7 @@ function renderDevolucoes() {
                 <td><span class="badge ${badge}">${tipo}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-secondary table-action-btn" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
+                        <button class="btn btn-sm btn-secondary table-action-btn" title="Imprimir recibo" aria-label="Imprimir recibo" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
                             <i class="bi bi-printer"></i>
                         </button>
                     </div>

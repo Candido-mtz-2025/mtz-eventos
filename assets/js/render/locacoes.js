@@ -234,19 +234,19 @@ function renderLocacoes() {
             </td>
             <td class="col-actions">
                 <div class="actions-cell locacao-actions">
-                <button class="btn btn-sm table-action-btn locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" aria-label="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
                     <i class="bi bi-currency-dollar"></i>
                 </button>
-                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" aria-label="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
                     <i class="bi bi-whatsapp"></i>
                 </button>
-                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" aria-label="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                     <i class="bi bi-truck"></i>
                 </button>
-                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" aria-label="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>
-                ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
+                ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" aria-label="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
         `;
