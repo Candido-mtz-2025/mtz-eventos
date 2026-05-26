@@ -56,6 +56,47 @@ function resolverTipoSelecionado(valorSelecionado) {
     }
     return obterOuCriarTipoGeral();
 }
+
+function normalizarTextoEstoque(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase();
+}
+
+function normalizarIdentificadorEstoque(valor) {
+    return String(valor || '')
+        .trim()
+        .toLowerCase();
+}
+
+function encontrarPecaDuplicada(dados, idIgnorar = null) {
+    const nome = normalizarTextoEstoque(dados?.nome);
+    const codigo = normalizarIdentificadorEstoque(dados?.codigo);
+    const barras = normalizarIdentificadorEstoque(dados?.barras);
+    const medida = normalizarTextoEstoque(dados?.medida);
+    const tipoId = Number(dados?.tipoId || 0);
+
+    return pecas.find((peca) => {
+        if (idIgnorar != null && String(peca.id) === String(idIgnorar)) return false;
+
+        const codigoPeca = normalizarIdentificadorEstoque(peca.codigo);
+        const barrasPeca = normalizarIdentificadorEstoque(peca.barras || peca.codigoBarras);
+        const nomePeca = normalizarTextoEstoque(peca.nome);
+        const medidaPeca = normalizarTextoEstoque(peca.medida);
+        const tipoPeca = Number(peca.tipoId || 0);
+
+        if (codigo && codigoPeca && codigo === codigoPeca) return true;
+        if (barras && barrasPeca && barras === barrasPeca) return true;
+
+        const mesmoNome = nome && nomePeca && nome === nomePeca;
+        const mesmaMedida = medida && medidaPeca && medida === medidaPeca;
+        const mesmoTipo = tipoId > 0 && tipoPeca > 0 && tipoId === tipoPeca;
+
+        return Boolean(mesmoNome && (mesmaMedida || mesmoTipo));
+    }) || null;
+}
     
 function salvarPeca() {
     if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode cadastrar ou alterar valores de estoque.')) {
@@ -63,6 +104,9 @@ function salvarPeca() {
     }
 
     const n = (document.getElementById('pecaNome').value || '').trim();
+    const codigo = (document.getElementById('pecaCod').value || '').trim();
+    const medida = (document.getElementById('pecaMedida').value || '').trim();
+    const barras = (document.getElementById('pecaBar').value || '').trim();
     const valor = parseFloat(document.getElementById('pecaValor').value);
     const quantidade = parseInt(document.getElementById('pecaQtd').value, 10);
     const tipoId = resolverTipoSelecionado(document.getElementById('pecaTipo').value);
@@ -82,16 +126,43 @@ function salvarPeca() {
         document.getElementById('pecaQtd')?.focus();
         return;
     }
+
+    const duplicada = encontrarPecaDuplicada({
+        nome: n,
+        codigo,
+        barras,
+        medida,
+        tipoId
+    });
+    if (duplicada) {
+        if (codigo && normalizarIdentificadorEstoque(duplicada.codigo) === normalizarIdentificadorEstoque(codigo)) {
+            mostrarToast("Ja existe item com esse codigo.", "erro");
+            document.getElementById('pecaCod')?.focus();
+            return;
+        }
+
+        if (barras && normalizarIdentificadorEstoque(duplicada.barras || duplicada.codigoBarras) === normalizarIdentificadorEstoque(barras)) {
+            mostrarToast("Ja existe item com esse codigo de barras.", "erro");
+            document.getElementById('pecaBar')?.focus();
+            return;
+        }
+
+        mostrarToast(`Item possivelmente duplicado: ${duplicada.nome}.`, "erro");
+        document.getElementById('pecaNome')?.focus();
+        return;
+    }
+
     const novoId = Date.now();
     pecas.push({
         id: novoId,
         nome: n,
-        codigo: document.getElementById('pecaCod').value,
+        codigo,
         valor,
         quantidade,
         disponivel: quantidade,
         tipoId,
-        medida: document.getElementById('pecaMedida').value,
+        medida,
+        barras,
 
         grupoChecklist: document.getElementById('pecaGrupoChecklist').value || 'outros',
         familiaEstrutural: document.getElementById('pecaFamiliaEstrutural').value || '',
@@ -140,7 +211,7 @@ function salvarPeca() {
 
     document.getElementById('modalEditarPeca').classList.add('active');
 }
-  function salvarEdicaoPeca() {
+function salvarEdicaoPeca() {
     if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode salvar alterações de valores/estoque.')) {
         return;
     }
@@ -153,17 +224,56 @@ function salvarPeca() {
         return;
     }
 
+    const novoCodigo = (document.getElementById('editPecaCod').value || '').trim();
+    const novoNome = (document.getElementById('editPecaNome').value || '').trim();
+    const novaMedida = (document.getElementById('editPecaMedida').value || '').trim();
+    const novoBarras = (document.getElementById('editPecaBar').value || '').trim();
+    const novoTipoId = resolverTipoSelecionado(document.getElementById('editPecaTipo').value);
     const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
     const diff = novaQtd - (p.quantidade || 0);
 
-    p.codigo = document.getElementById('editPecaCod').value;
-    p.nome = document.getElementById('editPecaNome').value;
-    p.medida = document.getElementById('editPecaMedida').value;
+    if (!novoNome) {
+        mostrarToast("Informe o nome da peca.", "erro");
+        document.getElementById('editPecaNome')?.focus();
+        return;
+    }
+
+    const duplicada = encontrarPecaDuplicada(
+        {
+            nome: novoNome,
+            codigo: novoCodigo,
+            barras: novoBarras,
+            medida: novaMedida,
+            tipoId: novoTipoId
+        },
+        id
+    );
+    if (duplicada) {
+        if (novoCodigo && normalizarIdentificadorEstoque(duplicada.codigo) === normalizarIdentificadorEstoque(novoCodigo)) {
+            mostrarToast("Ja existe item com esse codigo.", "erro");
+            document.getElementById('editPecaCod')?.focus();
+            return;
+        }
+
+        if (novoBarras && normalizarIdentificadorEstoque(duplicada.barras || duplicada.codigoBarras) === normalizarIdentificadorEstoque(novoBarras)) {
+            mostrarToast("Ja existe item com esse codigo de barras.", "erro");
+            document.getElementById('editPecaBar')?.focus();
+            return;
+        }
+
+        mostrarToast(`Item possivelmente duplicado: ${duplicada.nome}.`, "erro");
+        document.getElementById('editPecaNome')?.focus();
+        return;
+    }
+
+    p.codigo = novoCodigo;
+    p.nome = novoNome;
+    p.medida = novaMedida;
     p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
-    p.tipoId = resolverTipoSelecionado(document.getElementById('editPecaTipo').value);
+    p.tipoId = novoTipoId;
     p.quantidade = novaQtd;
     p.disponivel = (p.disponivel || 0) + diff;
-    p.barras = document.getElementById('editPecaBar').value;
+    p.barras = novoBarras;
 
     p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
     p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
