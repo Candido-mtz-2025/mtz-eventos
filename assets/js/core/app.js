@@ -825,6 +825,16 @@ function irParaDevolucoesFormulario() {
 }
 
 function irParaClientesLista() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoBusca = document.getElementById('buscaCliente');
+    if (abaAtual === 'locadores' && campoBusca) {
+        const alvo = campoBusca.closest('.card') || campoBusca;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('buscaCliente', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'locadores',
         resolverAlvo: () => document.getElementById('buscaCliente')
@@ -841,6 +851,16 @@ function irParaClientesLista() {
 }
 
 function irParaTiposCadastro() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoTipo = document.getElementById('tipoNome');
+    if (abaAtual === 'tipos' && campoTipo) {
+        const alvo = campoTipo.closest('.card') || campoTipo;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('tipoNome', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'tipos',
         resolverAlvo: () => document.getElementById('tipoNome')
@@ -912,6 +932,16 @@ function irParaLocacoesFormulario() {
 }
 
 function irParaAuditoriaBusca() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoBusca = document.getElementById('auditBusca');
+    if (abaAtual === 'auditoria' && campoBusca) {
+        const alvo = campoBusca.closest('.card') || campoBusca;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('auditBusca', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'auditoria',
         preparar: () => {
