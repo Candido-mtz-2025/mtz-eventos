@@ -902,6 +902,16 @@ function irParaEstoqueCadastro() {
 }
 
 function irParaChecklistOperacional() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoChecklist = document.getElementById('checklistCliente');
+    if (abaAtual === 'checklist' && campoChecklist) {
+        const alvo = campoChecklist.closest('.card') || campoChecklist;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('checklistCliente', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'checklist',
         resolverAlvo: () => document.getElementById('checklistCliente')
@@ -975,6 +985,16 @@ function aplicarFiltroAuditoria(filtro = 'todos', focarBusca = false) {
 }
 
 function irParaConfigGeral() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoRodape = document.getElementById('confRodape');
+    if (abaAtual === 'config' && campoRodape) {
+        const alvo = campoRodape.closest('.config-card') || campoRodape.closest('.card') || campoRodape;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('confRodape', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'config',
         preparar: () => {
@@ -1007,6 +1027,16 @@ function irParaClientesCadastro() {
 }
 
 function irParaChecklistModelo() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoModelo = document.getElementById('checklistModeloSelect');
+    if (abaAtual === 'checklist' && campoModelo) {
+        const alvo = campoModelo.closest('.card') || campoModelo;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('checklistModeloSelect', true);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'checklist',
         resolverAlvo: () => document.getElementById('checklistModeloSelect')
@@ -1058,6 +1088,15 @@ function acionarImportacaoEstoqueViaAtalho() {
 }
 
 function irParaConfigBackup() {
+    const abaAtual = obterAbaAtivaAtual();
+    const cardBackupAtual = document.querySelector('#tab-config .config-actions-card')
+        || document.querySelector('#tab-config .card');
+    if (abaAtual === 'config' && cardBackupAtual) {
+        rolarParaElementoAtalho(cardBackupAtual, 'start');
+        destacarAlvoAtalho(cardBackupAtual, 1100);
+        return;
+    }
+
     navegarComFocoAtalho({
         tabId: 'config',
         preparar: () => {
