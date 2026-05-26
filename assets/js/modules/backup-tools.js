@@ -53,6 +53,19 @@
         return `${prefixo}_${yyyy}-${mm}-${dd}_${hh}${mi}.${extensao}`;
     }
 
+    function montarResumoArquivamentoHistorico(contratosParaArquivar = []) {
+        const totalContratos = normalizarListaBackup(contratosParaArquivar).length;
+        const totalItens = normalizarListaBackup(contratosParaArquivar)
+            .reduce((acc, loc) => acc + normalizarListaBackup(loc?.items).length, 0);
+
+        return (
+            `Serão arquivados ${totalContratos} contrato(s) finalizado(s).\n` +
+            `Itens nesses contratos: ${totalItens}\n\n` +
+            'Um arquivo será baixado e os registros sairão da base ativa.\n' +
+            'Deseja continuar?'
+        );
+    }
+
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
         try {
@@ -200,33 +213,55 @@
 
         if (contratosParaArquivar.length === 0) return mostrarToast("Nada novo para arquivar!", "erro");
 
-        if (!confirm(`Confirma arquivar ${contratosParaArquivar.length} contratos finalizados?\n(Eles sairão do sistema e serão salvos num arquivo)`)) return;
+        const executarArquivamento = () => {
+            if (typeof criarBackupEmergencia === 'function') {
+                try {
+                    criarBackupEmergencia();
+                } catch (_) {
+                    // Falha no backup emergencial não bloqueia o arquivamento.
+                }
+            }
 
-        const dadosMortos = JSON.stringify({ 
-            data: new Date(), 
-            contratos: contratosParaArquivar
-        });
-        
-        const blob = new Blob([dadosMortos], {type: "application/json"});
-        const urlArquivo = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = urlArquivo;
-        link.download = gerarNomeArquivoData('MTZ_Arquivo_Morto');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(urlArquivo);
+            const dadosMortos = JSON.stringify({
+                data: new Date().toISOString(),
+                contratos: contratosParaArquivar
+            });
 
-        locacoes = contratosParaManter;
-        devolucoes = devolucoes.filter(d => locacoes.some(l => l.id === d.locacaoId));
+            const blob = new Blob([dadosMortos], {type: "application/json"});
+            const urlArquivo = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = urlArquivo;
+            link.download = gerarNomeArquivoData('MTZ_Arquivo_Morto');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(urlArquivo);
 
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        if (typeof registrarLog === 'function') {
-            registrarLog('sistema', 'arquivar_historico', `Arquivados ${contratosParaArquivar.length} contrato(s) finalizado(s).`);
+            locacoes = contratosParaManter;
+            devolucoes = devolucoes.filter(d => locacoes.some(l => l.id === d.locacaoId));
+
+            salvarLocal();
+            renderTudo();
+            sincronizar('salvar');
+            if (typeof registrarLog === 'function') {
+                registrarLog('sistema', 'arquivar_historico', `Arquivados ${contratosParaArquivar.length} contrato(s) finalizado(s).`);
+            }
+            mostrarToast("Sistema limpo e otimizado!");
+        };
+
+        const mensagem = montarResumoArquivamentoHistorico(contratosParaArquivar);
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(mensagem, executarArquivamento, {
+                titulo: 'Arquivar histórico',
+                textoConfirmar: 'Arquivar agora',
+                classeConfirmar: 'btn-warning'
+            });
+            return;
         }
-        mostrarToast("Sistema limpo e otimizado!");
+
+        if (confirm(mensagem)) {
+            executarArquivamento();
+        }
     }
 
 // === MONITOR DE ARMAZENAMENTO ===
