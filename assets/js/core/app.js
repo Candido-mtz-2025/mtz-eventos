@@ -720,11 +720,23 @@ function aplicarFiltroLocacoesInterno(filtro) {
     return false;
 }
 
-function rolarParaListaLocacoesComFiltro(filtro) {
+function rolarParaListaLocacoesComFiltro(filtro, opcoes = {}) {
     const destino = normalizarFiltroLocacoesAtalho(filtro);
+    const limparBusca = opcoes?.limparBusca === true;
+
     return navegarComFocoAtalho({
         tabId: 'locacoes',
         preparar: () => {
+            if (limparBusca) {
+                const campoBusca = document.getElementById('buscaLocacoes');
+                if (campoBusca && campoBusca.value) {
+                    campoBusca.value = '';
+                    if (typeof atualizarPersistenciaBuscaRapida === 'function') {
+                        atualizarPersistenciaBuscaRapida('buscaLocacoes', '');
+                    }
+                }
+            }
+
             const filtroAplicado = aplicarFiltroLocacoesInterno(destino);
             if (!filtroAplicado) {
                 avisarAtalhoIndisponivel('Não foi possível aplicar o filtro de locações.');
@@ -748,7 +760,7 @@ function aplicarFiltroLocacoesLista(filtro) {
 
 // Mantém compatibilidade com atalhos já existentes.
 function executarAtalhoFiltroLocacoes(filtro) {
-    aplicarFiltroLocacoesLista(filtro);
+    rolarParaListaLocacoesComFiltro(filtro, { limparBusca: true });
 }
 
 function executarAtalhoFiltroDevolucoes(filtro) {
