@@ -1545,6 +1545,19 @@ function inicializarPersistenciaBuscasRapidas() {
 }
 
 function focoBuscaPorAba(abaId) {
+    if (abaId === 'locacoes') {
+        const etapa2Ativa = document.getElementById('locacaoEtapa2')?.classList.contains('is-active');
+        const campoBuscaItens = document.getElementById('inputBuscaPeca');
+        if (etapa2Ativa && elementoAcionavelVisivel(campoBuscaItens)) {
+            const alvo = campoBuscaItens.closest('.panel-block')
+                || campoBuscaItens.closest('.card')
+                || campoBuscaItens;
+            rolarParaElementoAtalho(alvo, 'start');
+            focarCampoDepoisDaRolagem('inputBuscaPeca', true);
+            return true;
+        }
+    }
+
     const mapaBusca = {
         locadores: 'buscaCliente',
         tipos: 'buscaTipos',
@@ -1559,7 +1572,10 @@ function focoBuscaPorAba(abaId) {
     const campo = document.getElementById(idCampo);
     if (!campo) return false;
 
-    rolarParaElementoAtalho(campo, 'start');
+    const alvo = campo.closest('.panel-block')
+        || campo.closest('.card')
+        || campo;
+    rolarParaElementoAtalho(alvo, 'start');
     focarCampoDepoisDaRolagem(idCampo, true);
     return true;
 }
