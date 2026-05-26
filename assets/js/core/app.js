@@ -287,7 +287,10 @@ function aplicarFiltroHistoricoDevolucoes(filtro = null, focarBusca = false, rol
     }
 
     const alvo = obterAlvoHistoricoDevolucoes();
-    if (alvo) rolarParaElementoAtalho(alvo, 'start');
+    if (alvo) {
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1250);
+    }
     if (focarBusca) focarCampoDepoisDaRolagem('devBuscaHistorico', true);
 }
 
@@ -493,17 +496,34 @@ function navegarComFocoAtalho(opcoes = {}) {
     const alinhar = opcoes.alinhamento || 'start';
     const idFoco = String(opcoes.idFoco || '').trim();
     const selecionar = opcoes.selecionar === true;
+    const destacar = opcoes.destacarAlvo !== false;
+    const resolverFoco = typeof opcoes.resolverFoco === 'function'
+        ? opcoes.resolverFoco
+        : () => (idFoco ? document.getElementById(idFoco) : null);
 
     aguardarElementoAtalho(
         resolverAlvo,
         (alvo) => {
             rolarParaElementoAtalho(alvo, alinhar);
-            if (idFoco) {
-                const campoFoco = document.getElementById(idFoco);
-                if (campoFoco) {
-                    focarCampoDepoisDaRolagem(idFoco, selecionar);
-                    return;
+            if (destacar) destacarAlvoAtalho(alvo, 1200);
+
+            const campoFoco = resolverFoco();
+            if (campoFoco) {
+                const idCampo = String(campoFoco.id || '').trim();
+                if (idCampo) {
+                    focarCampoDepoisDaRolagem(idCampo, selecionar);
+                } else {
+                    setTimeout(() => {
+                        try {
+                            campoFoco.focus({ preventScroll: true });
+                        } catch (_) {
+                            campoFoco.focus();
+                        }
+                        if (selecionar && typeof campoFoco.select === 'function') campoFoco.select();
+                    }, 220);
                 }
+                setTimeout(() => destacarAlvoAtalho(campoFoco, 1300), 260);
+                return;
             }
             if (typeof opcoes.focarCustom === 'function') {
                 opcoes.focarCustom(alvo);
@@ -632,17 +652,6 @@ function executarAtalhoBuscaEstoque() {
         idFoco: 'buscaEstoque',
         selecionar: true,
         alinhamento: 'start',
-        focarCustom: (campoBusca) => {
-            setTimeout(() => {
-                try {
-                    campoBusca.focus({ preventScroll: true });
-                } catch (_) {
-                    campoBusca.focus();
-                }
-                if (typeof campoBusca.select === 'function') campoBusca.select();
-                destacarAlvoAtalho(campoBusca, 1350);
-            }, 220);
-        },
         mensagemFalha: 'Busca do estoque não encontrada.',
         maxTentativas: 16,
         intervaloMs: 90
