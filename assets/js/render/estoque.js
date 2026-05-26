@@ -1,4 +1,57 @@
 // --- RENDERIZAR ESTOQUE (COM ORDEM ALFABÉTICA) ---
+const FILTROS_RAPIDOS_ESTOQUE_VALIDOS = new Set(['todos', 'disponiveis', 'criticos', 'valor']);
+let filtroRapidoEstoqueAtual = null;
+
+function normalizarFiltroRapidoEstoque(valor) {
+  const filtro = String(valor || '').trim().toLowerCase();
+  return FILTROS_RAPIDOS_ESTOQUE_VALIDOS.has(filtro) ? filtro : 'todos';
+}
+
+function obterFiltroRapidoEstoqueAtual() {
+  if (filtroRapidoEstoqueAtual != null) return filtroRapidoEstoqueAtual;
+  try {
+    filtroRapidoEstoqueAtual = normalizarFiltroRapidoEstoque(localStorage.getItem('mtz:estoqueFiltroRapido'));
+  } catch (_) {
+    filtroRapidoEstoqueAtual = 'todos';
+  }
+  return filtroRapidoEstoqueAtual;
+}
+
+function persistirFiltroRapidoEstoque(filtro) {
+  try {
+    localStorage.setItem('mtz:estoqueFiltroRapido', filtro);
+  } catch (_) {
+    // Falha de storage não deve bloquear o uso.
+  }
+}
+
+function atualizarFiltroRapidoEstoqueVisual() {
+  const atual = obterFiltroRapidoEstoqueAtual();
+  const cards = document.querySelectorAll('#tab-estoque .estoque-kpi-card[data-filtro-estoque]');
+  cards.forEach((card) => {
+    const filtroCard = normalizarFiltroRapidoEstoque(card.dataset.filtroEstoque);
+    const ativo = filtroCard === atual;
+    card.classList.toggle('is-active', ativo);
+    card.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+  });
+}
+
+function itemAtendeFiltroRapidoEstoque(peca, filtro) {
+  const disponivel = Math.max(Number(peca?.disponivel ?? 0), 0);
+  const valor = Number(peca?.valor ?? 0);
+
+  switch (filtro) {
+    case 'disponiveis':
+      return disponivel > 0;
+    case 'criticos':
+      return disponivel <= 3;
+    case 'valor':
+      return valor > 0;
+    default:
+      return true;
+  }
+}
+
 function formatarMoedaResumoEstoque(valor) {
   return (Number(valor) || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -36,6 +89,7 @@ function atualizarResumoExecutivoEstoque() {
 
 function renderEstoque() {
   const termoRaw = DOM.get('buscaEstoque')?.value || '';
+  const filtroRapido = obterFiltroRapidoEstoqueAtual();
   
   const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
@@ -57,20 +111,32 @@ function renderEstoque() {
     const nomeTipo = mapaTiposNomePorId.get(String(p?.tipoId)) || '';
     const categoria = nomeTipo ? normalizar(nomeTipo) : '';
 
-    return nome.includes(termo) || 
+    const atendeBusca = nome.includes(termo) || 
            codigo.includes(termo) || 
            categoria.includes(termo) ||
            medida.includes(termo);
+
+    if (!atendeBusca) return false;
+    return itemAtendeFiltroRapidoEstoque(p, filtroRapido);
   });
 
   if (typeof atualizarMetaBusca === 'function') {
+    const rotulosFiltro = {
+      todos: 'Todos',
+      disponiveis: 'Disponíveis',
+      criticos: 'Críticos',
+      valor: 'Com valor'
+    };
     atualizarMetaBusca('metaBuscaEstoque', {
       total: Array.isArray(pecas) ? pecas.length : 0,
       filtrados: itensFiltrados.length,
       termo: termoRaw,
+      filtro: filtroRapido,
+      filtroLabel: rotulosFiltro[filtroRapido] || 'Todos',
       rotulo: 'itens'
     });
   }
+  atualizarFiltroRapidoEstoqueVisual();
 
   // --- PARTE NOVA: ORDENAÇÃO ---
   itensFiltrados.sort((a, b) => {
@@ -167,3 +233,23 @@ function renderEstoque() {
   tbody.appendChild(fragment);
   if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
+
+function aplicarFiltroEstoqueResumo(filtro) {
+  const destinoNormalizado = normalizarFiltroRapidoEstoque(filtro);
+  const atual = obterFiltroRapidoEstoqueAtual();
+  const destino = atual === destinoNormalizado ? 'todos' : destinoNormalizado;
+
+  filtroRapidoEstoqueAtual = destino;
+  persistirFiltroRapidoEstoque(destino);
+
+  renderEstoque();
+
+  const alvo = document.querySelector('#tab-estoque .estoque-search-toolbar')
+    || document.getElementById('buscaEstoque')
+    || document.querySelector('#tab-estoque .card');
+  if (alvo && typeof rolarParaElementoAtalho === 'function') {
+    rolarParaElementoAtalho(alvo, 'start');
+  }
+}
+
+window.aplicarFiltroEstoqueResumo = aplicarFiltroEstoqueResumo;

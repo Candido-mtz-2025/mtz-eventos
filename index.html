@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=17.5">
+    <link rel="stylesheet" href="./assets/css/style.css?v=17.6">
 </head>
 <body>
 
@@ -317,19 +317,19 @@
                         </div>
                     </div>
                     <div class="estoque-kpi-grid" aria-label="Resumo de estoque">
-                        <div class="estoque-kpi-card" data-tone="total">
+                        <div class="estoque-kpi-card" data-tone="total" data-filtro-estoque="todos" data-action="aplicarFiltroEstoqueResumo" data-arg="todos">
                             <small>Itens cadastrados</small>
                             <strong id="estoqueKpiTotal">0</strong>
                         </div>
-                        <div class="estoque-kpi-card" data-tone="disponivel">
+                        <div class="estoque-kpi-card" data-tone="disponivel" data-filtro-estoque="disponiveis" data-action="aplicarFiltroEstoqueResumo" data-arg="disponiveis">
                             <small>Disponíveis</small>
                             <strong id="estoqueKpiDisponiveis">0</strong>
                         </div>
-                        <div class="estoque-kpi-card" data-tone="critico">
+                        <div class="estoque-kpi-card" data-tone="critico" data-filtro-estoque="criticos" data-action="aplicarFiltroEstoqueResumo" data-arg="criticos">
                             <small>Críticos</small>
                             <strong id="estoqueKpiCriticos">0</strong>
                         </div>
-                        <div class="estoque-kpi-card" data-tone="valor">
+                        <div class="estoque-kpi-card" data-tone="valor" data-filtro-estoque="valor" data-action="aplicarFiltroEstoqueResumo" data-arg="valor">
                             <small>Valor em estoque</small>
                             <strong id="estoqueKpiValor">R$ 0,00</strong>
                         </div>
@@ -1002,7 +1002,7 @@
     <script src="./assets/js/modules/shared-actions.js"></script>
     <script src="./assets/js/render/locacoes.js?v=14.8"></script>
     <script src="./assets/js/render/cadastros.js?v=3.2"></script>
-    <script src="./assets/js/render/estoque.js?v=2.0"></script>
+    <script src="./assets/js/render/estoque.js?v=2.1"></script>
     <script src="./assets/js/render/dashboard.js"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.0"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
