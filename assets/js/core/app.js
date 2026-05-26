@@ -362,6 +362,55 @@ function aguardarElementoAtalho(resolverElemento, aoEncontrar, opcoes = {}) {
     tentar();
 }
 
+function navegarComFocoAtalho(opcoes = {}) {
+    const tabId = String(opcoes.tabId || '').trim();
+    if (!tabId) return false;
+
+    abrirTab(tabId, { semRolagem: true });
+
+    if (typeof opcoes.preparar === 'function') {
+        opcoes.preparar();
+    }
+
+    if (typeof opcoes.render === 'function') {
+        opcoes.render();
+    }
+
+    const resolverAlvo = typeof opcoes.resolverAlvo === 'function'
+        ? opcoes.resolverAlvo
+        : () => document.getElementById(`tab-${tabId}`);
+
+    const alinhar = opcoes.alinhamento || 'start';
+    const idFoco = String(opcoes.idFoco || '').trim();
+    const selecionar = opcoes.selecionar === true;
+
+    aguardarElementoAtalho(
+        resolverAlvo,
+        (alvo) => {
+            rolarParaElementoAtalho(alvo, alinhar);
+            if (idFoco) {
+                const campoFoco = document.getElementById(idFoco);
+                if (campoFoco) {
+                    focarCampoDepoisDaRolagem(idFoco, selecionar);
+                    return;
+                }
+            }
+            if (typeof opcoes.focarCustom === 'function') {
+                opcoes.focarCustom(alvo);
+            }
+        },
+        {
+            onFalha: typeof opcoes.onFalha === 'function'
+                ? opcoes.onFalha
+                : () => avisarAtalhoIndisponivel(opcoes.mensagemFalha || 'Atalho indisponível no momento.'),
+            maxTentativas: Number.isFinite(Number(opcoes.maxTentativas)) ? Number(opcoes.maxTentativas) : 12,
+            intervaloMs: Number.isFinite(Number(opcoes.intervaloMs)) ? Number(opcoes.intervaloMs) : 90
+        }
+    );
+
+    return true;
+}
+
 function focarRegistroRecemSalvo(opcoes = {}) {
     const tipo = String(opcoes.tipo || '').trim().toLowerCase();
     const idRegistro = String(opcoes.id ?? '').trim();
@@ -463,68 +512,79 @@ window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque() {
-    abrirTab('estoque', { semRolagem: true });
-    if (typeof renderEstoque === 'function') renderEstoque();
-
-    aguardarElementoAtalho(
-        () => document.getElementById('buscaEstoque')
-            || document.querySelector('#tab-estoque input.search-input'),
-        (campoBusca) => {
-            rolarParaElementoAtalho(campoBusca, 'start');
-            if (campoBusca.id) {
-                focarCampoDepoisDaRolagem(campoBusca.id, true);
-            } else {
-                setTimeout(() => {
-                    try {
-                        campoBusca.focus({ preventScroll: true });
-                    } catch (_) {
-                        campoBusca.focus();
-                    }
-                    if (typeof campoBusca.select === 'function') campoBusca.select();
-                }, 220);
-            }
+    navegarComFocoAtalho({
+        tabId: 'estoque',
+        render: () => {
+            if (typeof renderEstoque === 'function') renderEstoque();
         },
-        {
-            onFalha: () => avisarAtalhoIndisponivel('Busca do estoque não encontrada.'),
-            maxTentativas: 14,
-            intervaloMs: 90
-        }
-    );
+        resolverAlvo: () => document.getElementById('buscaEstoque')
+            || document.querySelector('#tab-estoque input.search-input'),
+        idFoco: 'buscaEstoque',
+        selecionar: true,
+        alinhamento: 'start',
+        focarCustom: (campoBusca) => {
+            setTimeout(() => {
+                try {
+                    campoBusca.focus({ preventScroll: true });
+                } catch (_) {
+                    campoBusca.focus();
+                }
+                if (typeof campoBusca.select === 'function') campoBusca.select();
+            }, 220);
+        },
+        mensagemFalha: 'Busca do estoque não encontrada.',
+        maxTentativas: 16,
+        intervaloMs: 90
+    });
+}
+
+function obterAlvoListaLocacoes() {
+    return document.getElementById('locacoesLista')
+        || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
+}
+
+function normalizarFiltroLocacoesAtalho(filtro) {
+    if (typeof normalizarFiltroLocacoes === 'function') {
+        return normalizarFiltroLocacoes(filtro);
+    }
+    const valor = String(filtro || '').trim().toLowerCase();
+    const filtrosValidos = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
+    return filtrosValidos.has(valor) ? valor : 'todos';
+}
+
+function aplicarFiltroLocacoesInterno(filtro) {
+    const destino = normalizarFiltroLocacoesAtalho(filtro);
+    if (typeof mudarFiltro === 'function') {
+        mudarFiltro(destino);
+        return true;
+    }
+    if (clicarSeletorAtalho(
+        `[data-action="aplicarFiltroLocacoesLista"][data-arg="${destino}"], [data-action="mudarFiltro"][data-arg="${destino}"]`,
+        `Filtro ${destino} indisponível.`
+    )) {
+        return true;
+    }
+    return false;
+}
+
+function rolarParaListaLocacoesComFiltro(filtro) {
+    const destino = normalizarFiltroLocacoesAtalho(filtro);
+    return navegarComFocoAtalho({
+        tabId: 'locacoes',
+        preparar: () => {
+            aplicarFiltroLocacoesInterno(destino);
+        },
+        resolverAlvo: () => obterAlvoListaLocacoes(),
+        alinhamento: 'start',
+        mensagemFalha: 'Lista de locações não encontrada.',
+        maxTentativas: 14,
+        intervaloMs: 90
+    });
 }
 
 // Fluxo completo do filtro em locações: abre tab, aplica filtro, rola para lista e evidencia estado ativo.
 function aplicarFiltroLocacoesLista(filtro) {
-    abrirTab('locacoes', { semRolagem: true });
-
-    setTimeout(() => {
-        if (typeof mudarFiltro === 'function') {
-            mudarFiltro(filtro);
-        } else if (
-            !clicarSeletorAtalho(
-                `[data-action="aplicarFiltroLocacoesLista"][data-arg="${filtro}"], [data-action="mudarFiltro"][data-arg="${filtro}"]`,
-                `Filtro ${filtro} indisponível.`
-            )
-        ) {
-            return;
-        }
-
-        if (typeof renderLocacoes === 'function') renderLocacoes();
-
-        if (typeof atualizarFiltroVisualLocacoes === 'function') {
-            atualizarFiltroVisualLocacoes();
-        }
-
-        aguardarElementoAtalho(
-            () => document.getElementById('locacoesLista')
-                || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block'),
-            (alvoLista) => rolarParaElementoAtalho(alvoLista, 'start'),
-            {
-                onFalha: () => avisarAtalhoIndisponivel('Lista de locações não encontrada.'),
-                maxTentativas: 12,
-                intervaloMs: 80
-            }
-        );
-    }, 140);
+    rolarParaListaLocacoesComFiltro(filtro);
 }
 
 // Mantém compatibilidade com atalhos já existentes.
@@ -561,41 +621,38 @@ function executarAtalhoFiltroDevolucoes(filtro) {
 }
 
 function irParaDevolucoesFormulario() {
-    abrirTab('devolucoes', { semRolagem: true });
-    aguardarElementoAtalho(
-        () => document.getElementById('devLocacao')
+    navegarComFocoAtalho({
+        tabId: 'devolucoes',
+        resolverAlvo: () => document.getElementById('devLocacao')
             || document.querySelector('#tab-devolucoes .card'),
-        (alvoFormulario) => {
-            rolarParaElementoAtalho(alvoFormulario, 'start');
-            focarCampoDepoisDaRolagem('devLocacao', false);
-        },
-        {
-            onFalha: () => avisarAtalhoIndisponivel('Formulário de devolução não encontrado.'),
-            maxTentativas: 12,
-            intervaloMs: 80
-        }
-    );
+        idFoco: 'devLocacao',
+        alinhamento: 'start',
+        mensagemFalha: 'Formulário de devolução não encontrado.'
+    });
 }
 
 function irParaClientesLista() {
-    abrirTab('locadores', { semRolagem: true });
-    setTimeout(() => {
-        const alvo = document.getElementById('buscaCliente')
+    navegarComFocoAtalho({
+        tabId: 'locadores',
+        resolverAlvo: () => document.getElementById('buscaCliente')
             || document.querySelector('#tab-locadores .card:last-of-type')
-            || document.querySelector('#tab-locadores .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('buscaCliente', true);
-    }, 140);
+            || document.querySelector('#tab-locadores .card'),
+        idFoco: 'buscaCliente',
+        selecionar: true,
+        alinhamento: 'start',
+        mensagemFalha: 'Busca de clientes não encontrada.'
+    });
 }
 
 function irParaTiposCadastro() {
-    abrirTab('tipos', { semRolagem: true });
-    setTimeout(() => {
-        const alvo = document.getElementById('tipoNome')
-            || document.querySelector('#tab-tipos .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('tipoNome', false);
-    }, 140);
+    navegarComFocoAtalho({
+        tabId: 'tipos',
+        resolverAlvo: () => document.getElementById('tipoNome')
+            || document.querySelector('#tab-tipos .card'),
+        idFoco: 'tipoNome',
+        alinhamento: 'start',
+        mensagemFalha: 'Formulário de tipos não encontrado.'
+    });
 }
 
 function irParaEstoqueBusca() {
@@ -603,77 +660,96 @@ function irParaEstoqueBusca() {
 }
 
 function irParaEstoqueCadastro() {
-    abrirTab('estoque', { semRolagem: true });
-    if (typeof renderEstoque === 'function') renderEstoque();
-    setTimeout(() => {
-        const alvo = document.getElementById('pecaNome')
+    navegarComFocoAtalho({
+        tabId: 'estoque',
+        render: () => {
+            if (typeof renderEstoque === 'function') renderEstoque();
+        },
+        resolverAlvo: () => document.getElementById('pecaNome')
             || document.querySelector('#tab-estoque .panel-block')
-            || document.querySelector('#tab-estoque .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('pecaNome', false);
-    }, 140);
+            || document.querySelector('#tab-estoque .card'),
+        idFoco: 'pecaNome',
+        alinhamento: 'start',
+        mensagemFalha: 'Formulário do estoque não encontrado.'
+    });
 }
 
 function irParaChecklistOperacional() {
-    abrirTab('checklist', { semRolagem: true });
-    setTimeout(() => {
-        const alvo = document.getElementById('checklistCliente')
-            || document.querySelector('#tab-checklist .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('checklistCliente', false);
-    }, 140);
+    navegarComFocoAtalho({
+        tabId: 'checklist',
+        resolverAlvo: () => document.getElementById('checklistCliente')
+            || document.querySelector('#tab-checklist .card'),
+        idFoco: 'checklistCliente',
+        alinhamento: 'start',
+        mensagemFalha: 'Checklist operacional não encontrado.'
+    });
 }
 
 function irParaLocacoesCobrancas() {
-    executarAtalhoFiltroLocacoes('ativo');
+    rolarParaListaLocacoesComFiltro('ativo');
 }
 
 function irParaLocacoesFormulario() {
-    abrirTab('locacoes', { semRolagem: true });
-    if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
-    setTimeout(() => {
-        const alvo = document.getElementById('aluguelCliente')
+    navegarComFocoAtalho({
+        tabId: 'locacoes',
+        preparar: () => {
+            if (typeof irEtapaLocacao === 'function') irEtapaLocacao(1);
+        },
+        resolverAlvo: () => document.getElementById('aluguelCliente')
             || document.querySelector('#tab-locacoes #locacaoEtapa1')
-            || document.querySelector('#tab-locacoes .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('aluguelCliente', false);
-    }, 140);
+            || document.querySelector('#tab-locacoes .card'),
+        idFoco: 'aluguelCliente',
+        alinhamento: 'start',
+        mensagemFalha: 'Formulário de locação não encontrado.'
+    });
 }
 
 function irParaAuditoriaBusca() {
-    abrirTab('auditoria', { semRolagem: true });
-    if (typeof renderLogs === 'function') renderLogs(window.filtroLogAtual || 'todos');
-    setTimeout(() => {
-        const alvo = document.getElementById('auditBusca')
-            || document.querySelector('#tab-auditoria .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('auditBusca', true);
-    }, 140);
+    navegarComFocoAtalho({
+        tabId: 'auditoria',
+        preparar: () => {
+            if (typeof renderLogs === 'function') {
+                renderLogs(window.filtroLogAtual || 'todos');
+            }
+        },
+        resolverAlvo: () => document.getElementById('auditBusca')
+            || document.querySelector('#tab-auditoria .card'),
+        idFoco: 'auditBusca',
+        selecionar: true,
+        alinhamento: 'start',
+        mensagemFalha: 'Busca de auditoria não encontrada.'
+    });
 }
 
 function aplicarFiltroAuditoria(filtro = 'todos', focarBusca = false) {
-    abrirTab('auditoria', { semRolagem: true });
-    if (typeof renderLogs === 'function') renderLogs(filtro || 'todos');
-
-    setTimeout(() => {
-        const alvo = document.getElementById('auditoriaCard')
+    navegarComFocoAtalho({
+        tabId: 'auditoria',
+        preparar: () => {
+            if (typeof renderLogs === 'function') renderLogs(filtro || 'todos');
+        },
+        resolverAlvo: () => document.getElementById('auditoriaCard')
             || document.getElementById('tblLogs')?.closest('.card')
-            || document.querySelector('#tab-auditoria .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        if (focarBusca) focarCampoDepoisDaRolagem('auditBusca', true);
-    }, 140);
+            || document.querySelector('#tab-auditoria .card'),
+        idFoco: focarBusca ? 'auditBusca' : '',
+        selecionar: focarBusca,
+        alinhamento: 'start',
+        mensagemFalha: 'Lista de auditoria não encontrada.'
+    });
 }
 
 function irParaConfigGeral() {
-    abrirTab('config', { semRolagem: true });
-    if (typeof renderConfig === 'function') renderConfig();
-    setTimeout(() => {
-        const alvo = document.getElementById('confRodape')
+    navegarComFocoAtalho({
+        tabId: 'config',
+        preparar: () => {
+            if (typeof renderConfig === 'function') renderConfig();
+        },
+        resolverAlvo: () => document.getElementById('confRodape')
             || document.querySelector('#tab-config .config-card')
-            || document.querySelector('#tab-config .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('confRodape', false);
-    }, 140);
+            || document.querySelector('#tab-config .card'),
+        idFoco: 'confRodape',
+        alinhamento: 'start',
+        mensagemFalha: 'Configurações não encontradas.'
+    });
 }
 
 function obterAbaAtivaAtual() {
