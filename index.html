@@ -326,6 +326,15 @@
 
                     <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 
+                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
+                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
+
+                    <div class="inline-chip-row">
+                        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
+                            <i class="bi bi-trash"></i> Excluir selecionados
+                        </button>
+                    </div>
+
                     <div class="panel-block">
                         <h3>Novo Item</h3>
                         <div class="form-row">
@@ -389,15 +398,6 @@
                     <div class="panel-block panel-block-spaced">
                         <h3>Modelos de Estrutura Salvos</h3>
                         <div id="listaModelosChecklist"></div>
-                    </div>
-
-                    <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
-                    <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
-
-                    <div class="inline-chip-row">
-                        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
-                            <i class="bi bi-trash"></i> Excluir selecionados
-                        </button>
                     </div>
 
                     <div class="table-responsive">
