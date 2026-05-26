@@ -535,19 +535,46 @@ function executarAtalhoFiltroLocacoes(filtro) {
 function executarAtalhoFiltroDevolucoes(filtro) {
     abrirTab('devolucoes', { semRolagem: true });
 
-    setTimeout(() => {
-        aplicarFiltroHistoricoDevolucoes(filtro, false);
-    }, 140);
+    aguardarElementoAtalho(
+        () => document.getElementById('devFiltroHistorico'),
+        () => {
+            aplicarFiltroHistoricoDevolucoes(filtro, false, false);
+
+            aguardarElementoAtalho(
+                () => obterAlvoHistoricoDevolucoes(),
+                (alvoHistorico) => {
+                    rolarParaElementoAtalho(alvoHistorico, 'start');
+                },
+                {
+                    onFalha: () => avisarAtalhoIndisponivel('Histórico de devoluções não encontrado.'),
+                    maxTentativas: 12,
+                    intervaloMs: 80
+                }
+            );
+        },
+        {
+            onFalha: () => avisarAtalhoIndisponivel('Filtro de devoluções não encontrado.'),
+            maxTentativas: 12,
+            intervaloMs: 80
+        }
+    );
 }
 
 function irParaDevolucoesFormulario() {
     abrirTab('devolucoes', { semRolagem: true });
-    setTimeout(() => {
-        const alvo = document.getElementById('devLocacao')
-            || document.querySelector('#tab-devolucoes .card');
-        if (alvo) rolarParaElementoAtalho(alvo, 'start');
-        focarCampoDepoisDaRolagem('devLocacao', false);
-    }, 140);
+    aguardarElementoAtalho(
+        () => document.getElementById('devLocacao')
+            || document.querySelector('#tab-devolucoes .card'),
+        (alvoFormulario) => {
+            rolarParaElementoAtalho(alvoFormulario, 'start');
+            focarCampoDepoisDaRolagem('devLocacao', false);
+        },
+        {
+            onFalha: () => avisarAtalhoIndisponivel('Formulário de devolução não encontrado.'),
+            maxTentativas: 12,
+            intervaloMs: 80
+        }
+    );
 }
 
 function irParaClientesLista() {
