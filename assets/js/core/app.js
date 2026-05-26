@@ -318,6 +318,20 @@ function rolarParaElementoAtalho(elemento, block = 'start') {
     return true;
 }
 
+function garantirCampoVisivelNaViewport(campo, alinhamentoPreferido = 'start') {
+    if (!(campo instanceof HTMLElement)) return false;
+
+    const ret = campo.getBoundingClientRect();
+    const margemTopo = obterOffsetCabecalhoApp() + 10;
+    const margemBase = 14;
+    const limiteInferior = Math.max(margemTopo + 40, window.innerHeight - margemBase);
+    const foraDaAreaUtil = ret.top < margemTopo || ret.bottom > limiteInferior;
+
+    if (!foraDaAreaUtil) return false;
+    rolarParaElementoAtalho(campo, alinhamentoPreferido);
+    return true;
+}
+
 function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
     setTimeout(() => {
         const campo = document.getElementById(idCampo);
@@ -331,6 +345,17 @@ function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
             campo.focus();
         }
         if (selecionar && typeof campo.select === 'function') campo.select();
+
+        // No mobile, o teclado pode empurrar a viewport após o focus.
+        // Fazemos duas checagens curtas para garantir que o campo fique visível.
+        if (window.innerWidth <= 1024) {
+            setTimeout(() => {
+                garantirCampoVisivelNaViewport(campo, 'start');
+            }, 70);
+            setTimeout(() => {
+                garantirCampoVisivelNaViewport(campo, 'start');
+            }, 220);
+        }
     }, 220);
 }
 
