@@ -16,6 +16,7 @@ function renderTudo() {
     if(typeof renderConfig === 'function') renderConfig();
     if(typeof atualizarFluxoLocacao === 'function') atualizarFluxoLocacao();
     if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
+    revalidarAcoesDaInterface();
 }
 
 const TAB_TOPBAR_CONFIG = {
@@ -103,6 +104,19 @@ const META_BUSCA_POR_ABA = Object.freeze({
 
 let timeoutFeedbackTrocaAba = null;
 let observerMetaTopbar = null;
+
+function revalidarAcoesDaInterface(tabId = '') {
+    setTimeout(() => {
+        if (typeof auditarAcoesDaInterface === 'function') auditarAcoesDaInterface();
+
+        if (typeof prepararAcessibilidadeAcoes === 'function') {
+            const escopo = tabId
+                ? document.getElementById(`tab-${tabId}`) || document
+                : document;
+            prepararAcessibilidadeAcoes(escopo);
+        }
+    }, 40);
+}
 
 function atualizarMetaTopbarContextual(tabId = obterAbaAtivaAtual()) {
     const metaEl = document.getElementById('moduleTopbarMeta');
@@ -1759,6 +1773,7 @@ function executarAtalhoRapido(atalhoId) {
         atualizarTopbarModulo(id);
         aplicarFeedbackTrocaAba(id);
         localStorage.setItem('mtz:lastTab', id);
+        revalidarAcoesDaInterface(id);
 
         if (opcoes.semRolagem) return;
 

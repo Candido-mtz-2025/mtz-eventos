@@ -304,6 +304,9 @@ function auditarAcoesDaInterface() {
     console.warn('Ações não mapeadas na interface:', faltantes);
 }
 
+window.auditarAcoesDaInterface = auditarAcoesDaInterface;
+window.prepararAcessibilidadeAcoes = prepararAcessibilidadeAcoes;
+
 document.addEventListener('DOMContentLoaded', function () {
     // Pequeno atraso para garantir que scripts dos módulos já tenham registrado funções globais.
     setTimeout(auditarAcoesDaInterface, 120);
