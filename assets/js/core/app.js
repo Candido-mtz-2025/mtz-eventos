@@ -440,6 +440,16 @@ function rolarParaElementoAtalho(elemento, block = 'start') {
     const rect = elemento.getBoundingClientRect();
     const topoDocumento = window.pageYOffset + rect.top;
     const offsetCabecalho = obterOffsetCabecalhoApp();
+
+    // Evita micro "saltos" quando o alvo já está visível na área útil.
+    if (block === 'start') {
+        const margemTopo = offsetCabecalho + 10;
+        const margemBase = 14;
+        const limiteInferior = Math.max(margemTopo + 40, window.innerHeight - margemBase);
+        const jaVisivel = rect.top >= margemTopo && rect.bottom <= limiteInferior;
+        if (jaVisivel) return false;
+    }
+
     let destino = topoDocumento - offsetCabecalho;
 
     if (block === 'center') {
