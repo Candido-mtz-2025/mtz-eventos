@@ -92,8 +92,74 @@ const IDS_CAMPOS_BUSCA_ESCAPE = new Set([
     ...CAMPOS_BUSCA_PERSISTENTES,
     'inputBuscaPeca'
 ]);
+const META_BUSCA_POR_ABA = Object.freeze({
+    locadores: 'metaBuscaLocadores',
+    tipos: 'metaBuscaTipos',
+    estoque: 'metaBuscaEstoque',
+    locacoes: 'metaBuscaLocacoes',
+    devolucoes: 'metaBuscaDevolucoes',
+    auditoria: 'metaBuscaAuditoria'
+});
 
 let timeoutFeedbackTrocaAba = null;
+let observerMetaTopbar = null;
+
+function atualizarMetaTopbarContextual(tabId = obterAbaAtivaAtual()) {
+    const metaEl = document.getElementById('moduleTopbarMeta');
+    if (!metaEl || tabId === 'dashboard') return;
+
+    const cfg = TAB_TOPBAR_CONFIG[tabId] || TAB_TOPBAR_CONFIG.dashboard;
+    const idMetaBusca = META_BUSCA_POR_ABA[tabId];
+    const textoMetaBusca = idMetaBusca
+        ? String(document.getElementById(idMetaBusca)?.textContent || '').trim()
+        : '';
+
+    if (!textoMetaBusca) {
+        metaEl.textContent = cfg.meta;
+        metaEl.classList.remove('is-context');
+        metaEl.removeAttribute('title');
+        delete metaEl.dataset.state;
+        return;
+    }
+
+    metaEl.textContent = textoMetaBusca;
+    metaEl.classList.add('is-context');
+    metaEl.setAttribute('title', textoMetaBusca);
+    if (/busca:/i.test(textoMetaBusca)) {
+        metaEl.dataset.state = 'search';
+    } else if (/filtro:/i.test(textoMetaBusca)) {
+        metaEl.dataset.state = 'filter';
+    } else {
+        metaEl.dataset.state = 'summary';
+    }
+}
+
+function inicializarMetaTopbarContextual() {
+    if (observerMetaTopbar) {
+        observerMetaTopbar.disconnect();
+        observerMetaTopbar = null;
+    }
+
+    const metas = Object.values(META_BUSCA_POR_ABA)
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    if (!metas.length) return;
+
+    observerMetaTopbar = new MutationObserver(() => {
+        atualizarMetaTopbarContextual();
+    });
+
+    metas.forEach((el) => {
+        observerMetaTopbar.observe(el, {
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+    });
+
+    atualizarMetaTopbarContextual();
+}
 
 function atualizarTopbarModulo(tabId) {
     const topbar = document.getElementById('moduleTopbar');
@@ -137,6 +203,7 @@ function aplicarFeedbackTrocaAba(tabId) {
         tab.setAttribute('aria-busy', 'false');
         if (topbarMeta && tabId !== 'dashboard') {
             topbarMeta.textContent = metaOriginal;
+            atualizarMetaTopbarContextual(tabId);
         }
     }, 260);
 }
@@ -1464,6 +1531,7 @@ function executarAtalhoRapido(atalhoId) {
     abrirTab(abaInicial, { semRolagem: true });
     inicializarPersistenciaBuscasRapidas();
     restaurarBuscasRapidasPersistidas();
+    inicializarMetaTopbarContextual();
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
