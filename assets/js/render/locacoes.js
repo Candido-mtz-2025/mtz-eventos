@@ -51,6 +51,32 @@ function atualizarResumoExecutivoLocacoes(lista) {
     });
 }
 
+function atualizarResumoVisualLocacoes() {
+    const cards = document.querySelectorAll('#tab-locacoes .locacao-kpi-card[data-arg]');
+    if (!cards.length) return;
+
+    const buscaAtual = String(document.getElementById('buscaLocacoes')?.value || '').trim().toLowerCase();
+    const filtroNormalizado = typeof normalizarFiltroLocacoes === 'function'
+        ? normalizarFiltroLocacoes(filtroAtual)
+        : String(filtroAtual || 'todos').trim().toLowerCase();
+
+    cards.forEach((card) => {
+        const destino = String(card.dataset.arg || '').trim().toLowerCase();
+        let ativo = false;
+
+        if (destino === 'pendente') {
+            ativo = buscaAtual === 'pendente';
+        } else if (destino === 'todos') {
+            ativo = filtroNormalizado === 'todos' && buscaAtual !== 'pendente';
+        } else {
+            ativo = filtroNormalizado === destino && buscaAtual !== 'pendente';
+        }
+
+        card.classList.toggle('is-active', ativo);
+        card.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+    });
+}
+
 function renderLocacoes() {
     const tbody = DOM.get('tblLocacoes');
     if (!tbody) return;
@@ -81,6 +107,7 @@ function renderLocacoes() {
     );
 
     atualizarFiltroVisualLocacoes();
+    atualizarResumoVisualLocacoes();
     
     // Processar dados
     const lista = locacoes.map(l => {

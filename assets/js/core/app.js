@@ -785,6 +785,15 @@ function aplicarFiltroLocacoesInterno(filtro) {
     return false;
 }
 
+function aplicarBuscaLocacoesAtalho(termo = '') {
+    const campoBusca = document.getElementById('buscaLocacoes');
+    if (!campoBusca) return;
+    campoBusca.value = String(termo || '');
+    if (typeof atualizarPersistenciaBuscaRapida === 'function') {
+        atualizarPersistenciaBuscaRapida('buscaLocacoes', campoBusca.value);
+    }
+}
+
 function rolarParaListaLocacoesComFiltro(filtro, opcoes = {}) {
     const destino = normalizarFiltroLocacoesAtalho(filtro);
     const limparBusca = opcoes?.limparBusca === true;
@@ -816,6 +825,47 @@ function rolarParaListaLocacoesComFiltro(filtro, opcoes = {}) {
         maxTentativas: 14,
         intervaloMs: 90
     });
+}
+
+function aplicarFiltroLocacoesResumo(filtro) {
+    const destinoRaw = String(filtro || '').trim().toLowerCase();
+
+    if (destinoRaw === 'pendente') {
+        const buscaAtual = String(document.getElementById('buscaLocacoes')?.value || '').trim().toLowerCase();
+        const pendenteJaAtivo = buscaAtual === 'pendente';
+
+        if (pendenteJaAtivo) {
+            aplicarBuscaLocacoesAtalho('');
+            return rolarParaListaLocacoesComFiltro('todos', { limparBusca: false });
+        }
+
+        return navegarComFocoAtalho({
+            tabId: 'locacoes',
+            preparar: () => {
+                aplicarBuscaLocacoesAtalho('pendente');
+                const filtroAplicado = aplicarFiltroLocacoesInterno('todos');
+                if (!filtroAplicado && typeof renderLocacoes === 'function') {
+                    renderLocacoes();
+                }
+            },
+            resolverAlvo: () => obterAlvoListaLocacoes(),
+            alinhamento: 'start',
+            focarCustom: (alvoLista) => {
+                destacarAlvoAtalho(alvoLista, 1300);
+            },
+            mensagemFalha: 'Lista de locações não encontrada.',
+            maxTentativas: 14,
+            intervaloMs: 90
+        });
+    }
+
+    const destinoNormalizado = normalizarFiltroLocacoesAtalho(destinoRaw);
+    const filtroAtualNormalizado = normalizarFiltroLocacoesAtalho(
+        typeof filtroAtual === 'string' ? filtroAtual : 'todos'
+    );
+    const destinoFinal = filtroAtualNormalizado === destinoNormalizado ? 'todos' : destinoNormalizado;
+
+    return rolarParaListaLocacoesComFiltro(destinoFinal, { limparBusca: true });
 }
 
 // Fluxo completo do filtro em locações: abre tab, aplica filtro, rola para lista e evidencia estado ativo.

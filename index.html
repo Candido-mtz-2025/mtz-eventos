@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=17.6">
+    <link rel="stylesheet" href="./assets/css/style.css?v=17.7">
 </head>
 <body>
 
@@ -526,19 +526,19 @@
             </div>
 
                <div class="locacao-kpi-grid" aria-label="Resumo de locacoes">
-                    <div class="locacao-kpi-card" data-tone="total">
+                    <div class="locacao-kpi-card" data-tone="total" data-action="aplicarFiltroLocacoesResumo" data-arg="todos">
                         <small>Registros</small>
                         <strong id="locacaoKpiTotal">0</strong>
                     </div>
-                    <div class="locacao-kpi-card" data-tone="aberto">
+                    <div class="locacao-kpi-card" data-tone="aberto" data-action="aplicarFiltroLocacoesResumo" data-arg="ativo">
                         <small>Em aberto</small>
                         <strong id="locacaoKpiAbertas">0</strong>
                     </div>
-                    <div class="locacao-kpi-card" data-tone="atrasado">
+                    <div class="locacao-kpi-card" data-tone="atrasado" data-action="aplicarFiltroLocacoesResumo" data-arg="atrasado">
                         <small>Atrasadas</small>
                         <strong id="locacaoKpiAtrasadas">0</strong>
                     </div>
-                    <div class="locacao-kpi-card" data-tone="pendente">
+                    <div class="locacao-kpi-card" data-tone="pendente" data-action="aplicarFiltroLocacoesResumo" data-arg="pendente">
                         <small>Valor pendente</small>
                         <strong id="locacaoKpiPendente">R$ 0,00</strong>
                     </div>
@@ -1000,13 +1000,13 @@
     <script src="./assets/js/modules/backup-tools.js"></script>
     <script src="./assets/js/modules/whatsapp.js"></script>
     <script src="./assets/js/modules/shared-actions.js"></script>
-    <script src="./assets/js/render/locacoes.js?v=14.8"></script>
+    <script src="./assets/js/render/locacoes.js?v=14.9"></script>
     <script src="./assets/js/render/cadastros.js?v=3.2"></script>
     <script src="./assets/js/render/estoque.js?v=2.1"></script>
     <script src="./assets/js/render/dashboard.js"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.0"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=20.1"></script>
+    <script src="./assets/js/core/app.js?v=20.2"></script>
         
 </body>
 </html>
