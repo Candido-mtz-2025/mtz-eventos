@@ -738,8 +738,13 @@ window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque(opcoes = {}) {
     const forcarRender = opcoes?.forcarRender === true;
+    const restaurarFiltroTodos = opcoes?.restaurarFiltroTodos !== false;
     const abaAtual = obterAbaAtivaAtual();
     const campoBuscaAtual = document.getElementById('buscaEstoque');
+
+    if (restaurarFiltroTodos && typeof definirFiltroRapidoEstoque === 'function') {
+        definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
+    }
 
     // Quando já estamos no estoque, evita render desnecessário para não "pular" a tela.
     if (!forcarRender && abaAtual === 'estoque' && campoBuscaAtual) {

@@ -234,15 +234,17 @@ function renderEstoque() {
   if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 
-function aplicarFiltroEstoqueResumo(filtro) {
+function definirFiltroRapidoEstoque(filtro, opcoes = {}) {
   const destinoNormalizado = normalizarFiltroRapidoEstoque(filtro);
   const atual = obterFiltroRapidoEstoqueAtual();
-  const destino = atual === destinoNormalizado ? 'todos' : destinoNormalizado;
+  const alternar = opcoes?.alternar !== false;
+  const destino = (alternar && atual === destinoNormalizado) ? 'todos' : destinoNormalizado;
 
   filtroRapidoEstoqueAtual = destino;
   persistirFiltroRapidoEstoque(destino);
-
   renderEstoque();
+
+  if (opcoes?.rolar === false) return destino;
 
   const alvo = document.querySelector('#tab-estoque .estoque-search-toolbar')
     || document.getElementById('buscaEstoque')
@@ -250,6 +252,12 @@ function aplicarFiltroEstoqueResumo(filtro) {
   if (alvo && typeof rolarParaElementoAtalho === 'function') {
     rolarParaElementoAtalho(alvo, 'start');
   }
+  return destino;
+}
+
+function aplicarFiltroEstoqueResumo(filtro) {
+  definirFiltroRapidoEstoque(filtro, { alternar: true, rolar: true });
 }
 
 window.aplicarFiltroEstoqueResumo = aplicarFiltroEstoqueResumo;
+window.definirFiltroRapidoEstoque = definirFiltroRapidoEstoque;
