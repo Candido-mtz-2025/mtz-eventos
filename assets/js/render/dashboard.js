@@ -204,10 +204,14 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
     const resumo = document.getElementById('dashResumoAcoesDia');
     if (!box) return;
 
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const hojeIso = new Date(hoje).toISOString().slice(0, 10);
+
     const acoes = [];
     if (atrasadas > 0) {
         acoes.push(`
-            <div class="dash-action-item prioridade-alta">
+            <div class="dash-action-item prioridade-alta" data-action="irParaLocacoes" data-arg="atrasado" title="Abrir locações atrasadas">
                 <div>
                     <strong>${atrasadas} devolução(ões) atrasada(s)</strong>
                     <small>Priorize contato e retorno desses contratos.</small>
@@ -218,7 +222,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
     }
     if (vencemHoje > 0) {
         acoes.push(`
-            <div class="dash-action-item prioridade-media">
+            <div class="dash-action-item prioridade-media" data-action="irParaLocacoesComBusca" data-arg="${hojeIso}" data-arg2="todos" title="Abrir locações com previsão de hoje">
                 <div>
                     <strong>${vencemHoje} devolução(ões) vencem hoje</strong>
                     <small>Organize equipe e logística para conferência.</small>
@@ -229,7 +233,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
     }
     if (pendentesFinanceiros > 0) {
         acoes.push(`
-            <div class="dash-action-item prioridade-media">
+            <div class="dash-action-item prioridade-media" data-action="irParaLocacoesCobrancas" title="Abrir cobranças pendentes">
                 <div>
                     <strong>${pendentesFinanceiros} locação(ões) pendentes de pagamento</strong>
                     <small>Validar cobranças para reduzir saldo em aberto.</small>
@@ -240,7 +244,7 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
     }
     if (iniciamHoje > 0) {
         acoes.push(`
-            <div class="dash-action-item prioridade-baixa">
+            <div class="dash-action-item prioridade-baixa" data-action="irParaChecklistOperacional" title="Abrir checklist operacional">
                 <div>
                     <strong>${iniciamHoje} locação(ões) iniciam hoje</strong>
                     <small>Revisar checklist de saída e disponibilidade.</small>
