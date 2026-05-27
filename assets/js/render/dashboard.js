@@ -123,8 +123,9 @@ function renderGraficoReceitaMensal(serie) {
         <div class="dash-receita-chart">
             ${serie.map((item) => {
                 const percentual = Math.max(4, Math.round(((Number(item.valor) || 0) / base) * 100));
+                const dica = `Abrir locações do período ${item.rotulo}`;
                 return `
-                    <div class="dash-receita-col">
+                    <div class="dash-receita-col" data-action="irParaLocacoesComBusca" data-arg="${item.chave}" data-arg2="todos" title="${escaparTextoDashboard(dica)}">
                         <div class="dash-receita-bar-wrap">
                             <span class="dash-receita-bar" style="height:${percentual}%;" title="${escaparTextoDashboard(item.rotulo)}: ${escaparTextoDashboard(formatarMoedaDashboard(item.valor))}"></span>
                         </div>
