@@ -17,6 +17,20 @@ function renderDevolucoes() {
     const termoRaw = (document.getElementById('devBuscaHistorico')?.value || '').trim();
     const termo = termoRaw.toLowerCase();
 
+    const atualizarKpiVisualDevolucoes = () => {
+        const cards = document.querySelectorAll('#tab-devolucoes .devolucao-kpi[data-filtro-dev]');
+        if (!cards.length) return;
+
+        const filtroAtual = String(filtro || 'todos').trim().toLowerCase();
+        cards.forEach((card) => {
+            const destino = String(card.dataset.filtroDev || '').trim().toLowerCase();
+            const ativo = destino === filtroAtual;
+            card.classList.toggle('is-active', ativo);
+            card.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        });
+    };
+    atualizarKpiVisualDevolucoes();
+
     // Evita buscas O(n²) em locações/clientes quando há muitos registros de devolução.
     const mapaLocacoesPorId = new Map(
         (Array.isArray(locacoes) ? locacoes : []).map((locacao) => [String(locacao.id), locacao])

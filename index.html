@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=17.7">
+    <link rel="stylesheet" href="./assets/css/style.css?v=17.8">
 </head>
 <body>
 
@@ -664,10 +664,10 @@
             </div>
             <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
             <div class="devolucao-kpis">
-                <div class="devolucao-kpi"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
-                <div class="devolucao-kpi"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
-                <div class="devolucao-kpi"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
-                <div class="devolucao-kpi"><small>Pendentes</small><strong id="devKpiPendentes">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="todos" data-filtro-dev="todos"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="total" data-filtro-dev="total"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="parcial" data-filtro-dev="parcial"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
+                <div class="devolucao-kpi" data-action="irParaDevolucoesFormulario"><small>Pendentes</small><strong id="devKpiPendentes">0</strong></div>
             </div>
             <div class="table-responsive">
               <table class="table">
@@ -1004,7 +1004,7 @@
     <script src="./assets/js/render/cadastros.js?v=3.2"></script>
     <script src="./assets/js/render/estoque.js?v=2.1"></script>
     <script src="./assets/js/render/dashboard.js"></script>
-    <script src="./assets/js/render/devolucoes.js?v=2.0"></script>
+    <script src="./assets/js/render/devolucoes.js?v=2.2"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
     <script src="./assets/js/core/app.js?v=20.2"></script>
         
