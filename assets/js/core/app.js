@@ -822,6 +822,38 @@ function irParaPrimeiroResultadoEstoque(opcoes = {}) {
     return irParaPrimeiroResultadoBusca('buscaEstoque', opcoes);
 }
 
+function restaurarContextoBuscaPadrao(idCampoBusca, opcoes = {}) {
+    const chave = String(idCampoBusca || '').trim();
+    if (!chave) return false;
+
+    if (chave === 'buscaEstoque' && typeof definirFiltroRapidoEstoque === 'function') {
+        definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
+        return true;
+    }
+
+    if (chave === 'buscaLocacoes' && typeof mudarFiltro === 'function') {
+        mudarFiltro('todos');
+        return true;
+    }
+
+    if (chave === 'devBuscaHistorico' && typeof aplicarFiltroHistoricoDevolucoes === 'function') {
+        aplicarFiltroHistoricoDevolucoes('todos', false, false);
+        return true;
+    }
+
+    if (chave === 'auditBusca' && typeof renderLogs === 'function') {
+        renderLogs('todos');
+        return true;
+    }
+
+    if (opcoes?.mostrarAviso && typeof mostrarToast === 'function') {
+        mostrarToast('Nenhum filtro adicional para restaurar nesta busca.', 'info');
+    }
+    return false;
+}
+
+window.restaurarContextoBuscaPadrao = restaurarContextoBuscaPadrao;
+
 window.irParaPrimeiroResultadoBusca = irParaPrimeiroResultadoBusca;
 window.irParaPrimeiroResultadoEstoque = irParaPrimeiroResultadoEstoque;
 
@@ -2169,6 +2201,12 @@ document.addEventListener('keydown', (event) => {
     }
 
     if (event.key === 'Escape' && IDS_CAMPOS_BUSCA_ESCAPE.has(idCampoBusca)) {
+        const mensagensRestauro = {
+            buscaEstoque: 'Filtro do estoque voltou para Todos.',
+            buscaLocacoes: 'Filtro de locacoes voltou para Todos.',
+            devBuscaHistorico: 'Filtro de devolucoes voltou para Todos.',
+            auditBusca: 'Filtro de logs voltou para Todos.'
+        };
         const valorAtual = String(alvo?.value || '');
         if (valorAtual.length) {
             event.preventDefault();
@@ -2182,14 +2220,12 @@ document.addEventListener('keydown', (event) => {
             if (alvo.dataset.keyup) {
                 alvo.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
             }
-            if (idCampoBusca === 'buscaEstoque' && typeof definirFiltroRapidoEstoque === 'function') {
-                definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
-            }
-        } else if (idCampoBusca === 'buscaEstoque' && typeof definirFiltroRapidoEstoque === 'function') {
+            restaurarContextoBuscaPadrao(idCampoBusca);
+        } else if (Object.prototype.hasOwnProperty.call(mensagensRestauro, idCampoBusca)) {
             event.preventDefault();
-            definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
-            if (typeof mostrarToast === 'function') {
-                mostrarToast('Filtro do estoque voltou para Todos.', 'info');
+            const restaurou = restaurarContextoBuscaPadrao(idCampoBusca);
+            if (restaurou && typeof mostrarToast === 'function') {
+                mostrarToast(mensagensRestauro[idCampoBusca], 'info');
             }
         }
         return;
