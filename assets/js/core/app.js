@@ -93,6 +93,14 @@ const IDS_CAMPOS_BUSCA_ESCAPE = new Set([
     ...CAMPOS_BUSCA_PERSISTENTES,
     'inputBuscaPeca'
 ]);
+const IDS_CAMPOS_BUSCA_ENTER_RESULTADO = new Set([
+    'buscaCliente',
+    'buscaTipos',
+    'buscaEstoque',
+    'buscaLocacoes',
+    'devBuscaHistorico',
+    'auditBusca'
+]);
 const META_BUSCA_POR_ABA = Object.freeze({
     locadores: 'metaBuscaLocadores',
     tipos: 'metaBuscaTipos',
@@ -735,14 +743,57 @@ function focarRegistroRecemSalvo(opcoes = {}) {
 
 window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 
-function irParaPrimeiroResultadoEstoque(opcoes = {}) {
-    const tbody = document.getElementById('tblEstoque');
+const CONFIG_RESULTADO_POR_BUSCA = Object.freeze({
+    buscaCliente: {
+        tbodyId: 'tblLocadores',
+        rowSelector: 'tr[data-locador-id]',
+        focusSelector: '[data-action="abrirEditarLocador"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum cliente encontrado na busca atual.'
+    },
+    buscaTipos: {
+        tbodyId: 'tblTipos',
+        rowSelector: 'tr[data-tipo-id]',
+        focusSelector: '[data-action="abrirEditarTipo"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum tipo encontrado na busca atual.'
+    },
+    buscaEstoque: {
+        tbodyId: 'tblEstoque',
+        rowSelector: 'tr[data-peca-id]',
+        focusSelector: '[data-action="abrirEditarPeca"], .chk-estoque, button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum item encontrado na busca atual.'
+    },
+    buscaLocacoes: {
+        tbodyId: 'tblLocacoes',
+        rowSelector: 'tr[data-locacao-id]',
+        focusSelector: '[data-action="gerarRelatorio"], [data-action="alternarPagamento"], .locacao-action-btn, button, input, a, [tabindex]',
+        emptyMessage: 'Nenhuma locação encontrada na busca atual.'
+    },
+    devBuscaHistorico: {
+        tbodyId: 'tblDevolucoes',
+        rowSelector: 'tr[data-devolucao-id]',
+        focusSelector: '[data-action="gerarReciboDevolucao"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhuma devolução encontrada na busca atual.'
+    },
+    auditBusca: {
+        tbodyId: 'tblLogs',
+        rowSelector: 'tr:not(.table-empty-row)',
+        focusSelector: 'button, [data-action], a, input, [tabindex]',
+        emptyMessage: 'Nenhum log encontrado na busca atual.'
+    }
+});
+
+function irParaPrimeiroResultadoBusca(idCampoBusca, opcoes = {}) {
+    const chave = String(idCampoBusca || '').trim();
+    const cfg = CONFIG_RESULTADO_POR_BUSCA[chave];
+    if (!cfg) return false;
+
+    const tbody = document.getElementById(cfg.tbodyId);
     if (!tbody) return false;
 
-    const linha = tbody.querySelector('tr[data-peca-id]');
+    const linha = tbody.querySelector(cfg.rowSelector);
     if (!linha) {
         if (opcoes?.mostrarAviso !== false && typeof mostrarToast === 'function') {
-            mostrarToast('Nenhum item encontrado na busca atual.', 'info');
+            mostrarToast(cfg.emptyMessage, 'info');
         }
         return false;
     }
@@ -753,9 +804,7 @@ function irParaPrimeiroResultadoEstoque(opcoes = {}) {
     linha.classList.add('table-row-recent');
     setTimeout(() => linha.classList.remove('table-row-recent'), 2200);
 
-    const focoPreferido = linha.querySelector('[data-action="abrirEditarPeca"]')
-        || linha.querySelector('.chk-estoque')
-        || linha.querySelector('button, input, a, [tabindex]');
+    const focoPreferido = linha.querySelector(cfg.focusSelector || 'button, input, a, [tabindex]');
     if (focoPreferido instanceof HTMLElement) {
         setTimeout(() => {
             try {
@@ -769,6 +818,11 @@ function irParaPrimeiroResultadoEstoque(opcoes = {}) {
     return true;
 }
 
+function irParaPrimeiroResultadoEstoque(opcoes = {}) {
+    return irParaPrimeiroResultadoBusca('buscaEstoque', opcoes);
+}
+
+window.irParaPrimeiroResultadoBusca = irParaPrimeiroResultadoBusca;
 window.irParaPrimeiroResultadoEstoque = irParaPrimeiroResultadoEstoque;
 
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
@@ -2096,13 +2150,14 @@ document.addEventListener('keydown', (event) => {
     const modalAtalhosAberto = document.getElementById('modalShortcuts')?.classList.contains('active');
     const idCampoBusca = String(alvo?.id || '');
 
-    if (event.key === 'Enter' && !event.isComposing && idCampoBusca === 'buscaEstoque') {
+    if (event.key === 'Enter' && !event.isComposing && IDS_CAMPOS_BUSCA_ENTER_RESULTADO.has(idCampoBusca)) {
         event.preventDefault();
         if (typeof buscarComDebounce === 'function') {
-            buscarComDebounce('estoque');
+            const tipoBusca = String(alvo?.dataset?.arg || '').trim();
+            if (tipoBusca) buscarComDebounce(tipoBusca);
         }
         setTimeout(() => {
-            irParaPrimeiroResultadoEstoque({ mostrarAviso: true });
+            irParaPrimeiroResultadoBusca(idCampoBusca, { mostrarAviso: true });
         }, 220);
         return;
     }
