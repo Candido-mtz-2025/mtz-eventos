@@ -351,6 +351,10 @@ function renderStats() {
         return (locacao.statusVisual === 'ativo' || locacao.statusVisual === 'atrasado') && dataAluguel && dataAluguel.getTime() === hoje.getTime();
     }).length;
     const pendentesFinanceiros = ativas.filter((locacao) => !locacao.pago).length;
+    const hojeIso = new Date(hoje).toISOString().slice(0, 10);
+    const amanhaBase = new Date(hoje);
+    amanhaBase.setDate(amanhaBase.getDate() + 1);
+    const amanhaIso = amanhaBase.toISOString().slice(0, 10);
 
     const elAtrasos = document.getElementById('dashAtrasos');
     if (elAtrasos) {
@@ -385,7 +389,7 @@ function renderStats() {
 
         if (atrasadas.length > 0) {
             cards.push(`
-                <div class="alert-item critical">
+                <div class="alert-item critical" data-action="irParaLocacoes" data-arg="atrasado" title="Abrir locações atrasadas">
                     <i class="bi bi-exclamation-octagon"></i>
                     <div class="alert-item-body">
                         <strong>${atrasadas.length} devolucao(oes) atrasada(s)</strong>
@@ -396,7 +400,7 @@ function renderStats() {
         }
         if (vencemHoje.length > 0) {
             cards.push(`
-                <div class="alert-item warning">
+                <div class="alert-item warning" data-action="irParaLocacoesComBusca" data-arg="${hojeIso}" data-arg2="todos" title="Abrir locações com previsão de hoje">
                     <i class="bi bi-calendar2-day"></i>
                     <div class="alert-item-body">
                         <strong>${vencemHoje.length} devolucao(oes) vence(m) hoje</strong>
@@ -407,7 +411,7 @@ function renderStats() {
         }
         if (vencemAmanha.length > 0) {
             cards.push(`
-                <div class="alert-item info">
+                <div class="alert-item info" data-action="irParaLocacoesComBusca" data-arg="${amanhaIso}" data-arg2="todos" title="Abrir locações com previsão de amanhã">
                     <i class="bi bi-calendar2-week"></i>
                     <div class="alert-item-body">
                         <strong>${vencemAmanha.length} devolucao(oes) para amanha</strong>
@@ -418,7 +422,7 @@ function renderStats() {
         }
         if (proximas72h.length > 0) {
             cards.push(`
-                <div class="alert-item neutral">
+                <div class="alert-item neutral" data-action="irParaLocacoes" data-arg="todos" title="Abrir lista completa de locações">
                     <i class="bi bi-clock-history"></i>
                     <div class="alert-item-body">
                         <strong>${proximas72h.length} devolucao(oes) nos proximos 3 dias</strong>
