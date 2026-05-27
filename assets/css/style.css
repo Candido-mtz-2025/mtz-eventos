@@ -6681,6 +6681,21 @@ textarea:focus {
     height: 36px !important;
     min-width: 36px !important;
     min-height: 36px !important;
+    flex: 0 0 36px !important;
+}
+
+/* Reserva espaço extra para impedir corte do botão excluir quando há 5 ações. */
+#tab-locacoes .table,
+#tblLocacoes {
+    min-width: 1080px;
+}
+
+#tab-locacoes .table th:nth-child(5),
+#tab-locacoes .table td:nth-child(5),
+#tab-locacoes td.col-actions,
+#tblLocacoes td.col-actions {
+    min-width: 336px !important;
+    width: 336px !important;
 }
 
 @media (max-width: 1100px) {
