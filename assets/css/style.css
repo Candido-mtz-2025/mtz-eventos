@@ -3238,6 +3238,17 @@ input[type="file"]::-webkit-file-upload-button {
     padding: 9px 10px;
 }
 
+.dash-status-item[data-action] {
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.dash-status-item[data-action]:hover {
+    transform: translateY(-1px);
+    border-color: #9fb8de;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
 .dash-status-head {
     display: flex;
     justify-content: space-between;
@@ -3364,6 +3375,11 @@ input[type="file"]::-webkit-file-upload-button {
 [data-theme="dark"] .dash-action-item {
     background: #0f1a2b;
     border-color: #334155;
+}
+
+[data-theme="dark"] .dash-status-item[data-action]:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.35);
 }
 
 [data-theme="dark"] .dash-status-track {

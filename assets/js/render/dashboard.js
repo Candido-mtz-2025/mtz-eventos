@@ -142,9 +142,30 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
     if (!box) return;
 
     const dados = [
-        { nome: 'Em aberto', classe: 'dash-status-open', valor: Math.max(Number(abertas) || 0, 0) },
-        { nome: 'Atrasadas', classe: 'dash-status-delay', valor: Math.max(Number(atrasadas) || 0, 0) },
-        { nome: 'Devolvidas', classe: 'dash-status-done', valor: Math.max(Number(devolvidas) || 0, 0) }
+        {
+            nome: 'Em aberto',
+            classe: 'dash-status-open',
+            valor: Math.max(Number(abertas) || 0, 0),
+            acao: 'irParaLocacoes',
+            arg: 'ativo',
+            dica: 'Abrir locações em aberto'
+        },
+        {
+            nome: 'Atrasadas',
+            classe: 'dash-status-delay',
+            valor: Math.max(Number(atrasadas) || 0, 0),
+            acao: 'irParaLocacoes',
+            arg: 'atrasado',
+            dica: 'Abrir locações atrasadas'
+        },
+        {
+            nome: 'Devolvidas',
+            classe: 'dash-status-done',
+            valor: Math.max(Number(devolvidas) || 0, 0),
+            acao: 'irParaLocacoes',
+            arg: 'devolvido',
+            dica: 'Abrir histórico de devolvidas'
+        }
     ];
     const total = dados.reduce((acc, item) => acc + item.valor, 0);
 
@@ -162,7 +183,7 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
             ${dados.map((item) => {
                 const percentual = Math.round((item.valor / total) * 100);
                 return `
-                    <div class="dash-status-item">
+                    <div class="dash-status-item" data-action="${item.acao}" data-arg="${item.arg}" title="${item.dica}">
                         <div class="dash-status-head">
                             <span><i class="bi bi-circle-fill ${item.classe}"></i> ${item.nome}</span>
                             <strong>${item.valor}</strong>
