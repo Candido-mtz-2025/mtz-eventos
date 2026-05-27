@@ -735,6 +735,42 @@ function focarRegistroRecemSalvo(opcoes = {}) {
 
 window.focarRegistroRecemSalvo = focarRegistroRecemSalvo;
 
+function irParaPrimeiroResultadoEstoque(opcoes = {}) {
+    const tbody = document.getElementById('tblEstoque');
+    if (!tbody) return false;
+
+    const linha = tbody.querySelector('tr[data-peca-id]');
+    if (!linha) {
+        if (opcoes?.mostrarAviso !== false && typeof mostrarToast === 'function') {
+            mostrarToast('Nenhum item encontrado na busca atual.', 'info');
+        }
+        return false;
+    }
+
+    rolarParaElementoAtalho(linha, 'center');
+    linha.classList.remove('table-row-recent');
+    void linha.offsetWidth;
+    linha.classList.add('table-row-recent');
+    setTimeout(() => linha.classList.remove('table-row-recent'), 2200);
+
+    const focoPreferido = linha.querySelector('[data-action="abrirEditarPeca"]')
+        || linha.querySelector('.chk-estoque')
+        || linha.querySelector('button, input, a, [tabindex]');
+    if (focoPreferido instanceof HTMLElement) {
+        setTimeout(() => {
+            try {
+                focoPreferido.focus({ preventScroll: true });
+            } catch (_) {
+                focoPreferido.focus();
+            }
+        }, 180);
+    }
+
+    return true;
+}
+
+window.irParaPrimeiroResultadoEstoque = irParaPrimeiroResultadoEstoque;
+
 // Fluxo completo do atalho de busca: abre aba, rola para o ponto útil e já deixa pronto para digitar.
 function executarAtalhoBuscaEstoque(opcoes = {}) {
     const forcarRender = opcoes?.forcarRender === true;
@@ -2060,6 +2096,17 @@ document.addEventListener('keydown', (event) => {
     const modalAtalhosAberto = document.getElementById('modalShortcuts')?.classList.contains('active');
     const idCampoBusca = String(alvo?.id || '');
 
+    if (event.key === 'Enter' && !event.isComposing && idCampoBusca === 'buscaEstoque') {
+        event.preventDefault();
+        if (typeof buscarComDebounce === 'function') {
+            buscarComDebounce('estoque');
+        }
+        setTimeout(() => {
+            irParaPrimeiroResultadoEstoque({ mostrarAviso: true });
+        }, 220);
+        return;
+    }
+
     if (event.key === 'Escape' && modalAtalhosAberto) {
         event.preventDefault();
         fecharModal('modalShortcuts');
@@ -2079,6 +2126,15 @@ document.addEventListener('keydown', (event) => {
             }
             if (alvo.dataset.keyup) {
                 alvo.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
+            }
+            if (idCampoBusca === 'buscaEstoque' && typeof definirFiltroRapidoEstoque === 'function') {
+                definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
+            }
+        } else if (idCampoBusca === 'buscaEstoque' && typeof definirFiltroRapidoEstoque === 'function') {
+            event.preventDefault();
+            definirFiltroRapidoEstoque('todos', { alternar: false, rolar: false });
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Filtro do estoque voltou para Todos.', 'info');
             }
         }
         return;
