@@ -463,8 +463,9 @@ function renderStats() {
         } else {
             tabelaDevolucoes.innerHTML = proximas.slice(0, 5).map((locacao) => {
                 const status = statusPrazo(locacao.diffDias);
+                const sufixo = String(locacao.id || '').slice(-4) || '----';
                 return `
-                    <tr>
+                    <tr class="dash-row-action" data-action="irParaLocacaoPorCodigo" data-arg="${locacao.id}" title="Abrir locação #${sufixo}">
                         <td>${locacao.previsao.toLocaleDateString('pt-BR')}</td>
                         <td>${escaparTextoDashboard(locacao.cliente)}</td>
                         <td class="table-head-center"><span class="badge ${status.classe}">${status.texto}</span></td>

@@ -1086,6 +1086,42 @@ function irParaLocacoesRecebidas() {
     irParaLocacoesComBusca('pago', 'todos');
 }
 
+function irParaLocacaoPorCodigo(locacaoId) {
+    const idNormalizado = String(locacaoId ?? '').replace(/[^\d]/g, '');
+    if (!idNormalizado) {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Código da locação inválido para abrir detalhe.', 'erro');
+        }
+        return false;
+    }
+
+    return navegarComFocoAtalho({
+        tabId: 'locacoes',
+        preparar: () => {
+            aplicarBuscaLocacoesAtalho(idNormalizado);
+            const filtroAplicado = aplicarFiltroLocacoesInterno('todos');
+            if (!filtroAplicado && typeof renderLocacoes === 'function') {
+                renderLocacoes();
+            }
+        },
+        resolverAlvo: () => document.querySelector(`#tblLocacoes tr[data-locacao-id="${idNormalizado}"]`)
+            || obterAlvoListaLocacoes(),
+        alinhamento: 'start',
+        focarCustom: (alvoLista) => {
+            const linha = document.querySelector(`#tblLocacoes tr[data-locacao-id="${idNormalizado}"]`);
+            if (linha) {
+                rolarParaElementoAtalho(linha, 'center');
+                destacarAlvoAtalho(linha, 1500);
+                return;
+            }
+            destacarAlvoAtalho(alvoLista, 1200);
+        },
+        mensagemFalha: 'Não foi possível abrir a locação selecionada.',
+        maxTentativas: 14,
+        intervaloMs: 90
+    });
+}
+
 function irParaLocacoesFormulario() {
     const abaAtual = obterAbaAtivaAtual();
     const campoCliente = document.getElementById('aluguelCliente');

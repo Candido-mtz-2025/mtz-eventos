@@ -4889,6 +4889,20 @@ textarea::placeholder {
     }
 }
 
+/* === V17.0 | DASHBOARD AÇÃO DIRETA EM PRÓXIMAS DEVOLUÇÕES === */
+#tblDashDevolucoes tr.dash-row-action[data-action] {
+    cursor: pointer;
+    transition: background-color .18s ease, box-shadow .18s ease;
+}
+
+#tblDashDevolucoes tr.dash-row-action[data-action]:hover td {
+    background: #f7fbff;
+}
+
+[data-theme="dark"] #tblDashDevolucoes tr.dash-row-action[data-action]:hover td {
+    background: #18263a;
+}
+
 /* === V16.9 | DEVOLUÇÕES KPI CLICÁVEIS === */
 #tab-devolucoes .devolucao-kpi[data-action] {
     cursor: pointer;
