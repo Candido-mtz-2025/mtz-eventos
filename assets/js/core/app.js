@@ -1698,7 +1698,9 @@ function focoBuscaPorAba(abaId) {
             const alvo = campoBuscaItens.closest('.panel-block')
                 || campoBuscaItens.closest('.card')
                 || campoBuscaItens;
+            focarCampoImediato('inputBuscaPeca', true);
             rolarParaElementoAtalho(alvo, 'start');
+            destacarAlvoAtalho(alvo, 1200);
             focarCampoDepoisDaRolagem('inputBuscaPeca', true);
             return true;
         }
@@ -1721,7 +1723,9 @@ function focoBuscaPorAba(abaId) {
     const alvo = campo.closest('.panel-block')
         || campo.closest('.card')
         || campo;
+    focarCampoImediato(idCampo, true);
     rolarParaElementoAtalho(alvo, 'start');
+    destacarAlvoAtalho(alvo, 1200);
     focarCampoDepoisDaRolagem(idCampo, true);
     return true;
 }
