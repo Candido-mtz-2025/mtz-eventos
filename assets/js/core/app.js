@@ -491,6 +491,18 @@ function garantirCampoVisivelNaViewport(campo, alinhamentoPreferido = 'start') {
     return true;
 }
 
+function focarCampoImediato(idCampo, selecionar = false) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return false;
+    try {
+        campo.focus({ preventScroll: true });
+    } catch (_) {
+        campo.focus();
+    }
+    if (selecionar && typeof campo.select === 'function') campo.select();
+    return true;
+}
+
 function focarCampoDepoisDaRolagem(idCampo, selecionar = false, tentativa = 0) {
     setTimeout(() => {
         const campo = document.getElementById(idCampo);
@@ -734,8 +746,9 @@ function executarAtalhoBuscaEstoque(opcoes = {}) {
         const alvoBusca = campoBuscaAtual.closest('.estoque-search-toolbar')
             || campoBuscaAtual.closest('.card')
             || campoBuscaAtual;
+        focarCampoImediato('buscaEstoque', true);
         rolarParaElementoAtalho(alvoBusca, 'start');
-        destacarAlvoAtalho(alvoBusca, 1100);
+        destacarAlvoAtalho(alvoBusca, 1300);
         focarCampoDepoisDaRolagem('buscaEstoque', true);
         return true;
     }
@@ -1012,6 +1025,19 @@ function irParaEstoqueBusca() {
 }
 
 function irParaEstoqueCadastro() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoCodigo = document.getElementById('pecaCod');
+    if (abaAtual === 'estoque' && campoCodigo) {
+        const alvo = campoCodigo.closest('.panel-block')
+            || campoCodigo.closest('.card')
+            || campoCodigo;
+        focarCampoImediato('pecaCod', true);
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1300);
+        focarCampoDepoisDaRolagem('pecaCod', true);
+        return true;
+    }
+
     navegarComFocoAtalho({
         tabId: 'estoque',
         render: () => {
@@ -1292,6 +1318,12 @@ function acionarImportacaoEstoqueViaAtalho() {
     }
 
     // Tenta abrir imediatamente no mesmo gesto do usuário (mais compatível em mobile).
+    const alvoAtalho = document.querySelector('#tab-estoque .section-toolbar')
+        || document.querySelector('#tab-estoque .card');
+    if (alvoAtalho) {
+        rolarParaElementoAtalho(alvoAtalho, 'start');
+        destacarAlvoAtalho(alvoAtalho, 1000);
+    }
     if (abrirSeletor()) return;
 
     aguardarElementoAtalho(
