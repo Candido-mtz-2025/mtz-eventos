@@ -2645,6 +2645,22 @@ input[type="file"]::-webkit-file-upload-button {
     border-width: 1px;
 }
 
+#tab-dashboard .finance-kpi[data-action] {
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+#tab-dashboard .finance-kpi[data-action]:hover {
+    transform: translateY(-1px);
+    border-color: #9fb8de;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="dark"] #tab-dashboard .finance-kpi[data-action]:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 10px 18px rgba(15, 23, 42, 0.35);
+}
+
 #tab-dashboard .dash-section h3 {
     display: flex;
     align-items: center;

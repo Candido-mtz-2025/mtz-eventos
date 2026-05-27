@@ -1054,8 +1054,36 @@ function irParaChecklistOperacional() {
     });
 }
 
+function irParaLocacoesComBusca(termo = '', filtro = 'todos') {
+    const termoNormalizado = String(termo || '').trim().toLowerCase();
+    const filtroNormalizado = normalizarFiltroLocacoesAtalho(filtro);
+
+    return navegarComFocoAtalho({
+        tabId: 'locacoes',
+        preparar: () => {
+            aplicarBuscaLocacoesAtalho(termoNormalizado);
+            const filtroAplicado = aplicarFiltroLocacoesInterno(filtroNormalizado);
+            if (!filtroAplicado && typeof renderLocacoes === 'function') {
+                renderLocacoes();
+            }
+        },
+        resolverAlvo: () => obterAlvoListaLocacoes(),
+        alinhamento: 'start',
+        focarCustom: (alvoLista) => {
+            destacarAlvoAtalho(alvoLista, 1300);
+        },
+        mensagemFalha: 'Lista de locações não encontrada.',
+        maxTentativas: 14,
+        intervaloMs: 90
+    });
+}
+
 function irParaLocacoesCobrancas() {
-    rolarParaListaLocacoesComFiltro('ativo');
+    irParaLocacoesComBusca('pendente', 'todos');
+}
+
+function irParaLocacoesRecebidas() {
+    irParaLocacoesComBusca('pago', 'todos');
 }
 
 function irParaLocacoesFormulario() {
