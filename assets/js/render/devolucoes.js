@@ -132,12 +132,19 @@ function renderDevolucoes() {
         const clienteBruto = registro.cliente ? registro.cliente.nome : 'Removido';
         const cliente = typeof sanitizarTexto === 'function' ? sanitizarTexto(clienteBruto) : clienteBruto;
         const locacaoId = registro.locacao ? `#${registro.locacao.id.toString().slice(-4)}` : '#----';
+        const locacaoIdCompleto = String(registro.locacao?.id || registro.locacaoId || '').trim();
         const tipo = registro.tipoNormalizado === 'parcial' ? 'Parcial' : 'Concluído';
         const badge = registro.tipoNormalizado === 'parcial' ? 'badge-warning' : 'badge-success';
         const itensTexto = registro.qtdItens > 0 ? `| ${registro.qtdItens} item(ns)` : '';
+        const rowClasses = ['devolucao-row', `devolucao-row--${registro.tipoNormalizado}`];
+        let rowActionAttr = '';
+        if (locacaoIdCompleto) {
+            rowClasses.push('devolucao-row-action');
+            rowActionAttr = ` data-action="irParaLocacaoPorCodigo" data-arg="${locacaoIdCompleto}" title="Abrir locação #${locacaoIdCompleto.slice(-4)}"`;
+        }
 
         return `
-            <tr class="devolucao-row devolucao-row--${registro.tipoNormalizado}" data-devolucao-id="${registro.id}">
+            <tr class="${rowClasses.join(' ')}"${rowActionAttr} data-devolucao-id="${registro.id}">
                 <td>
                     <div class="table-cell-title">${cliente}</div>
                     <div class="table-cell-sub">${locacaoId} ${itensTexto}</div>
