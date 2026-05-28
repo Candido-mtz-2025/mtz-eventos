@@ -88,6 +88,10 @@ const CAMPOS_BUSCA_PERSISTENTES = [
     'devBuscaHistorico',
     'auditBusca'
 ];
+const CAMPOS_BUSCA_COM_BOTAO_LIMPAR = [
+    ...CAMPOS_BUSCA_PERSISTENTES,
+    'inputBuscaPeca'
+];
 const IDS_CAMPOS_BUSCA_PERSISTENTES = new Set(CAMPOS_BUSCA_PERSISTENTES);
 const IDS_CAMPOS_BUSCA_ESCAPE = new Set([
     ...CAMPOS_BUSCA_PERSISTENTES,
@@ -859,6 +863,15 @@ function restaurarContextoBuscaPadrao(idCampoBusca, opcoes = {}) {
         return true;
     }
 
+    if (chave === 'inputBuscaPeca') {
+        const listaSugestoes = document.getElementById('listaSugestoes');
+        if (listaSugestoes) listaSugestoes.classList.remove('ativo');
+        if (typeof filtrarItensLocacao === 'function') {
+            filtrarItensLocacao();
+        }
+        return true;
+    }
+
     if (opcoes?.mostrarAviso && typeof mostrarToast === 'function') {
         mostrarToast('Nenhum filtro adicional para restaurar nesta busca.', 'info');
     }
@@ -912,6 +925,16 @@ function executarAtalhoBuscaEstoque(opcoes = {}) {
 function obterAlvoListaLocacoes() {
     return document.getElementById('locacoesLista')
         || document.querySelector('#tab-locacoes #tblLocacoes')?.closest('.panel-block');
+}
+
+function focarListaLocacoesSemScroll(alvoLista) {
+    if (!(alvoLista instanceof HTMLElement)) return;
+    if (!alvoLista.hasAttribute('tabindex')) {
+        alvoLista.setAttribute('tabindex', '-1');
+    }
+    if (typeof focarElementoSemRolar === 'function') {
+        focarElementoSemRolar(alvoLista, false);
+    }
 }
 
 function normalizarFiltroLocacoesAtalho(filtro) {
@@ -973,6 +996,7 @@ function rolarParaListaLocacoesComFiltro(filtro, opcoes = {}) {
         alinhamento: 'start',
         focarCustom: (alvoLista) => {
             destacarAlvoAtalho(alvoLista, 1300);
+            focarListaLocacoesSemScroll(alvoLista);
         },
         mensagemFalha: 'Lista de locações não encontrada.',
         maxTentativas: 14,
@@ -1005,6 +1029,7 @@ function aplicarFiltroLocacoesResumo(filtro) {
             alinhamento: 'start',
             focarCustom: (alvoLista) => {
                 destacarAlvoAtalho(alvoLista, 1300);
+                focarListaLocacoesSemScroll(alvoLista);
             },
             mensagemFalha: 'Lista de locações não encontrada.',
             maxTentativas: 14,
@@ -1239,6 +1264,7 @@ function irParaLocacoesComBusca(termo = '', filtro = 'todos') {
         alinhamento: 'start',
         focarCustom: (alvoLista) => {
             destacarAlvoAtalho(alvoLista, 1300);
+            focarListaLocacoesSemScroll(alvoLista);
             // No fluxo vindo do Dashboard, deixa a busca pronta para ajuste imediato,
             // sem alterar o posicionamento da lista filtrada na tela.
             if (window.innerWidth > 900) {
@@ -1299,6 +1325,7 @@ function irParaLocacaoPorCodigo(locacaoId) {
                 return;
             }
             destacarAlvoAtalho(alvoLista, 1200);
+            focarListaLocacoesSemScroll(alvoLista);
         },
         mensagemFalha: 'Não foi possível abrir a locação selecionada.',
         maxTentativas: 14,
@@ -1958,7 +1985,7 @@ function configurarBotaoLimparBusca(campo) {
 }
 
 function inicializarBotoesLimparBusca() {
-    CAMPOS_BUSCA_PERSISTENTES.forEach((idCampo) => {
+    CAMPOS_BUSCA_COM_BOTAO_LIMPAR.forEach((idCampo) => {
         const campo = document.getElementById(idCampo);
         if (!campo) return;
         configurarBotaoLimparBusca(campo);

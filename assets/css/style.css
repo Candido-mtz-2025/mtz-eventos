@@ -6790,3 +6790,152 @@ textarea:focus {
         flex-wrap: wrap !important;
     }
 }
+
+/* === V18.0 | FASE A FINAL (ESTABILIDADE + USABILIDADE) === */
+:root {
+    --app-header-height: 94px;
+    --app-tabs-sticky-gap: 6px;
+}
+
+header,
+#appArea .container > .tabs-container {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1400 !important;
+    background: var(--bg) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#appArea .container > .tabs-container {
+    position: sticky !important;
+    top: calc(var(--app-header-height) + var(--app-tabs-sticky-gap)) !important;
+    z-index: 1300 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+#appArea .container > .tabs-container::after {
+    display: none !important;
+    content: none !important;
+}
+
+.tabs {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#tab-locadores td.col-actions,
+#tab-tipos td.col-actions,
+#tab-estoque td.col-actions,
+#tab-locacoes td.col-actions,
+#tab-devolucoes td.col-actions {
+    overflow: visible !important;
+    padding-right: 14px !important;
+}
+
+#tab-locacoes .table-responsive {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+
+#tab-locacoes .table,
+#tblLocacoes {
+    min-width: 1080px;
+}
+
+#tab-locacoes .table th:nth-child(5),
+#tab-locacoes .table td:nth-child(5),
+#tab-locacoes td.col-actions,
+#tblLocacoes td.col-actions {
+    width: 252px !important;
+    min-width: 252px !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+
+#tab-locacoes td.col-actions .actions-cell,
+#tab-locacoes td.col-actions .locacao-actions,
+#tblLocacoes td.col-actions .actions-cell,
+#tblLocacoes td.col-actions .locacao-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    width: max-content;
+    margin-left: auto;
+}
+
+#tab-locacoes td.col-actions .actions-cell .btn,
+#tab-locacoes td.col-actions .locacao-actions .btn,
+#tab-locacoes td.col-actions .locacao-action-btn,
+#tblLocacoes td.col-actions .actions-cell .btn,
+#tblLocacoes td.col-actions .locacao-actions .btn,
+#tblLocacoes td.col-actions .locacao-action-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 0 0 38px !important;
+}
+
+@media (max-width: 1100px) {
+    #tab-locacoes .table th:nth-child(5),
+    #tab-locacoes .table td:nth-child(5),
+    #tab-locacoes td.col-actions,
+    #tblLocacoes td.col-actions {
+        width: 236px !important;
+        min-width: 236px !important;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --app-header-height: 142px;
+        --app-tabs-sticky-gap: 4px;
+    }
+}
+
+@media (max-width: 760px) {
+    :root {
+        --app-header-height: 136px;
+        --app-tabs-sticky-gap: 2px;
+    }
+
+    #tab-locacoes .table th:nth-child(5),
+    #tab-locacoes .table td:nth-child(5),
+    #tab-locacoes td.col-actions,
+    #tblLocacoes td.col-actions {
+        width: 220px !important;
+        min-width: 220px !important;
+        padding-right: 10px !important;
+    }
+
+    #tab-locacoes td.col-actions .actions-cell,
+    #tab-locacoes td.col-actions .locacao-actions,
+    #tblLocacoes td.col-actions .actions-cell,
+    #tblLocacoes td.col-actions .locacao-actions {
+        flex-wrap: wrap !important;
+    }
+
+    #tab-locacoes td.col-actions .actions-cell .btn,
+    #tab-locacoes td.col-actions .locacao-actions .btn,
+    #tab-locacoes td.col-actions .locacao-action-btn,
+    #tblLocacoes td.col-actions .actions-cell .btn,
+    #tblLocacoes td.col-actions .locacao-actions .btn,
+    #tblLocacoes td.col-actions .locacao-action-btn {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        flex: 0 0 36px !important;
+    }
+}
