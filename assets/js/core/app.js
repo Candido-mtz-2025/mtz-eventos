@@ -1817,6 +1817,111 @@ function inicializarPersistenciaBuscasRapidas() {
     });
 }
 
+function alternarVisibilidadeBotaoLimparBusca(campo, botao) {
+    if (!(campo instanceof HTMLElement) || !(botao instanceof HTMLElement)) return;
+    const possuiTexto = String(campo.value || '').trim().length > 0;
+    botao.hidden = !possuiTexto;
+    botao.setAttribute('aria-hidden', possuiTexto ? 'false' : 'true');
+}
+
+function emitirAtualizacaoBusca(campo) {
+    if (!(campo instanceof HTMLElement)) return;
+
+    if (campo.dataset.input) {
+        campo.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+    }
+
+    if (campo.dataset.keyup) {
+        campo.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
+        return;
+    }
+
+    const tipoBusca = String(campo.dataset.arg || '').trim();
+    if (tipoBusca && typeof buscarComDebounce === 'function') {
+        buscarComDebounce(tipoBusca);
+    }
+}
+
+function limparBuscaAtalho(idCampo, opcoes = {}) {
+    const campoId = String(idCampo || '').trim();
+    const campo = document.getElementById(campoId);
+    if (!(campo instanceof HTMLInputElement || campo instanceof HTMLTextAreaElement)) {
+        return false;
+    }
+
+    const tinhaValor = String(campo.value || '').length > 0;
+    if (tinhaValor) {
+        campo.value = '';
+        if (IDS_CAMPOS_BUSCA_PERSISTENTES.has(campoId)) {
+            atualizarPersistenciaBuscaRapida(campoId, '');
+        }
+        emitirAtualizacaoBusca(campo);
+    }
+
+    restaurarContextoBuscaPadrao(campoId);
+
+    const focar = opcoes?.focar !== false;
+    if (focar) {
+        setTimeout(() => focarCampoImediato(campoId, false), 60);
+    }
+
+    const shell = campo.closest('.search-input-shell');
+    const botaoLimpar = shell?.querySelector('.search-clear-inline');
+    if (botaoLimpar) {
+        alternarVisibilidadeBotaoLimparBusca(campo, botaoLimpar);
+    }
+
+    return true;
+}
+
+window.limparBuscaAtalho = limparBuscaAtalho;
+
+function configurarBotaoLimparBusca(campo) {
+    if (!(campo instanceof HTMLInputElement || campo instanceof HTMLTextAreaElement)) return;
+    const campoId = String(campo.id || '').trim();
+    if (!campoId) return;
+
+    let shell = campo.closest('.search-input-shell');
+    if (!shell) {
+        const parent = campo.parentElement;
+        if (!parent) return;
+
+        shell = document.createElement('div');
+        shell.className = 'search-input-shell';
+        parent.insertBefore(shell, campo);
+        shell.appendChild(campo);
+    }
+
+    let botao = shell.querySelector('.search-clear-inline');
+    if (!botao) {
+        botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'btn btn-sm search-clear-inline';
+        botao.dataset.action = 'limparBuscaAtalho';
+        botao.dataset.arg = campoId;
+        botao.setAttribute('aria-label', 'Limpar busca');
+        botao.setAttribute('title', 'Limpar busca');
+        botao.innerHTML = '<i class="bi bi-x-circle"></i>';
+        shell.appendChild(botao);
+    }
+
+    alternarVisibilidadeBotaoLimparBusca(campo, botao);
+
+    if (campo.dataset.clearSearchBound === '1') return;
+    campo.dataset.clearSearchBound = '1';
+    campo.addEventListener('input', () => alternarVisibilidadeBotaoLimparBusca(campo, botao));
+    campo.addEventListener('change', () => alternarVisibilidadeBotaoLimparBusca(campo, botao));
+}
+
+function inicializarBotoesLimparBusca() {
+    CAMPOS_BUSCA_PERSISTENTES.forEach((idCampo) => {
+        const campo = document.getElementById(idCampo);
+        if (!campo) return;
+        configurarBotaoLimparBusca(campo);
+    });
+}
+
 function focoBuscaPorAba(abaId) {
     if (abaId === 'locacoes') {
         const etapa2Ativa = document.getElementById('locacaoEtapa2')?.classList.contains('is-active');
@@ -2124,6 +2229,7 @@ function executarAtalhoRapido(atalhoId) {
     abrirTab(abaInicial, { semRolagem: true });
     inicializarPersistenciaBuscasRapidas();
     restaurarBuscasRapidasPersistidas();
+    inicializarBotoesLimparBusca();
     inicializarMetaTopbarContextual();
     iniciarBackupAutomatico();
     setInterval(salvarLocal, 60000);
