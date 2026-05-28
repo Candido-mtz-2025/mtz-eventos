@@ -664,9 +664,9 @@
             </div>
             <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
             <div class="devolucao-kpis">
-                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="todos" data-filtro-dev="todos"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
-                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="total" data-filtro-dev="total"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
-                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoes" data-arg="parcial" data-filtro-dev="parcial"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="todos" data-filtro-dev="todos"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="total" data-filtro-dev="total"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="parcial" data-filtro-dev="parcial"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
                 <div class="devolucao-kpi" data-action="irParaDevolucoesFormulario"><small>Pendentes</small><strong id="devKpiPendentes">0</strong></div>
             </div>
             <div class="table-responsive">
@@ -733,12 +733,12 @@
     </div>
 
     <div class="filters-row filters-segmented audit-filters">
-      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="aplicarFiltroAuditoria" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
-      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="aplicarFiltroAuditoria" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
-      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="aplicarFiltroAuditoria" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
-      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="aplicarFiltroAuditoria" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
-      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="aplicarFiltroAuditoria" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="aplicarFiltroAuditoria" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="aplicarFiltroAuditoriaRapido" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="aplicarFiltroAuditoriaRapido" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="aplicarFiltroAuditoriaRapido" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="aplicarFiltroAuditoriaRapido" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="aplicarFiltroAuditoriaRapido" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="aplicarFiltroAuditoriaRapido" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1006,7 +1006,7 @@
     <script src="./assets/js/render/dashboard.js?v=1.5"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=21.4"></script>
+    <script src="./assets/js/core/app.js?v=21.5"></script>
         
 </body>
 </html>

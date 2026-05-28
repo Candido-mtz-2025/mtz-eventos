@@ -345,6 +345,19 @@ function aplicarFiltroHistoricoDevolucoes(filtro = null, focarBusca = false, rol
     if (focarBusca) focarCampoDepoisDaRolagem('devBuscaHistorico', true);
 }
 
+// Filtro rápido (cards/atalhos): limpa busca anterior para sempre mostrar
+// um resultado visível ao usuário no histórico.
+function aplicarFiltroHistoricoDevolucoesRapido(filtro = null) {
+    const campoBusca = document.getElementById('devBuscaHistorico');
+    if (campoBusca && campoBusca.value) {
+        campoBusca.value = '';
+        if (typeof atualizarPersistenciaBuscaRapida === 'function') {
+            atualizarPersistenciaBuscaRapida('devBuscaHistorico', '');
+        }
+    }
+    aplicarFiltroHistoricoDevolucoes(filtro, false, true);
+}
+
 function avisarAtalhoIndisponivel(mensagem) {
     if (typeof mostrarToast === 'function') {
         mostrarToast(mensagem, 'erro');
@@ -1346,6 +1359,18 @@ function aplicarFiltroAuditoria(filtro = 'todos', focarBusca = false) {
         alinhamento: 'start',
         mensagemFalha: 'Lista de auditoria não encontrada.'
     });
+}
+
+// Filtro rápido (chips): limpa termo antigo para evitar lista vazia por busca residual.
+function aplicarFiltroAuditoriaRapido(filtro = 'todos') {
+    const campoBusca = document.getElementById('auditBusca');
+    if (campoBusca && campoBusca.value) {
+        campoBusca.value = '';
+        if (typeof atualizarPersistenciaBuscaRapida === 'function') {
+            atualizarPersistenciaBuscaRapida('auditBusca', '');
+        }
+    }
+    aplicarFiltroAuditoria(filtro, false);
 }
 
 function irParaConfigGeral() {
