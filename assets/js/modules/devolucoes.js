@@ -44,9 +44,15 @@ function atualizarResumoConferenciaDevolucao() {
 
     const itens = Array.from(document.querySelectorAll('.devolucao-item'));
     if (itens.length === 0) {
-        resumo.innerHTML = '<span class="muted-note">Sem itens para conferência.</span>';
+        resumo.classList.add('is-empty');
+        resumo.innerHTML = criarEstadoDevolucaoPainel({
+            tipo: 'empty',
+            titulo: 'Sem itens para conferência',
+            mensagem: 'Selecione uma locação em aberto para iniciar.'
+        });
         return;
     }
+    resumo.classList.remove('is-empty');
 
     let totalPendente = 0;
     let totalDevolvido = 0;

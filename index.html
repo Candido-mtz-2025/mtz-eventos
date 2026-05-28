@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=18.8">
+    <link rel="stylesheet" href="./assets/css/style.css?v=18.9">
 </head>
 <body>
 
@@ -494,7 +494,15 @@
                         </div>
                     </div>
                     <div id="carrinhoList">
-                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+                        <div class="ui-state-panel">
+                            <div class="ui-state ui-state--empty ui-state--compact">
+                                <div class="ui-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
+                                <div class="ui-state-content">
+                                    <strong>Pedido vazio</strong>
+                                    <span>Nenhum item adicionado à lista.</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="checkout-bar">
                         <div>
@@ -628,7 +636,15 @@
                     <div class="section-gap">
                         <h3>Checklist de Saída / Retorno</h3>
                         <div id="listaChecklistMontagem">
-                            <p>Nenhum item adicionado.</p>
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Checklist vazio</strong>
+                                        <span>Adicione itens ou modelos para iniciar a separação.</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -646,7 +662,15 @@
                 <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
             </div>
             <div id="divItensDevolucao" class="soft-box">
-                <small class="muted-note">Selecione uma locação para conferir.</small>
+                <div class="ui-state-panel">
+                    <div class="ui-state ui-state--info ui-state--compact">
+                        <div class="ui-state-icon"><i class="bi bi-info-circle" aria-hidden="true"></i></div>
+                        <div class="ui-state-content">
+                            <strong>Selecione uma locação</strong>
+                            <span>Escolha uma locação em aberto para iniciar a conferência.</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <button class="btn btn-primary" data-action="confirmarDevolucao"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
@@ -990,12 +1014,12 @@
     <script src="./assets/js/modules/locacoes.js?v=12.3"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
-    <script src="./assets/js/modules/estoque.js?v=2.2"></script>
+    <script src="./assets/js/modules/estoque.js?v=2.3"></script>
     <script src="./assets/js/modules/checklist.js"></script>       
     <script src="./assets/js/modules/config.js"></script>
     <script src="./assets/js/modules/importacao.js"></script>
     <script src="./assets/js/modules/relatorios.js"></script>
-    <script src="./assets/js/modules/devolucoes.js?v=2.1"></script>
+    <script src="./assets/js/modules/devolucoes.js?v=2.2"></script>
     <script src="./assets/js/modules/scanner.js"></script>
     <script src="./assets/js/modules/backup-tools.js"></script>
     <script src="./assets/js/modules/whatsapp.js"></script>

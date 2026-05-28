@@ -836,6 +836,14 @@
   color: var(--text-light);
 }
 
+.devolucao-resumo-live.is-empty {
+  display: block;
+}
+
+.devolucao-resumo-live.is-empty .ui-state-panel {
+  margin: 0;
+}
+
 .devolucao-kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3867,6 +3875,53 @@ input[type="file"]::-webkit-file-upload-button {
     min-height: 48px;
 }
 
+.modelo-checklist-temp-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+
+.modelo-checklist-temp-item span {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.modelo-checklist-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.modelo-checklist-card-info strong {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.modelo-checklist-card-info small {
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+.modelo-checklist-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .shortcuts-guide {
     display: grid;
     gap: 10px;
@@ -3953,6 +4008,21 @@ input[type="file"]::-webkit-file-upload-button {
     #tab-devolucoes .section-toolbar .inline-chip-row input {
         width: 100%;
         min-width: 0;
+    }
+
+    .modelo-checklist-temp-item,
+    .modelo-checklist-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .modelo-checklist-card-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .modelo-checklist-card-actions .btn {
+        width: 100%;
     }
 
     .modal-content:not(.modal-relatorio-content) {

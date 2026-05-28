@@ -583,6 +583,12 @@ function adicionarItemModeloChecklist() {
     mostrarToast("Peça adicionada!");
 }
 
+function escaparHTMLEstoque(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor ?? '';
+    return div.innerHTML;
+}
+
 function criarEstadoEstoquePainel(opcoes = {}) {
     if (typeof criarEstadoPainel === 'function') {
         return criarEstadoPainel(opcoes.mensagem, {
@@ -590,7 +596,7 @@ function criarEstadoEstoquePainel(opcoes = {}) {
             titulo: opcoes.titulo || 'Informação'
         });
     }
-    return `<p class="muted-note">${opcoes.mensagem || 'Sem dados para mostrar.'}</p>`;
+    return `<p class="muted-note">${escaparHTMLEstoque(opcoes.mensagem || 'Sem dados para mostrar.')}</p>`;
 }
 
 function renderItensModeloChecklistTemp() {
@@ -607,9 +613,9 @@ function renderItensModeloChecklistTemp() {
     }
 
     lista.innerHTML = itensModeloChecklistTemp.map((item, index) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:8px;margin-bottom:6px;border-radius:6px;">
-            <span>${item.nome} - Qtd: ${item.qtd}</span>
-            <button class="btn btn-danger" data-action="removerItemModeloChecklistTemp" data-arg="${index}">Remover</button>
+        <div class="modelo-checklist-temp-item">
+            <span>${escaparHTMLEstoque(item.nome)} - Qtd: ${parseInt(item.qtd, 10) || 0}</span>
+            <button class="btn btn-danger btn-sm" data-action="removerItemModeloChecklistTemp" data-arg="${index}">Remover</button>
         </div>
     `).join('');
 }
@@ -677,13 +683,13 @@ function renderModelosChecklist() {
     }
 
     lista.innerHTML = modelosChecklist.map(modelo => `
-        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:10px;margin-bottom:8px;border-radius:8px;">
-            <div>
-                <strong>${modelo.nome}</strong><br>
-                <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
+        <div class="modelo-checklist-card">
+            <div class="modelo-checklist-card-info">
+                <strong>${escaparHTMLEstoque(modelo.nome)}</strong><br>
+                <small>Família: ${escaparHTMLEstoque(modelo.familiaEstrutural || 'Não informada')}</small><br>
                 <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
             </div>
-            <div style="display:flex;gap:8px;">
+            <div class="modelo-checklist-card-actions">
                 <button class="btn btn-secondary" data-action="editarModeloChecklist" data-arg="${modelo.id}">Editar</button>
                 <button class="btn btn-primary" data-action="gerarChecklistModelo" data-arg="${modelo.id}">Gerar Checklist</button>
                 <button class="btn btn-danger" data-action="excluirModeloChecklistUI" data-arg="${modelo.id}">Excluir</button>
