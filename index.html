@@ -200,7 +200,15 @@
                             <small class="dash-section-meta">Últimos 6 meses</small>
                         </div>
                         <div id="dashChartReceita" class="dash-chart-placeholder">
-                            <small class="muted-note">Sem dados para o gráfico.</small>
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-bar-chart" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Sem dados de receita</strong>
+                                        <span>Cadastre locações para visualizar a evolução mensal.</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="dash-section">
@@ -209,7 +217,15 @@
                             <small class="dash-section-meta">Distribuição atual</small>
                         </div>
                         <div id="dashChartStatus" class="dash-chart-placeholder">
-                            <small class="muted-note">Sem dados para o gráfico.</small>
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-pie-chart" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Sem status para comparar</strong>
+                                        <span>As locações aparecerão aqui conforme o uso.</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="dash-section">
@@ -218,7 +234,15 @@
                             <small id="dashResumoAcoesDia" class="dash-section-meta">Sem ações pendentes</small>
                         </div>
                         <div id="dashAcoesDia" class="dash-actions-placeholder">
-                            <small class="muted-note">Nenhuma ação urgente no momento.</small>
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--success ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Rotina em dia</strong>
+                                        <span>Nenhuma ação urgente no momento.</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -237,7 +261,17 @@
                             <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
                             <small id="dashResumoAlertas" class="dash-section-meta">Sem alertas no momento</small>
                         </div>
-                        <div id="listEstoqueBaixo"><small class="muted-note">Sistema operando normalmente.</small></div>
+                        <div id="listEstoqueBaixo">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--success ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Operação estável</strong>
+                                        <span>Sistema operando normalmente.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
