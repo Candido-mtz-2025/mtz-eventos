@@ -1239,6 +1239,22 @@ function irParaLocacoesComBusca(termo = '', filtro = 'todos') {
         alinhamento: 'start',
         focarCustom: (alvoLista) => {
             destacarAlvoAtalho(alvoLista, 1300);
+            // No fluxo vindo do Dashboard, deixa a busca pronta para ajuste imediato,
+            // sem alterar o posicionamento da lista filtrada na tela.
+            if (window.innerWidth > 900) {
+                setTimeout(() => {
+                    const campoBusca = document.getElementById('buscaLocacoes');
+                    if (!(campoBusca instanceof HTMLInputElement)) return;
+                    try {
+                        campoBusca.focus({ preventScroll: true });
+                    } catch (_) {
+                        campoBusca.focus();
+                    }
+                    if (termoNormalizado && typeof campoBusca.select === 'function') {
+                        campoBusca.select();
+                    }
+                }, 180);
+            }
         },
         mensagemFalha: 'Lista de locações não encontrada.',
         maxTentativas: 14,
