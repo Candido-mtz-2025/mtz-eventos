@@ -2039,7 +2039,7 @@ function focoBuscaPorAba(abaId) {
     const campo = document.getElementById(idCampo);
     if (!campo) return false;
 
-    const alvo = campo.closest('.estoque-search-toolbar, .locacoes-search-toolbar, .devolucoes-search-toolbar, .auditoria-search-toolbar, .panel-block')
+    const alvo = campo.closest('.estoque-search-toolbar, .locacoes-search-toolbar, .devolucoes-search-toolbar, .auditoria-search-toolbar, .cadastros-search-toolbar, .panel-block')
         || campo;
     focarCampoImediato(idCampo, true);
     rolarParaElementoAtalho(alvo, 'start');

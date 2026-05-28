@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=19.0">
+    <link rel="stylesheet" href="./assets/css/style.css?v=19.1">
 </head>
 <body>
 
@@ -293,8 +293,10 @@
                     <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-input="buscarComDebounce" data-arg="locadores">
-                    <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
+                    <div class="cadastros-search-toolbar">
+                        <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-input="buscarComDebounce" data-arg="locadores">
+                        <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -328,8 +330,10 @@
                     <button class="btn btn-primary" data-action="salvarTipo">Salvar Tipo</button>
                 </div>
                 <div class="card">
-                    <input type="text" id="buscaTipos" class="search-input" placeholder="🔍 Buscar tipo..." data-input="buscarComDebounce" data-arg="tipos">
-                    <div id="metaBuscaTipos" class="search-meta" aria-live="polite"></div>
+                    <div class="cadastros-search-toolbar">
+                        <input type="text" id="buscaTipos" class="search-input" placeholder="🔍 Buscar tipo..." data-input="buscarComDebounce" data-arg="tipos">
+                        <div id="metaBuscaTipos" class="search-meta" aria-live="polite"></div>
+                    </div>
                     <div class="table-responsive"><table class="table"><thead><tr><th>Nome</th><th>Descrição</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblTipos"></tbody></table></div>
                 </div>
             </div>
@@ -1064,7 +1068,7 @@
     <script src="./assets/js/render/dashboard.js?v=1.5"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=21.7"></script>
+    <script src="./assets/js/core/app.js?v=21.8"></script>
         
 </body>
 </html>

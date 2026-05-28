@@ -1685,6 +1685,31 @@ header .container {
     background: color-mix(in srgb, #101b2d 86%, #1e3a8a 14%);
 }
 
+.cadastros-search-toolbar {
+    position: sticky;
+    top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 10px);
+    z-index: 16;
+    margin-bottom: 12px;
+    padding: 10px;
+    border: 1px solid #d7e3f2;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 92%, #eff6ff 8%);
+}
+
+.cadastros-search-toolbar .search-input,
+.cadastros-search-toolbar .search-input-shell {
+    margin-bottom: 8px;
+}
+
+.cadastros-search-toolbar .search-meta {
+    margin: 0;
+}
+
+[data-theme="dark"] .cadastros-search-toolbar {
+    border-color: #31445f;
+    background: color-mix(in srgb, #101b2d 86%, #1e3a8a 14%);
+}
+
 .devolucoes-search-toolbar {
     width: 100%;
     display: flex;
@@ -1716,6 +1741,11 @@ header .container {
     }
 
     .locacoes-search-toolbar {
+        top: calc(var(--app-header-height, 136px) + var(--app-tabs-sticky-gap, 2px) + 8px);
+        padding: 8px;
+    }
+
+    .cadastros-search-toolbar {
         top: calc(var(--app-header-height, 136px) + var(--app-tabs-sticky-gap, 2px) + 8px);
         padding: 8px;
     }
