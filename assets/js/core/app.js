@@ -1010,7 +1010,9 @@ function aplicarFiltroLocacoesResumo(filtro) {
 
 // Fluxo completo do filtro em locações: abre tab, aplica filtro, rola para lista e evidencia estado ativo.
 function aplicarFiltroLocacoesLista(filtro) {
-    rolarParaListaLocacoesComFiltro(filtro);
+    // Ao trocar o filtro manualmente, limpamos busca anterior para evitar
+    // cenário de "filtro aplicado sem resultado visível" por termo antigo.
+    rolarParaListaLocacoesComFiltro(filtro, { limparBusca: true });
 }
 
 // Mantém compatibilidade com atalhos já existentes.
