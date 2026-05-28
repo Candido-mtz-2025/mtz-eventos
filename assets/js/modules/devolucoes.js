@@ -342,6 +342,19 @@ function confirmarDevolucao() {
         });
 
         l.status = devolucaoTotal ? 'devolvido' : 'ativo';
+        if (devolucaoTotal && typeof atualizarStatusLocacaoDominio === 'function') {
+            atualizarStatusLocacaoDominio(l, 'devolvido', {
+                acao: 'devolucao_total',
+                descricao: 'Locação encerrada com devolução total dos itens.',
+                origem: 'devolucoes'
+            });
+        } else if (typeof registrarHistoricoLocacaoDominio === 'function') {
+            registrarHistoricoLocacaoDominio(l, {
+                acao: 'devolucao_parcial',
+                descricao: 'Devolução parcial registrada para a locação.',
+                origem: 'devolucoes'
+            });
+        }
         const novaDevolucaoId = Date.now();
 
         devolucoes.push({

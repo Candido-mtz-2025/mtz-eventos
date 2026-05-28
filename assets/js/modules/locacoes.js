@@ -621,6 +621,20 @@ function finalizarLocacao() {
             id: novaLocacaoId,
             ...dadosNovaLocacao
         });
+        if (typeof atualizarStatusLocacaoDominio === 'function') {
+            atualizarStatusLocacaoDominio(novaLocacao, 'aprovado', {
+                acao: 'criacao',
+                descricao: 'Locação criada no fluxo de locações.',
+                origem: 'locacoes',
+                forcarHistorico: true
+            });
+        } else if (typeof registrarHistoricoLocacaoDominio === 'function') {
+            registrarHistoricoLocacaoDominio(novaLocacao, {
+                acao: 'criacao',
+                descricao: 'Locação criada no fluxo de locações.',
+                origem: 'locacoes'
+            });
+        }
         locacoes.push(novaLocacao);
 
         carrinhoLocacao = [];
@@ -727,6 +741,7 @@ function alternarPagamento(id) {
     }
     const l = locacoes.find((x) => x.id == id);
     if (l) {
+        const pagoAnterior = !!l.pago;
         l.pago = !l.pago;
         const statusPagamento = l.pago ? 'pago' : 'pendente';
         l.financeiro = {
@@ -735,6 +750,15 @@ function alternarPagamento(id) {
         };
         const normalizada = sincronizarFinanceiroLocacao(l);
         if (normalizada) Object.assign(l, normalizada);
+        if (pagoAnterior !== l.pago && typeof registrarHistoricoLocacaoDominio === 'function') {
+            registrarHistoricoLocacaoDominio(l, {
+                acao: 'financeiro_status',
+                descricao: l.pago
+                    ? 'Pagamento marcado como pago.'
+                    : 'Pagamento marcado como pendente.',
+                origem: 'locacoes'
+            });
+        }
         salvarLocal();
         renderLocacoes();
         renderStats();

@@ -112,6 +112,78 @@
         return financeiro;
     }
 
+    function obterIdentidadeOperacaoDominio() {
+        const email = textoSeguro(localStorage.getItem('usuarioEmail'), '').trim();
+        if (email) return email;
+        return 'sistema_local';
+    }
+
+    function registrarHistoricoLocacaoDominio(locacaoOriginal = {}, evento = {}) {
+        if (!locacaoOriginal || typeof locacaoOriginal !== 'object') return locacaoOriginal;
+
+        if (!Array.isArray(locacaoOriginal.historicoAlteracoes)) {
+            locacaoOriginal.historicoAlteracoes = [];
+        }
+
+        const registro = {
+            id: Date.now(),
+            data: new Date().toISOString(),
+            acao: textoSeguro(evento.acao, 'atualizacao'),
+            descricao: textoSeguro(evento.descricao, 'Atualização de locação'),
+            origem: textoSeguro(evento.origem, 'sistema'),
+            status: textoSeguro(locacaoOriginal.status, ''),
+            statusFluxo: textoSeguro(locacaoOriginal.statusFluxo, ''),
+            usuario: textoSeguro(evento.usuario, obterIdentidadeOperacaoDominio())
+        };
+
+        locacaoOriginal.historicoAlteracoes.push(registro);
+        if (locacaoOriginal.historicoAlteracoes.length > 240) {
+            locacaoOriginal.historicoAlteracoes = locacaoOriginal.historicoAlteracoes.slice(-240);
+        }
+
+        return locacaoOriginal;
+    }
+
+    function atualizarStatusLocacaoDominio(locacaoOriginal = {}, proximoStatusFluxo = '', opcoes = {}) {
+        if (!locacaoOriginal || typeof locacaoOriginal !== 'object') return locacaoOriginal;
+
+        const locacao = locacaoOriginal;
+        const statusAnterior = textoSeguro(locacao.status, '').trim().toLowerCase();
+        const fluxoAnterior = valorEmConjunto(locacao.statusFluxo, STATUS_FLUXO_VALIDOS, '');
+        const fluxoAtualizado = valorEmConjunto(
+            proximoStatusFluxo,
+            STATUS_FLUXO_VALIDOS,
+            fluxoAnterior || inferirStatusFluxoLocacao(locacao)
+        );
+
+        locacao.statusFluxo = fluxoAtualizado;
+
+        if (fluxoAtualizado === 'devolvido') {
+            locacao.status = 'devolvido';
+        } else if (fluxoAtualizado === 'cancelado') {
+            locacao.status = 'cancelado';
+        } else if (statusAnterior === 'devolvido' || statusAnterior === 'cancelado' || !statusAnterior) {
+            locacao.status = 'ativo';
+        }
+
+        const statusNovo = textoSeguro(locacao.status, '').trim().toLowerCase();
+        const fluxoNovo = valorEmConjunto(locacao.statusFluxo, STATUS_FLUXO_VALIDOS, fluxoAtualizado);
+        const houveMudanca = fluxoAnterior !== fluxoNovo || statusAnterior !== statusNovo;
+
+        if (opcoes.registrarHistorico !== false && (houveMudanca || opcoes.forcarHistorico)) {
+            const nomeFluxo = fluxoNovo || 'aprovado';
+            const descricaoPadrao = `Fluxo alterado para ${nomeFluxo}.`;
+            registrarHistoricoLocacaoDominio(locacao, {
+                acao: textoSeguro(opcoes.acao, 'status_fluxo'),
+                descricao: textoSeguro(opcoes.descricao, descricaoPadrao),
+                origem: textoSeguro(opcoes.origem, 'dominio'),
+                usuario: textoSeguro(opcoes.usuario, '')
+            });
+        }
+
+        return locacao;
+    }
+
     function normalizarLocacaoDominio(locacaoOriginal = {}, opcoes = {}) {
         const referenciaHoje = opcoes.hoje instanceof Date ? opcoes.hoje : new Date();
         const incluirDerivados = opcoes.incluirDerivados !== false;
@@ -236,4 +308,6 @@
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;
+    window.registrarHistoricoLocacaoDominio = registrarHistoricoLocacaoDominio;
+    window.atualizarStatusLocacaoDominio = atualizarStatusLocacaoDominio;
 })();
