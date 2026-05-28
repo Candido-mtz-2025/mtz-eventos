@@ -767,6 +767,138 @@ function alternarPagamento(id) {
     }
 }
 
+function escaparHtmlHistoricoLocacao(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor ?? '';
+    return div.innerHTML;
+}
+
+function formatarDataHistoricoLocacao(valor) {
+    if (!valor) return '-';
+    const data = new Date(valor);
+    if (Number.isNaN(data.getTime())) return String(valor);
+    return data.toLocaleString('pt-BR');
+}
+
+function rotuloStatusFluxoLocacao(statusFluxo) {
+    const mapa = {
+        orcamento: 'Orçamento',
+        aprovado: 'Aprovado',
+        separado: 'Separado',
+        carregado: 'Carregado',
+        montado: 'Montado',
+        finalizado: 'Finalizado',
+        devolvido: 'Devolvido',
+        cancelado: 'Cancelado'
+    };
+    const chave = String(statusFluxo || '').trim().toLowerCase();
+    return mapa[chave] || (chave ? chave.charAt(0).toUpperCase() + chave.slice(1) : 'Não informado');
+}
+
+function rotuloStatusPagamentoLocacao(statusPagamento, pago) {
+    const mapa = {
+        pendente: 'Pendente',
+        parcial: 'Parcial',
+        pago: 'Pago',
+        atrasado: 'Atrasado',
+        cancelado: 'Cancelado'
+    };
+    const chave = String(statusPagamento || '').trim().toLowerCase();
+    if (chave && mapa[chave]) return mapa[chave];
+    return pago ? 'Pago' : 'Pendente';
+}
+
+function abrirHistoricoLocacao(id) {
+    const modal = document.getElementById('modalHistoricoLocacao');
+    const corpo = document.getElementById('historicoLocacaoConteudo');
+    if (!modal || !corpo) {
+        mostrarToast('Painel de histórico da locação não encontrado.', 'erro');
+        return;
+    }
+
+    const locacao = locacoes.find((x) => String(x.id) === String(id));
+    if (!locacao) {
+        mostrarToast('Locação não encontrada.', 'erro');
+        return;
+    }
+
+    const locacaoNormalizada = typeof normalizarLocacaoDominio === 'function'
+        ? normalizarLocacaoDominio(locacao)
+        : locacao;
+
+    const cliente = locadores.find((x) => String(x.id) === String(locacaoNormalizada.locadorId));
+    const clienteNome = cliente?.nome || 'Cliente removido';
+    const statusFluxo = rotuloStatusFluxoLocacao(locacaoNormalizada.statusFluxo);
+    const statusPagamento = rotuloStatusPagamentoLocacao(
+        locacaoNormalizada?.financeiro?.statusPagamento,
+        locacaoNormalizada?.pago
+    );
+    const valorTotal = Number(locacaoNormalizada?.financeiro?.valorTotal ?? locacaoNormalizada?.valorTotalCalculado ?? 0) || 0;
+
+    const historico = Array.isArray(locacaoNormalizada.historicoAlteracoes)
+        ? locacaoNormalizada.historicoAlteracoes.slice().sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0))
+        : [];
+
+    const linhasHistorico = historico.length
+        ? historico.map((registro) => `
+            <article class="locacao-history-item">
+                <div class="locacao-history-dot" aria-hidden="true"></div>
+                <div class="locacao-history-content">
+                    <div class="locacao-history-head">
+                        <strong>${escaparHtmlHistoricoLocacao(registro.descricao || 'Atualização registrada')}</strong>
+                        <span>${escaparHtmlHistoricoLocacao(formatarDataHistoricoLocacao(registro.data))}</span>
+                    </div>
+                    <div class="locacao-history-meta">
+                        <span><b>Ação:</b> ${escaparHtmlHistoricoLocacao(registro.acao || 'atualizacao')}</span>
+                        <span><b>Origem:</b> ${escaparHtmlHistoricoLocacao(registro.origem || 'sistema')}</span>
+                        <span><b>Usuário:</b> ${escaparHtmlHistoricoLocacao(registro.usuario || 'sistema_local')}</span>
+                    </div>
+                </div>
+            </article>
+        `).join('')
+        : `
+            <div class="ui-state-panel">
+                <div class="ui-state ui-state--info ui-state--compact">
+                    <div class="ui-state-icon"><i class="bi bi-info-circle" aria-hidden="true"></i></div>
+                    <div class="ui-state-content">
+                        <strong>Sem histórico detalhado</strong>
+                        <span>Esta locação ainda não possui eventos no histórico.</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+    corpo.innerHTML = `
+        <div class="locacao-history-summary">
+            <div class="locacao-history-card">
+                <small>Locação</small>
+                <strong>#${String(locacaoNormalizada.id || '').slice(-4) || '----'}</strong>
+            </div>
+            <div class="locacao-history-card">
+                <small>Cliente</small>
+                <strong>${escaparHtmlHistoricoLocacao(clienteNome)}</strong>
+            </div>
+            <div class="locacao-history-card">
+                <small>Status fluxo</small>
+                <strong>${escaparHtmlHistoricoLocacao(statusFluxo)}</strong>
+            </div>
+            <div class="locacao-history-card">
+                <small>Pagamento</small>
+                <strong>${escaparHtmlHistoricoLocacao(statusPagamento)}</strong>
+            </div>
+            <div class="locacao-history-card">
+                <small>Valor</small>
+                <strong>${escaparHtmlHistoricoLocacao(`R$ ${valorTotal.toFixed(2)}`)}</strong>
+            </div>
+        </div>
+        <div class="locacao-history-list">
+            ${linhasHistorico}
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
 function atualizarLimiteEstoque() {
     var select = document.getElementById('aluguelItemSelect');
     var inputQtd = document.getElementById('aluguelQtd');
@@ -803,3 +935,4 @@ window.limparCarrinhoLocacao = limparCarrinhoLocacao;
 window.irEtapaLocacao = irEtapaLocacao;
 window.inicializarFluxoLocacao = inicializarFluxoLocacao;
 window.atualizarFluxoLocacao = atualizarFluxoLocacao;
+window.abrirHistoricoLocacao = abrirHistoricoLocacao;

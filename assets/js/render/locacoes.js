@@ -274,6 +274,9 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" aria-label="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-history" title="Ver histórico da locação" aria-label="Ver histórico da locação" data-action="abrirHistoricoLocacao" data-arg="${l.id}">
+                    <i class="bi bi-clock-history"></i>
+                </button>
                 ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm btn-danger table-action-btn locacao-action-btn" data-acesso="admin" title="Cancelar locação" aria-label="Cancelar locação" data-action="cancelarLocacao" data-arg="${l.id}"><i class="bi bi-trash"></i></button>` : ''}
                 </div>
             </td>
