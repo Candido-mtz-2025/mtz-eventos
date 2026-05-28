@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=19.1">
+    <link rel="stylesheet" href="./assets/css/style.css?v=19.2">
 </head>
 <body>
 
@@ -715,14 +715,14 @@
         <div class="card" id="devolucoesHistoricoCard">
             <div class="section-toolbar">
                 <h3>Histórico Recente</h3>
-                <div class="inline-chip-row devolucoes-search-toolbar">
-                    <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes">
-                        <option value="todos">Todos</option>
-                        <option value="parcial">Parciais</option>
-                        <option value="total">Concluídas</option>
-                    </select>
-                    <input type="text" id="devBuscaHistorico" class="search-input" placeholder="Buscar cliente..." data-input="buscarComDebounce" data-arg="devolucoes">
-                </div>
+            </div>
+            <div class="devolucoes-search-toolbar">
+                <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes">
+                    <option value="todos">Todos</option>
+                    <option value="parcial">Parciais</option>
+                    <option value="total">Concluídas</option>
+                </select>
+                <input type="text" id="devBuscaHistorico" class="search-input" placeholder="Buscar cliente..." data-input="buscarComDebounce" data-arg="devolucoes">
             </div>
             <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
             <div class="devolucao-kpis">
