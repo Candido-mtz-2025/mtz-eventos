@@ -488,6 +488,23 @@ function rolarParaElementoAtalho(elemento, block = 'start') {
     if (Math.abs(destinoFinal - atual) < 3) return true;
 
     window.scrollTo({ top: destinoFinal, behavior: 'smooth' });
+
+    // Ajuste fino: em telas com header sticky/fixo o alvo pode ficar alguns
+    // pixels encoberto após o smooth scroll, então corrigimos em duas passadas curtas.
+    if (block === 'start' && elemento instanceof HTMLElement) {
+        const corrigirPosicao = () => {
+            const retAjuste = elemento.getBoundingClientRect();
+            const margemTopo = obterOffsetCabecalhoApp() + 8;
+            const deltaTopo = retAjuste.top - margemTopo;
+            if (Math.abs(deltaTopo) <= 16) return;
+            const novoTopo = Math.max(0, Math.round(window.pageYOffset + deltaTopo));
+            window.scrollTo({ top: novoTopo, behavior: 'auto' });
+        };
+
+        setTimeout(corrigirPosicao, 280);
+        setTimeout(corrigirPosicao, 520);
+    }
+
     return true;
 }
 

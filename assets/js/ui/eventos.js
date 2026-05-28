@@ -44,6 +44,12 @@ const ACTIONS_ALIAS = Object.freeze({
     removerSelecionadosEstoque: 'excluirSelecionadosEstoque'
 });
 
+const ATRIBUTOS_GATILHO_AUDITORIA = Object.freeze([
+    'data-change',
+    'data-input',
+    'data-keyup'
+]);
+
 const ACTIONS_COM_BLOQUEIO_CURTO = new Set([
     'salvarLocador',
     'salvarTipo',
@@ -299,9 +305,27 @@ function auditarAcoesDaInterface() {
         marcarAcaoIndisponivel(el, 'Ação indisponível: função não encontrada.');
     });
 
-    if (!faltantes.length) return;
+    if (faltantes.length) {
+        console.warn('Ações não mapeadas na interface:', faltantes);
+    }
 
-    console.warn('Ações não mapeadas na interface:', faltantes);
+    // Auditoria complementar para gatilhos de formulário/evento.
+    ATRIBUTOS_GATILHO_AUDITORIA.forEach((atributo) => {
+        const elementosGatilho = Array.from(document.querySelectorAll(`[${atributo}]`));
+        if (!elementosGatilho.length) return;
+
+        const nomes = Array.from(new Set(
+            elementosGatilho
+                .map((el) => String(el.getAttribute(atributo) || '').trim())
+                .filter(Boolean)
+                .map((nome) => resolverNomeAcao(nome))
+        ));
+
+        const ausentes = nomes.filter((nome) => typeof window[nome] !== 'function');
+        if (ausentes.length) {
+            console.warn(`Gatilhos ${atributo} sem função mapeada:`, ausentes);
+        }
+    });
 }
 
 window.auditarAcoesDaInterface = auditarAcoesDaInterface;
