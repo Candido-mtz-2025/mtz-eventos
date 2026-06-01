@@ -7529,7 +7529,7 @@ header {
 
 /* === V16.9 | PROPOSTAS === */
 #tab-propostas {
-    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
 }
 
 #tab-propostas .filters-row.filters-segmented {
@@ -7565,12 +7565,20 @@ header {
     background: #0284c7;
 }
 
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="em_negociacao"].is-active {
+    background: #0891b2;
+}
+
 #tab-propostas .filters-row.filters-segmented [data-filtro-proposta="aprovada"].is-active {
     background: #16a34a;
 }
 
 #tab-propostas .filters-row.filters-segmented [data-filtro-proposta="cancelada"].is-active {
     background: #dc2626;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="recusada"].is-active {
+    background: #ea580c;
 }
 
 #tab-propostas .filters-row.filters-segmented [data-filtro-proposta="convertida"].is-active {
@@ -7621,6 +7629,6 @@ header {
     }
 
     #tab-propostas {
-        padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px));
     }
 }

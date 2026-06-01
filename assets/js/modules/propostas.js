@@ -1,9 +1,43 @@
-// Propostas: cadastro, edicao, duplicacao, PDF e conversao em locacao
+// Propostas: modulo comercial com CRUD, PDF e conversao para locacao.
 (function () {
     const CHAVE_FILTRO_PROPOSTAS = 'mtz:propostasFiltro';
-    const FILTROS_PROPOSTA = new Set(['todos', 'rascunho', 'enviada', 'aprovada', 'cancelada', 'convertida']);
+    const FILTROS_PROPOSTA = new Set([
+        'todos',
+        'rascunho',
+        'enviada',
+        'em_negociacao',
+        'aprovada',
+        'cancelada',
+        'recusada',
+        'convertida'
+    ]);
+
+    const STATUS_LABELS = {
+        rascunho: 'Rascunho',
+        enviada: 'Enviada',
+        em_negociacao: 'Em negociacao',
+        aprovada: 'Aprovada',
+        cancelada: 'Cancelada',
+        recusada: 'Recusada',
+        convertida: 'Convertida'
+    };
+
+    const FORMA_PAGAMENTO_LABELS = {
+        pix: 'PIX',
+        boleto: 'Boleto',
+        transferencia: 'Transferencia',
+        cartao: 'Cartao',
+        dinheiro: 'Dinheiro',
+        outro: 'Outro'
+    };
+
+    const TEXTO_PADRAO_OBS_PAGAMENTO = '50% na aprovacao e 50% na montagem/desmontagem, conforme alinhamento comercial.';
+    const TEXTO_PADRAO_INCLUSO = 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.';
+    const TEXTO_PADRAO_NAO_INCLUSO = 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.';
 
     let filtroPropostasAtual = 'todos';
+    let listenersRegistrados = false;
+    let bloqueioSincronizacaoValidade = false;
 
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
@@ -20,11 +54,16 @@
         return Math.max(0, numeroSeguro(valor, fallback));
     }
 
+    function inteiroNaoNegativo(valor, fallback = 0) {
+        return Math.max(0, Math.trunc(numeroNaoNegativo(valor, fallback)));
+    }
+
     function normalizarTextoBusca(valor) {
         return String(valor || '')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
-            .toLowerCase();
+            .toLowerCase()
+            .trim();
     }
 
     function formatarMoeda(valor) {
@@ -32,6 +71,14 @@
             style: 'currency',
             currency: 'BRL'
         });
+    }
+
+    function formatarPercentual(valor) {
+        const numero = Number(valor) || 0;
+        return `${numero.toLocaleString('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        })}%`;
     }
 
     function formatarData(valor) {
@@ -51,24 +98,189 @@
         return div.innerHTML;
     }
 
-    function gerarCodigoProposta(id) {
-        const final = String(id || '').replace(/\D/g, '').slice(-6) || String(Date.now()).slice(-6);
-        return `PRP-${final}`;
+    function normalizarStatusProposta(status) {
+        const bruto = normalizarTextoBusca(status);
+        const aliases = {
+            'em negociacao': 'em_negociacao',
+            'convertida em locacao': 'convertida',
+            convertida_em_locacao: 'convertida'
+        };
+        const normalizado = aliases[bruto] || bruto;
+        return FILTROS_PROPOSTA.has(normalizado) && normalizado !== 'todos'
+            ? normalizado
+            : 'rascunho';
+    }
+
+    function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
+        const valor = normalizarTextoBusca(tipo || fallback);
+        return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
+    }
+
+    function normalizarFormaPagamento(forma) {
+        const valor = normalizarTextoBusca(forma);
+        return FORMA_PAGAMENTO_LABELS[valor] ? valor : '';
+    }
+
+    function rotuloFormaPagamento(forma) {
+        return FORMA_PAGAMENTO_LABELS[normalizarFormaPagamento(forma)] || '-';
     }
 
     function parseNumeroInput(id) {
         return numeroNaoNegativo(document.getElementById(id)?.value, 0);
     }
 
+    function clampPercentual(valor) {
+        const numero = numeroNaoNegativo(valor, 0);
+        return Math.min(100, numero);
+    }
+
+    function obterHojeIso() {
+        const agora = new Date();
+        const ano = agora.getFullYear();
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        const dia = String(agora.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+
+    function obterAgoraIso() {
+        return new Date().toISOString();
+    }
+
+    function parseDataIso(dataIso) {
+        const texto = textoSeguro(dataIso);
+        const match = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return null;
+        const ano = Number(match[1]);
+        const mes = Number(match[2]);
+        const dia = Number(match[3]);
+        const data = new Date(ano, mes - 1, dia);
+        if (Number.isNaN(data.getTime())) return null;
+        return data;
+    }
+
+    function formatarDataIso(data) {
+        if (!(data instanceof Date) || Number.isNaN(data.getTime())) return '';
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+
+    function adicionarDiasDataIso(dataIsoBase, dias) {
+        const base = parseDataIso(dataIsoBase) || parseDataIso(obterHojeIso());
+        const qtd = inteiroNaoNegativo(dias, 0);
+        base.setDate(base.getDate() + qtd);
+        return formatarDataIso(base);
+    }
+
+    function diferencaDiasDataIso(inicioIso, fimIso) {
+        const inicio = parseDataIso(inicioIso);
+        const fim = parseDataIso(fimIso);
+        if (!inicio || !fim) return 0;
+        const msDia = 24 * 60 * 60 * 1000;
+        const diff = Math.round((fim.getTime() - inicio.getTime()) / msDia);
+        return Math.max(0, diff);
+    }
+
+    function obterDataCriacaoBaseFormulario() {
+        const hidden = document.getElementById('propostaIdAtual');
+        const emEdicao = textoSeguro(hidden?.dataset?.dataCriacao, '');
+        const dataIso = textoSeguro(emEdicao).slice(0, 10);
+        return parseDataIso(dataIso) ? dataIso : obterHojeIso();
+    }
+
+    function obterUsuarioAtualNomeOuEmail() {
+        let nome = '';
+        if (typeof obterUltimoUsuarioGoogle === 'function') {
+            const ultimo = obterUltimoUsuarioGoogle();
+            nome = textoSeguro(ultimo?.nome);
+        }
+        if (nome) return nome;
+        const email = textoSeguro(localStorage.getItem('usuarioEmail'), '');
+        if (email) return email;
+        return 'Sistema';
+    }
+
+    function obterUsuarioAtualEmail() {
+        const email = textoSeguro(localStorage.getItem('usuarioEmail'), '');
+        if (email) return email;
+        if (typeof obterUltimoUsuarioGoogle === 'function') {
+            const ultimo = obterUltimoUsuarioGoogle();
+            const emailGoogle = textoSeguro(ultimo?.email, '');
+            if (emailGoogle) return emailGoogle;
+        }
+        return 'offline@local';
+    }
+
+    function gerarCodigoProposta() {
+        const anoAtual = String(new Date().getFullYear());
+        const lista = Array.isArray(propostas) ? propostas : [];
+        let maiorNumero = 0;
+
+        lista.forEach((propostaAtual) => {
+            const codigo = textoSeguro(propostaAtual?.codigo).toUpperCase();
+            const match = codigo.match(/^PROP-(\d{4})-(\d{4,})$/);
+            if (!match) return;
+            if (match[1] !== anoAtual) return;
+            const numero = Number(match[2]);
+            if (Number.isFinite(numero) && numero > maiorNumero) maiorNumero = numero;
+        });
+
+        const proximoNumero = maiorNumero + 1;
+        return `PROP-${anoAtual}-${String(proximoNumero).padStart(4, '0')}`;
+    }
+
+    function gerarCodigoPropostaLegadoPorId(id) {
+        const anoAtual = String(new Date().getFullYear());
+        const sufixo = String(id || Date.now()).replace(/\D/g, '').slice(-4).padStart(4, '0');
+        return `PROP-${anoAtual}-${sufixo}`;
+    }
+
+    function statusBadge(status) {
+        const chave = normalizarStatusProposta(status);
+        if (chave === 'aprovada' || chave === 'convertida') return 'badge-success';
+        if (chave === 'cancelada' || chave === 'recusada') return 'badge-danger';
+        if (chave === 'enviada' || chave === 'em_negociacao') return 'badge-info';
+        return 'badge-warning';
+    }
+
+    function statusRotulo(status) {
+        return STATUS_LABELS[normalizarStatusProposta(status)] || STATUS_LABELS.rascunho;
+    }
+
     function obterStatusSelecionado() {
-        const status = String(document.getElementById('propStatus')?.value || 'rascunho').trim().toLowerCase();
-        return FILTROS_PROPOSTA.has(status) && status !== 'todos' ? status : 'rascunho';
+        return normalizarStatusProposta(document.getElementById('propStatus')?.value || 'rascunho');
     }
 
     function atualizarModoFormulario(texto) {
         const badge = document.getElementById('propostaModoLabel');
         if (!badge) return;
         badge.textContent = texto || 'Nova proposta';
+    }
+
+    function sincronizarValidadePorDias() {
+        if (bloqueioSincronizacaoValidade) return;
+        const campoDias = document.getElementById('propValidadeDias');
+        const campoData = document.getElementById('propValidadeData');
+        if (!campoDias || !campoData) return;
+        const dias = inteiroNaoNegativo(campoDias.value, 0);
+        const dataBase = obterDataCriacaoBaseFormulario();
+        bloqueioSincronizacaoValidade = true;
+        campoData.value = adicionarDiasDataIso(dataBase, dias);
+        bloqueioSincronizacaoValidade = false;
+    }
+
+    function sincronizarValidadePorData() {
+        if (bloqueioSincronizacaoValidade) return;
+        const campoDias = document.getElementById('propValidadeDias');
+        const campoData = document.getElementById('propValidadeData');
+        if (!campoDias || !campoData) return;
+        const dataEscolhida = textoSeguro(campoData.value);
+        const dataBase = obterDataCriacaoBaseFormulario();
+        const dias = dataEscolhida ? diferencaDiasDataIso(dataBase, dataEscolhida) : 0;
+        bloqueioSincronizacaoValidade = true;
+        campoDias.value = String(dias);
+        bloqueioSincronizacaoValidade = false;
     }
 
     function criarLinhaItemProposta(item = {}) {
@@ -154,9 +366,12 @@
         };
     }
 
-    function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
-        const valor = String(tipo || fallback).trim().toLowerCase();
-        return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
+    function obterControleInternoFormulario() {
+        return {
+            custoInternoTotal: parseNumeroInput('propCustoInternoTotal'),
+            custoTerceirizadoTotal: parseNumeroInput('propCustoTerceirizadoTotal'),
+            outrosCustosInternos: parseNumeroInput('propOutrosCustosInternos')
+        };
     }
 
     function calcularResumoProposta({
@@ -165,24 +380,40 @@
         desconto = 0,
         acrescimo = 0,
         percentualNF = 0,
-        tipoCalculoNF = 'descontar'
+        tipoCalculoNF = 'descontar',
+        percentualEntrada = 50,
+        controleInterno = {}
     } = {}) {
         const subtotalItens = (Array.isArray(itens) ? itens : []).reduce((acc, item) => {
             return acc + numeroNaoNegativo(item.valorTotal, 0);
         }, 0);
-        const totalCustosAdicionais = Object.values(custos || {}).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
+
+        const totalCustosAdicionais = Object.values(custos || {}).reduce((acc, valor) => {
+            return acc + numeroNaoNegativo(valor, 0);
+        }, 0);
+
         const descontoNormalizado = numeroNaoNegativo(desconto, 0);
         const acrescimoNormalizado = numeroNaoNegativo(acrescimo, 0);
-        const valorBase = Math.max(
-            subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado,
-            0
-        );
+        const valorBase = Math.max(subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado, 0);
         const percentualNFNormalizado = numeroNaoNegativo(percentualNF, 0);
         const tipoNF = normalizarTipoCalculoNF(tipoCalculoNF, 'descontar');
         const valorNF = (valorBase * percentualNFNormalizado) / 100;
         const valorFinal = valorBase;
         const valorFinalComNF = tipoNF === 'acrescentar' ? valorBase + valorNF : valorBase;
         const valorLiquidoPrevisto = tipoNF === 'descontar' ? (valorBase - valorNF) : valorBase;
+        const valorFinalComercial = tipoNF === 'acrescentar' ? valorFinalComNF : valorFinal;
+
+        const percentualEntradaNormalizado = clampPercentual(percentualEntrada);
+        const valorEntrada = (valorFinalComercial * percentualEntradaNormalizado) / 100;
+        const percentualSaldo = Math.max(0, 100 - percentualEntradaNormalizado);
+        const valorSaldo = Math.max(valorFinalComercial - valorEntrada, 0);
+
+        const custoInternoTotal = numeroNaoNegativo(controleInterno?.custoInternoTotal, 0);
+        const custoTerceirizadoTotal = numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0);
+        const outrosCustosInternos = numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0);
+        const custoTotalProposta = custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos;
+        const lucroPrevisto = valorLiquidoPrevisto - custoTotalProposta;
+        const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
 
         return {
             subtotalItens,
@@ -195,7 +426,18 @@
             valorNF,
             valorFinal,
             valorFinalComNF,
-            valorLiquidoPrevisto
+            valorLiquidoPrevisto,
+            valorFinalComercial,
+            percentualEntrada: percentualEntradaNormalizado,
+            valorEntrada,
+            percentualSaldo,
+            valorSaldo,
+            custoInternoTotal,
+            custoTerceirizadoTotal,
+            outrosCustosInternos,
+            custoTotalProposta,
+            lucroPrevisto,
+            margemPrevista
         };
     }
 
@@ -211,141 +453,274 @@
 
         const itens = coletarItensFormulario();
         const custos = obterCustosFormulario();
+        const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
         const percentualNF = parseNumeroInput('propPercentualNF');
         const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
+        const percentualEntrada = parseNumeroInput('propPercentualEntrada');
+
         const resumo = calcularResumoProposta({
             itens,
             custos,
             desconto,
             acrescimo,
             percentualNF,
-            tipoCalculoNF
+            tipoCalculoNF,
+            percentualEntrada,
+            controleInterno
         });
 
-        const subtotalEl = document.getElementById('propSubtotal');
-        const valorFinalEl = document.getElementById('propValorFinal');
-        const valorNFEl = document.getElementById('propValorNF');
-        const valorFinalComNFEl = document.getElementById('propValorFinalComNF');
-        const valorLiquidoPrevistoEl = document.getElementById('propValorLiquidoPrevisto');
-        if (subtotalEl) subtotalEl.value = formatarMoeda(resumo.subtotalItens);
-        if (valorFinalEl) valorFinalEl.value = formatarMoeda(resumo.valorFinal);
-        if (valorNFEl) valorNFEl.value = formatarMoeda(resumo.valorNF);
-        if (valorFinalComNFEl) valorFinalComNFEl.value = formatarMoeda(resumo.valorFinalComNF);
-        if (valorLiquidoPrevistoEl) valorLiquidoPrevistoEl.value = formatarMoeda(resumo.valorLiquidoPrevisto);
+        const mapaTexto = [
+            ['propSubtotal', formatarMoeda(resumo.subtotalItens)],
+            ['propValorFinal', formatarMoeda(resumo.valorFinal)],
+            ['propValorNF', formatarMoeda(resumo.valorNF)],
+            ['propValorFinalComNF', formatarMoeda(resumo.valorFinalComNF)],
+            ['propValorLiquidoPrevisto', formatarMoeda(resumo.valorLiquidoPrevisto)],
+            ['propValorEntrada', formatarMoeda(resumo.valorEntrada)],
+            ['propPercentualSaldo', formatarPercentual(resumo.percentualSaldo)],
+            ['propValorSaldo', formatarMoeda(resumo.valorSaldo)],
+            ['propCustoTotalProposta', formatarMoeda(resumo.custoTotalProposta)],
+            ['propLucroPrevisto', formatarMoeda(resumo.lucroPrevisto)],
+            ['propMargemPrevista', formatarPercentual(resumo.margemPrevista)]
+        ];
+        mapaTexto.forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = valor;
+        });
+    }
+
+    function obterCamposPadraoEscopo() {
+        return {
+            inclusoProposta: TEXTO_PADRAO_INCLUSO,
+            naoInclusoProposta: TEXTO_PADRAO_NAO_INCLUSO,
+            observacoesComerciais: ''
+        };
+    }
+
+    function montarEventoNormalizado(evento = {}) {
+        return {
+            nome: textoSeguro(evento.nome, ''),
+            local: textoSeguro(evento.local, ''),
+            enderecoEvento: textoSeguro(evento.enderecoEvento ?? evento.enderecoCompleto ?? '', ''),
+            cidadeEvento: textoSeguro(evento.cidadeEvento ?? evento.cidade ?? '', ''),
+            ufEvento: textoSeguro(evento.ufEvento ?? evento.uf ?? '', '').toUpperCase().slice(0, 2),
+            referenciaAcesso: textoSeguro(evento.referenciaAcesso ?? '', ''),
+            dataMontagem: textoSeguro(evento.dataMontagem, ''),
+            horaMontagem: textoSeguro(evento.horaMontagem, ''),
+            dataEvento: textoSeguro(evento.dataEvento, ''),
+            horaInicioEvento: textoSeguro(evento.horaInicioEvento, ''),
+            horaFimEvento: textoSeguro(evento.horaFimEvento, ''),
+            dataDesmontagem: textoSeguro(evento.dataDesmontagem, ''),
+            horaDesmontagem: textoSeguro(evento.horaDesmontagem, ''),
+            observacoesGerais: textoSeguro(evento.observacoesGerais ?? evento.observacoes ?? '', '')
+        };
+    }
+
+    function montarFinanceiroNormalizado(financeiroOrig = {}, resumoBase = {}) {
+        const exibirInfoInterna = financeiroOrig.exibirInformacoesInternasPDF === true || financeiroOrig.exibirCustosInternosPdf === true;
+        const percentualEntrada = clampPercentual(financeiroOrig.percentualEntrada ?? resumoBase.percentualEntrada ?? 50);
+        return {
+            subtotal: numeroNaoNegativo(financeiroOrig.subtotal, resumoBase.subtotalItens || 0),
+            totalCustosAdicionais: numeroNaoNegativo(financeiroOrig.totalCustosAdicionais, resumoBase.totalCustosAdicionais || 0),
+            desconto: numeroNaoNegativo(financeiroOrig.desconto, resumoBase.desconto || 0),
+            acrescimo: numeroNaoNegativo(financeiroOrig.acrescimo, resumoBase.acrescimo || 0),
+            valorBase: numeroNaoNegativo(financeiroOrig.valorBase, resumoBase.valorBase || 0),
+            percentualNF: numeroNaoNegativo(financeiroOrig.percentualNF, resumoBase.percentualNF || 0),
+            tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, resumoBase.tipoCalculoNF || 'descontar'),
+            valorNF: numeroNaoNegativo(financeiroOrig.valorNF, resumoBase.valorNF || 0),
+            valorFinal: numeroNaoNegativo(financeiroOrig.valorFinal, resumoBase.valorFinal || 0),
+            valorFinalComNF: numeroNaoNegativo(financeiroOrig.valorFinalComNF, resumoBase.valorFinalComNF || 0),
+            valorLiquidoPrevisto: numeroSeguro(financeiroOrig.valorLiquidoPrevisto, resumoBase.valorLiquidoPrevisto || 0),
+            percentualEntrada,
+            valorEntrada: numeroNaoNegativo(financeiroOrig.valorEntrada, resumoBase.valorEntrada || 0),
+            percentualSaldo: numeroNaoNegativo(financeiroOrig.percentualSaldo, resumoBase.percentualSaldo || (100 - percentualEntrada)),
+            valorSaldo: numeroNaoNegativo(financeiroOrig.valorSaldo, resumoBase.valorSaldo || 0),
+            vencimentoEntrada: textoSeguro(financeiroOrig.vencimentoEntrada, ''),
+            vencimentoSaldo: textoSeguro(financeiroOrig.vencimentoSaldo, ''),
+            formaPagamento: normalizarFormaPagamento(financeiroOrig.formaPagamento),
+            condicaoPagamento: textoSeguro(financeiroOrig.condicaoPagamento, ''),
+            observacaoPagamento: textoSeguro(financeiroOrig.observacaoPagamento, TEXTO_PADRAO_OBS_PAGAMENTO),
+            validadePropostaDias: inteiroNaoNegativo(financeiroOrig.validadePropostaDias, 7),
+            validadePropostaData: textoSeguro(financeiroOrig.validadePropostaData, ''),
+            exibirInformacoesInternasPDF: exibirInfoInterna,
+            // compatibilidade com estrutura anterior
+            exibirCustosInternosPdf: exibirInfoInterna
+        };
     }
 
     function normalizarProposta(propostaOriginal = {}) {
         const proposta = propostaOriginal && typeof propostaOriginal === 'object' ? propostaOriginal : {};
-        const itens = Array.isArray(proposta.itens) ? proposta.itens : [];
-        const custos = proposta.custos && typeof proposta.custos === 'object' ? proposta.custos : {};
-        const financeiro = proposta.financeiro && typeof proposta.financeiro === 'object' ? proposta.financeiro : {};
+        const itensOrig = Array.isArray(proposta.itens) ? proposta.itens : [];
+        const custosOrig = proposta.custos && typeof proposta.custos === 'object' ? proposta.custos : {};
+        const controleOrig = proposta.controleInterno && typeof proposta.controleInterno === 'object'
+            ? proposta.controleInterno
+            : {};
+        const escopoOrig = proposta.escopo && typeof proposta.escopo === 'object'
+            ? proposta.escopo
+            : {};
+        const financeiroOrig = proposta.financeiro && typeof proposta.financeiro === 'object'
+            ? proposta.financeiro
+            : {};
 
-        const itensNormalizados = itens.map((item) => {
+        const itens = itensOrig.map((item) => {
             const quantidade = numeroNaoNegativo(item.quantidade, 0);
             const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
             return {
-                descricao: textoSeguro(item.descricao),
-                medida: textoSeguro(item.medida),
+                descricao: textoSeguro(item.descricao, ''),
+                medida: textoSeguro(item.medida, ''),
                 quantidade,
                 valorUnitario,
                 valorTotal: numeroNaoNegativo(item.valorTotal, quantidade * valorUnitario),
-                observacoes: textoSeguro(item.observacoes)
+                observacoes: textoSeguro(item.observacoes, '')
             };
         });
 
-        const custosNormalizados = {
-            frete: numeroNaoNegativo(custos.frete, 0),
-            maoObra: numeroNaoNegativo(custos.maoObra, 0),
-            operador: numeroNaoNegativo(custos.operador, 0),
-            eletrica: numeroNaoNegativo(custos.eletrica, 0),
-            gerador: numeroNaoNegativo(custos.gerador, 0),
-            terceirizados: numeroNaoNegativo(custos.terceirizados, 0),
-            outros: numeroNaoNegativo(custos.outros, 0)
+        const custos = {
+            frete: numeroNaoNegativo(custosOrig.frete, 0),
+            maoObra: numeroNaoNegativo(custosOrig.maoObra, 0),
+            operador: numeroNaoNegativo(custosOrig.operador, 0),
+            eletrica: numeroNaoNegativo(custosOrig.eletrica, 0),
+            gerador: numeroNaoNegativo(custosOrig.gerador, 0),
+            terceirizados: numeroNaoNegativo(custosOrig.terceirizados, 0),
+            outros: numeroNaoNegativo(custosOrig.outros, 0)
+        };
+
+        const controleInterno = {
+            custoInternoTotal: numeroNaoNegativo(controleOrig.custoInternoTotal, 0),
+            custoTerceirizadoTotal: numeroNaoNegativo(controleOrig.custoTerceirizadoTotal, 0),
+            outrosCustosInternos: numeroNaoNegativo(controleOrig.outrosCustosInternos, 0)
         };
 
         const resumo = calcularResumoProposta({
-            itens: itensNormalizados,
-            custos: custosNormalizados,
-            desconto: numeroNaoNegativo(financeiro.desconto, 0),
-            acrescimo: numeroNaoNegativo(financeiro.acrescimo, 0),
-            percentualNF: numeroNaoNegativo(financeiro.percentualNF, 0),
-            tipoCalculoNF: normalizarTipoCalculoNF(financeiro.tipoCalculoNF, 'descontar')
+            itens,
+            custos,
+            desconto: numeroNaoNegativo(financeiroOrig.desconto, 0),
+            acrescimo: numeroNaoNegativo(financeiroOrig.acrescimo, 0),
+            percentualNF: numeroNaoNegativo(financeiroOrig.percentualNF, 0),
+            tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, 'descontar'),
+            percentualEntrada: numeroNaoNegativo(financeiroOrig.percentualEntrada, 50),
+            controleInterno
         });
 
+        const financeiro = montarFinanceiroNormalizado(financeiroOrig, resumo);
+        financeiro.valorBase = resumo.valorBase;
+        financeiro.valorNF = resumo.valorNF;
+        financeiro.valorFinal = resumo.valorFinal;
+        financeiro.valorFinalComNF = resumo.valorFinalComNF;
+        financeiro.valorLiquidoPrevisto = resumo.valorLiquidoPrevisto;
+        financeiro.valorEntrada = resumo.valorEntrada;
+        financeiro.percentualSaldo = resumo.percentualSaldo;
+        financeiro.valorSaldo = resumo.valorSaldo;
+        if (!financeiro.validadePropostaData) {
+            const criacaoBase = textoSeguro(proposta.dataCriacao ?? proposta.criadoEm, '').slice(0, 10) || obterHojeIso();
+            financeiro.validadePropostaData = adicionarDiasDataIso(criacaoBase, financeiro.validadePropostaDias);
+        }
+
+        const escopoPadrao = obterCamposPadraoEscopo();
+        const escopo = {
+            inclusoProposta: textoSeguro(escopoOrig.inclusoProposta, escopoPadrao.inclusoProposta),
+            naoInclusoProposta: textoSeguro(escopoOrig.naoInclusoProposta, escopoPadrao.naoInclusoProposta),
+            observacoesComerciais: textoSeguro(escopoOrig.observacoesComerciais, escopoPadrao.observacoesComerciais)
+        };
+
+        const evento = montarEventoNormalizado(proposta.evento || {});
         const id = proposta.id || Date.now();
-        const status = String(proposta.status || 'rascunho').trim().toLowerCase();
-        const statusNormalizado = FILTROS_PROPOSTA.has(status) && status !== 'todos' ? status : 'rascunho';
+        const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
+        const status = normalizarStatusProposta(proposta.status || 'rascunho');
+        const usuarioAtual = obterUsuarioAtualNomeOuEmail();
+        const agoraIso = obterAgoraIso();
+        const dataCriacao = textoSeguro(proposta.dataCriacao ?? proposta.criadoEm, agoraIso);
+        const dataUltimaAlteracao = textoSeguro(proposta.dataUltimaAlteracao ?? proposta.atualizadoEm, dataCriacao);
+        const criadoPor = textoSeguro(proposta.criadoPor, usuarioAtual);
+        const alteradoPor = textoSeguro(proposta.alteradoPor, criadoPor);
+        const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId ?? proposta.locacaoId, '');
+        const dataConversaoLocacao = textoSeguro(proposta.dataConversaoLocacao, '');
 
         return {
             id,
-            codigo: textoSeguro(proposta.codigo, gerarCodigoProposta(id)),
+            codigo,
             cliente: {
-                nome: textoSeguro(proposta?.cliente?.nome),
-                documento: textoSeguro(proposta?.cliente?.documento),
-                telefone: textoSeguro(proposta?.cliente?.telefone),
-                email: textoSeguro(proposta?.cliente?.email),
-                endereco: textoSeguro(proposta?.cliente?.endereco)
+                nome: textoSeguro(proposta?.cliente?.nome, ''),
+                documento: textoSeguro(proposta?.cliente?.documento, ''),
+                telefone: textoSeguro(proposta?.cliente?.telefone, ''),
+                email: textoSeguro(proposta?.cliente?.email, ''),
+                endereco: textoSeguro(proposta?.cliente?.endereco, '')
             },
-            evento: {
-                nome: textoSeguro(proposta?.evento?.nome),
-                local: textoSeguro(proposta?.evento?.local),
-                cidade: textoSeguro(proposta?.evento?.cidade),
-                dataMontagem: textoSeguro(proposta?.evento?.dataMontagem),
-                dataEvento: textoSeguro(proposta?.evento?.dataEvento),
-                dataDesmontagem: textoSeguro(proposta?.evento?.dataDesmontagem),
-                observacoesGerais: textoSeguro(proposta?.evento?.observacoesGerais)
+            evento,
+            itens,
+            custos,
+            financeiro,
+            controleInterno: {
+                ...controleInterno,
+                custoTotalProposta: resumo.custoTotalProposta,
+                lucroPrevisto: resumo.lucroPrevisto,
+                margemPrevista: resumo.margemPrevista
             },
-            itens: itensNormalizados,
-            custos: custosNormalizados,
-            financeiro: {
-                subtotal: resumo.subtotalItens,
-                totalCustosAdicionais: resumo.totalCustosAdicionais,
-                desconto: resumo.desconto,
-                acrescimo: resumo.acrescimo,
-                percentualNF: resumo.percentualNF,
-                tipoCalculoNF: resumo.tipoCalculoNF,
-                valorNF: resumo.valorNF,
-                valorFinal: resumo.valorFinal,
-                valorFinalComNF: resumo.valorFinalComNF,
-                valorLiquidoPrevisto: resumo.valorLiquidoPrevisto,
-                exibirCustosInternosPdf: financeiro.exibirCustosInternosPdf === true,
-                condicaoPagamento: textoSeguro(financeiro.condicaoPagamento)
-            },
-            status: statusNormalizado,
-            locacaoId: proposta.locacaoId ? String(proposta.locacaoId) : '',
-            criadoEm: textoSeguro(proposta.criadoEm, new Date().toISOString()),
-            atualizadoEm: textoSeguro(proposta.atualizadoEm, new Date().toISOString())
+            escopo,
+            responsavelProposta: textoSeguro(proposta.responsavelProposta, usuarioAtual),
+            status,
+            locacaoVinculadaId,
+            locacaoId: locacaoVinculadaId,
+            dataCriacao,
+            dataUltimaAlteracao,
+            criadoPor,
+            alteradoPor,
+            dataEnvio: textoSeguro(proposta.dataEnvio, ''),
+            dataAprovacao: textoSeguro(proposta.dataAprovacao, ''),
+            dataCancelamento: textoSeguro(proposta.dataCancelamento, ''),
+            dataConversaoLocacao,
+            // compatibilidade legado
+            criadoEm: dataCriacao,
+            atualizadoEm: dataUltimaAlteracao
         };
     }
 
     function obterPropostasBase() {
         if (!Array.isArray(propostas)) propostas = [];
-        return propostas.map((proposta) => normalizarProposta(proposta));
+        return propostas.map((item) => normalizarProposta(item));
+    }
+
+    function localizarProposta(id) {
+        return obterPropostasBase().find((item) => String(item.id) === String(id)) || null;
     }
 
     function obterIdPropostaEmEdicao() {
-        return String(document.getElementById('propostaIdAtual')?.value || '').trim();
+        return textoSeguro(document.getElementById('propostaIdAtual')?.value);
     }
 
     function coletarDadosFormulario(validar = true) {
         const idAtual = obterIdPropostaEmEdicao();
+        const propostaAtual = idAtual ? localizarProposta(idAtual) : null;
+        const usuarioAtual = obterUsuarioAtualNomeOuEmail();
+        const agoraIso = obterAgoraIso();
+
         const itens = coletarItensFormulario();
         const custos = obterCustosFormulario();
+        const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
         const percentualNF = parseNumeroInput('propPercentualNF');
         const tipoCalculoNF = normalizarTipoCalculoNF(document.getElementById('propTipoCalculoNF')?.value, 'descontar');
-        const exibirCustosInternosPdf = document.getElementById('propExibirCustosInternosPdf')?.checked === true;
+        const percentualEntrada = parseNumeroInput('propPercentualEntrada');
+
         const resumo = calcularResumoProposta({
             itens,
             custos,
             desconto,
             acrescimo,
             percentualNF,
-            tipoCalculoNF
+            tipoCalculoNF,
+            percentualEntrada,
+            controleInterno
         });
+
+        const dataCriacao = textoSeguro(propostaAtual?.dataCriacao, agoraIso);
+        const validadeDias = inteiroNaoNegativo(document.getElementById('propValidadeDias')?.value, 7);
+        const validadeDataDigitada = textoSeguro(document.getElementById('propValidadeData')?.value);
+        const validadeData = parseDataIso(validadeDataDigitada)
+            ? validadeDataDigitada
+            : adicionarDiasDataIso(dataCriacao.slice(0, 10), validadeDias);
 
         const proposta = {
             id: idAtual || Date.now(),
@@ -360,10 +735,17 @@
             evento: {
                 nome: textoSeguro(document.getElementById('propEventoNome')?.value),
                 local: textoSeguro(document.getElementById('propEventoLocal')?.value),
-                cidade: textoSeguro(document.getElementById('propEventoCidade')?.value),
+                enderecoEvento: textoSeguro(document.getElementById('propEventoEnderecoCompleto')?.value),
+                cidadeEvento: textoSeguro(document.getElementById('propEventoCidade')?.value),
+                ufEvento: textoSeguro(document.getElementById('propEventoUF')?.value).toUpperCase().slice(0, 2),
+                referenciaAcesso: textoSeguro(document.getElementById('propEventoReferenciaAcesso')?.value),
                 dataMontagem: textoSeguro(document.getElementById('propDataMontagem')?.value),
+                horaMontagem: textoSeguro(document.getElementById('propHoraMontagem')?.value),
                 dataEvento: textoSeguro(document.getElementById('propDataEvento')?.value),
+                horaInicioEvento: textoSeguro(document.getElementById('propHoraInicioEvento')?.value),
+                horaFimEvento: textoSeguro(document.getElementById('propHoraFimEvento')?.value),
                 dataDesmontagem: textoSeguro(document.getElementById('propDataDesmontagem')?.value),
+                horaDesmontagem: textoSeguro(document.getElementById('propHoraDesmontagem')?.value),
                 observacoesGerais: textoSeguro(document.getElementById('propEventoObs')?.value)
             },
             itens,
@@ -373,22 +755,55 @@
                 totalCustosAdicionais: resumo.totalCustosAdicionais,
                 desconto: resumo.desconto,
                 acrescimo: resumo.acrescimo,
+                valorBase: resumo.valorBase,
                 percentualNF: resumo.percentualNF,
                 tipoCalculoNF: resumo.tipoCalculoNF,
                 valorNF: resumo.valorNF,
                 valorFinal: resumo.valorFinal,
                 valorFinalComNF: resumo.valorFinalComNF,
                 valorLiquidoPrevisto: resumo.valorLiquidoPrevisto,
-                exibirCustosInternosPdf,
-                condicaoPagamento: textoSeguro(document.getElementById('propCondicaoPagamento')?.value)
+                percentualEntrada: resumo.percentualEntrada,
+                valorEntrada: resumo.valorEntrada,
+                percentualSaldo: resumo.percentualSaldo,
+                valorSaldo: resumo.valorSaldo,
+                vencimentoEntrada: textoSeguro(document.getElementById('propVencEntrada')?.value),
+                vencimentoSaldo: textoSeguro(document.getElementById('propVencSaldo')?.value),
+                formaPagamento: normalizarFormaPagamento(document.getElementById('propFormaPagamento')?.value),
+                condicaoPagamento: textoSeguro(document.getElementById('propCondicaoPagamento')?.value),
+                observacaoPagamento: textoSeguro(document.getElementById('propObsPagamento')?.value, TEXTO_PADRAO_OBS_PAGAMENTO),
+                validadePropostaDias: validadeDias,
+                validadePropostaData: validadeData,
+                exibirInformacoesInternasPDF: document.getElementById('propExibirInformacoesInternasPDF')?.checked === true,
+                // compatibilidade legado
+                exibirCustosInternosPdf: document.getElementById('propExibirInformacoesInternasPDF')?.checked === true
             },
+            controleInterno: {
+                custoInternoTotal: resumo.custoInternoTotal,
+                custoTerceirizadoTotal: resumo.custoTerceirizadoTotal,
+                outrosCustosInternos: resumo.outrosCustosInternos,
+                custoTotalProposta: resumo.custoTotalProposta,
+                lucroPrevisto: resumo.lucroPrevisto,
+                margemPrevista: resumo.margemPrevista
+            },
+            escopo: {
+                inclusoProposta: textoSeguro(document.getElementById('propIncluso')?.value, TEXTO_PADRAO_INCLUSO),
+                naoInclusoProposta: textoSeguro(document.getElementById('propNaoIncluso')?.value, TEXTO_PADRAO_NAO_INCLUSO),
+                observacoesComerciais: textoSeguro(document.getElementById('propObsComerciais')?.value)
+            },
+            responsavelProposta: textoSeguro(document.getElementById('propResponsavel')?.value, usuarioAtual),
             status: obterStatusSelecionado(),
-            locacaoId: '',
-            criadoEm: new Date().toISOString(),
-            atualizadoEm: new Date().toISOString()
+            locacaoVinculadaId: textoSeguro(propostaAtual?.locacaoVinculadaId ?? propostaAtual?.locacaoId, ''),
+            dataCriacao,
+            dataUltimaAlteracao: agoraIso,
+            criadoPor: textoSeguro(propostaAtual?.criadoPor, usuarioAtual),
+            alteradoPor: usuarioAtual,
+            dataEnvio: textoSeguro(propostaAtual?.dataEnvio, ''),
+            dataAprovacao: textoSeguro(propostaAtual?.dataAprovacao, ''),
+            dataCancelamento: textoSeguro(propostaAtual?.dataCancelamento, ''),
+            dataConversaoLocacao: textoSeguro(propostaAtual?.dataConversaoLocacao, '')
         };
 
-        if (!proposta.codigo) proposta.codigo = gerarCodigoProposta(proposta.id);
+        if (!proposta.codigo) proposta.codigo = gerarCodigoProposta();
 
         if (validar) {
             if (!proposta.cliente.nome) {
@@ -413,9 +828,13 @@
 
     function preencherFormularioComProposta(proposta) {
         const p = normalizarProposta(proposta);
-        const mapaCampos = {
+        const mapa = {
             propostaIdAtual: p.id,
             propCodigo: p.codigo,
+            propStatus: p.status,
+            propResponsavel: p.responsavelProposta,
+            propValidadeDias: p.financeiro.validadePropostaDias,
+            propValidadeData: p.financeiro.validadePropostaData,
             propClienteNome: p.cliente.nome,
             propClienteDocumento: p.cliente.documento,
             propClienteTelefone: p.cliente.telefone,
@@ -423,12 +842,18 @@
             propClienteEndereco: p.cliente.endereco,
             propEventoNome: p.evento.nome,
             propEventoLocal: p.evento.local,
-            propEventoCidade: p.evento.cidade,
+            propEventoEnderecoCompleto: p.evento.enderecoEvento,
+            propEventoCidade: p.evento.cidadeEvento,
+            propEventoUF: p.evento.ufEvento,
+            propEventoReferenciaAcesso: p.evento.referenciaAcesso,
             propDataMontagem: p.evento.dataMontagem,
+            propHoraMontagem: p.evento.horaMontagem,
             propDataEvento: p.evento.dataEvento,
+            propHoraInicioEvento: p.evento.horaInicioEvento,
+            propHoraFimEvento: p.evento.horaFimEvento,
             propDataDesmontagem: p.evento.dataDesmontagem,
+            propHoraDesmontagem: p.evento.horaDesmontagem,
             propEventoObs: p.evento.observacoesGerais,
-            propStatus: p.status,
             propCustoFrete: p.custos.frete,
             propCustoMaoObra: p.custos.maoObra,
             propCustoOperador: p.custos.operador,
@@ -440,70 +865,145 @@
             propAcrescimo: p.financeiro.acrescimo,
             propPercentualNF: p.financeiro.percentualNF,
             propTipoCalculoNF: p.financeiro.tipoCalculoNF,
-            propCondicaoPagamento: p.financeiro.condicaoPagamento
+            propPercentualEntrada: p.financeiro.percentualEntrada,
+            propVencEntrada: p.financeiro.vencimentoEntrada,
+            propVencSaldo: p.financeiro.vencimentoSaldo,
+            propFormaPagamento: p.financeiro.formaPagamento,
+            propCondicaoPagamento: p.financeiro.condicaoPagamento,
+            propObsPagamento: p.financeiro.observacaoPagamento,
+            propCustoInternoTotal: p.controleInterno.custoInternoTotal,
+            propCustoTerceirizadoTotal: p.controleInterno.custoTerceirizadoTotal,
+            propOutrosCustosInternos: p.controleInterno.outrosCustosInternos,
+            propIncluso: p.escopo.inclusoProposta,
+            propNaoIncluso: p.escopo.naoInclusoProposta,
+            propObsComerciais: p.escopo.observacoesComerciais,
+            propLocacaoVinculada: p.locacaoVinculadaId ? `#${String(p.locacaoVinculadaId).slice(-6)}` : ''
         };
-
-        Object.entries(mapaCampos).forEach(([id, valor]) => {
+        Object.entries(mapa).forEach(([id, valor]) => {
             const el = document.getElementById(id);
             if (el) el.value = valor ?? '';
         });
 
-        const exibirCustosInternosPdfEl = document.getElementById('propExibirCustosInternosPdf');
-        if (exibirCustosInternosPdfEl) exibirCustosInternosPdfEl.checked = p.financeiro.exibirCustosInternosPdf === true;
+        const hidden = document.getElementById('propostaIdAtual');
+        if (hidden) hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
+
+        const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
+        if (chkInterno) chkInterno.checked = p.financeiro.exibirInformacoesInternasPDF === true;
 
         renderLinhasItensProposta(p.itens);
+        sincronizarValidadePorData();
         atualizarModoFormulario(`Editando ${p.codigo}`);
     }
 
     function limparFormularioProposta() {
         const campos = [
-            'propostaIdAtual', 'propCodigo',
-            'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail', 'propClienteEndereco',
-            'propEventoNome', 'propEventoLocal', 'propEventoCidade', 'propDataMontagem', 'propDataEvento', 'propDataDesmontagem', 'propEventoObs',
-            'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados', 'propCustoOutros',
-            'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propCondicaoPagamento'
+            'propostaIdAtual', 'propCodigo', 'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail',
+            'propClienteEndereco', 'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
+            'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
+            'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
+            'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
+            'propCustoOutros', 'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
+            'propCondicaoPagamento', 'propObsPagamento', 'propCustoInternoTotal', 'propCustoTerceirizadoTotal',
+            'propOutrosCustosInternos', 'propIncluso', 'propNaoIncluso', 'propObsComerciais', 'propLocacaoVinculada'
         ];
         campos.forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
-        const status = document.getElementById('propStatus');
-        if (status) status.value = 'rascunho';
-        const percentualNF = document.getElementById('propPercentualNF');
-        if (percentualNF) percentualNF.value = 0;
-        const tipoCalculoNF = document.getElementById('propTipoCalculoNF');
-        if (tipoCalculoNF) tipoCalculoNF.value = 'descontar';
-        const exibirCustosInternosPdfEl = document.getElementById('propExibirCustosInternosPdf');
-        if (exibirCustosInternosPdfEl) exibirCustosInternosPdfEl.checked = false;
+
+        const hidden = document.getElementById('propostaIdAtual');
+        if (hidden) {
+            hidden.value = '';
+            hidden.dataset.dataCriacao = obterHojeIso();
+        }
+
+        const statusEl = document.getElementById('propStatus');
+        if (statusEl) statusEl.value = 'rascunho';
+        const tipoNFEl = document.getElementById('propTipoCalculoNF');
+        if (tipoNFEl) tipoNFEl.value = 'descontar';
+        const percentualNFEl = document.getElementById('propPercentualNF');
+        if (percentualNFEl) percentualNFEl.value = '0';
+        const percentualEntradaEl = document.getElementById('propPercentualEntrada');
+        if (percentualEntradaEl) percentualEntradaEl.value = '50';
+        const validadeDiasEl = document.getElementById('propValidadeDias');
+        if (validadeDiasEl) validadeDiasEl.value = '7';
+        const formaPagamentoEl = document.getElementById('propFormaPagamento');
+        if (formaPagamentoEl) formaPagamentoEl.value = '';
+        const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
+        if (chkInterno) chkInterno.checked = false;
+
+        const obsPagEl = document.getElementById('propObsPagamento');
+        if (obsPagEl) obsPagEl.value = TEXTO_PADRAO_OBS_PAGAMENTO;
+        const condicaoEl = document.getElementById('propCondicaoPagamento');
+        if (condicaoEl) condicaoEl.value = '50% entrada + 50% na montagem/desmontagem';
+        const inclusoEl = document.getElementById('propIncluso');
+        if (inclusoEl) inclusoEl.value = TEXTO_PADRAO_INCLUSO;
+        const naoInclusoEl = document.getElementById('propNaoIncluso');
+        if (naoInclusoEl) naoInclusoEl.value = TEXTO_PADRAO_NAO_INCLUSO;
+        const responsavelEl = document.getElementById('propResponsavel');
+        if (responsavelEl) responsavelEl.value = obterUsuarioAtualNomeOuEmail();
+
         renderLinhasItensProposta([{}]);
+        sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
-        const primeiroCampo = document.getElementById('propClienteNome');
-        if (primeiroCampo) primeiroCampo.focus();
+        document.getElementById('propClienteNome')?.focus();
+    }
+
+    function aplicarDatasAutomaticasStatus(propostaNova, propostaAnterior, agoraIso) {
+        const anterior = normalizarStatusProposta(propostaAnterior?.status || 'rascunho');
+        const atual = normalizarStatusProposta(propostaNova.status);
+
+        propostaNova.dataEnvio = textoSeguro(propostaAnterior?.dataEnvio, propostaNova.dataEnvio || '');
+        propostaNova.dataAprovacao = textoSeguro(propostaAnterior?.dataAprovacao, propostaNova.dataAprovacao || '');
+        propostaNova.dataCancelamento = textoSeguro(propostaAnterior?.dataCancelamento, propostaNova.dataCancelamento || '');
+        propostaNova.dataConversaoLocacao = textoSeguro(propostaAnterior?.dataConversaoLocacao, propostaNova.dataConversaoLocacao || '');
+
+        if (atual === 'enviada' && !propostaNova.dataEnvio) propostaNova.dataEnvio = agoraIso;
+        if (atual === 'aprovada' && !propostaNova.dataAprovacao) propostaNova.dataAprovacao = agoraIso;
+        if ((atual === 'cancelada' || atual === 'recusada') && !propostaNova.dataCancelamento) propostaNova.dataCancelamento = agoraIso;
+        if (atual === 'convertida' && !propostaNova.dataConversaoLocacao) propostaNova.dataConversaoLocacao = agoraIso;
+
+        if (anterior !== atual && typeof registrarLog === 'function') {
+            registrarLog('proposta', 'status', `Status da proposta ${propostaNova.codigo} alterado: ${statusRotulo(anterior)} -> ${statusRotulo(atual)}.`);
+        }
     }
 
     function salvarProposta() {
         const proposta = coletarDadosFormulario(true);
         if (!proposta) return;
 
-        const lista = Array.isArray(propostas) ? propostas : [];
+        const lista = obterPropostasBase();
         const indice = lista.findIndex((item) => String(item.id) === String(proposta.id));
-        const agoraIso = new Date().toISOString();
+        const agoraIso = obterAgoraIso();
 
         if (indice >= 0) {
-            proposta.criadoEm = lista[indice].criadoEm || proposta.criadoEm || agoraIso;
-            proposta.locacaoId = lista[indice].locacaoId || proposta.locacaoId || '';
-            proposta.atualizadoEm = agoraIso;
-            lista[indice] = proposta;
+            const anterior = lista[indice];
+            proposta.dataCriacao = anterior.dataCriacao || proposta.dataCriacao || agoraIso;
+            proposta.criadoPor = anterior.criadoPor || proposta.criadoPor || obterUsuarioAtualNomeOuEmail();
+            proposta.locacaoVinculadaId = anterior.locacaoVinculadaId || proposta.locacaoVinculadaId || '';
+            proposta.locacaoId = proposta.locacaoVinculadaId;
+            proposta.dataUltimaAlteracao = agoraIso;
+            proposta.alteradoPor = obterUsuarioAtualNomeOuEmail();
+            aplicarDatasAutomaticasStatus(proposta, anterior, agoraIso);
+            proposta.criadoEm = proposta.dataCriacao;
+            proposta.atualizadoEm = proposta.dataUltimaAlteracao;
+            lista[indice] = normalizarProposta(proposta);
         } else {
-            proposta.criadoEm = agoraIso;
-            proposta.atualizadoEm = agoraIso;
-            lista.push(proposta);
+            proposta.dataCriacao = proposta.dataCriacao || agoraIso;
+            proposta.dataUltimaAlteracao = agoraIso;
+            proposta.criadoPor = proposta.criadoPor || obterUsuarioAtualNomeOuEmail();
+            proposta.alteradoPor = proposta.alteradoPor || proposta.criadoPor;
+            aplicarDatasAutomaticasStatus(proposta, null, agoraIso);
+            proposta.criadoEm = proposta.dataCriacao;
+            proposta.atualizadoEm = proposta.dataUltimaAlteracao;
+            lista.push(normalizarProposta(proposta));
         }
 
         propostas = lista;
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
+
         if (typeof registrarLog === 'function') {
             registrarLog('proposta', indice >= 0 ? 'editar' : 'criar', `Proposta ${proposta.codigo} salva para ${proposta.cliente.nome}.`);
         }
@@ -512,10 +1012,6 @@
         if (typeof focarRegistroRecemSalvo === 'function') {
             focarRegistroRecemSalvo({ tabId: 'propostas', tabelaId: 'tblPropostas', attr: 'data-proposta-id', id: proposta.id });
         }
-    }
-
-    function localizarProposta(id) {
-        return obterPropostasBase().find((item) => String(item.id) === String(id)) || null;
     }
 
     function editarProposta(id) {
@@ -552,15 +1048,23 @@
             return;
         }
 
-        const novaId = Date.now();
+        const agoraIso = obterAgoraIso();
+        const novaId = Date.now() + Math.floor(Math.random() * 500);
         const copia = normalizarProposta({
             ...base,
             id: novaId,
-            codigo: gerarCodigoProposta(novaId),
+            codigo: gerarCodigoProposta(),
             status: 'rascunho',
+            locacaoVinculadaId: '',
             locacaoId: '',
-            criadoEm: new Date().toISOString(),
-            atualizadoEm: new Date().toISOString(),
+            dataCriacao: agoraIso,
+            dataUltimaAlteracao: agoraIso,
+            criadoPor: obterUsuarioAtualNomeOuEmail(),
+            alteradoPor: obterUsuarioAtualNomeOuEmail(),
+            dataEnvio: '',
+            dataAprovacao: '',
+            dataCancelamento: '',
+            dataConversaoLocacao: '',
             evento: {
                 ...base.evento,
                 nome: `${base.evento.nome || 'Evento'} (copia)`
@@ -606,9 +1110,7 @@
                 registrarLog('proposta', 'excluir', `Proposta ${proposta.codigo} excluida.`);
             }
             mostrarToast('Proposta excluida.');
-            if (String(obterIdPropostaEmEdicao()) === String(id)) {
-                limparFormularioProposta();
-            }
+            if (String(obterIdPropostaEmEdicao()) === String(id)) limparFormularioProposta();
         };
 
         if (typeof confirmarAcao === 'function') {
@@ -619,6 +1121,7 @@
             });
             return;
         }
+
         if (confirm(`Excluir a proposta ${proposta.codigo}?`)) executar();
     }
 
@@ -631,51 +1134,31 @@
         excluirProposta(id);
     }
 
-    function statusBadge(status) {
-        const chave = String(status || '').toLowerCase();
-        if (chave === 'aprovada' || chave === 'convertida') return 'badge-success';
-        if (chave === 'cancelada') return 'badge-danger';
-        if (chave === 'enviada') return 'badge-info';
-        return 'badge-warning';
-    }
-
-    function statusRotulo(status) {
-        const mapa = {
-            rascunho: 'Rascunho',
-            enviada: 'Enviada',
-            aprovada: 'Aprovada',
-            cancelada: 'Cancelada',
-            convertida: 'Convertida'
-        };
-        return mapa[String(status || '').toLowerCase()] || 'Rascunho';
-    }
-
     function obterValorFinalComercial(proposta) {
-        const tipoCalculoNF = normalizarTipoCalculoNF(proposta?.financeiro?.tipoCalculoNF, 'descontar');
-        if (tipoCalculoNF === 'acrescentar') {
-            return numeroNaoNegativo(proposta?.financeiro?.valorFinalComNF, proposta?.financeiro?.valorFinal);
-        }
-        return numeroNaoNegativo(proposta?.financeiro?.valorFinal, 0);
+        const tipo = normalizarTipoCalculoNF(proposta?.financeiro?.tipoCalculoNF, 'descontar');
+        const valorFinal = numeroNaoNegativo(proposta?.financeiro?.valorFinal, 0);
+        const valorFinalComNF = numeroNaoNegativo(proposta?.financeiro?.valorFinalComNF, valorFinal);
+        return tipo === 'acrescentar' ? valorFinalComNF : valorFinal;
     }
 
-    function rotuloTipoCalculoNF(tipoCalculoNF) {
-        return normalizarTipoCalculoNF(tipoCalculoNF, 'descontar') === 'acrescentar'
+    function rotuloTipoCalculoNF(tipo) {
+        return normalizarTipoCalculoNF(tipo, 'descontar') === 'acrescentar'
             ? 'Acrescentar ao valor final'
             : 'Descontar do valor final';
     }
 
     function encontrarOuCriarClienteDaProposta(proposta) {
         const documento = String(proposta?.cliente?.documento || '').replace(/\D+/g, '');
-        const email = String(proposta?.cliente?.email || '').trim().toLowerCase();
-        const nome = String(proposta?.cliente?.nome || '').trim().toLowerCase();
+        const email = normalizarTextoBusca(proposta?.cliente?.email || '');
+        const nome = normalizarTextoBusca(proposta?.cliente?.nome || '');
 
         let cliente = (Array.isArray(locadores) ? locadores : []).find((item) => {
-            const itemDocumento = String(item?.documento || '').replace(/\D+/g, '');
-            const itemEmail = String(item?.email || '').trim().toLowerCase();
-            const itemNome = String(item?.nome || '').trim().toLowerCase();
-            if (documento && itemDocumento === documento) return true;
-            if (email && itemEmail && itemEmail === email) return true;
-            return nome && itemNome && itemNome === nome;
+            const docItem = String(item?.documento || '').replace(/\D+/g, '');
+            const emailItem = normalizarTextoBusca(item?.email || '');
+            const nomeItem = normalizarTextoBusca(item?.nome || '');
+            if (documento && docItem === documento) return true;
+            if (email && emailItem && emailItem === email) return true;
+            return nome && nomeItem && nomeItem === nome;
         });
 
         if (cliente) return cliente;
@@ -689,6 +1172,7 @@
             email: proposta.cliente.email || '',
             endereco: proposta.cliente.endereco || ''
         };
+        if (!Array.isArray(locadores)) locadores = [];
         locadores.push(cliente);
         return cliente;
     }
@@ -696,31 +1180,21 @@
     function encontrarPecaPorDescricao(itemProposta) {
         const alvo = normalizarTextoBusca(itemProposta?.descricao || '');
         if (!alvo) return null;
-
         const lista = Array.isArray(pecas) ? pecas : [];
         const exata = lista.find((peca) => normalizarTextoBusca(peca?.nome || '') === alvo);
         if (exata) return exata;
-
-        return lista.find((peca) => normalizarTextoBusca(peca?.nome || '').includes(alvo) || alvo.includes(normalizarTextoBusca(peca?.nome || ''))) || null;
+        return lista.find((peca) => {
+            const nomePeca = normalizarTextoBusca(peca?.nome || '');
+            return nomePeca.includes(alvo) || alvo.includes(nomePeca);
+        }) || null;
     }
 
-    function converterPropostaEmLocacaoFechada(id) {
-        const proposta = localizarProposta(id);
-        if (!proposta) {
-            mostrarToast('Proposta nao encontrada para conversao.', 'erro');
-            return;
-        }
-
-        if (!Array.isArray(proposta.itens) || proposta.itens.length === 0) {
-            mostrarToast('A proposta nao possui itens para converter.', 'erro');
-            return;
-        }
-
+    function executarConversaoPropostaLocacao(proposta) {
         const cliente = encontrarOuCriarClienteDaProposta(proposta);
-        const hojeIso = new Date().toISOString().split('T')[0];
+        const hojeIso = obterHojeIso();
         const dataMontagem = proposta.evento.dataMontagem || proposta.evento.dataEvento || hojeIso;
         const dataDesmontagem = proposta.evento.dataDesmontagem || proposta.evento.dataEvento || dataMontagem;
-        const valorFinal = obterValorFinalComercial(proposta);
+        const valorFinalComercial = obterValorFinalComercial(proposta);
 
         const itensLocacao = proposta.itens.map((item) => {
             const peca = encontrarPecaPorDescricao(item);
@@ -732,12 +1206,21 @@
             };
         });
 
-        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 600);
-        let novaLocacao = {
+        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
+        const novaLocacaoBase = {
             id: novaLocacaoId,
+            origemPropostaId: proposta.id,
+            codigoProposta: proposta.codigo,
             locadorId: cliente.id,
             dataAluguel: dataMontagem,
             dataDevolucaoPrevisao: dataDesmontagem,
+            eventoNome: proposta.evento.nome || '',
+            eventoLocal: proposta.evento.local || '',
+            eventoEndereco: proposta.evento.enderecoEvento || '',
+            cidadeEvento: proposta.evento.cidadeEvento || '',
+            ufEvento: proposta.evento.ufEvento || '',
+            referenciaAcesso: proposta.evento.referenciaAcesso || '',
+            observacoesGerais: proposta.evento.observacoesGerais || '',
             items: itensLocacao,
             status: 'ativo',
             statusFluxo: 'aprovado',
@@ -745,17 +1228,17 @@
             datasMontagem: {
                 inicio: dataMontagem,
                 fim: proposta.evento.dataEvento || dataMontagem,
-                horarioInicio: '',
-                horarioFim: ''
+                horarioInicio: proposta.evento.horaMontagem || '',
+                horarioFim: proposta.evento.horaInicioEvento || ''
             },
             datasDesmontagem: {
                 inicio: dataDesmontagem,
                 fim: dataDesmontagem,
-                horarioInicio: '',
-                horarioFim: ''
+                horarioInicio: proposta.evento.horaFimEvento || '',
+                horarioFim: proposta.evento.horaDesmontagem || ''
             },
             equipe: {
-                responsavel: '',
+                responsavel: proposta.responsavelProposta || '',
                 membros: [],
                 observacoes: proposta.evento.observacoesGerais || ''
             },
@@ -766,17 +1249,21 @@
                 horarioChegada: '',
                 statusEntrega: 'pendente',
                 statusRetirada: 'pendente',
-                observacoes: ''
+                observacoes: proposta.evento.referenciaAcesso || ''
             },
             financeiro: {
-                valorTotal: valorFinal,
-                sinal: 0,
-                valorRestante: valorFinal,
-                vencimento: proposta.evento.dataEvento || dataMontagem,
-                formaPagamento: proposta.financeiro.condicaoPagamento || '',
+                valorTotal: valorFinalComercial,
+                sinal: numeroNaoNegativo(proposta.financeiro.valorEntrada, 0),
+                valorRestante: numeroNaoNegativo(proposta.financeiro.valorSaldo, 0),
+                vencimento: proposta.financeiro.vencimentoSaldo || proposta.evento.dataEvento || dataMontagem,
+                formaPagamento: rotuloFormaPagamento(proposta.financeiro.formaPagamento),
                 statusPagamento: 'pendente',
                 notaFiscal: '',
-                comprovante: ''
+                comprovante: '',
+                condicaoPagamento: proposta.financeiro.condicaoPagamento || '',
+                observacaoPagamento: proposta.financeiro.observacaoPagamento || '',
+                percentualEntrada: numeroNaoNegativo(proposta.financeiro.percentualEntrada, 50),
+                percentualSaldo: numeroNaoNegativo(proposta.financeiro.percentualSaldo, 50)
             },
             checklist: {
                 idChecklist: null,
@@ -787,10 +1274,10 @@
             historicoAlteracoes: []
         };
 
+        let novaLocacao = novaLocacaoBase;
         if (typeof normalizarLocacaoDominio === 'function') {
-            novaLocacao = normalizarLocacaoDominio(novaLocacao, { incluirDerivados: false });
+            novaLocacao = normalizarLocacaoDominio(novaLocacaoBase, { incluirDerivados: false });
         }
-
         if (typeof atualizarStatusLocacaoDominio === 'function') {
             atualizarStatusLocacaoDominio(novaLocacao, 'aprovado', {
                 acao: 'conversao_proposta',
@@ -800,18 +1287,24 @@
             });
         }
 
+        if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
 
-        const atualizadas = obterPropostasBase().map((item) => {
+        const agoraIso = obterAgoraIso();
+        propostas = obterPropostasBase().map((item) => {
             if (String(item.id) !== String(proposta.id)) return item;
-            return {
+            const atualizada = {
                 ...item,
                 status: 'convertida',
+                locacaoVinculadaId: String(novaLocacaoId),
                 locacaoId: String(novaLocacaoId),
-                atualizadoEm: new Date().toISOString()
+                dataConversaoLocacao: agoraIso,
+                dataUltimaAlteracao: agoraIso,
+                alteradoPor: obterUsuarioAtualNomeOuEmail()
             };
+            atualizada.atualizadoEm = atualizada.dataUltimaAlteracao;
+            return normalizarProposta(atualizada);
         });
-        propostas = atualizadas;
 
         salvarLocal();
         renderTudo();
@@ -825,6 +1318,40 @@
         }
     }
 
+    function converterPropostaEmLocacaoFechada(id) {
+        const proposta = localizarProposta(id);
+        if (!proposta) {
+            mostrarToast('Proposta nao encontrada para conversao.', 'erro');
+            return;
+        }
+        if (!Array.isArray(proposta.itens) || proposta.itens.length === 0) {
+            mostrarToast('A proposta nao possui itens para converter.', 'erro');
+            return;
+        }
+
+        const jaConvertida = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
+        if (jaConvertida) {
+            const confirmarNovaConversao = () => executarConversaoPropostaLocacao(proposta);
+            if (typeof confirmarAcao === 'function') {
+                confirmarAcao(
+                    `A proposta ${proposta.codigo} ja esta vinculada a locacao #${String(jaConvertida).slice(-4)}. Deseja criar uma nova locacao mesmo assim?`,
+                    confirmarNovaConversao,
+                    {
+                        titulo: 'Proposta ja convertida',
+                        textoConfirmar: 'Converter novamente',
+                        classeConfirmar: 'btn-warning'
+                    }
+                );
+                return;
+            }
+            if (!confirm(`A proposta ${proposta.codigo} ja esta vinculada a uma locacao. Deseja converter novamente?`)) return;
+            confirmarNovaConversao();
+            return;
+        }
+
+        executarConversaoPropostaLocacao(proposta);
+    }
+
     function converterPropostaAtual() {
         const id = obterIdPropostaEmEdicao();
         if (!id) {
@@ -834,8 +1361,21 @@
         converterPropostaEmLocacaoFechada(id);
     }
 
+    function linhaResumoPdf(rotulo, valor, destaque = false) {
+        return `
+            <tr>
+                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; ${destaque ? 'font-weight:700;' : ''}">${rotulo}</td>
+                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right; ${destaque ? 'font-weight:700;' : ''}">${valor}</td>
+            </tr>
+        `;
+    }
+
     function montarHtmlPdfProposta(proposta) {
         const p = normalizarProposta(proposta);
+        const exibirInterno = p.financeiro.exibirInformacoesInternasPDF === true;
+        const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
+        const valorFinalComercial = obterValorFinalComercial(p);
+
         const linhasItens = p.itens.map((item) => `
             <tr style="border-bottom:1px solid #e5e7eb;">
                 <td style="padding:8px; font-size:11px;">${sanitizar(item.descricao)}</td>
@@ -847,27 +1387,38 @@
             </tr>
         `).join('');
 
-        const linhaCusto = (rotulo, valor) => `
-            <tr>
-                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb;">${rotulo}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right;">${formatarMoeda(valor)}</td>
-            </tr>
+        const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
+        const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
+
+        const blocoResumoFinanceiro = `
+            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <tbody>
+                    ${linhaResumoPdf('Subtotal', formatarMoeda(p.financeiro.subtotal))}
+                    ${(custosAdicionaisResumo > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais', formatarMoeda(custosAdicionaisResumo)) : ''}
+                    ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
+                    ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}
+                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf(`Percentual NF (${formatarPercentual(p.financeiro.percentualNF)})`, formatarMoeda(p.financeiro.valorNF)) : ''}
+                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf('Tipo calculo NF', sanitizar(rotuloTipoCalculoNF(tipoNF))) : ''}
+                    ${linhaResumoPdf('Valor final da proposta', formatarMoeda(valorFinalComercial), true)}
+                </tbody>
+            </table>
         `;
 
-        const percentualNF = numeroNaoNegativo(p.financeiro?.percentualNF, 0);
-        const tipoCalculoNF = normalizarTipoCalculoNF(p.financeiro?.tipoCalculoNF, 'descontar');
-        const exibirCustosInternosPdf = p.financeiro?.exibirCustosInternosPdf === true;
-        const valorNF = numeroNaoNegativo(p.financeiro?.valorNF, 0);
-        const valorFinal = numeroNaoNegativo(p.financeiro?.valorFinal, 0);
-        const valorFinalComNF = numeroNaoNegativo(p.financeiro?.valorFinalComNF, valorFinal);
-        const valorLiquidoPrevisto = numeroSeguro(p.financeiro?.valorLiquidoPrevisto, valorFinal);
-        const totalCustosAdicionais = numeroNaoNegativo(
-            p.financeiro?.totalCustosAdicionais,
-            Object.values(p.custos || {}).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0)
-        );
-        const margemEstimada = valorLiquidoPrevisto - totalCustosAdicionais;
-        const valorFinalComercial = obterValorFinalComercial(p);
-        const percentualNFTxt = `${percentualNF.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+        const blocoResumoInterno = exibirInterno ? `
+            <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px; margin-top:10px;">
+                <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo interno</strong>
+                <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                    <tbody>
+                        ${linhaResumoPdf('Valor final base', formatarMoeda(p.financeiro.valorFinal))}
+                        ${linhaResumoPdf('Valor final com NF', formatarMoeda(p.financeiro.valorFinalComNF))}
+                        ${linhaResumoPdf('Valor liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
+                        ${linhaResumoPdf('Custo total interno', formatarMoeda(custoTotalInterno))}
+                        ${linhaResumoPdf('Lucro previsto', formatarMoeda(p.controleInterno.lucroPrevisto))}
+                        ${linhaResumoPdf('Margem prevista', formatarPercentual(p.controleInterno.margemPrevista))}
+                    </tbody>
+                </table>
+            </div>
+        ` : '';
 
         const header = typeof getHeaderMTZ === 'function' ? getHeaderMTZ() : '';
         const footer = typeof getFooterMTZ === 'function' ? getFooterMTZ() : '';
@@ -881,8 +1432,8 @@
                         <div style="margin-top:6px; font-size:12px;">${sanitizar(p.codigo)} • ${statusRotulo(p.status)}</div>
                     </div>
                     <div style="text-align:right; font-size:11px;">
-                        <div><strong>Emissao:</strong> ${formatarData(p.atualizadoEm || p.criadoEm)}</div>
-                        <div><strong>Validade:</strong> ${formatarData(p.evento.dataEvento || p.evento.dataMontagem)}</div>
+                        <div><strong>Criacao:</strong> ${formatarData(p.dataCriacao)}</div>
+                        <div><strong>Validade:</strong> ${formatarData(p.financeiro.validadePropostaData)}</div>
                     </div>
                 </div>
 
@@ -902,10 +1453,11 @@
                         <div style="font-size:11px; line-height:1.45;">
                             <div><b>Evento:</b> ${sanitizar(p.evento.nome || '-')}</div>
                             <div><b>Local:</b> ${sanitizar(p.evento.local || '-')}</div>
-                            <div><b>Cidade:</b> ${sanitizar(p.evento.cidade || '-')}</div>
-                            <div><b>Montagem:</b> ${formatarData(p.evento.dataMontagem)}</div>
-                            <div><b>Data do evento:</b> ${formatarData(p.evento.dataEvento)}</div>
-                            <div><b>Desmontagem:</b> ${formatarData(p.evento.dataDesmontagem)}</div>
+                            <div><b>Endereco:</b> ${sanitizar(p.evento.enderecoEvento || '-')}</div>
+                            <div><b>Cidade/UF:</b> ${sanitizar([p.evento.cidadeEvento, p.evento.ufEvento].filter(Boolean).join('/')) || '-'}</div>
+                            <div><b>Montagem:</b> ${formatarData(p.evento.dataMontagem)} ${sanitizar(p.evento.horaMontagem || '')}</div>
+                            <div><b>Evento:</b> ${formatarData(p.evento.dataEvento)} ${sanitizar(p.evento.horaInicioEvento || '')} ${p.evento.horaFimEvento ? `- ${sanitizar(p.evento.horaFimEvento)}` : ''}</div>
+                            <div><b>Desmontagem:</b> ${formatarData(p.evento.dataDesmontagem)} ${sanitizar(p.evento.horaDesmontagem || '')}</div>
                         </div>
                     </div>
                 </div>
@@ -927,45 +1479,37 @@
                     </table>
                 </div>
 
-                <div style="display:grid; grid-template-columns:${exibirCustosInternosPdf ? '1.2fr 0.8fr' : '1fr'}; gap:16px;">
-                    ${exibirCustosInternosPdf ? `
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
-                        <strong style="display:block; margin-bottom:6px; font-size:12px;">Custos internos</strong>
-                        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-                            <tbody>
-                                ${linhaCusto('Frete', p.custos.frete)}
-                                ${linhaCusto('Mao de obra', p.custos.maoObra)}
-                                ${linhaCusto('Operador', p.custos.operador)}
-                                ${linhaCusto('Eletrica', p.custos.eletrica)}
-                                ${linhaCusto('Gerador', p.custos.gerador)}
-                                ${linhaCusto('Terceirizados', p.custos.terceirizados)}
-                                ${linhaCusto('Outros', p.custos.outros)}
-                                ${linhaCusto('Total custos internos', totalCustosAdicionais)}
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : ''}
+                <div style="display:grid; grid-template-columns:1fr; gap:16px;">
                     <div style="border:1px solid #111827; border-radius:10px; padding:10px;">
                         <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo financeiro</strong>
-                        <div style="font-size:11px; line-height:1.8;">
-                            <div><b>Subtotal:</b> ${formatarMoeda(p.financeiro.subtotal)}</div>
-                            <div><b>Desconto:</b> ${formatarMoeda(p.financeiro.desconto)}</div>
-                            <div><b>Acrescimo:</b> ${formatarMoeda(p.financeiro.acrescimo)}</div>
-                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Percentual NF:</b> ${percentualNFTxt}</div>` : ''}
-                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Valor da NF:</b> ${formatarMoeda(valorNF)}</div>` : ''}
-                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Tipo cálculo NF:</b> ${rotuloTipoCalculoNF(tipoCalculoNF)}</div>` : ''}
-                            <div style="font-size:13px; margin-top:4px;"><b>Valor final da proposta:</b> ${formatarMoeda(valorFinalComercial)}</div>
-                            ${exibirCustosInternosPdf ? `<div><b>Valor final com NF:</b> ${formatarMoeda(valorFinalComNF)}</div>` : ''}
-                            ${exibirCustosInternosPdf ? `<div><b>Valor líquido previsto:</b> ${formatarMoeda(valorLiquidoPrevisto)}</div>` : ''}
-                            ${exibirCustosInternosPdf ? `<div><b>Margem estimada:</b> ${formatarMoeda(margemEstimada)}</div>` : ''}
-                            <div><b>Condicao:</b> ${sanitizar(p.financeiro.condicaoPagamento || '-')}</div>
-                            ${exibirCustosInternosPdf ? `<div style="margin-top:6px; color:#64748b;"><i>Uso interno habilitado neste PDF.</i></div>` : ''}
+                        ${blocoResumoFinanceiro}
+                        <div style="margin-top:8px; font-size:11px; line-height:1.5;">
+                            <div><b>Pagamento:</b> ${sanitizar(p.financeiro.condicaoPagamento || '-')}</div>
+                            <div><b>Forma:</b> ${sanitizar(rotuloFormaPagamento(p.financeiro.formaPagamento))}</div>
+                            <div><b>Entrada:</b> ${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})</div>
+                            <div><b>Saldo:</b> ${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})</div>
+                            <div><b>Venc. entrada:</b> ${formatarData(p.financeiro.vencimentoEntrada)}</div>
+                            <div><b>Venc. saldo:</b> ${formatarData(p.financeiro.vencimentoSaldo)}</div>
+                            <div><b>Obs. pagamento:</b> ${sanitizar(p.financeiro.observacaoPagamento || '-')}</div>
                         </div>
+                        ${blocoResumoInterno}
                     </div>
                 </div>
 
-                <div style="margin-top:14px; font-size:10px; border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
-                    <b>Observacoes gerais:</b> ${sanitizar(p.evento.observacoesGerais || '-')}
+                <div style="display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; font-size:11px;">
+                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                        <b>Incluso na proposta</b><br>${sanitizar(p.escopo.inclusoProposta || '-')}
+                    </div>
+                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                        <b>Nao incluso na proposta</b><br>${sanitizar(p.escopo.naoInclusoProposta || '-')}
+                    </div>
+                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                        <b>Observacoes comerciais</b><br>${sanitizar(p.escopo.observacoesComerciais || '-')}
+                    </div>
+                </div>
+
+                <div style="margin-top:10px; font-size:11px;">
+                    <b>Responsavel:</b> ${sanitizar(p.responsavelProposta || '-')}
                 </div>
 
                 <div style="display:flex; justify-content:space-between; margin-top:42px;">
@@ -1020,10 +1564,10 @@
 
     function atualizarKpisPropostas(lista) {
         const total = lista.length;
+        const enviadas = lista.filter((item) => item.status === 'enviada' || item.status === 'em_negociacao').length;
         const aprovadas = lista.filter((item) => item.status === 'aprovada' || item.status === 'convertida').length;
-        const enviadas = lista.filter((item) => item.status === 'enviada').length;
         const valorPipeline = lista.reduce((acc, item) => {
-            if (item.status === 'cancelada') return acc;
+            if (item.status === 'cancelada' || item.status === 'recusada') return acc;
             return acc + obterValorFinalComercial(item);
         }, 0);
 
@@ -1040,12 +1584,12 @@
     }
 
     function aplicarFiltroPropostas(filtro = 'todos') {
-        const normalizado = String(filtro || 'todos').trim().toLowerCase();
+        const normalizado = normalizarTextoBusca(filtro || 'todos');
         filtroPropostasAtual = FILTROS_PROPOSTA.has(normalizado) ? normalizado : 'todos';
         try {
             localStorage.setItem(CHAVE_FILTRO_PROPOSTAS, filtroPropostasAtual);
         } catch (_) {
-            // Ignora falha de persistencia do filtro.
+            // Ignora falha.
         }
         renderPropostas();
     }
@@ -1063,7 +1607,7 @@
         if (!tbody) return;
 
         const base = obterPropostasBase();
-        const termoRaw = String(document.getElementById('buscaPropostas')?.value || '').trim();
+        const termoRaw = textoSeguro(document.getElementById('buscaPropostas')?.value);
         const termo = normalizarTextoBusca(termoRaw);
         atualizarKpisPropostas(base);
         atualizarFiltroVisualPropostas();
@@ -1075,10 +1619,11 @@
                 proposta.codigo,
                 proposta.cliente?.nome,
                 proposta.cliente?.documento,
-                proposta.cliente?.email,
                 proposta.evento?.nome,
-                proposta.evento?.cidade,
-                proposta.status
+                proposta.evento?.cidadeEvento,
+                proposta.responsavelProposta,
+                statusRotulo(proposta.status),
+                formatarData(proposta.evento?.dataEvento)
             ].join(' '));
             return alvo.includes(termo);
         });
@@ -1098,47 +1643,51 @@
 
         if (!filtradas.length) {
             tbody.innerHTML = typeof criarLinhaTabelaEstado === 'function'
-                ? criarLinhaTabelaEstado(8, {
+                ? criarLinhaTabelaEstado(9, {
                     tipo: 'empty',
                     titulo: 'Nenhuma proposta encontrada',
                     mensagem: termoRaw
                         ? `Sem resultados para "${termoRaw}".`
                         : 'Cadastre a primeira proposta para iniciar o pipeline.'
                 })
-                : '<tr><td colspan="8">Nenhuma proposta encontrada.</td></tr>';
+                : '<tr><td colspan="9">Nenhuma proposta encontrada.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = filtradas.map((proposta) => `
-            <tr data-proposta-id="${proposta.id}">
-                <td>${sanitizar(proposta.codigo)}</td>
-                <td>${sanitizar(proposta.cliente.nome || '-')}</td>
-                <td>${sanitizar(proposta.evento.nome || '-')}</td>
-                <td>${formatarData(proposta.evento.dataEvento)}</td>
-                <td>${formatarMoeda(obterValorFinalComercial(proposta))}</td>
-                <td><span class="badge ${statusBadge(proposta.status)}">${statusRotulo(proposta.status)}</span></td>
-                <td>${proposta.locacaoId ? `#${sanitizar(String(proposta.locacaoId).slice(-4))}` : '-'}</td>
-                <td class="col-actions">
-                    <div class="actions-cell">
-                        <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${proposta.id}" title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar">
-                            <i class="bi bi-files"></i>
-                        </button>
-                        <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF">
-                            <i class="bi bi-printer"></i>
-                        </button>
-                        <button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="Converter para locacao" ${proposta.locacaoId ? 'disabled' : ''}>
-                            <i class="bi bi-check2-circle"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = filtradas.map((proposta) => {
+            const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
+            return `
+                <tr data-proposta-id="${proposta.id}">
+                    <td>${sanitizar(proposta.codigo)}</td>
+                    <td>${sanitizar(proposta.cliente.nome || '-')}</td>
+                    <td>${sanitizar(proposta.evento.nome || '-')}</td>
+                    <td>${formatarData(proposta.evento.dataEvento)}</td>
+                    <td>${formatarMoeda(obterValorFinalComercial(proposta))}</td>
+                    <td><span class="badge ${statusBadge(proposta.status)}">${statusRotulo(proposta.status)}</span></td>
+                    <td>${sanitizar(proposta.responsavelProposta || '-')}</td>
+                    <td>${locacaoId ? `#${sanitizar(String(locacaoId).slice(-6))}` : '-'}</td>
+                    <td class="col-actions">
+                        <div class="actions-cell">
+                            <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${proposta.id}" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar">
+                                <i class="bi bi-files"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF">
+                                <i class="bi bi-printer"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="Converter para locacao" ${locacaoId ? 'disabled' : ''}>
+                                <i class="bi bi-check2-circle"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     function irParaPropostasFormulario() {
@@ -1153,14 +1702,39 @@
         }, 90);
     }
 
+    function registrarListenersPropostas() {
+        if (listenersRegistrados) return;
+        listenersRegistrados = true;
+
+        const campoDias = document.getElementById('propValidadeDias');
+        const campoData = document.getElementById('propValidadeData');
+        const campoStatus = document.getElementById('propStatus');
+
+        if (campoDias) {
+            campoDias.addEventListener('input', () => {
+                sincronizarValidadePorDias();
+                recalcularResumoProposta();
+            });
+        }
+        if (campoData) {
+            campoData.addEventListener('change', () => {
+                sincronizarValidadePorData();
+            });
+        }
+        if (campoStatus) {
+            campoStatus.addEventListener('change', () => recalcularResumoProposta());
+        }
+    }
+
     function inicializarPropostas() {
         if (!Array.isArray(propostas)) propostas = [];
         try {
-            const salvo = String(localStorage.getItem(CHAVE_FILTRO_PROPOSTAS) || '').trim().toLowerCase();
+            const salvo = normalizarTextoBusca(localStorage.getItem(CHAVE_FILTRO_PROPOSTAS) || '');
             filtroPropostasAtual = FILTROS_PROPOSTA.has(salvo) ? salvo : 'todos';
         } catch (_) {
             filtroPropostasAtual = 'todos';
         }
+        registrarListenersPropostas();
     }
 
     inicializarPropostas();

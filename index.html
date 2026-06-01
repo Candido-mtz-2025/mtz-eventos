@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=19.4">
+    <link rel="stylesheet" href="./assets/css/style.css?v=19.5">
 </head>
 <body>
 
@@ -649,10 +649,28 @@
                             <select id="propStatus" data-change="recalcularResumoProposta">
                                 <option value="rascunho">Rascunho</option>
                                 <option value="enviada">Enviada</option>
+                                <option value="em_negociacao">Em negociação</option>
                                 <option value="aprovada">Aprovada</option>
                                 <option value="cancelada">Cancelada</option>
+                                <option value="recusada">Recusada</option>
                                 <option value="convertida">Convertida</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Responsável pela proposta</label>
+                            <input type="text" id="propResponsavel" placeholder="Nome do responsável">
+                        </div>
+                        <div class="form-group">
+                            <label>Validade (dias)</label>
+                            <input type="number" id="propValidadeDias" min="0" step="1" value="7">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data de validade</label>
+                            <input type="date" id="propValidadeData">
                         </div>
                     </div>
 
@@ -701,8 +719,28 @@
                             <input type="text" id="propEventoCidade" placeholder="Cidade">
                         </div>
                         <div class="form-group">
+                            <label>UF</label>
+                            <input type="text" id="propEventoUF" maxlength="2" placeholder="UF">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Endereço completo do evento</label>
+                            <input type="text" id="propEventoEnderecoCompleto" placeholder="Rua, número, bairro, complemento">
+                        </div>
+                        <div class="form-group">
+                            <label>Referência de acesso / observação logística</label>
+                            <input type="text" id="propEventoReferenciaAcesso" placeholder="Ponto de referência, acesso de caminhão, portaria...">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label>Data de montagem</label>
                             <input type="date" id="propDataMontagem">
+                        </div>
+                        <div class="form-group">
+                            <label>Horário de montagem</label>
+                            <input type="time" id="propHoraMontagem">
                         </div>
                     </div>
                     <div class="form-row">
@@ -711,8 +749,24 @@
                             <input type="date" id="propDataEvento">
                         </div>
                         <div class="form-group">
+                            <label>Horário de início do evento</label>
+                            <input type="time" id="propHoraInicioEvento">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Horário de término do evento</label>
+                            <input type="time" id="propHoraFimEvento">
+                        </div>
+                        <div class="form-group">
                             <label>Data de desmontagem</label>
                             <input type="date" id="propDataDesmontagem">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Horário de desmontagem</label>
+                            <input type="time" id="propHoraDesmontagem">
                         </div>
                     </div>
                     <div class="form-row">
@@ -812,18 +866,123 @@
                             <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
                         </div>
                     </div>
+                    <h4>6. Condições comerciais</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Percentual de entrada (%)</label>
+                            <input type="number" id="propPercentualEntrada" min="0" max="100" step="0.01" value="50" data-input="recalcularResumoProposta">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor da entrada</label>
+                            <input type="text" id="propValorEntrada" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Percentual do saldo (%)</label>
+                            <input type="text" id="propPercentualSaldo" value="50%" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor do saldo</label>
+                            <input type="text" id="propValorSaldo" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Vencimento da entrada</label>
+                            <input type="date" id="propVencEntrada">
+                        </div>
+                        <div class="form-group">
+                            <label>Vencimento do saldo</label>
+                            <input type="date" id="propVencSaldo">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Forma de pagamento</label>
+                            <select id="propFormaPagamento">
+                                <option value="">Selecione</option>
+                                <option value="pix">PIX</option>
+                                <option value="boleto">Boleto</option>
+                                <option value="transferencia">Transferência</option>
+                                <option value="cartao">Cartão</option>
+                                <option value="dinheiro">Dinheiro</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Condição de pagamento</label>
+                            <input type="text" id="propCondicaoPagamento" placeholder="Ex: 50% entrada + 50% na montagem/desmontagem">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Observação de pagamento</label>
+                            <textarea id="propObsPagamento" rows="2" placeholder="Detalhes adicionais de pagamento"></textarea>
+                        </div>
+                    </div>
+
+                    <h4>7. Controle interno</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label class="prop-interno-toggle">
-                                <input type="checkbox" id="propExibirCustosInternosPdf">
-                                Exibir custos internos no PDF
+                                <input type="checkbox" id="propExibirInformacoesInternasPDF">
+                                Exibir informações internas no PDF
                             </label>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Condição de pagamento</label>
-                            <input type="text" id="propCondicaoPagamento" placeholder="Ex: 50% entrada + 50% na desmontagem">
+                            <label>Custo interno total</label>
+                            <input type="number" id="propCustoInternoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                        </div>
+                        <div class="form-group">
+                            <label>Custo terceirizado total</label>
+                            <input type="number" id="propCustoTerceirizadoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Outros custos internos</label>
+                            <input type="number" id="propOutrosCustosInternos" min="0" step="0.01" data-input="recalcularResumoProposta">
+                        </div>
+                        <div class="form-group">
+                            <label>Custo total da proposta</label>
+                            <input type="text" id="propCustoTotalProposta" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Lucro previsto</label>
+                            <input type="text" id="propLucroPrevisto" value="R$ 0,00" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Margem prevista (%)</label>
+                            <input type="text" id="propMargemPrevista" value="0%" readonly>
+                        </div>
+                    </div>
+
+                    <h4>8. Escopo da proposta</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Incluso na proposta</label>
+                            <textarea id="propIncluso" rows="3" placeholder="O que está incluso na proposta"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Não incluso na proposta</label>
+                            <textarea id="propNaoIncluso" rows="3" placeholder="O que não está incluso na proposta"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Observações comerciais</label>
+                            <textarea id="propObsComerciais" rows="2" placeholder="Observações comerciais para o cliente"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Locação vinculada</label>
+                            <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
                         </div>
                     </div>
 
@@ -865,17 +1024,19 @@
                             <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="todos" data-action="aplicarFiltroPropostas" data-arg="todos">Todas</button>
                             <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="rascunho" data-action="aplicarFiltroPropostas" data-arg="rascunho">Rascunho</button>
                             <button class="btn btn-sm btn-info" data-tone="info" data-filtro-proposta="enviada" data-action="aplicarFiltroPropostas" data-arg="enviada">Enviada</button>
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="em_negociacao" data-action="aplicarFiltroPropostas" data-arg="em_negociacao">Em negociação</button>
                             <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-proposta="aprovada" data-action="aplicarFiltroPropostas" data-arg="aprovada">Aprovada</button>
                             <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-proposta="cancelada" data-action="aplicarFiltroPropostas" data-arg="cancelada">Cancelada</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="recusada" data-action="aplicarFiltroPropostas" data-arg="recusada">Recusada</button>
                             <button class="btn btn-sm btn-primary" data-tone="info" data-filtro-proposta="convertida" data-action="aplicarFiltroPropostas" data-arg="convertida">Convertida</button>
                         </div>
-                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar proposta, cliente, evento ou status..." data-input="buscarComDebounce" data-arg="propostas">
+                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar por código, cliente, evento, status, responsável, cidade ou data..." data-input="buscarComDebounce" data-arg="propostas">
                         <div id="metaBuscaPropostas" class="search-meta" aria-live="polite"></div>
                     </div>
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
-                                <tr><th>Código</th><th>Cliente</th><th>Evento</th><th>Data</th><th>Valor final</th><th>Status</th><th>Locação</th><th class="col-actions">Ações</th></tr>
+                                <tr><th>Código</th><th>Cliente</th><th>Evento</th><th>Data</th><th>Valor final</th><th>Status</th><th>Responsável</th><th>Locação</th><th class="col-actions">Ações</th></tr>
                             </thead>
                             <tbody id="tblPropostas"></tbody>
                         </table>
@@ -1474,12 +1635,12 @@
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.0"></script>
+    <script src="./assets/js/core/migrations.js?v=12.1"></script>
     <script src="./assets/js/core/domain-services.js?v=12.1"></script>
     <script src="./assets/js/core/storage.js"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.5"></script>
-    <script src="./assets/js/modules/propostas.js?v=1.0"></script>
+    <script src="./assets/js/modules/propostas.js?v=2.0"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

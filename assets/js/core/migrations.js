@@ -1,5 +1,5 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.0';
+const SCHEMA_VERSION_V12 = '12.1';
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
 const STATUS_FLUXO_LOCACAO_V12 = new Set([
@@ -15,7 +15,15 @@ const STATUS_FLUXO_LOCACAO_V12 = new Set([
 const STATUS_PAGAMENTO_V12 = new Set(['pendente', 'parcial', 'pago', 'atrasado', 'cancelado']);
 const STATUS_LOGISTICA_V12 = new Set(['pendente', 'agendado', 'em_rota', 'concluida', 'cancelada']);
 const PERFIS_USUARIO_V12 = new Set(['administrador', 'comercial', 'financeiro', 'logistica', 'montagem', 'operacao']);
-const STATUS_PROPOSTA_V12 = new Set(['rascunho', 'enviada', 'aprovada', 'cancelada', 'convertida']);
+const STATUS_PROPOSTA_V12 = new Set([
+    'rascunho',
+    'enviada',
+    'em_negociacao',
+    'aprovada',
+    'cancelada',
+    'recusada',
+    'convertida'
+]);
 
 function clonarObjetoSeguro(valor, fallback = {}) {
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...fallback };
@@ -331,44 +339,111 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const totalCustos = Object.values(custos).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
 
     const financeiroOriginal = clonarObjetoSeguro(proposta.financeiro, {});
-    const financeiro = clonarObjetoSeguro(financeiroOriginal, {
-        subtotal: totalItens,
-        totalCustosAdicionais: totalCustos,
-        desconto: 0,
-        acrescimo: 0,
-        percentualNF: 0,
-        tipoCalculoNF: 'descontar',
-        valorNF: 0,
-        valorFinal: totalItens + totalCustos,
-        valorFinalComNF: totalItens + totalCustos,
-        valorLiquidoPrevisto: totalItens + totalCustos,
-        exibirCustosInternosPdf: false,
-        condicaoPagamento: ''
-    });
+    const controleInternoOriginal = clonarObjetoSeguro(proposta.controleInterno, {});
+    const escopoOriginal = clonarObjetoSeguro(proposta.escopo, {});
+    const eventoOriginal = clonarObjetoSeguro(proposta.evento, {});
 
-    const desconto = numeroNaoNegativo(financeiro.desconto, 0);
-    const acrescimo = numeroNaoNegativo(financeiro.acrescimo, 0);
-    const percentualNF = numeroNaoNegativo(financeiro.percentualNF, 0);
-    const tipoCalculoNF = String(financeiro.tipoCalculoNF || 'descontar').trim().toLowerCase() === 'acrescentar'
+    const desconto = numeroNaoNegativo(financeiroOriginal.desconto, 0);
+    const acrescimo = numeroNaoNegativo(financeiroOriginal.acrescimo, 0);
+    const percentualNF = numeroNaoNegativo(financeiroOriginal.percentualNF, 0);
+    const tipoCalculoNF = String(financeiroOriginal.tipoCalculoNF || 'descontar').trim().toLowerCase() === 'acrescentar'
         ? 'acrescentar'
         : 'descontar';
     const valorBase = Math.max(totalItens + totalCustos + acrescimo - desconto, 0);
     const valorNF = (valorBase * percentualNF) / 100;
+    const valorFinal = valorBase;
     const valorFinalComNF = tipoCalculoNF === 'acrescentar' ? valorBase + valorNF : valorBase;
     const valorLiquidoPrevisto = tipoCalculoNF === 'descontar' ? (valorBase - valorNF) : valorBase;
+    const valorFinalComercial = tipoCalculoNF === 'acrescentar' ? valorFinalComNF : valorFinal;
+    const percentualEntrada = Math.min(100, numeroNaoNegativo(financeiroOriginal.percentualEntrada, 50));
+    const valorEntrada = (valorFinalComercial * percentualEntrada) / 100;
+    const percentualSaldo = Math.max(0, 100 - percentualEntrada);
+    const valorSaldo = Math.max(valorFinalComercial - valorEntrada, 0);
 
-    financeiro.subtotal = numeroNaoNegativo(financeiro.subtotal, totalItens);
-    financeiro.totalCustosAdicionais = numeroNaoNegativo(financeiro.totalCustosAdicionais, totalCustos);
-    financeiro.desconto = numeroNaoNegativo(financeiro.desconto, 0);
-    financeiro.acrescimo = numeroNaoNegativo(financeiro.acrescimo, 0);
-    financeiro.percentualNF = percentualNF;
-    financeiro.tipoCalculoNF = tipoCalculoNF;
-    financeiro.valorNF = numeroNaoNegativo(financeiro.valorNF, valorNF);
-    financeiro.valorFinal = numeroNaoNegativo(financeiro.valorFinal, valorBase);
-    financeiro.valorFinalComNF = numeroNaoNegativo(financeiro.valorFinalComNF, valorFinalComNF);
-    financeiro.valorLiquidoPrevisto = numeroSeguro(financeiro.valorLiquidoPrevisto, valorLiquidoPrevisto);
-    financeiro.exibirCustosInternosPdf = financeiro.exibirCustosInternosPdf === true;
-    financeiro.condicaoPagamento = textoSeguro(financeiro.condicaoPagamento, '');
+    const custoInternoTotal = numeroNaoNegativo(controleInternoOriginal.custoInternoTotal, 0);
+    const custoTerceirizadoTotal = numeroNaoNegativo(controleInternoOriginal.custoTerceirizadoTotal, 0);
+    const outrosCustosInternos = numeroNaoNegativo(controleInternoOriginal.outrosCustosInternos, 0);
+    const custoTotalProposta = custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos;
+    const lucroPrevisto = valorLiquidoPrevisto - custoTotalProposta;
+    const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
+
+    const dataCriacao = textoSeguro(proposta.dataCriacao || proposta.criadoEm, new Date().toISOString());
+    const dataCriacaoBase = textoSeguro(dataCriacao).slice(0, 10);
+    const validadeDias = inteiroNaoNegativo(financeiroOriginal.validadePropostaDias, 7);
+    let validadeData = textoSeguro(financeiroOriginal.validadePropostaData, '');
+    if (!validadeData && /^\d{4}-\d{2}-\d{2}$/.test(dataCriacaoBase)) {
+        const dataBase = new Date(`${dataCriacaoBase}T00:00:00`);
+        dataBase.setDate(dataBase.getDate() + validadeDias);
+        const ano = dataBase.getFullYear();
+        const mes = String(dataBase.getMonth() + 1).padStart(2, '0');
+        const dia = String(dataBase.getDate()).padStart(2, '0');
+        validadeData = `${ano}-${mes}-${dia}`;
+    }
+
+    const exibirInterno = financeiroOriginal.exibirInformacoesInternasPDF === true || financeiroOriginal.exibirCustosInternosPdf === true;
+    const formaPagamentoRaw = String(financeiroOriginal.formaPagamento || '').trim().toLowerCase();
+    const formasValidas = new Set(['pix', 'boleto', 'transferencia', 'cartao', 'dinheiro', 'outro']);
+    const formaPagamento = formasValidas.has(formaPagamentoRaw) ? formaPagamentoRaw : '';
+
+    const financeiro = {
+        subtotal: numeroNaoNegativo(financeiroOriginal.subtotal, totalItens),
+        totalCustosAdicionais: numeroNaoNegativo(financeiroOriginal.totalCustosAdicionais, totalCustos),
+        desconto,
+        acrescimo,
+        valorBase: numeroNaoNegativo(financeiroOriginal.valorBase, valorBase),
+        percentualNF,
+        tipoCalculoNF,
+        valorNF: numeroNaoNegativo(financeiroOriginal.valorNF, valorNF),
+        valorFinal: numeroNaoNegativo(financeiroOriginal.valorFinal, valorFinal),
+        valorFinalComNF: numeroNaoNegativo(financeiroOriginal.valorFinalComNF, valorFinalComNF),
+        valorLiquidoPrevisto: numeroSeguro(financeiroOriginal.valorLiquidoPrevisto, valorLiquidoPrevisto),
+        percentualEntrada,
+        valorEntrada: numeroNaoNegativo(financeiroOriginal.valorEntrada, valorEntrada),
+        percentualSaldo: numeroNaoNegativo(financeiroOriginal.percentualSaldo, percentualSaldo),
+        valorSaldo: numeroNaoNegativo(financeiroOriginal.valorSaldo, valorSaldo),
+        vencimentoEntrada: textoSeguro(financeiroOriginal.vencimentoEntrada, ''),
+        vencimentoSaldo: textoSeguro(financeiroOriginal.vencimentoSaldo, ''),
+        formaPagamento,
+        condicaoPagamento: textoSeguro(financeiroOriginal.condicaoPagamento, ''),
+        observacaoPagamento: textoSeguro(financeiroOriginal.observacaoPagamento, '50% na aprovacao e 50% na montagem/desmontagem, conforme alinhamento comercial.'),
+        validadePropostaDias: validadeDias,
+        validadePropostaData: validadeData,
+        exibirInformacoesInternasPDF: exibirInterno,
+        exibirCustosInternosPdf: exibirInterno
+    };
+
+    const evento = {
+        nome: textoSeguro(eventoOriginal.nome, ''),
+        local: textoSeguro(eventoOriginal.local, ''),
+        enderecoEvento: textoSeguro(eventoOriginal.enderecoEvento || eventoOriginal.enderecoCompleto, ''),
+        cidadeEvento: textoSeguro(eventoOriginal.cidadeEvento || eventoOriginal.cidade, ''),
+        ufEvento: textoSeguro(eventoOriginal.ufEvento || eventoOriginal.uf, '').toUpperCase().slice(0, 2),
+        referenciaAcesso: textoSeguro(eventoOriginal.referenciaAcesso, ''),
+        dataMontagem: textoSeguro(eventoOriginal.dataMontagem, ''),
+        horaMontagem: textoSeguro(eventoOriginal.horaMontagem, ''),
+        dataEvento: textoSeguro(eventoOriginal.dataEvento, ''),
+        horaInicioEvento: textoSeguro(eventoOriginal.horaInicioEvento, ''),
+        horaFimEvento: textoSeguro(eventoOriginal.horaFimEvento, ''),
+        dataDesmontagem: textoSeguro(eventoOriginal.dataDesmontagem, ''),
+        horaDesmontagem: textoSeguro(eventoOriginal.horaDesmontagem, ''),
+        observacoesGerais: textoSeguro(eventoOriginal.observacoesGerais || eventoOriginal.observacoes, '')
+    };
+
+    const escopo = {
+        inclusoProposta: textoSeguro(escopoOriginal.inclusoProposta, 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.'),
+        naoInclusoProposta: textoSeguro(escopoOriginal.naoInclusoProposta, 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.'),
+        observacoesComerciais: textoSeguro(escopoOriginal.observacoesComerciais, '')
+    };
+
+    const statusRaw = String(proposta.status || '').trim().toLowerCase();
+    const aliasesStatus = {
+        'em negociacao': 'em_negociacao',
+        'convertida em locacao': 'convertida',
+        convertida_em_locacao: 'convertida'
+    };
+    const statusNormalizado = aliasesStatus[statusRaw] || statusRaw;
+
+    const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
 
     const propostaMigrada = {
         id: proposta.id || Date.now(),
@@ -380,34 +455,46 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
             email: '',
             endereco: ''
         }),
-        evento: clonarObjetoSeguro(proposta.evento, {
-            nome: '',
-            local: '',
-            cidade: '',
-            dataMontagem: '',
-            dataEvento: '',
-            dataDesmontagem: '',
-            observacoesGerais: ''
-        }),
+        evento,
         itens,
         custos,
         financeiro,
-        status: valorEmConjunto(proposta.status, STATUS_PROPOSTA_V12, 'rascunho'),
-        locacaoId: proposta.locacaoId || null,
-        criadoEm: textoSeguro(proposta.criadoEm, new Date().toISOString()),
-        atualizadoEm: textoSeguro(proposta.atualizadoEm, new Date().toISOString())
+        controleInterno: {
+            custoInternoTotal,
+            custoTerceirizadoTotal,
+            outrosCustosInternos,
+            custoTotalProposta: numeroNaoNegativo(controleInternoOriginal.custoTotalProposta, custoTotalProposta),
+            lucroPrevisto: numeroSeguro(controleInternoOriginal.lucroPrevisto, lucroPrevisto),
+            margemPrevista: numeroSeguro(controleInternoOriginal.margemPrevista, margemPrevista)
+        },
+        escopo,
+        responsavelProposta: textoSeguro(proposta.responsavelProposta, ''),
+        status: valorEmConjunto(statusNormalizado, STATUS_PROPOSTA_V12, 'rascunho'),
+        locacaoVinculadaId,
+        locacaoId: locacaoVinculadaId,
+        dataCriacao,
+        dataUltimaAlteracao: textoSeguro(proposta.dataUltimaAlteracao || proposta.atualizadoEm, dataCriacao),
+        criadoPor: textoSeguro(proposta.criadoPor, ''),
+        alteradoPor: textoSeguro(proposta.alteradoPor, ''),
+        dataEnvio: textoSeguro(proposta.dataEnvio, ''),
+        dataAprovacao: textoSeguro(proposta.dataAprovacao, ''),
+        dataCancelamento: textoSeguro(proposta.dataCancelamento, ''),
+        dataConversaoLocacao: textoSeguro(proposta.dataConversaoLocacao, ''),
+        criadoEm: dataCriacao,
+        atualizadoEm: textoSeguro(proposta.dataUltimaAlteracao || proposta.atualizadoEm, dataCriacao)
     };
 
     if (
         !Array.isArray(proposta.itens)
         || !('status' in proposta)
         || !('financeiro' in proposta)
-        || !('percentualNF' in financeiroOriginal)
+        || !('controleInterno' in proposta)
+        || !('escopo' in proposta)
+        || !('responsavelProposta' in proposta)
+        || !('validadePropostaDias' in financeiroOriginal)
+        || !('percentualEntrada' in financeiroOriginal)
         || !('tipoCalculoNF' in financeiroOriginal)
-        || !('valorNF' in financeiroOriginal)
-        || !('valorFinalComNF' in financeiroOriginal)
-        || !('valorLiquidoPrevisto' in financeiroOriginal)
-        || !('exibirCustosInternosPdf' in financeiroOriginal)
+        || !('exibirInformacoesInternasPDF' in financeiroOriginal)
     ) {
         contexto.houveMudanca = true;
     }
