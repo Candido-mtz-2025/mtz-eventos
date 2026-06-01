@@ -165,7 +165,8 @@ function renderLocacoes() {
             todos: 'Todos',
             ativo: 'Em aberto',
             atrasado: 'Atrasados',
-            devolvido: 'Historico'
+            devolvido: 'Historico',
+            cancelado: 'Canceladas'
         };
         atualizarMetaBusca('metaBuscaLocacoes', {
             total: lista.length,
@@ -201,6 +202,10 @@ function renderLocacoes() {
             devolvido: {
                 titulo: 'Sem histórico no filtro',
                 mensagem: 'Não há locações devolvidas ou canceladas para exibir agora.'
+            },
+            cancelado: {
+                titulo: 'Sem locações canceladas',
+                mensagem: 'Não há locações canceladas para exibir agora.'
             }
         };
         const estadoAtual = mapaVazio[filtroAtual] || mapaVazio.todos;

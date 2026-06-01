@@ -2,7 +2,7 @@
 let locacaoEtapaAtual = 1;
 let fluxoLocacaoInicializado = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
-const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
+const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
 function obterDisponivelPecaLocacao(peca) {
     if (!peca) return 0;

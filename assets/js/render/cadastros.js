@@ -207,7 +207,13 @@ function renderTipos() {
         
         // 3. Devoluções
         const d = document.getElementById('devLocacao');
-        if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter(l=>l.status!=='devolvido').map((l) => {
+        if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter((l) => {
+            const normalizada = typeof normalizarLocacaoDominio === 'function'
+                ? normalizarLocacaoDominio(l)
+                : null;
+            const statusVisual = String(normalizada?.statusVisual || l?.status || '').trim().toLowerCase();
+            return statusVisual !== 'devolvido' && statusVisual !== 'cancelado';
+        }).map((l) => {
             const nomeBruto = locadores.find((x) => x.id == l.locadorId)?.nome || 'Cliente';
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(nomeBruto) : nomeBruto;
             return `<option value="${l.id}">#${l.id.toString().slice(-4)} - ${nome}</option>`;

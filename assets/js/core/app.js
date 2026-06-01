@@ -959,7 +959,7 @@ function normalizarFiltroLocacoesAtalho(filtro) {
         return normalizarFiltroLocacoes(filtro);
     }
     const valor = String(filtro || '').trim().toLowerCase();
-    const filtrosValidos = new Set(['todos', 'ativo', 'atrasado', 'devolvido']);
+    const filtrosValidos = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
     return filtrosValidos.has(valor) ? valor : 'todos';
 }
 

@@ -96,7 +96,14 @@ function renderDevolucoes() {
     const kpiParciais = document.getElementById('devKpiParciais');
     const kpiPendentes = document.getElementById('devKpiPendentes');
     const totalPendentes = Array.isArray(locacoes)
-        ? locacoes.filter((x) => x && x.status !== 'devolvido').length
+        ? locacoes.filter((x) => {
+            if (!x) return false;
+            const normalizada = typeof normalizarLocacaoDominio === 'function'
+                ? normalizarLocacaoDominio(x)
+                : null;
+            const statusVisual = String(normalizada?.statusVisual || x?.status || '').trim().toLowerCase();
+            return statusVisual !== 'devolvido' && statusVisual !== 'cancelado';
+        }).length
         : 0;
 
     if (kpiRegistros) kpiRegistros.textContent = String(filtrados.length);
