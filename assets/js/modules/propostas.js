@@ -154,14 +154,49 @@
         };
     }
 
-    function calcularResumoFinanceiro(itens, custos, desconto, acrescimo) {
-        const totalItens = (Array.isArray(itens) ? itens : []).reduce((acc, item) => {
+    function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
+        const valor = String(tipo || fallback).trim().toLowerCase();
+        return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
+    }
+
+    function calcularResumoProposta({
+        itens = [],
+        custos = {},
+        desconto = 0,
+        acrescimo = 0,
+        percentualNF = 0,
+        tipoCalculoNF = 'descontar'
+    } = {}) {
+        const subtotalItens = (Array.isArray(itens) ? itens : []).reduce((acc, item) => {
             return acc + numeroNaoNegativo(item.valorTotal, 0);
         }, 0);
-        const totalCustos = Object.values(custos || {}).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
-        const subtotal = totalItens + totalCustos;
-        const valorFinal = Math.max(subtotal - numeroNaoNegativo(desconto, 0) + numeroNaoNegativo(acrescimo, 0), 0);
-        return { totalItens, totalCustos, subtotal, valorFinal };
+        const totalCustosAdicionais = Object.values(custos || {}).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
+        const descontoNormalizado = numeroNaoNegativo(desconto, 0);
+        const acrescimoNormalizado = numeroNaoNegativo(acrescimo, 0);
+        const valorBase = Math.max(
+            subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado,
+            0
+        );
+        const percentualNFNormalizado = numeroNaoNegativo(percentualNF, 0);
+        const tipoNF = normalizarTipoCalculoNF(tipoCalculoNF, 'descontar');
+        const valorNF = (valorBase * percentualNFNormalizado) / 100;
+        const valorFinal = valorBase;
+        const valorFinalComNF = tipoNF === 'acrescentar' ? valorBase + valorNF : valorBase;
+        const valorLiquidoPrevisto = tipoNF === 'descontar' ? (valorBase - valorNF) : valorBase;
+
+        return {
+            subtotalItens,
+            totalCustosAdicionais,
+            desconto: descontoNormalizado,
+            acrescimo: acrescimoNormalizado,
+            valorBase,
+            percentualNF: percentualNFNormalizado,
+            tipoCalculoNF: tipoNF,
+            valorNF,
+            valorFinal,
+            valorFinalComNF,
+            valorLiquidoPrevisto
+        };
     }
 
     function recalcularResumoProposta() {
@@ -178,12 +213,27 @@
         const custos = obterCustosFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
-        const resumo = calcularResumoFinanceiro(itens, custos, desconto, acrescimo);
+        const percentualNF = parseNumeroInput('propPercentualNF');
+        const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
+        const resumo = calcularResumoProposta({
+            itens,
+            custos,
+            desconto,
+            acrescimo,
+            percentualNF,
+            tipoCalculoNF
+        });
 
         const subtotalEl = document.getElementById('propSubtotal');
         const valorFinalEl = document.getElementById('propValorFinal');
-        if (subtotalEl) subtotalEl.value = formatarMoeda(resumo.subtotal);
+        const valorNFEl = document.getElementById('propValorNF');
+        const valorFinalComNFEl = document.getElementById('propValorFinalComNF');
+        const valorLiquidoPrevistoEl = document.getElementById('propValorLiquidoPrevisto');
+        if (subtotalEl) subtotalEl.value = formatarMoeda(resumo.subtotalItens);
         if (valorFinalEl) valorFinalEl.value = formatarMoeda(resumo.valorFinal);
+        if (valorNFEl) valorNFEl.value = formatarMoeda(resumo.valorNF);
+        if (valorFinalComNFEl) valorFinalComNFEl.value = formatarMoeda(resumo.valorFinalComNF);
+        if (valorLiquidoPrevistoEl) valorLiquidoPrevistoEl.value = formatarMoeda(resumo.valorLiquidoPrevisto);
     }
 
     function normalizarProposta(propostaOriginal = {}) {
@@ -215,12 +265,14 @@
             outros: numeroNaoNegativo(custos.outros, 0)
         };
 
-        const resumo = calcularResumoFinanceiro(
-            itensNormalizados,
-            custosNormalizados,
-            numeroNaoNegativo(financeiro.desconto, 0),
-            numeroNaoNegativo(financeiro.acrescimo, 0)
-        );
+        const resumo = calcularResumoProposta({
+            itens: itensNormalizados,
+            custos: custosNormalizados,
+            desconto: numeroNaoNegativo(financeiro.desconto, 0),
+            acrescimo: numeroNaoNegativo(financeiro.acrescimo, 0),
+            percentualNF: numeroNaoNegativo(financeiro.percentualNF, 0),
+            tipoCalculoNF: normalizarTipoCalculoNF(financeiro.tipoCalculoNF, 'descontar')
+        });
 
         const id = proposta.id || Date.now();
         const status = String(proposta.status || 'rascunho').trim().toLowerCase();
@@ -248,10 +300,17 @@
             itens: itensNormalizados,
             custos: custosNormalizados,
             financeiro: {
-                subtotal: numeroNaoNegativo(financeiro.subtotal, resumo.subtotal),
-                desconto: numeroNaoNegativo(financeiro.desconto, 0),
-                acrescimo: numeroNaoNegativo(financeiro.acrescimo, 0),
-                valorFinal: numeroNaoNegativo(financeiro.valorFinal, resumo.valorFinal),
+                subtotal: resumo.subtotalItens,
+                totalCustosAdicionais: resumo.totalCustosAdicionais,
+                desconto: resumo.desconto,
+                acrescimo: resumo.acrescimo,
+                percentualNF: resumo.percentualNF,
+                tipoCalculoNF: resumo.tipoCalculoNF,
+                valorNF: resumo.valorNF,
+                valorFinal: resumo.valorFinal,
+                valorFinalComNF: resumo.valorFinalComNF,
+                valorLiquidoPrevisto: resumo.valorLiquidoPrevisto,
+                exibirCustosInternosPdf: financeiro.exibirCustosInternosPdf === true,
                 condicaoPagamento: textoSeguro(financeiro.condicaoPagamento)
             },
             status: statusNormalizado,
@@ -276,7 +335,17 @@
         const custos = obterCustosFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
-        const resumo = calcularResumoFinanceiro(itens, custos, desconto, acrescimo);
+        const percentualNF = parseNumeroInput('propPercentualNF');
+        const tipoCalculoNF = normalizarTipoCalculoNF(document.getElementById('propTipoCalculoNF')?.value, 'descontar');
+        const exibirCustosInternosPdf = document.getElementById('propExibirCustosInternosPdf')?.checked === true;
+        const resumo = calcularResumoProposta({
+            itens,
+            custos,
+            desconto,
+            acrescimo,
+            percentualNF,
+            tipoCalculoNF
+        });
 
         const proposta = {
             id: idAtual || Date.now(),
@@ -300,10 +369,17 @@
             itens,
             custos,
             financeiro: {
-                subtotal: resumo.subtotal,
-                desconto,
-                acrescimo,
+                subtotal: resumo.subtotalItens,
+                totalCustosAdicionais: resumo.totalCustosAdicionais,
+                desconto: resumo.desconto,
+                acrescimo: resumo.acrescimo,
+                percentualNF: resumo.percentualNF,
+                tipoCalculoNF: resumo.tipoCalculoNF,
+                valorNF: resumo.valorNF,
                 valorFinal: resumo.valorFinal,
+                valorFinalComNF: resumo.valorFinalComNF,
+                valorLiquidoPrevisto: resumo.valorLiquidoPrevisto,
+                exibirCustosInternosPdf,
                 condicaoPagamento: textoSeguro(document.getElementById('propCondicaoPagamento')?.value)
             },
             status: obterStatusSelecionado(),
@@ -362,6 +438,8 @@
             propCustoOutros: p.custos.outros,
             propDesconto: p.financeiro.desconto,
             propAcrescimo: p.financeiro.acrescimo,
+            propPercentualNF: p.financeiro.percentualNF,
+            propTipoCalculoNF: p.financeiro.tipoCalculoNF,
             propCondicaoPagamento: p.financeiro.condicaoPagamento
         };
 
@@ -369,6 +447,9 @@
             const el = document.getElementById(id);
             if (el) el.value = valor ?? '';
         });
+
+        const exibirCustosInternosPdfEl = document.getElementById('propExibirCustosInternosPdf');
+        if (exibirCustosInternosPdfEl) exibirCustosInternosPdfEl.checked = p.financeiro.exibirCustosInternosPdf === true;
 
         renderLinhasItensProposta(p.itens);
         atualizarModoFormulario(`Editando ${p.codigo}`);
@@ -380,7 +461,7 @@
             'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail', 'propClienteEndereco',
             'propEventoNome', 'propEventoLocal', 'propEventoCidade', 'propDataMontagem', 'propDataEvento', 'propDataDesmontagem', 'propEventoObs',
             'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados', 'propCustoOutros',
-            'propDesconto', 'propAcrescimo', 'propCondicaoPagamento'
+            'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propCondicaoPagamento'
         ];
         campos.forEach((id) => {
             const el = document.getElementById(id);
@@ -388,6 +469,12 @@
         });
         const status = document.getElementById('propStatus');
         if (status) status.value = 'rascunho';
+        const percentualNF = document.getElementById('propPercentualNF');
+        if (percentualNF) percentualNF.value = 0;
+        const tipoCalculoNF = document.getElementById('propTipoCalculoNF');
+        if (tipoCalculoNF) tipoCalculoNF.value = 'descontar';
+        const exibirCustosInternosPdfEl = document.getElementById('propExibirCustosInternosPdf');
+        if (exibirCustosInternosPdfEl) exibirCustosInternosPdfEl.checked = false;
         renderLinhasItensProposta([{}]);
         atualizarModoFormulario('Nova proposta');
         const primeiroCampo = document.getElementById('propClienteNome');
@@ -563,6 +650,20 @@
         return mapa[String(status || '').toLowerCase()] || 'Rascunho';
     }
 
+    function obterValorFinalComercial(proposta) {
+        const tipoCalculoNF = normalizarTipoCalculoNF(proposta?.financeiro?.tipoCalculoNF, 'descontar');
+        if (tipoCalculoNF === 'acrescentar') {
+            return numeroNaoNegativo(proposta?.financeiro?.valorFinalComNF, proposta?.financeiro?.valorFinal);
+        }
+        return numeroNaoNegativo(proposta?.financeiro?.valorFinal, 0);
+    }
+
+    function rotuloTipoCalculoNF(tipoCalculoNF) {
+        return normalizarTipoCalculoNF(tipoCalculoNF, 'descontar') === 'acrescentar'
+            ? 'Acrescentar ao valor final'
+            : 'Descontar do valor final';
+    }
+
     function encontrarOuCriarClienteDaProposta(proposta) {
         const documento = String(proposta?.cliente?.documento || '').replace(/\D+/g, '');
         const email = String(proposta?.cliente?.email || '').trim().toLowerCase();
@@ -619,7 +720,7 @@
         const hojeIso = new Date().toISOString().split('T')[0];
         const dataMontagem = proposta.evento.dataMontagem || proposta.evento.dataEvento || hojeIso;
         const dataDesmontagem = proposta.evento.dataDesmontagem || proposta.evento.dataEvento || dataMontagem;
-        const valorFinal = numeroNaoNegativo(proposta.financeiro.valorFinal, 0);
+        const valorFinal = obterValorFinalComercial(proposta);
 
         const itensLocacao = proposta.itens.map((item) => {
             const peca = encontrarPecaPorDescricao(item);
@@ -753,6 +854,21 @@
             </tr>
         `;
 
+        const percentualNF = numeroNaoNegativo(p.financeiro?.percentualNF, 0);
+        const tipoCalculoNF = normalizarTipoCalculoNF(p.financeiro?.tipoCalculoNF, 'descontar');
+        const exibirCustosInternosPdf = p.financeiro?.exibirCustosInternosPdf === true;
+        const valorNF = numeroNaoNegativo(p.financeiro?.valorNF, 0);
+        const valorFinal = numeroNaoNegativo(p.financeiro?.valorFinal, 0);
+        const valorFinalComNF = numeroNaoNegativo(p.financeiro?.valorFinalComNF, valorFinal);
+        const valorLiquidoPrevisto = numeroSeguro(p.financeiro?.valorLiquidoPrevisto, valorFinal);
+        const totalCustosAdicionais = numeroNaoNegativo(
+            p.financeiro?.totalCustosAdicionais,
+            Object.values(p.custos || {}).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0)
+        );
+        const margemEstimada = valorLiquidoPrevisto - totalCustosAdicionais;
+        const valorFinalComercial = obterValorFinalComercial(p);
+        const percentualNFTxt = `${percentualNF.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+
         const header = typeof getHeaderMTZ === 'function' ? getHeaderMTZ() : '';
         const footer = typeof getFooterMTZ === 'function' ? getFooterMTZ() : '';
 
@@ -811,9 +927,10 @@
                     </table>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1.2fr 0.8fr; gap:16px;">
+                <div style="display:grid; grid-template-columns:${exibirCustosInternosPdf ? '1.2fr 0.8fr' : '1fr'}; gap:16px;">
+                    ${exibirCustosInternosPdf ? `
                     <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
-                        <strong style="display:block; margin-bottom:6px; font-size:12px;">Custos adicionais</strong>
+                        <strong style="display:block; margin-bottom:6px; font-size:12px;">Custos internos</strong>
                         <table style="width:100%; border-collapse:collapse; font-size:11px;">
                             <tbody>
                                 ${linhaCusto('Frete', p.custos.frete)}
@@ -823,17 +940,26 @@
                                 ${linhaCusto('Gerador', p.custos.gerador)}
                                 ${linhaCusto('Terceirizados', p.custos.terceirizados)}
                                 ${linhaCusto('Outros', p.custos.outros)}
+                                ${linhaCusto('Total custos internos', totalCustosAdicionais)}
                             </tbody>
                         </table>
                     </div>
+                    ` : ''}
                     <div style="border:1px solid #111827; border-radius:10px; padding:10px;">
                         <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo financeiro</strong>
                         <div style="font-size:11px; line-height:1.8;">
                             <div><b>Subtotal:</b> ${formatarMoeda(p.financeiro.subtotal)}</div>
                             <div><b>Desconto:</b> ${formatarMoeda(p.financeiro.desconto)}</div>
                             <div><b>Acrescimo:</b> ${formatarMoeda(p.financeiro.acrescimo)}</div>
-                            <div style="font-size:13px; margin-top:4px;"><b>Valor final:</b> ${formatarMoeda(p.financeiro.valorFinal)}</div>
+                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Percentual NF:</b> ${percentualNFTxt}</div>` : ''}
+                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Valor da NF:</b> ${formatarMoeda(valorNF)}</div>` : ''}
+                            ${(tipoCalculoNF === 'acrescentar' || exibirCustosInternosPdf) ? `<div><b>Tipo cálculo NF:</b> ${rotuloTipoCalculoNF(tipoCalculoNF)}</div>` : ''}
+                            <div style="font-size:13px; margin-top:4px;"><b>Valor final da proposta:</b> ${formatarMoeda(valorFinalComercial)}</div>
+                            ${exibirCustosInternosPdf ? `<div><b>Valor final com NF:</b> ${formatarMoeda(valorFinalComNF)}</div>` : ''}
+                            ${exibirCustosInternosPdf ? `<div><b>Valor líquido previsto:</b> ${formatarMoeda(valorLiquidoPrevisto)}</div>` : ''}
+                            ${exibirCustosInternosPdf ? `<div><b>Margem estimada:</b> ${formatarMoeda(margemEstimada)}</div>` : ''}
                             <div><b>Condicao:</b> ${sanitizar(p.financeiro.condicaoPagamento || '-')}</div>
+                            ${exibirCustosInternosPdf ? `<div style="margin-top:6px; color:#64748b;"><i>Uso interno habilitado neste PDF.</i></div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -898,7 +1024,7 @@
         const enviadas = lista.filter((item) => item.status === 'enviada').length;
         const valorPipeline = lista.reduce((acc, item) => {
             if (item.status === 'cancelada') return acc;
-            return acc + numeroNaoNegativo(item.financeiro?.valorFinal, 0);
+            return acc + obterValorFinalComercial(item);
         }, 0);
 
         const mapa = [
@@ -989,7 +1115,7 @@
                 <td>${sanitizar(proposta.cliente.nome || '-')}</td>
                 <td>${sanitizar(proposta.evento.nome || '-')}</td>
                 <td>${formatarData(proposta.evento.dataEvento)}</td>
-                <td>${formatarMoeda(proposta.financeiro.valorFinal)}</td>
+                <td>${formatarMoeda(obterValorFinalComercial(proposta))}</td>
                 <td><span class="badge ${statusBadge(proposta.status)}">${statusRotulo(proposta.status)}</span></td>
                 <td>${proposta.locacaoId ? `#${sanitizar(String(proposta.locacaoId).slice(-4))}` : '-'}</td>
                 <td class="col-actions">
@@ -1039,6 +1165,7 @@
 
     inicializarPropostas();
 
+    window.calcularResumoProposta = calcularResumoProposta;
     window.renderPropostas = renderPropostas;
     window.recalcularResumoProposta = recalcularResumoProposta;
     window.adicionarLinhaItemProposta = adicionarLinhaItemProposta;

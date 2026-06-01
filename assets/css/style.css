@@ -7528,6 +7528,10 @@ header {
 }
 
 /* === V16.9 | PROPOSTAS === */
+#tab-propostas {
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+}
+
 #tab-propostas .filters-row.filters-segmented {
     margin: 0;
     border: 1px solid var(--border);
@@ -7591,6 +7595,21 @@ header {
     min-height: 72px;
 }
 
+#tab-propostas .prop-interno-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+}
+
+#tab-propostas .prop-interno-toggle input[type="checkbox"] {
+    margin: 0;
+    inline-size: 16px;
+    block-size: 16px;
+}
+
 @media (max-width: 860px) {
     #tab-propostas .inline-chip-row {
         flex-wrap: wrap;
@@ -7599,5 +7618,9 @@ header {
     #tab-propostas .filters-row.filters-segmented {
         overflow-x: auto;
         white-space: nowrap;
+    }
+
+    #tab-propostas {
+        padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
     }
 }

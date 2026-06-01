@@ -37,6 +37,12 @@ function numeroNaoNegativo(valor, fallback = 0) {
     return numero;
 }
 
+function numeroSeguro(valor, fallback = 0) {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero)) return Number(fallback) || 0;
+    return numero;
+}
+
 function inteiroNaoNegativo(valor, fallback = 0) {
     return Math.max(0, Math.trunc(numeroNaoNegativo(valor, fallback)));
 }
@@ -323,23 +329,45 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
 
     const totalItens = itens.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0);
     const totalCustos = Object.values(custos).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
-    const subtotalPadrao = totalItens + totalCustos;
 
-    const financeiro = clonarObjetoSeguro(proposta.financeiro, {
-        subtotal: subtotalPadrao,
+    const financeiroOriginal = clonarObjetoSeguro(proposta.financeiro, {});
+    const financeiro = clonarObjetoSeguro(financeiroOriginal, {
+        subtotal: totalItens,
+        totalCustosAdicionais: totalCustos,
         desconto: 0,
         acrescimo: 0,
-        valorFinal: subtotalPadrao,
+        percentualNF: 0,
+        tipoCalculoNF: 'descontar',
+        valorNF: 0,
+        valorFinal: totalItens + totalCustos,
+        valorFinalComNF: totalItens + totalCustos,
+        valorLiquidoPrevisto: totalItens + totalCustos,
+        exibirCustosInternosPdf: false,
         condicaoPagamento: ''
     });
 
-    financeiro.subtotal = numeroNaoNegativo(financeiro.subtotal, subtotalPadrao);
+    const desconto = numeroNaoNegativo(financeiro.desconto, 0);
+    const acrescimo = numeroNaoNegativo(financeiro.acrescimo, 0);
+    const percentualNF = numeroNaoNegativo(financeiro.percentualNF, 0);
+    const tipoCalculoNF = String(financeiro.tipoCalculoNF || 'descontar').trim().toLowerCase() === 'acrescentar'
+        ? 'acrescentar'
+        : 'descontar';
+    const valorBase = Math.max(totalItens + totalCustos + acrescimo - desconto, 0);
+    const valorNF = (valorBase * percentualNF) / 100;
+    const valorFinalComNF = tipoCalculoNF === 'acrescentar' ? valorBase + valorNF : valorBase;
+    const valorLiquidoPrevisto = tipoCalculoNF === 'descontar' ? (valorBase - valorNF) : valorBase;
+
+    financeiro.subtotal = numeroNaoNegativo(financeiro.subtotal, totalItens);
+    financeiro.totalCustosAdicionais = numeroNaoNegativo(financeiro.totalCustosAdicionais, totalCustos);
     financeiro.desconto = numeroNaoNegativo(financeiro.desconto, 0);
     financeiro.acrescimo = numeroNaoNegativo(financeiro.acrescimo, 0);
-    financeiro.valorFinal = numeroNaoNegativo(
-        financeiro.valorFinal,
-        Math.max(financeiro.subtotal - financeiro.desconto + financeiro.acrescimo, 0)
-    );
+    financeiro.percentualNF = percentualNF;
+    financeiro.tipoCalculoNF = tipoCalculoNF;
+    financeiro.valorNF = numeroNaoNegativo(financeiro.valorNF, valorNF);
+    financeiro.valorFinal = numeroNaoNegativo(financeiro.valorFinal, valorBase);
+    financeiro.valorFinalComNF = numeroNaoNegativo(financeiro.valorFinalComNF, valorFinalComNF);
+    financeiro.valorLiquidoPrevisto = numeroSeguro(financeiro.valorLiquidoPrevisto, valorLiquidoPrevisto);
+    financeiro.exibirCustosInternosPdf = financeiro.exibirCustosInternosPdf === true;
     financeiro.condicaoPagamento = textoSeguro(financeiro.condicaoPagamento, '');
 
     const propostaMigrada = {
@@ -370,7 +398,17 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         atualizadoEm: textoSeguro(proposta.atualizadoEm, new Date().toISOString())
     };
 
-    if (!Array.isArray(proposta.itens) || !('status' in proposta) || !('financeiro' in proposta)) {
+    if (
+        !Array.isArray(proposta.itens)
+        || !('status' in proposta)
+        || !('financeiro' in proposta)
+        || !('percentualNF' in financeiroOriginal)
+        || !('tipoCalculoNF' in financeiroOriginal)
+        || !('valorNF' in financeiroOriginal)
+        || !('valorFinalComNF' in financeiroOriginal)
+        || !('valorLiquidoPrevisto' in financeiroOriginal)
+        || !('exibirCustosInternosPdf' in financeiroOriginal)
+    ) {
         contexto.houveMudanca = true;
     }
 
