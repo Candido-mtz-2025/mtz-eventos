@@ -7351,3 +7351,37 @@ header {
     top: auto !important;
     z-index: auto !important;
 }
+
+/* === V16.7B | PADRÃO VISUAL DAS LISTAS (CLIENTES + TIPOS + DEVOLUÇÕES) ===
+   Estrutura consistente: título > busca > tabela, sem área vazia no topo. */
+#locadoresListaCard,
+#tiposListaCard,
+#devolucoesHistoricoCard {
+    display: block !important;
+    min-height: 0 !important;
+}
+
+#locadoresListaCard .section-toolbar-compact,
+#tiposListaCard .section-toolbar-compact {
+    margin-bottom: 10px;
+}
+
+#locadoresListaCard .section-toolbar-compact h3,
+#tiposListaCard .section-toolbar-compact h3 {
+    margin: 0;
+    font-size: 1.08rem;
+    font-weight: 780;
+}
+
+#locadoresListaCard .cadastros-search-toolbar,
+#tiposListaCard .cadastros-search-toolbar,
+#devolucoesHistoricoCard .devolucoes-search-toolbar {
+    margin-top: 0 !important;
+    margin-bottom: 10px !important;
+}
+
+#locadoresListaCard .table-responsive,
+#tiposListaCard .table-responsive,
+#devolucoesHistoricoCard .table-responsive {
+    margin-top: 0 !important;
+}

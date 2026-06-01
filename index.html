@@ -292,7 +292,10 @@
                     </div>
                     <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
-                <div class="card">
+                <div class="card" id="locadoresListaCard">
+                    <div class="section-toolbar section-toolbar-compact">
+                        <h3>Clientes Cadastrados</h3>
+                    </div>
                     <div class="cadastros-search-toolbar">
                         <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-input="buscarComDebounce" data-arg="locadores">
                         <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
@@ -329,7 +332,10 @@
                     </div>
                     <button class="btn btn-primary" data-action="salvarTipo">Salvar Tipo</button>
                 </div>
-                <div class="card">
+                <div class="card" id="tiposListaCard">
+                    <div class="section-toolbar section-toolbar-compact">
+                        <h3>Tipos Cadastrados</h3>
+                    </div>
                     <div class="cadastros-search-toolbar">
                         <input type="text" id="buscaTipos" class="search-input" placeholder="🔍 Buscar tipo..." data-input="buscarComDebounce" data-arg="tipos">
                         <div id="metaBuscaTipos" class="search-meta" aria-live="polite"></div>
