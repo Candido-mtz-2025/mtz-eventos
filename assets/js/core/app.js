@@ -438,6 +438,16 @@ function obterAlvoInicialDaTab(tabId) {
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return null;
 
+    // Quando o topo contextual estiver ativo (todas as abas fora dashboard),
+    // usamos ele como âncora principal para manter a navegação visual consistente.
+    const topbarModulo = document.getElementById('moduleTopbar');
+    const topbarVisivel = !!topbarModulo
+        && topbarModulo.style.display !== 'none'
+        && topbarModulo.offsetParent !== null;
+    if (tabId !== 'dashboard' && topbarVisivel) {
+        return topbarModulo;
+    }
+
     const mapaAlvos = {
         dashboard: '#tab-dashboard .dashboard-topbar',
         locadores: '#tab-locadores .card',
