@@ -7340,3 +7340,14 @@ header {
     min-width: 38px !important;
     min-height: 36px !important;
 }
+
+/* === V16.7A | CORREÇÃO DE ESPAÇAMENTO (fora do padrão) ===
+   Evita "vão" visual nos cards de Clientes, Tipos e Devoluções:
+   nessas telas a barra de busca deve ficar no fluxo normal (não sticky). */
+#tab-locadores .cadastros-search-toolbar,
+#tab-tipos .cadastros-search-toolbar,
+#tab-devolucoes .devolucoes-search-toolbar {
+    position: relative !important;
+    top: auto !important;
+    z-index: auto !important;
+}
