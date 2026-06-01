@@ -116,6 +116,7 @@
         <button class="tab-btn" data-tab="estoque" data-action="abrirTab" data-arg="estoque"><i class="bi bi-box-seam"></i> Estoque</button>
         <button class="tab-btn" data-tab="checklist" data-action="abrirTab" data-arg="checklist"><i class="bi bi-check2-square"></i> Checklist</button>
         <button class="tab-btn" data-tab="locacoes" data-action="abrirTab" data-arg="locacoes"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" data-tab="propostas" data-action="abrirTab" data-arg="propostas"><i class="bi bi-file-earmark-ruled"></i> Propostas</button>
         <button class="tab-btn" data-tab="orcamentos" data-action="abrirTab" data-arg="orcamentos"><i class="bi bi-file-earmark-text"></i> Orçamentos</button>
         <button class="tab-btn" data-tab="financeiro" data-action="abrirTab" data-arg="financeiro"><i class="bi bi-cash-stack"></i> Financeiro</button>
         <button class="tab-btn" data-tab="agenda" data-action="abrirTab" data-arg="agenda"><i class="bi bi-calendar-event"></i> Agenda</button>
@@ -624,6 +625,226 @@
 
         </div> 
   </div>
+
+            <div id="tab-propostas" class="tab-content">
+                <div class="card" id="propostasFormularioCard">
+                    <div class="section-toolbar">
+                        <h3>Propostas</h3>
+                        <div class="inline-chip-row">
+                            <span id="propostaModoLabel" class="badge badge-info">Nova proposta</span>
+                            <button class="btn btn-secondary btn-sm" data-action="limparFormularioProposta">
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="propostaIdAtual">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Código da proposta</label>
+                            <input type="text" id="propCodigo" placeholder="Gerado automaticamente" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="propStatus" data-change="recalcularResumoProposta">
+                                <option value="rascunho">Rascunho</option>
+                                <option value="enviada">Enviada</option>
+                                <option value="aprovada">Aprovada</option>
+                                <option value="cancelada">Cancelada</option>
+                                <option value="convertida">Convertida</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4>1. Dados do cliente</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nome/empresa</label>
+                            <input type="text" id="propClienteNome" placeholder="Nome do cliente ou empresa">
+                        </div>
+                        <div class="form-group">
+                            <label>CPF/CNPJ</label>
+                            <input type="text" id="propClienteDocumento" placeholder="Documento">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Telefone</label>
+                            <input type="text" id="propClienteTelefone" placeholder="Telefone">
+                        </div>
+                        <div class="form-group">
+                            <label>E-mail</label>
+                            <input type="email" id="propClienteEmail" placeholder="E-mail">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Endereço</label>
+                            <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
+                        </div>
+                    </div>
+
+                    <h4>2. Dados do evento</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nome do evento</label>
+                            <input type="text" id="propEventoNome" placeholder="Nome do evento">
+                        </div>
+                        <div class="form-group">
+                            <label>Local</label>
+                            <input type="text" id="propEventoLocal" placeholder="Local do evento">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cidade</label>
+                            <input type="text" id="propEventoCidade" placeholder="Cidade">
+                        </div>
+                        <div class="form-group">
+                            <label>Data de montagem</label>
+                            <input type="date" id="propDataMontagem">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data do evento</label>
+                            <input type="date" id="propDataEvento">
+                        </div>
+                        <div class="form-group">
+                            <label>Data de desmontagem</label>
+                            <input type="date" id="propDataDesmontagem">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Observações gerais</label>
+                            <textarea id="propEventoObs" rows="2" placeholder="Observações da proposta"></textarea>
+                        </div>
+                    </div>
+
+                    <h4>3. Itens da proposta</h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Descrição</th>
+                                    <th>Medida</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor unitário</th>
+                                    <th>Valor total</th>
+                                    <th>Observações</th>
+                                    <th class="col-actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="propostaItensBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="inline-chip-row section-gap-small">
+                        <button class="btn btn-secondary btn-sm" data-action="adicionarLinhaItemProposta">
+                            <i class="bi bi-plus-circle"></i> Adicionar item
+                        </button>
+                    </div>
+
+                    <h4>4. Custos adicionais</h4>
+                    <div class="form-row">
+                        <div class="form-group"><label>Frete</label><input type="number" id="propCustoFrete" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                        <div class="form-group"><label>Mão de obra</label><input type="number" id="propCustoMaoObra" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Operador</label><input type="number" id="propCustoOperador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                        <div class="form-group"><label>Elétrica</label><input type="number" id="propCustoEletrica" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Gerador</label><input type="number" id="propCustoGerador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                        <div class="form-group"><label>Terceirizados</label><input type="number" id="propCustoTerceirizados" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Outros custos</label><input type="number" id="propCustoOutros" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                    </div>
+
+                    <h4>5. Resumo financeiro</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Subtotal</label>
+                            <input type="text" id="propSubtotal" value="R$ 0,00" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Desconto</label>
+                            <input type="number" id="propDesconto" min="0" step="0.01" data-input="recalcularResumoProposta">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Acréscimo</label>
+                            <input type="number" id="propAcrescimo" min="0" step="0.01" data-input="recalcularResumoProposta">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor final</label>
+                            <input type="text" id="propValorFinal" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Condição de pagamento</label>
+                            <input type="text" id="propCondicaoPagamento" placeholder="Ex: 50% entrada + 50% na desmontagem">
+                        </div>
+                    </div>
+
+                    <div class="inline-chip-row section-gap">
+                        <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar proposta</button>
+                        <button class="btn btn-info" data-action="editarPropostaAtual"><i class="bi bi-pencil"></i> Editar proposta</button>
+                        <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar proposta</button>
+                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir proposta</button>
+                        <button class="btn btn-warning" data-action="gerarPDFPropostaAtual"><i class="bi bi-printer"></i> Gerar PDF</button>
+                        <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Lista de propostas</h3>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo de propostas">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Total</small>
+                            <strong id="propKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Enviadas</small>
+                            <strong id="propKpiEnviadas">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Aprovadas</small>
+                            <strong id="propKpiAprovadas">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="pendente">
+                            <small>Pipeline</small>
+                            <strong id="propKpiValor">R$ 0,00</strong>
+                        </div>
+                    </div>
+
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="propostasFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="todos" data-action="aplicarFiltroPropostas" data-arg="todos">Todas</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="rascunho" data-action="aplicarFiltroPropostas" data-arg="rascunho">Rascunho</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-proposta="enviada" data-action="aplicarFiltroPropostas" data-arg="enviada">Enviada</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-proposta="aprovada" data-action="aplicarFiltroPropostas" data-arg="aprovada">Aprovada</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-proposta="cancelada" data-action="aplicarFiltroPropostas" data-arg="cancelada">Cancelada</button>
+                            <button class="btn btn-sm btn-primary" data-tone="info" data-filtro-proposta="convertida" data-action="aplicarFiltroPropostas" data-arg="convertida">Convertida</button>
+                        </div>
+                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar proposta, cliente, evento ou status..." data-input="buscarComDebounce" data-arg="propostas">
+                        <div id="metaBuscaPropostas" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Código</th><th>Cliente</th><th>Evento</th><th>Data</th><th>Valor final</th><th>Status</th><th>Locação</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblPropostas"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
             <div id="tab-orcamentos" class="tab-content">
                 <div class="card">
@@ -1221,6 +1442,7 @@
     <script src="./assets/js/core/storage.js"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.5"></script>
+    <script src="./assets/js/modules/propostas.js?v=1.0"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

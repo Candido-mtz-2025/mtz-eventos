@@ -15,6 +15,7 @@ function gerarSnapshotDadosSistema() {
         locadores: Array.isArray(locadores) ? locadores : [],
         pecas: Array.isArray(pecas) ? pecas : [],
         locacoes: Array.isArray(locacoes) ? locacoes : [],
+        propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
         usuarios: Array.isArray(usuarios) ? usuarios : [],
@@ -79,6 +80,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     locadores = Array.isArray(dadosNormalizados.locadores) ? dadosNormalizados.locadores : [];
     pecas = Array.isArray(dadosNormalizados.pecas) ? dadosNormalizados.pecas : [];
     locacoes = Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [];
+    propostas = Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [];
     devolucoes = Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [];
     tipos = Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [];
     usuarios = Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [];
@@ -501,6 +503,7 @@ function carregarLocal() {
             clientes: locadores.length,
             itens: pecas.length,
             locacoes: locacoes.length,
+            propostas: propostas.length,
             versao: dados.versao || 'antiga'
         });
 

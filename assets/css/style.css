@@ -7526,3 +7526,78 @@ header {
         white-space: nowrap;
     }
 }
+
+/* === V16.9 | PROPOSTAS === */
+#tab-propostas .filters-row.filters-segmented {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta] {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta].is-active {
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="todos"].is-active {
+    background: #334155;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="rascunho"].is-active {
+    background: #d97706;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="enviada"].is-active {
+    background: #0284c7;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="aprovada"].is-active {
+    background: #16a34a;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="cancelada"].is-active {
+    background: #dc2626;
+}
+
+#tab-propostas .filters-row.filters-segmented [data-filtro-proposta="convertida"].is-active {
+    background: #2563eb;
+}
+
+#tab-propostas #metaBuscaPropostas {
+    margin-top: 8px;
+}
+
+#tab-propostas #propostaItensBody input {
+    width: 100%;
+}
+
+#tab-propostas #propostaItensBody .prop-item-total {
+    font-weight: 700;
+    color: var(--text);
+}
+
+#tab-propostas textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+@media (max-width: 860px) {
+    #tab-propostas .inline-chip-row {
+        flex-wrap: wrap;
+    }
+
+    #tab-propostas .filters-row.filters-segmented {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}

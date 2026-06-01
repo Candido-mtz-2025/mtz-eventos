@@ -15,6 +15,7 @@ const STATUS_FLUXO_LOCACAO_V12 = new Set([
 const STATUS_PAGAMENTO_V12 = new Set(['pendente', 'parcial', 'pago', 'atrasado', 'cancelado']);
 const STATUS_LOGISTICA_V12 = new Set(['pendente', 'agendado', 'em_rota', 'concluida', 'cancelada']);
 const PERFIS_USUARIO_V12 = new Set(['administrador', 'comercial', 'financeiro', 'logistica', 'montagem', 'operacao']);
+const STATUS_PROPOSTA_V12 = new Set(['rascunho', 'enviada', 'aprovada', 'cancelada', 'convertida']);
 
 function clonarObjetoSeguro(valor, fallback = {}) {
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...fallback };
@@ -49,6 +50,7 @@ function criarPermissoesPadraoV12(perfil) {
     const base = {
         dashboard: true,
         clientes: true,
+        propostas: true,
         tipos: true,
         estoque: true,
         locacoes: true,
@@ -281,6 +283,100 @@ function migrarLocadorParaV12(locadorOriginal, contexto) {
     return migrado;
 }
 
+function migrarItemPropostaParaV12(itemOriginal) {
+    const item = clonarObjetoSeguro(itemOriginal);
+    const quantidade = numeroNaoNegativo(item.quantidade, 0);
+    const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
+    const valorTotal = numeroNaoNegativo(item.valorTotal, quantidade * valorUnitario);
+
+    return {
+        descricao: textoSeguro(item.descricao, ''),
+        medida: textoSeguro(item.medida, ''),
+        quantidade,
+        valorUnitario,
+        valorTotal,
+        observacoes: textoSeguro(item.observacoes, '')
+    };
+}
+
+function migrarPropostaParaV12(propostaOriginal, contexto) {
+    const proposta = clonarObjetoSeguro(propostaOriginal);
+    const itens = clonarArraySeguro(proposta.itens).map((item) => migrarItemPropostaParaV12(item));
+
+    const custos = clonarObjetoSeguro(proposta.custos, {
+        frete: 0,
+        maoObra: 0,
+        operador: 0,
+        eletrica: 0,
+        gerador: 0,
+        terceirizados: 0,
+        outros: 0
+    });
+
+    custos.frete = numeroNaoNegativo(custos.frete, 0);
+    custos.maoObra = numeroNaoNegativo(custos.maoObra, 0);
+    custos.operador = numeroNaoNegativo(custos.operador, 0);
+    custos.eletrica = numeroNaoNegativo(custos.eletrica, 0);
+    custos.gerador = numeroNaoNegativo(custos.gerador, 0);
+    custos.terceirizados = numeroNaoNegativo(custos.terceirizados, 0);
+    custos.outros = numeroNaoNegativo(custos.outros, 0);
+
+    const totalItens = itens.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0);
+    const totalCustos = Object.values(custos).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
+    const subtotalPadrao = totalItens + totalCustos;
+
+    const financeiro = clonarObjetoSeguro(proposta.financeiro, {
+        subtotal: subtotalPadrao,
+        desconto: 0,
+        acrescimo: 0,
+        valorFinal: subtotalPadrao,
+        condicaoPagamento: ''
+    });
+
+    financeiro.subtotal = numeroNaoNegativo(financeiro.subtotal, subtotalPadrao);
+    financeiro.desconto = numeroNaoNegativo(financeiro.desconto, 0);
+    financeiro.acrescimo = numeroNaoNegativo(financeiro.acrescimo, 0);
+    financeiro.valorFinal = numeroNaoNegativo(
+        financeiro.valorFinal,
+        Math.max(financeiro.subtotal - financeiro.desconto + financeiro.acrescimo, 0)
+    );
+    financeiro.condicaoPagamento = textoSeguro(financeiro.condicaoPagamento, '');
+
+    const propostaMigrada = {
+        id: proposta.id || Date.now(),
+        codigo: textoSeguro(proposta.codigo, ''),
+        cliente: clonarObjetoSeguro(proposta.cliente, {
+            nome: '',
+            documento: '',
+            telefone: '',
+            email: '',
+            endereco: ''
+        }),
+        evento: clonarObjetoSeguro(proposta.evento, {
+            nome: '',
+            local: '',
+            cidade: '',
+            dataMontagem: '',
+            dataEvento: '',
+            dataDesmontagem: '',
+            observacoesGerais: ''
+        }),
+        itens,
+        custos,
+        financeiro,
+        status: valorEmConjunto(proposta.status, STATUS_PROPOSTA_V12, 'rascunho'),
+        locacaoId: proposta.locacaoId || null,
+        criadoEm: textoSeguro(proposta.criadoEm, new Date().toISOString()),
+        atualizadoEm: textoSeguro(proposta.atualizadoEm, new Date().toISOString())
+    };
+
+    if (!Array.isArray(proposta.itens) || !('status' in proposta) || !('financeiro' in proposta)) {
+        contexto.houveMudanca = true;
+    }
+
+    return propostaMigrada;
+}
+
 function migrarUsuarioParaV12(usuarioOriginal, contexto, indice) {
     const usuario = clonarObjetoSeguro(usuarioOriginal);
     const perfil = normalizarPerfilUsuarioV12(usuario.perfil);
@@ -316,6 +412,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         locadores: clonarArraySeguro(dadosBase.locadores).map((locador) => migrarLocadorParaV12(locador, contexto)),
         pecas: clonarArraySeguro(dadosBase.pecas).map((peca) => migrarPecaParaV12(peca, contexto)),
         locacoes: clonarArraySeguro(dadosBase.locacoes).map((locacao) => migrarLocacaoParaV12(locacao, contexto)),
+        propostas: clonarArraySeguro(dadosBase.propostas).map((proposta) => migrarPropostaParaV12(proposta, contexto)),
         devolucoes: clonarArraySeguro(dadosBase.devolucoes),
         tipos: clonarArraySeguro(dadosBase.tipos),
         modelosChecklist: clonarArraySeguro(dadosBase.modelosChecklist),
@@ -349,7 +446,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     if (contexto.houveMudanca) {
         contexto.logs.push(
             `Schema migrado de ${versaoAnterior} para ${SCHEMA_VERSION_V12} (origem: ${contexto.origem}).`,
-            `Registros normalizados: ${dadosMigrados.locadores.length} clientes, ${dadosMigrados.pecas.length} itens, ${dadosMigrados.locacoes.length} locacoes.`
+            `Registros normalizados: ${dadosMigrados.locadores.length} clientes, ${dadosMigrados.pecas.length} itens, ${dadosMigrados.locacoes.length} locacoes e ${dadosMigrados.propostas.length} propostas.`
         );
     }
 

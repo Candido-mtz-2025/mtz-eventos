@@ -32,6 +32,11 @@ const buscarComDebounce = debounce(function(tipo) {
         return;
     }
 
+    if (alvo === 'propostas' && typeof renderPropostas === 'function') {
+        renderPropostas();
+        return;
+    }
+
     if (alvo === 'orcamentos' && typeof renderOrcamentos === 'function') {
         renderOrcamentos();
         return;

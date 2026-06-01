@@ -6,7 +6,7 @@
     function backupTemEstruturaMinima(dados) {
         if (!dados || typeof dados !== 'object') return false;
         const chaves = [
-            'locadores', 'pecas', 'locacoes', 'devolucoes', 'tipos',
+            'locadores', 'pecas', 'locacoes', 'propostas', 'devolucoes', 'tipos',
             'modelosChecklist', 'logsAuditoria', 'config'
         ];
         return chaves.some((chave) => Object.prototype.hasOwnProperty.call(dados, chave));
@@ -19,6 +19,7 @@
         const totalLocadores = normalizarListaBackup(dados?.locadores).length;
         const totalPecas = normalizarListaBackup(dados?.pecas).length;
         const totalLocacoes = normalizarListaBackup(dados?.locacoes).length;
+        const totalPropostas = normalizarListaBackup(dados?.propostas).length;
         const totalDevolucoes = normalizarListaBackup(dados?.devolucoes).length;
 
         return (
@@ -28,6 +29,7 @@
             `Clientes: ${totalLocadores}\n` +
             `Itens: ${totalPecas}\n` +
             `Locacoes: ${totalLocacoes}\n` +
+            `Propostas: ${totalPropostas}\n` +
             `Devolucoes: ${totalDevolucoes}\n\n` +
             'Isso vai substituir os dados atuais. Deseja continuar?'
         );
@@ -73,7 +75,7 @@
             const snapshot = typeof gerarSnapshotDadosSistema === 'function'
                 ? gerarSnapshotDadosSistema()
                 : {
-                    locadores, pecas, locacoes, devolucoes, tipos, usuarios, config,
+                    locadores, pecas, locacoes, propostas, devolucoes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem
                 };
@@ -142,6 +144,7 @@
                         locadores = normalizarListaBackup(j.locadores);
                         pecas = normalizarListaBackup(j.pecas);
                         locacoes = normalizarListaBackup(j.locacoes);
+                        propostas = normalizarListaBackup(j.propostas);
                         devolucoes = normalizarListaBackup(j.devolucoes);
                         tipos = normalizarListaBackup(j.tipos);
                         usuarios = normalizarListaBackup(j.usuarios);

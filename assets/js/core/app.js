@@ -3,6 +3,7 @@
 function renderTudo() {
     if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade();
     if(typeof renderLocacoes === 'function') renderLocacoes();
+    if(typeof renderPropostas === 'function') renderPropostas();
     if(typeof renderLocadores === 'function') renderLocadores();
     if(typeof renderEstoque === 'function') renderEstoque();
     if(typeof renderOrcamentos === 'function') renderOrcamentos();
@@ -29,6 +30,7 @@ const TAB_TOPBAR_CONFIG = {
     estoque: { icon: 'bi-box-seam', titulo: 'Estoque', descricao: 'Controle completo de itens e disponibilidade.', meta: 'Inventário' },
     checklist: { icon: 'bi-check2-square', titulo: 'Checklist', descricao: 'Separação e conferência de montagem.', meta: 'Operação de campo' },
     locacoes: { icon: 'bi-cart', titulo: 'Locações', descricao: 'Gestão ponta a ponta dos pedidos.', meta: 'Fluxo comercial' },
+    propostas: { icon: 'bi-file-earmark-ruled', titulo: 'Propostas', descricao: 'Orçamentos completos com custos, PDF e conversão em locação.', meta: 'Pré-venda' },
     devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
@@ -68,6 +70,11 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_filtro_aberto', icon: 'bi-play-circle', label: 'Em aberto' },
         { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Atrasados' }
     ],
+    propostas: [
+        { id: 'qa_nova_proposta', icon: 'bi-file-earmark-plus', label: 'Nova proposta' },
+        { id: 'qa_busca_proposta', icon: 'bi-search', label: 'Buscar proposta' },
+        { id: 'qa_converter_proposta', icon: 'bi-check2-circle', label: 'Converter proposta' }
+    ],
     devolucoes: [
         { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' },
         { id: 'qa_filtro_dev_parcial', icon: 'bi-hourglass-split', label: 'Parciais' },
@@ -106,6 +113,7 @@ const CAMPOS_BUSCA_PERSISTENTES = [
     'buscaTipos',
     'buscaEstoque',
     'buscaLocacoes',
+    'buscaPropostas',
     'buscaOrcamentos',
     'buscaFinanceiro',
     'buscaAgenda',
@@ -126,6 +134,7 @@ const IDS_CAMPOS_BUSCA_ENTER_RESULTADO = new Set([
     'buscaTipos',
     'buscaEstoque',
     'buscaLocacoes',
+    'buscaPropostas',
     'buscaOrcamentos',
     'buscaFinanceiro',
     'buscaAgenda',
@@ -137,6 +146,7 @@ const META_BUSCA_POR_ABA = Object.freeze({
     tipos: 'metaBuscaTipos',
     estoque: 'metaBuscaEstoque',
     locacoes: 'metaBuscaLocacoes',
+    propostas: 'metaBuscaPropostas',
     orcamentos: 'metaBuscaOrcamentos',
     financeiro: 'metaBuscaFinanceiro',
     agenda: 'metaBuscaAgenda',
@@ -243,6 +253,11 @@ function sincronizarEstadoVisualDaAba(tabId) {
 
     if (aba === 'orcamentos') {
         if (typeof renderOrcamentos === 'function') renderOrcamentos();
+        return;
+    }
+
+    if (aba === 'propostas') {
+        if (typeof renderPropostas === 'function') renderPropostas();
         return;
     }
 
@@ -490,6 +505,7 @@ function obterAlvoInicialDaTab(tabId) {
         estoque: '#tab-estoque > .card:first-child',
         checklist: '#tab-checklist > .card:first-child',
         locacoes: '#locacoesPrincipalCard',
+        propostas: '#tab-propostas > .card:first-child',
         orcamentos: '#tab-orcamentos > .card:first-child',
         financeiro: '#tab-financeiro > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',
@@ -851,6 +867,12 @@ const CONFIG_RESULTADO_POR_BUSCA = Object.freeze({
         focusSelector: '[data-action="gerarRelatorio"], [data-action="alternarPagamento"], .locacao-action-btn, button, input, a, [tabindex]',
         emptyMessage: 'Nenhuma locação encontrada na busca atual.'
     },
+    buscaPropostas: {
+        tbodyId: 'tblPropostas',
+        rowSelector: 'tr[data-proposta-id]',
+        focusSelector: '[data-action=\"editarProposta\"], [data-action=\"gerarPDFProposta\"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhuma proposta encontrada na busca atual.'
+    },
     buscaOrcamentos: {
         tbodyId: 'tblOrcamentos',
         rowSelector: 'tr[data-orcamento-id]',
@@ -934,6 +956,11 @@ function restaurarContextoBuscaPadrao(idCampoBusca, opcoes = {}) {
 
     if (chave === 'buscaLocacoes' && typeof mudarFiltro === 'function') {
         mudarFiltro('todos');
+        return true;
+    }
+
+    if (chave === 'buscaPropostas' && typeof aplicarFiltroPropostas === 'function') {
+        aplicarFiltroPropostas('todos');
         return true;
     }
 
@@ -2112,6 +2139,7 @@ function focoBuscaPorAba(abaId) {
         tipos: 'buscaTipos',
         estoque: 'buscaEstoque',
         locacoes: 'buscaLocacoes',
+        propostas: 'buscaPropostas',
         orcamentos: 'buscaOrcamentos',
         financeiro: 'buscaFinanceiro',
         agenda: 'buscaAgenda',
@@ -2251,6 +2279,7 @@ function executarAtalhoSalvarContextual() {
         tipos: ['salvarTipo'],
         estoque: ['salvarPeca'],
         locacoes: ['finalizarLocacao'],
+        propostas: ['salvarProposta'],
         devolucoes: ['confirmarDevolucao'],
         config: ['salvarConfig']
     };
@@ -2280,6 +2309,29 @@ function executarAtalhoRapido(atalhoId) {
             return;
         case 'qa_nova_locacao':
             irParaLocacoesFormulario();
+            return;
+        case 'qa_nova_proposta':
+            if (typeof irParaPropostasFormulario === 'function') {
+                irParaPropostasFormulario();
+            } else {
+                abrirTab('propostas');
+            }
+            return;
+        case 'qa_busca_proposta':
+            abrirTab('propostas', { semRolagem: true });
+            setTimeout(() => {
+                const campo = document.getElementById('buscaPropostas');
+                if (!campo) return;
+                rolarParaElementoAtalho(campo.closest('.cadastros-search-toolbar') || campo, 'start');
+                destacarAlvoAtalho(campo, 1200);
+                focarCampoDepoisDaRolagem('buscaPropostas', true);
+            }, 120);
+            return;
+        case 'qa_converter_proposta':
+            abrirTab('propostas', { semRolagem: true });
+            setTimeout(() => {
+                if (typeof converterPropostaAtual === 'function') converterPropostaAtual();
+            }, 120);
             return;
         case 'qa_filtro_aberto':
             executarAtalhoFiltroLocacoes('ativo');
@@ -2481,6 +2533,7 @@ document.addEventListener('keydown', (event) => {
         const mensagensRestauro = {
             buscaEstoque: 'Filtro do estoque voltou para Todos.',
             buscaLocacoes: 'Filtro de locacoes voltou para Todos.',
+            buscaPropostas: 'Filtro de propostas voltou para Todos.',
             buscaOrcamentos: 'Filtro de orcamentos voltou para Todos.',
             buscaFinanceiro: 'Filtro financeiro voltou para Todos.',
             buscaAgenda: 'Filtro da agenda voltou para Todos.',
