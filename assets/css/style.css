@@ -7471,3 +7471,58 @@ header {
     color: var(--text) !important;
     opacity: 1 !important;
 }
+
+/* === V16.8 | ABAS NOVAS (ORCAMENTOS / FINANCEIRO / AGENDA) === */
+#tab-orcamentos .filters-row.filters-segmented,
+#tab-financeiro .filters-row.filters-segmented,
+#tab-agenda .filters-row.filters-segmented {
+    margin: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+}
+
+#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc],
+#tab-financeiro .filters-row.filters-segmented [data-filtro-fin],
+#tab-agenda .filters-row.filters-segmented [data-filtro-agenda] {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc].is-active,
+#tab-financeiro .filters-row.filters-segmented [data-filtro-fin].is-active,
+#tab-agenda .filters-row.filters-segmented [data-filtro-agenda].is-active {
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
+}
+
+#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc].is-active {
+    background: #2563eb;
+}
+
+#tab-financeiro .filters-row.filters-segmented [data-filtro-fin].is-active {
+    background: #0ea5e9;
+}
+
+#tab-agenda .filters-row.filters-segmented [data-filtro-agenda].is-active {
+    background: #10b981;
+}
+
+#tab-orcamentos #metaBuscaOrcamentos,
+#tab-financeiro #metaBuscaFinanceiro,
+#tab-agenda #metaBuscaAgenda {
+    margin-top: 8px;
+}
+
+@media (max-width: 780px) {
+    #tab-orcamentos .filters-row.filters-segmented,
+    #tab-financeiro .filters-row.filters-segmented,
+    #tab-agenda .filters-row.filters-segmented {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}

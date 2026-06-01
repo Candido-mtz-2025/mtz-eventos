@@ -32,6 +32,21 @@ const buscarComDebounce = debounce(function(tipo) {
         return;
     }
 
+    if (alvo === 'orcamentos' && typeof renderOrcamentos === 'function') {
+        renderOrcamentos();
+        return;
+    }
+
+    if (alvo === 'financeiro' && typeof renderFinanceiroResumo === 'function') {
+        renderFinanceiroResumo();
+        return;
+    }
+
+    if (alvo === 'agenda' && typeof renderAgendaOperacional === 'function') {
+        renderAgendaOperacional();
+        return;
+    }
+
     if (alvo === 'tipos' && typeof renderTipos === 'function') {
         renderTipos();
         return;

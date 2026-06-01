@@ -5,6 +5,9 @@ function renderTudo() {
     if(typeof renderLocacoes === 'function') renderLocacoes();
     if(typeof renderLocadores === 'function') renderLocadores();
     if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderOrcamentos === 'function') renderOrcamentos();
+    if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+    if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
     if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
     if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
     if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
@@ -27,6 +30,9 @@ const TAB_TOPBAR_CONFIG = {
     checklist: { icon: 'bi-check2-square', titulo: 'Checklist', descricao: 'Separação e conferência de montagem.', meta: 'Operação de campo' },
     locacoes: { icon: 'bi-cart', titulo: 'Locações', descricao: 'Gestão ponta a ponta dos pedidos.', meta: 'Fluxo comercial' },
     devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
+    orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
+    financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
+    agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
     auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
     config: { icon: 'bi-gear', titulo: 'Configurações', descricao: 'Ajustes gerais e políticas de acesso.', meta: 'Administração' }
 };
@@ -67,6 +73,21 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_filtro_dev_parcial', icon: 'bi-hourglass-split', label: 'Parciais' },
         { id: 'qa_filtro_dev_total', icon: 'bi-check2-circle', label: 'Concluidas' }
     ],
+    orcamentos: [
+        { id: 'qa_nova_locacao', icon: 'bi-file-earmark-plus', label: 'Nova proposta' },
+        { id: 'qa_busca_cliente', icon: 'bi-search', label: 'Buscar cliente' },
+        { id: 'qa_ir_estoque', icon: 'bi-box-seam', label: 'Ver estoque' }
+    ],
+    financeiro: [
+        { id: 'qa_ir_estoque', icon: 'bi-graph-up', label: 'Acompanhar valores' },
+        { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Cobranças atrasadas' },
+        { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
+    ],
+    agenda: [
+        { id: 'qa_filtro_aberto', icon: 'bi-calendar-check', label: 'Programação ativa' },
+        { id: 'qa_registrar_devolucao', icon: 'bi-truck', label: 'Retornos' },
+        { id: 'qa_abrir_auditoria', icon: 'bi-shield-check', label: 'Rastrear ações' }
+    ],
     auditoria: [
         { id: 'qa_log_locacao', icon: 'bi-cart', label: 'Logs de locacoes' },
         { id: 'qa_log_sistema', icon: 'bi-cpu', label: 'Logs do sistema' },
@@ -85,6 +106,9 @@ const CAMPOS_BUSCA_PERSISTENTES = [
     'buscaTipos',
     'buscaEstoque',
     'buscaLocacoes',
+    'buscaOrcamentos',
+    'buscaFinanceiro',
+    'buscaAgenda',
     'devBuscaHistorico',
     'auditBusca'
 ];
@@ -102,6 +126,9 @@ const IDS_CAMPOS_BUSCA_ENTER_RESULTADO = new Set([
     'buscaTipos',
     'buscaEstoque',
     'buscaLocacoes',
+    'buscaOrcamentos',
+    'buscaFinanceiro',
+    'buscaAgenda',
     'devBuscaHistorico',
     'auditBusca'
 ]);
@@ -110,6 +137,9 @@ const META_BUSCA_POR_ABA = Object.freeze({
     tipos: 'metaBuscaTipos',
     estoque: 'metaBuscaEstoque',
     locacoes: 'metaBuscaLocacoes',
+    orcamentos: 'metaBuscaOrcamentos',
+    financeiro: 'metaBuscaFinanceiro',
+    agenda: 'metaBuscaAgenda',
     devolucoes: 'metaBuscaDevolucoes',
     auditoria: 'metaBuscaAuditoria'
 });
@@ -210,6 +240,21 @@ function atualizarTopbarModulo(tabId) {
 function sincronizarEstadoVisualDaAba(tabId) {
     const aba = String(tabId || '').trim();
     if (!aba) return;
+
+    if (aba === 'orcamentos') {
+        if (typeof renderOrcamentos === 'function') renderOrcamentos();
+        return;
+    }
+
+    if (aba === 'financeiro') {
+        if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+        return;
+    }
+
+    if (aba === 'agenda') {
+        if (typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
+        return;
+    }
 
     if (aba === 'locacoes') {
         if (typeof atualizarFiltroVisualLocacoes === 'function') {
@@ -445,6 +490,9 @@ function obterAlvoInicialDaTab(tabId) {
         estoque: '#tab-estoque > .card:first-child',
         checklist: '#tab-checklist > .card:first-child',
         locacoes: '#locacoesPrincipalCard',
+        orcamentos: '#tab-orcamentos > .card:first-child',
+        financeiro: '#tab-financeiro > .card:first-child',
+        agenda: '#tab-agenda > .card:first-child',
         devolucoes: '#tab-devolucoes > .card:first-child',
         auditoria: '#tab-auditoria > .card:first-child',
         config: '#tab-config > .card:first-child'
@@ -803,6 +851,24 @@ const CONFIG_RESULTADO_POR_BUSCA = Object.freeze({
         focusSelector: '[data-action="gerarRelatorio"], [data-action="alternarPagamento"], .locacao-action-btn, button, input, a, [tabindex]',
         emptyMessage: 'Nenhuma locação encontrada na busca atual.'
     },
+    buscaOrcamentos: {
+        tbodyId: 'tblOrcamentos',
+        rowSelector: 'tr[data-orcamento-id]',
+        focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="abrirHistoricoLocacao"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum orçamento encontrado na busca atual.'
+    },
+    buscaFinanceiro: {
+        tbodyId: 'tblFinanceiro',
+        rowSelector: 'tr[data-financeiro-id]',
+        focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="alternarPagamento"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum lançamento financeiro encontrado na busca atual.'
+    },
+    buscaAgenda: {
+        tbodyId: 'tblAgenda',
+        rowSelector: 'tr[data-agenda-id]',
+        focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="abrirHistoricoLocacao"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhuma atividade encontrada na agenda atual.'
+    },
     devBuscaHistorico: {
         tbodyId: 'tblDevolucoes',
         rowSelector: 'tr[data-devolucao-id]',
@@ -868,6 +934,21 @@ function restaurarContextoBuscaPadrao(idCampoBusca, opcoes = {}) {
 
     if (chave === 'buscaLocacoes' && typeof mudarFiltro === 'function') {
         mudarFiltro('todos');
+        return true;
+    }
+
+    if (chave === 'buscaOrcamentos' && typeof aplicarFiltroOrcamentosRapido === 'function') {
+        aplicarFiltroOrcamentosRapido('todos');
+        return true;
+    }
+
+    if (chave === 'buscaFinanceiro' && typeof aplicarFiltroFinanceiroRapido === 'function') {
+        aplicarFiltroFinanceiroRapido('todos');
+        return true;
+    }
+
+    if (chave === 'buscaAgenda' && typeof aplicarFiltroAgendaRapido === 'function') {
+        aplicarFiltroAgendaRapido('todos');
         return true;
     }
 
@@ -2031,6 +2112,9 @@ function focoBuscaPorAba(abaId) {
         tipos: 'buscaTipos',
         estoque: 'buscaEstoque',
         locacoes: 'buscaLocacoes',
+        orcamentos: 'buscaOrcamentos',
+        financeiro: 'buscaFinanceiro',
+        agenda: 'buscaAgenda',
         devolucoes: 'devBuscaHistorico',
         auditoria: 'auditBusca'
     };
@@ -2397,6 +2481,9 @@ document.addEventListener('keydown', (event) => {
         const mensagensRestauro = {
             buscaEstoque: 'Filtro do estoque voltou para Todos.',
             buscaLocacoes: 'Filtro de locacoes voltou para Todos.',
+            buscaOrcamentos: 'Filtro de orcamentos voltou para Todos.',
+            buscaFinanceiro: 'Filtro financeiro voltou para Todos.',
+            buscaAgenda: 'Filtro da agenda voltou para Todos.',
             devBuscaHistorico: 'Filtro de devolucoes voltou para Todos.',
             auditBusca: 'Filtro de logs voltou para Todos.'
         };

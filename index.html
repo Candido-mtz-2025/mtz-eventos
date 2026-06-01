@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=19.3">
+    <link rel="stylesheet" href="./assets/css/style.css?v=19.4">
 </head>
 <body>
 
@@ -116,6 +116,9 @@
         <button class="tab-btn" data-tab="estoque" data-action="abrirTab" data-arg="estoque"><i class="bi bi-box-seam"></i> Estoque</button>
         <button class="tab-btn" data-tab="checklist" data-action="abrirTab" data-arg="checklist"><i class="bi bi-check2-square"></i> Checklist</button>
         <button class="tab-btn" data-tab="locacoes" data-action="abrirTab" data-arg="locacoes"><i class="bi bi-cart"></i> Locações</button>
+        <button class="tab-btn" data-tab="orcamentos" data-action="abrirTab" data-arg="orcamentos"><i class="bi bi-file-earmark-text"></i> Orçamentos</button>
+        <button class="tab-btn" data-tab="financeiro" data-action="abrirTab" data-arg="financeiro"><i class="bi bi-cash-stack"></i> Financeiro</button>
+        <button class="tab-btn" data-tab="agenda" data-action="abrirTab" data-arg="agenda"><i class="bi bi-calendar-event"></i> Agenda</button>
         <button class="tab-btn" data-tab="devolucoes" data-action="abrirTab" data-arg="devolucoes"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
         <button class="tab-btn" data-tab="auditoria" data-action="abrirTab" data-arg="auditoria"><i class="bi bi-shield-check"></i> Auditoria</button>
         <button class="tab-btn" data-tab="config" data-action="abrirTab" data-arg="config"><i class="bi bi-gear"></i> Config</button>
@@ -620,7 +623,156 @@
                 </div>
 
         </div> 
-  </div> 
+  </div>
+
+            <div id="tab-orcamentos" class="tab-content">
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Orçamentos</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-primary btn-sm" data-action="irParaLocacoesFormulario">
+                                <i class="bi bi-plus-circle"></i> Nova proposta
+                            </button>
+                        </div>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo de orçamentos">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Total</small>
+                            <strong id="orcKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Orçamento</small>
+                            <strong id="orcKpiOrcamento">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Aprovado</small>
+                            <strong id="orcKpiAprovado">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="atrasado">
+                            <small>Cancelado</small>
+                            <strong id="orcKpiCancelado">0</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="orcamentosFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-orc="todos" data-action="aplicarFiltroOrcamentosRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-orc="orcamento" data-action="aplicarFiltroOrcamentosRapido" data-arg="orcamento">Orçamento</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-orc="aprovado" data-action="aplicarFiltroOrcamentosRapido" data-arg="aprovado">Aprovado</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-orc="finalizado" data-action="aplicarFiltroOrcamentosRapido" data-arg="finalizado">Finalizado</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-orc="cancelado" data-action="aplicarFiltroOrcamentosRapido" data-arg="cancelado">Cancelado</button>
+                        </div>
+                        <input type="text" id="buscaOrcamentos" class="search-input" placeholder="🔍 Buscar proposta, cliente ou status..." data-input="buscarComDebounce" data-arg="orcamentos">
+                        <div id="metaBuscaOrcamentos" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Código</th><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblOrcamentos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-financeiro" class="tab-content">
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Financeiro</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="irParaLocacoesCobrancas">
+                                <i class="bi bi-receipt"></i> Ir para cobranças
+                            </button>
+                        </div>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo financeiro">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Contratos</small>
+                            <strong id="finKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="pendente">
+                            <small>Em aberto</small>
+                            <strong id="finKpiAberto">R$ 0,00</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Recebido</small>
+                            <strong id="finKpiPago">R$ 0,00</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="atrasado">
+                            <small>Atrasado</small>
+                            <strong id="finKpiAtrasado">R$ 0,00</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="financeiroFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-fin="todos" data-action="aplicarFiltroFinanceiroRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-warning" data-tone="critico" data-filtro-fin="pendente" data-action="aplicarFiltroFinanceiroRapido" data-arg="pendente">Pendentes</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-fin="atrasado" data-action="aplicarFiltroFinanceiroRapido" data-arg="atrasado">Atrasados</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-fin="pago" data-action="aplicarFiltroFinanceiroRapido" data-arg="pago">Pagos</button>
+                        </div>
+                        <input type="text" id="buscaFinanceiro" class="search-input" placeholder="🔍 Buscar cliente, código ou vencimento..." data-input="buscarComDebounce" data-arg="financeiro">
+                        <div id="metaBuscaFinanceiro" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Código</th><th>Cliente</th><th>Vencimento</th><th>Total</th><th>Restante</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblFinanceiro"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-agenda" class="tab-content">
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Agenda Operacional</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="irParaLocacoesFormulario">
+                                <i class="bi bi-calendar-plus"></i> Nova agenda via locação
+                            </button>
+                        </div>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo da agenda">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Atividades</small>
+                            <strong id="agendaKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Hoje</small>
+                            <strong id="agendaKpiHoje">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Próximos 7 dias</small>
+                            <strong id="agendaKpiSemana">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="atrasado">
+                            <small>Atrasadas</small>
+                            <strong id="agendaKpiAtrasadas">0</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="agendaFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-agenda="todos" data-action="aplicarFiltroAgendaRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-agenda="hoje" data-action="aplicarFiltroAgendaRapido" data-arg="hoje">Hoje</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-agenda="semana" data-action="aplicarFiltroAgendaRapido" data-arg="semana">Próximos 7 dias</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-agenda="atrasado" data-action="aplicarFiltroAgendaRapido" data-arg="atrasado">Atrasadas</button>
+                        </div>
+                        <input type="text" id="buscaAgenda" class="search-input" placeholder="🔍 Buscar cliente, equipe ou data..." data-input="buscarComDebounce" data-arg="agenda">
+                        <div id="metaBuscaAgenda" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Data</th><th>Cliente</th><th>Montagem</th><th>Desmontagem</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblAgenda"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="tab-checklist" class="tab-content">
                 <div class="card">
                     <h2>Checklist</h2>
@@ -1059,7 +1211,7 @@
     
     <script src="./assets/js/core/dom.js"></script>
     <script src="./assets/js/core/state.js"></script>
-    <script src="./assets/js/core/utils.js?v=2.2"></script>
+    <script src="./assets/js/core/utils.js?v=2.3"></script>
     <script src="./assets/js/ui/toast.js"></script>
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>
@@ -1086,8 +1238,9 @@
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.5"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
+    <script src="./assets/js/render/novas-abas.js?v=1.0"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=21.9"></script>
+    <script src="./assets/js/core/app.js?v=22.0"></script>
         
 </body>
 </html>
