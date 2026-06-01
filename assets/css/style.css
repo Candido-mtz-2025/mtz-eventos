@@ -7437,3 +7437,37 @@ header {
 #devolucoesHistoricoCard .table-responsive {
     margin: 0 !important;
 }
+
+/* === V16.7D | ESTABILIZAÇÃO FINAL DE LAYOUT (CLIENTES/TIPOS/DEVOLUÇÕES) ===
+   Evita “espaço fantasma” em listas e mantém a troca de abas sempre alinhada. */
+#tab-locadores > .card:first-child,
+#tab-tipos > .card:first-child,
+#tab-devolucoes > .card:first-child {
+    scroll-margin-top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 18px);
+}
+
+#tab-locadores .cadastros-search-toolbar,
+#tab-tipos .cadastros-search-toolbar,
+#tab-devolucoes .devolucoes-search-toolbar {
+    position: static !important;
+    top: auto !important;
+    inset: auto !important;
+    z-index: auto !important;
+}
+
+#locadoresListaCard .section-toolbar-compact,
+#tiposListaCard .section-toolbar-compact,
+#devolucoesHistoricoCard .section-toolbar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-height: auto !important;
+}
+
+#locadoresListaCard .section-toolbar-compact h3,
+#tiposListaCard .section-toolbar-compact h3,
+#devolucoesHistoricoCard .section-toolbar h3 {
+    margin: 0 !important;
+    color: var(--text) !important;
+    opacity: 1 !important;
+}

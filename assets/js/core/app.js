@@ -438,26 +438,16 @@ function obterAlvoInicialDaTab(tabId) {
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return null;
 
-    // Quando o topo contextual estiver ativo (todas as abas fora dashboard),
-    // usamos ele como âncora principal para manter a navegação visual consistente.
-    const topbarModulo = document.getElementById('moduleTopbar');
-    const topbarVisivel = !!topbarModulo
-        && topbarModulo.style.display !== 'none'
-        && topbarModulo.offsetParent !== null;
-    if (tabId !== 'dashboard' && topbarVisivel) {
-        return topbarModulo;
-    }
-
     const mapaAlvos = {
         dashboard: '#tab-dashboard .dashboard-topbar',
-        locadores: '#tab-locadores .card',
-        tipos: '#tab-tipos .card',
-        estoque: '#tab-estoque .card',
-        checklist: '#tab-checklist .card',
+        locadores: '#tab-locadores > .card:first-child',
+        tipos: '#tab-tipos > .card:first-child',
+        estoque: '#tab-estoque > .card:first-child',
+        checklist: '#tab-checklist > .card:first-child',
         locacoes: '#locacoesPrincipalCard',
-        devolucoes: '#tab-devolucoes .card',
-        auditoria: '#tab-auditoria .card',
-        config: '#tab-config .card'
+        devolucoes: '#tab-devolucoes > .card:first-child',
+        auditoria: '#tab-auditoria > .card:first-child',
+        config: '#tab-config > .card:first-child'
     };
 
     const seletor = mapaAlvos[tabId];
