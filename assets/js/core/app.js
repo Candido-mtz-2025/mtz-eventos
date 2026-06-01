@@ -460,14 +460,15 @@ function obterAlvoInicialDaTab(tabId) {
     return alvoPrioritario || tab;
 }
 
-function rolarParaElementoAtalho(elemento, block = 'start') {
+function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
     const rect = elemento.getBoundingClientRect();
     const topoDocumento = window.pageYOffset + rect.top;
     const offsetCabecalho = obterOffsetCabecalhoApp();
+    const forcarAlinhamento = opcoes?.forcar === true || opcoes?.ignorarJaVisivel === true;
 
     // Evita micro "saltos" quando o alvo já está visível na área útil.
-    if (block === 'start') {
+    if (block === 'start' && !forcarAlinhamento) {
         const margemTopo = offsetCabecalho + 10;
         const margemBase = 14;
         const limiteInferior = Math.max(margemTopo + 40, window.innerHeight - margemBase);
@@ -2361,7 +2362,7 @@ function executarAtalhoRapido(atalhoId) {
             const alvo = opcoes.seletorAlvo
                 ? document.querySelector(opcoes.seletorAlvo)
                 : obterAlvoInicialDaTab(id);
-            if (alvo) rolarParaElementoAtalho(alvo, 'start');
+            if (alvo) rolarParaElementoAtalho(alvo, 'start', { forcar: true });
         }, Number(opcoes.delayMs) || 80);
     }
     
