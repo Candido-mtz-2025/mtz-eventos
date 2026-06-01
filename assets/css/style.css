@@ -7310,3 +7310,33 @@ header {
         min-width: 272px !important;
     }
 }
+
+/* === V16.6 | PADRÃO DE AÇÕES NAS DEMAIS TABELAS === */
+#tab-locadores td.col-actions,
+#tab-tipos td.col-actions,
+#tab-estoque td.col-actions,
+#tab-devolucoes td.col-actions,
+#tab-auditoria td.col-actions {
+    white-space: nowrap;
+    overflow: visible !important;
+}
+
+#tab-locadores td.col-actions .actions-cell,
+#tab-tipos td.col-actions .actions-cell,
+#tab-estoque td.col-actions .actions-cell,
+#tab-devolucoes td.col-actions .actions-cell,
+#tab-auditoria td.col-actions .actions-cell {
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+#tab-locadores td.col-actions .table-action-btn,
+#tab-tipos td.col-actions .table-action-btn,
+#tab-estoque td.col-actions .table-action-btn,
+#tab-devolucoes td.col-actions .table-action-btn,
+#tab-auditoria td.col-actions .table-action-btn {
+    min-width: 38px !important;
+    min-height: 36px !important;
+}
