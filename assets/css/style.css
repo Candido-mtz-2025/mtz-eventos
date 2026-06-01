@@ -5782,6 +5782,10 @@ header {
     box-shadow: inset 3px 0 0 #38bdf8;
 }
 
+#tab-locacoes .table tbody .locacao-row--cancelado td:first-child {
+    box-shadow: inset 3px 0 0 #f59e0b;
+}
+
 @media (max-width: 900px) {
     #tab-locacoes .locacao-kpi-grid {
         grid-template-columns: repeat(2, minmax(120px, 1fr));

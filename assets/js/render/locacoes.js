@@ -34,7 +34,7 @@ function atualizarResumoExecutivoLocacoes(lista) {
     const emAberto = lista.filter((l) => l.statusVisual === 'ativo').length;
     const atrasadas = lista.filter((l) => l.statusVisual === 'atrasado').length;
     const pendente = lista.reduce((acc, l) => {
-        if (!l.pago && l.statusVisual !== 'devolvido') return acc + (Number(l.valorTotal) || 0);
+        if (!l.pago && l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') return acc + (Number(l.valorTotal) || 0);
         return acc;
     }, 0);
 
@@ -136,7 +136,9 @@ function renderLocacoes() {
     atualizarResumoExecutivoLocacoes(lista);
     
     const filtrados = lista.filter((l) => {
-        if (filtroAtual !== 'todos' && l.statusVisual !== filtroAtual) {
+        if (filtroAtual === 'devolvido') {
+            if (l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') return false;
+        } else if (filtroAtual !== 'todos' && l.statusVisual !== filtroAtual) {
             return false;
         }
         if (!termo) return true;
@@ -197,8 +199,8 @@ function renderLocacoes() {
                 mensagem: 'Ótimo: nenhuma locação está vencida neste filtro.'
             },
             devolvido: {
-                titulo: 'Sem devoluções no filtro',
-                mensagem: 'Não há locações devolvidas para exibir agora.'
+                titulo: 'Sem histórico no filtro',
+                mensagem: 'Não há locações devolvidas ou canceladas para exibir agora.'
             }
         };
         const estadoAtual = mapaVazio[filtroAtual] || mapaVazio.todos;
@@ -228,12 +230,16 @@ function renderLocacoes() {
             ? 'atrasado'
             : l.statusVisual === 'devolvido'
                 ? 'devolvido'
+                : l.statusVisual === 'cancelado'
+                    ? 'cancelado'
                 : 'ativo';
 
         const badgeClass = statusVisual === 'atrasado'
             ? 'badge-danger'
             : statusVisual === 'devolvido'
                 ? 'badge-info'
+                : statusVisual === 'cancelado'
+                    ? 'badge-warning'
                 : 'badge-success';
         
         const tr = document.createElement('tr');

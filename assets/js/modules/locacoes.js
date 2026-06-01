@@ -248,6 +248,7 @@ function encontrarLocacaoPossivelmenteDuplicada(dadosLocacao) {
     return locacoes.find((locacao) => {
         const status = String(locacao?.status || '').toLowerCase();
         if (status === 'devolvido') return false;
+        if (status === 'cancelado') return false;
         if (Number(locacao?.locadorId || 0) !== clienteId) return false;
         if (String(locacao?.dataAluguel || '').trim() !== dataInicio) return false;
         if (String(locacao?.dataDevolucaoPrevisao || '').trim() !== dataFim) return false;
@@ -688,12 +689,47 @@ function cancelarLocacao(id) {
     }
 
     confirmarAcao('Cancelar locacao?', () => {
-        locacoes = locacoes.filter((l) => l.id !== id);
+        const locacao = locacoes.find((l) => String(l.id) === String(id));
+        if (!locacao) {
+            mostrarToast('Locacao nao encontrada.');
+            return;
+        }
+
+        const statusAtual = String(locacao.status || '').trim().toLowerCase();
+        const fluxoAtual = String(locacao.statusFluxo || '').trim().toLowerCase();
+        if (statusAtual === 'cancelado' || fluxoAtual === 'cancelado') {
+            mostrarToast('Locacao ja esta cancelada.');
+            return;
+        }
+
+        if (typeof atualizarStatusLocacaoDominio === 'function') {
+            atualizarStatusLocacaoDominio(locacao, 'cancelado', {
+                acao: 'cancelamento',
+                descricao: 'Locacao cancelada.',
+                origem: 'locacoes'
+            });
+        } else {
+            locacao.status = 'cancelado';
+            locacao.statusFluxo = 'cancelado';
+            if (typeof registrarHistoricoLocacaoDominio === 'function') {
+                registrarHistoricoLocacaoDominio(locacao, {
+                    acao: 'cancelamento',
+                    descricao: 'Locacao cancelada.',
+                    origem: 'locacoes'
+                });
+            }
+        }
+
+        if (typeof registrarLog === 'function') {
+            const clienteNome = locadores.find((x) => String(x.id) === String(locacao.locadorId))?.nome || 'Cliente';
+            registrarLog('locacao', 'cancelar', `Locacao cancelada: ${clienteNome} #${String(locacao.id || '').slice(-4)}`);
+        }
+
         if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        mostrarToast('Locacao cancelada.');
+        mostrarToast('Locacao cancelada e mantida no historico.');
     }, {
         titulo: 'Cancelar locacao',
         textoConfirmar: 'Cancelar locacao',
