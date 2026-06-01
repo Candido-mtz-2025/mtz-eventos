@@ -241,6 +241,13 @@ function renderLocacoes() {
                 : statusVisual === 'cancelado'
                     ? 'badge-warning'
                 : 'badge-success';
+        const statusLabel = statusVisual === 'atrasado'
+            ? 'ATRASADO'
+            : statusVisual === 'devolvido'
+                ? 'DEVOLVIDO'
+                : statusVisual === 'cancelado'
+                    ? 'CANCELADO'
+                    : 'ATIVO';
         
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
@@ -262,7 +269,7 @@ function renderLocacoes() {
             </td>
             <td>
                 <span class="badge-row">
-                    <span class="badge ${badgeClass}">${statusVisual}</span>
+                    <span class="badge ${badgeClass}">${statusLabel}</span>
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
                 </span>
             </td>
