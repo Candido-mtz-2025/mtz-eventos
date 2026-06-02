@@ -79,6 +79,7 @@
 
     function obterEnderecoLocacao(locacao, cliente) {
         return textoSeguro(
+            locacao?.logistica?.endereco ||
             locacao?.enderecoEvento ||
             locacao?.eventoEndereco ||
             locacao?.localEvento ||
@@ -91,6 +92,7 @@
 
     function obterCidadeLocacao(locacao, cliente) {
         return textoSeguro(
+            locacao?.logistica?.cidade ||
             locacao?.cidadeEvento ||
             locacao?.eventoCidade ||
             locacao?.cidade ||
@@ -110,6 +112,11 @@
 
     function obterValorKmPadrao() {
         return numero(config?.valorKmFretePadrao, 0);
+    }
+
+    function obterTrechosTransporte(valor, fallback = 1) {
+        const trechos = Math.trunc(numero(valor, fallback));
+        return trechos > 0 ? trechos : 1;
     }
 
     function lerFiltroTransportePersistido() {
@@ -132,7 +139,8 @@
     function normalizarTransporte(registro = {}) {
         const distanciaKm = numero(registro.distanciaKm, 0);
         const valorKm = numero(registro.valorKm, obterValorKmPadrao());
-        const custoEstimado = numero(registro.custoEstimado, distanciaKm * valorKm);
+        const trechos = obterTrechosTransporte(registro.trechos, 1);
+        const custoEstimado = numero(registro.custoEstimado, distanciaKm * valorKm * trechos);
 
         return {
             id: registro.id || Date.now(),
@@ -151,6 +159,7 @@
             horaChegada: textoSeguro(registro.horaChegada),
             distanciaKm,
             valorKm,
+            trechos,
             custoEstimado,
             status: textoSeguro(registro.status, 'pendente'),
             observacoes: textoSeguro(registro.observacoes),
@@ -196,9 +205,11 @@
     function calcularCustoTransporte() {
         const distancia = numero(lerCampo('transporteDistanciaKm'), 0);
         const valorKm = numero(lerCampo('transporteValorKm'), obterValorKmPadrao());
-        const custo = distancia * valorKm;
+        const trechos = obterTrechosTransporte(lerCampo('transporteTrechos'), 1);
+        preencherCampo('transporteTrechos', trechos);
+        const custo = distancia * valorKm * trechos;
         preencherCampo('transporteCustoEstimado', moeda(custo));
-        return { distancia, valorKm, custo };
+        return { distancia, valorKm, trechos, custo };
     }
 
     function popularSelectLocacaoTransporte() {
@@ -237,6 +248,30 @@
             preencherCampo('transporteDataSaida', obterDataSaidaLocacao(locacao));
         }
 
+        const logistica = locacao?.logistica || {};
+        const distanciaKm = numero(logistica.distanciaKm, 0);
+        if (distanciaKm && !lerCampo('transporteDistanciaKm')) {
+            preencherCampo('transporteDistanciaKm', distanciaKm);
+        }
+
+        const valorKm = numero(logistica.valorKm, obterValorKmPadrao());
+        if (valorKm && !lerCampo('transporteValorKm')) {
+            preencherCampo('transporteValorKm', valorKm);
+        }
+
+        const trechos = obterTrechosTransporte(logistica.trechos, 1);
+        if (trechos && !lerCampo('transporteTrechos')) {
+            preencherCampo('transporteTrechos', trechos);
+        }
+
+        if (logistica.horarioSaida && !lerCampo('transporteHoraSaida')) {
+            preencherCampo('transporteHoraSaida', logistica.horarioSaida);
+        }
+
+        if (logistica.horarioChegada && !lerCampo('transporteHoraChegada')) {
+            preencherCampo('transporteHoraChegada', logistica.horarioChegada);
+        }
+
         const motorista = textoSeguro(locacao?.logistica?.motorista);
         if (motorista && !lerCampo('transporteMotorista')) {
             preencherCampo('transporteMotorista', motorista);
@@ -246,6 +281,8 @@
         if (veiculo && !lerCampo('transporteVeiculo')) {
             preencherCampo('transporteVeiculo', veiculo);
         }
+
+        calcularCustoTransporte();
     }
 
     function obterPayloadFormularioTransporte() {
@@ -267,6 +304,7 @@
             horaChegada: lerCampo('transporteHoraChegada'),
             distanciaKm: calculo.distancia,
             valorKm: calculo.valorKm,
+            trechos: calculo.trechos,
             custoEstimado: calculo.custo,
             status: lerCampo('transporteStatus'),
             observacoes: lerCampo('transporteObservacoes')
@@ -307,6 +345,59 @@
         setTimeout(() => irParaTransporteLista(), 120);
     }
 
+    function criarTransporteDaLocacao(locacao, opcoes = {}) {
+        if (!locacao || !locacao.id) return null;
+        if (!Array.isArray(transportes)) transportes = [];
+
+        const tipoOperacao = textoSeguro(opcoes.tipoOperacao, 'entrega');
+        const evitarDuplicado = opcoes.evitarDuplicado !== false;
+        const jaExiste = transportes.some((item) => (
+            String(item.locacaoId) === String(locacao.id) &&
+            textoSeguro(item.tipoOperacao, 'entrega') === tipoOperacao
+        ));
+        if (evitarDuplicado && jaExiste) return null;
+
+        const cliente = obterClientePorLocacao(locacao);
+        const logistica = locacao.logistica || {};
+        const distanciaKm = numero(opcoes.distanciaKm ?? logistica.distanciaKm, 0);
+        const valorKm = numero(opcoes.valorKm ?? logistica.valorKm, obterValorKmPadrao());
+        const trechos = obterTrechosTransporte(opcoes.trechos ?? logistica.trechos, 1);
+        const custoEstimado = numero(opcoes.custoEstimado ?? logistica.custoFrete, distanciaKm * valorKm * trechos);
+
+        const registro = normalizarTransporte({
+            id: opcoes.id || Date.now() + Math.floor(Math.random() * 900),
+            locacaoId: String(locacao.id),
+            clienteNome: textoSeguro(opcoes.clienteNome, obterNomeClienteLocacao(locacao)),
+            endereco: textoSeguro(opcoes.endereco, obterEnderecoLocacao(locacao, cliente)),
+            cidade: textoSeguro(opcoes.cidade, obterCidadeLocacao(locacao, cliente)),
+            tipoOperacao,
+            veiculo: textoSeguro(opcoes.veiculo, logistica.veiculo || ''),
+            placa: textoSeguro(opcoes.placa, logistica.placa || ''),
+            motorista: textoSeguro(opcoes.motorista, logistica.motorista || ''),
+            equipe: textoSeguro(opcoes.equipe, locacao.equipe?.responsavel || ''),
+            dataSaida: textoSeguro(opcoes.dataSaida, logistica.dataSaida || obterDataSaidaLocacao(locacao)),
+            horaSaida: textoSeguro(opcoes.horaSaida, logistica.horarioSaida || ''),
+            dataChegada: textoSeguro(opcoes.dataChegada, logistica.dataChegada || ''),
+            horaChegada: textoSeguro(opcoes.horaChegada, logistica.horarioChegada || ''),
+            distanciaKm,
+            valorKm,
+            trechos,
+            custoEstimado,
+            status: textoSeguro(opcoes.status, 'pendente'),
+            observacoes: textoSeguro(opcoes.observacoes, logistica.observacoes || '')
+        });
+
+        transportes.unshift(registro);
+
+        if (opcoes.persistir) {
+            if (typeof salvarLocal === 'function') salvarLocal();
+            if (typeof renderTudo === 'function') renderTudo();
+            if (typeof sincronizar === 'function') sincronizar('salvar');
+        }
+
+        return registro;
+    }
+
     function limparFormularioTransporte(opcoes = {}) {
         const campos = [
             'transporteId',
@@ -323,11 +414,13 @@
             'transporteDataChegada',
             'transporteHoraChegada',
             'transporteDistanciaKm',
+            'transporteTrechos',
             'transporteObservacoes'
         ];
         campos.forEach((id) => preencherCampo(id, ''));
         preencherCampo('transporteTipoOperacao', 'entrega');
         preencherCampo('transporteStatus', 'pendente');
+        preencherCampo('transporteTrechos', 1);
         preencherCampo('transporteValorKm', obterValorKmPadrao() || '');
         calcularCustoTransporte();
 
@@ -363,6 +456,7 @@
             preencherCampo('transporteHoraChegada', item.horaChegada);
             preencherCampo('transporteDistanciaKm', item.distanciaKm || '');
             preencherCampo('transporteValorKm', item.valorKm || '');
+            preencherCampo('transporteTrechos', item.trechos || 1);
             preencherCampo('transporteStatus', item.status);
             preencherCampo('transporteObservacoes', item.observacoes);
             calcularCustoTransporte();
@@ -555,7 +649,7 @@
                 <td><span class="badge ${badgeStatusTransporte(item.status)}">${rotuloStatusTransporte(item.status)}</span></td>
                 <td>
                     <strong>${moeda(item.custoEstimado)}</strong>
-                    <small>${item.distanciaKm ? `${item.distanciaKm} km` : 'Sem distancia'}</small>
+                    <small>${item.distanciaKm ? `${item.distanciaKm} km x ${item.trechos || 1} trecho(s)` : 'Sem distancia'}</small>
                 </td>
                 <td class="col-actions">
                     <div class="actions-cell">
@@ -609,6 +703,7 @@
     window.calcularCustoTransporte = calcularCustoTransporte;
     window.preencherTransporteDaLocacao = preencherTransporteDaLocacao;
     window.salvarTransporte = salvarTransporte;
+    window.criarTransporteDaLocacao = criarTransporteDaLocacao;
     window.limparFormularioTransporte = limparFormularioTransporte;
     window.editarTransporte = editarTransporte;
     window.duplicarTransporte = duplicarTransporte;

@@ -1308,6 +1308,21 @@
         const dataMontagem = proposta.evento.dataMontagem || proposta.evento.dataEvento || hojeIso;
         const dataDesmontagem = proposta.evento.dataDesmontagem || proposta.evento.dataEvento || dataMontagem;
         const valorFinalComercial = obterValorFinalComercial(proposta);
+        const custosProposta = proposta.custos && typeof proposta.custos === 'object' ? proposta.custos : {};
+        const freteKm = calcularFretePorKm(
+            custosProposta.freteDistanciaKm ?? custosProposta.distanciaKm,
+            custosProposta.freteValorKm ?? custosProposta.valorKm,
+            custosProposta.freteTrechos ?? custosProposta.trechos ?? 1
+        );
+        const custoFrete = freteKm.calculoAtivo
+            ? freteKm.freteCalculado
+            : numeroNaoNegativo(custosProposta.frete, 0);
+        const enderecoEvento = textoSeguro(proposta.evento.enderecoEvento || proposta.evento.local || '');
+        const cidadeEvento = textoSeguro(proposta.evento.cidadeEvento || '');
+        const observacoesLogistica = [
+            textoSeguro(proposta.evento.referenciaAcesso || ''),
+            textoSeguro(proposta.evento.observacoesGerais || '')
+        ].filter(Boolean).join(' | ');
 
         const itensLocacao = proposta.itens.map((item) => {
             const peca = encontrarPecaPorDescricao(item);
@@ -1363,11 +1378,19 @@
             logistica: {
                 veiculo: '',
                 motorista: '',
-                horarioSaida: '',
-                horarioChegada: '',
+                horarioSaida: proposta.evento.horaMontagem || '',
+                horarioChegada: proposta.evento.horaInicioEvento || '',
+                dataSaida: dataMontagem,
+                dataChegada: dataMontagem,
+                endereco: enderecoEvento,
+                cidade: cidadeEvento,
+                distanciaKm: freteKm.distanciaKm,
+                valorKm: freteKm.valorKm,
+                trechos: freteKm.trechos,
+                custoFrete,
                 statusEntrega: 'pendente',
                 statusRetirada: 'pendente',
-                observacoes: proposta.evento.referenciaAcesso || ''
+                observacoes: observacoesLogistica
             },
             financeiro: {
                 valorTotal: valorFinalComercial,
@@ -1407,6 +1430,23 @@
 
         if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
+        if (typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento)) {
+            criarTransporteDaLocacao(novaLocacao, {
+                tipoOperacao: 'entrega',
+                dataSaida: dataMontagem,
+                horaSaida: proposta.evento.horaMontagem || '',
+                dataChegada: dataMontagem,
+                horaChegada: proposta.evento.horaInicioEvento || '',
+                endereco: enderecoEvento,
+                cidade: cidadeEvento,
+                distanciaKm: freteKm.distanciaKm,
+                valorKm: freteKm.valorKm,
+                trechos: freteKm.trechos,
+                custoEstimado: custoFrete,
+                observacoes: observacoesLogistica,
+                evitarDuplicado: true
+            });
+        }
 
         const agoraIso = obterAgoraIso();
         propostas = obterPropostasBase().map((item) => {

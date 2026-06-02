@@ -217,8 +217,17 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
         logistica: clonarObjetoSeguro(locacao.logistica, {
             veiculo: '',
             motorista: '',
+            placa: '',
+            dataSaida: '',
+            dataChegada: '',
             horarioSaida: '',
             horarioChegada: '',
+            endereco: '',
+            cidade: '',
+            distanciaKm: 0,
+            valorKm: 0,
+            trechos: 1,
+            custoFrete: 0,
             statusEntrega: 'pendente',
             statusRetirada: 'pendente',
             observacoes: ''
