@@ -1,7 +1,7 @@
 // Renderizacoes das abas Orcamentos, Financeiro e Agenda
 (function () {
     const FILTROS_ORCAMENTOS = new Set(['todos', 'orcamento', 'aprovado', 'finalizado', 'cancelado']);
-    const FILTROS_FINANCEIRO = new Set(['todos', 'pendente', 'atrasado', 'pago']);
+    const FILTROS_FINANCEIRO = new Set(['todos', 'pendente', 'parcial', 'atrasado', 'pago']);
     const FILTROS_AGENDA = new Set(['todos', 'hoje', 'semana', 'atrasado']);
 
     const CHAVE_FILTRO_ORCAMENTOS = 'mtz:orcamentosFiltro';
@@ -127,6 +127,11 @@
             const statusPagamento = inferirStatusPagamento(normalizada);
             const valorTotal = Number(normalizada?.financeiro?.valorTotal ?? normalizada?.valorTotalCalculado ?? 0) || 0;
             const valorRestante = Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? (statusPagamento === 'pago' ? 0 : valorTotal)) || 0);
+            const valorRecebido = statusPagamento === 'pago'
+                ? valorTotal
+                : statusPagamento === 'parcial'
+                    ? Math.max(0, valorTotal - valorRestante)
+                    : 0;
             const vencimento = String(normalizada?.financeiro?.vencimento || normalizada?.dataDevolucaoPrevisao || '').trim();
             const dataMontagem = String(normalizada?.datasMontagem?.inicio || normalizada?.dataAluguel || '').trim();
             const dataDesmontagem = String(normalizada?.datasDesmontagem?.inicio || normalizada?.dataDevolucaoPrevisao || '').trim();
@@ -137,6 +142,7 @@
                 statusVisual,
                 statusPagamento,
                 valorTotal,
+                valorRecebido,
                 valorRestante,
                 vencimento,
                 dataMontagem,
@@ -272,7 +278,7 @@
     function atualizarKpisFinanceiro(lista) {
         const total = lista.length;
         const aberto = lista.reduce((acc, item) => item.statusPagamento === 'pago' ? acc : acc + item.valorRestante, 0);
-        const pago = lista.reduce((acc, item) => item.statusPagamento === 'pago' ? acc + item.valorTotal : acc, 0);
+        const pago = lista.reduce((acc, item) => acc + item.valorRecebido, 0);
         const atrasado = lista.reduce((acc, item) => item.statusPagamento === 'atrasado' ? acc + item.valorRestante : acc, 0);
 
         const mapa = [
@@ -344,14 +350,14 @@
 
         if (!filtrados.length) {
             tabela.innerHTML = typeof criarLinhaTabelaEstado === 'function'
-                ? criarLinhaTabelaEstado(7, {
+                ? criarLinhaTabelaEstado(8, {
                     tipo: 'empty',
                     titulo: 'Sem dados financeiros no filtro',
                     mensagem: buscaRaw
                         ? `Nenhum registro financeiro combina com "${buscaRaw}".`
                         : 'Sem contratos para este filtro no momento.'
                 })
-                : '<tr class="table-empty-row"><td colspan="7">Sem dados financeiros.</td></tr>';
+                : '<tr class="table-empty-row"><td colspan="8">Sem dados financeiros.</td></tr>';
             return;
         }
 
@@ -361,11 +367,13 @@
                 <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
                 <td>${formatarDataCurta(item.vencimento)}</td>
                 <td>${formatarMoeda(item.valorTotal)}</td>
+                <td>${formatarMoeda(item.valorRecebido)}</td>
                 <td>${formatarMoeda(item.valorRestante)}</td>
                 <td><span class="badge ${classeBadgeStatus(item.statusPagamento)}">${rotuloStatusPagamento(item.statusPagamento)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
                         <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${item.id}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
+                        <button class="btn btn-sm btn-warning table-action-btn" data-acesso="admin" data-action="marcarPagamentoParcial" data-arg="${item.id}" title="Marcar pagamento parcial"><i class="bi bi-pie-chart"></i></button>
                         <button class="btn btn-sm btn-success table-action-btn" data-acesso="admin" data-action="alternarPagamento" data-arg="${item.id}" title="Alternar pagamento"><i class="bi bi-currency-dollar"></i></button>
                     </div>
                 </td>

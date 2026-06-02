@@ -803,6 +803,46 @@ function alternarPagamento(id) {
     }
 }
 
+function marcarPagamentoParcial(id) {
+    if (typeof validarPermissao === 'function' && !validarPermissao('alterar_pagamento', 'Somente administrador pode alterar status de pagamento.')) {
+        return;
+    }
+
+    const l = locacoes.find((x) => x.id == id);
+    if (!l) return;
+
+    const financeiroAtual = l.financeiro || {};
+    const valorTotal = Number(financeiroAtual.valorTotal ?? l.valorTotalCalculado ?? 0) || 0;
+    const sinal = Math.max(0, Number(financeiroAtual.sinal ?? l.sinal ?? 0) || 0);
+    const valorRestante = Math.max(0, Number(financeiroAtual.valorRestante ?? Math.max(valorTotal - sinal, 0)) || 0);
+
+    l.pago = false;
+    l.financeiro = {
+        ...financeiroAtual,
+        sinal,
+        valorRestante,
+        statusPagamento: 'parcial'
+    };
+
+    const normalizada = sincronizarFinanceiroLocacao(l);
+    if (normalizada) Object.assign(l, normalizada);
+
+    if (typeof registrarHistoricoLocacaoDominio === 'function') {
+        registrarHistoricoLocacaoDominio(l, {
+            acao: 'financeiro_status',
+            descricao: 'Pagamento marcado como parcial.',
+            origem: 'financeiro'
+        });
+    }
+
+    salvarLocal();
+    renderLocacoes();
+    if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+    renderStats();
+    sincronizar('salvar');
+    mostrarToast('Pagamento marcado como parcial.');
+}
+
 function escaparHtmlHistoricoLocacao(valor) {
     const div = document.createElement('div');
     div.textContent = valor ?? '';

@@ -1006,7 +1006,7 @@ const CONFIG_RESULTADO_POR_BUSCA = Object.freeze({
     buscaFinanceiro: {
         tbodyId: 'tblFinanceiro',
         rowSelector: 'tr[data-financeiro-id]',
-        focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="alternarPagamento"], button, input, a, [tabindex]',
+        focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="marcarPagamentoParcial"], [data-action="alternarPagamento"], button, input, a, [tabindex]',
         emptyMessage: 'Nenhum lançamento financeiro encontrado na busca atual.'
     },
     buscaAgenda: {
