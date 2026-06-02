@@ -129,6 +129,62 @@
         return numeroNaoNegativo(document.getElementById(id)?.value, 0);
     }
 
+    const CHAVES_CUSTOS_ADICIONAIS = [
+        'frete',
+        'maoObra',
+        'operador',
+        'eletrica',
+        'gerador',
+        'terceirizados',
+        'outros'
+    ];
+
+    function arredondarMoeda(valor) {
+        return Math.round((numeroSeguro(valor, 0) + Number.EPSILON) * 100) / 100;
+    }
+
+    function calcularFretePorKm(distanciaKm = 0, valorKm = 0) {
+        const distancia = numeroNaoNegativo(distanciaKm, 0);
+        const valorPorKm = numeroNaoNegativo(valorKm, 0);
+        if (distancia <= 0 || valorPorKm <= 0) {
+            return {
+                distanciaKm: distancia,
+                valorKm: valorPorKm,
+                freteCalculado: 0,
+                calculoAtivo: false
+            };
+        }
+
+        return {
+            distanciaKm: distancia,
+            valorKm: valorPorKm,
+            freteCalculado: arredondarMoeda(distancia * valorPorKm),
+            calculoAtivo: true
+        };
+    }
+
+    function sincronizarFretePorKmFormulario() {
+        const freteEl = document.getElementById('propCustoFrete');
+        const distanciaEl = document.getElementById('propFreteDistanciaKm');
+        const valorKmEl = document.getElementById('propFreteValorKm');
+        const resultado = calcularFretePorKm(
+            distanciaEl?.value,
+            valorKmEl?.value
+        );
+
+        if (freteEl) {
+            freteEl.readOnly = resultado.calculoAtivo;
+            if (resultado.calculoAtivo) {
+                freteEl.value = resultado.freteCalculado.toFixed(2);
+                freteEl.title = 'Frete calculado automaticamente por distância x valor por km.';
+            } else {
+                freteEl.removeAttribute('title');
+            }
+        }
+
+        return resultado;
+    }
+
     function clampPercentual(valor) {
         const numero = numeroNaoNegativo(valor, 0);
         return Math.min(100, numero);
@@ -355,8 +411,14 @@
     }
 
     function obterCustosFormulario() {
+        const freteKm = sincronizarFretePorKmFormulario();
+        const freteInformado = parseNumeroInput('propCustoFrete');
+        const freteFinal = freteKm.calculoAtivo ? freteKm.freteCalculado : freteInformado;
+
         return {
-            frete: parseNumeroInput('propCustoFrete'),
+            frete: freteFinal,
+            freteDistanciaKm: freteKm.distanciaKm,
+            freteValorKm: freteKm.valorKm,
             maoObra: parseNumeroInput('propCustoMaoObra'),
             operador: parseNumeroInput('propCustoOperador'),
             eletrica: parseNumeroInput('propCustoEletrica'),
@@ -388,8 +450,8 @@
             return acc + numeroNaoNegativo(item.valorTotal, 0);
         }, 0);
 
-        const totalCustosAdicionais = Object.values(custos || {}).reduce((acc, valor) => {
-            return acc + numeroNaoNegativo(valor, 0);
+        const totalCustosAdicionais = CHAVES_CUSTOS_ADICIONAIS.reduce((acc, chave) => {
+            return acc + numeroNaoNegativo(custos?.[chave], 0);
         }, 0);
 
         const descontoNormalizado = numeroNaoNegativo(desconto, 0);
@@ -576,8 +638,15 @@
             };
         });
 
+        const freteDistanciaKm = numeroNaoNegativo(custosOrig.freteDistanciaKm ?? custosOrig.distanciaKm, 0);
+        const freteValorKm = numeroNaoNegativo(custosOrig.freteValorKm ?? custosOrig.valorKm, 0);
+        const freteKmNormalizado = calcularFretePorKm(freteDistanciaKm, freteValorKm);
+        const freteManual = numeroNaoNegativo(custosOrig.frete, 0);
+
         const custos = {
-            frete: numeroNaoNegativo(custosOrig.frete, 0),
+            frete: freteKmNormalizado.calculoAtivo ? freteKmNormalizado.freteCalculado : freteManual,
+            freteDistanciaKm,
+            freteValorKm,
             maoObra: numeroNaoNegativo(custosOrig.maoObra, 0),
             operador: numeroNaoNegativo(custosOrig.operador, 0),
             eletrica: numeroNaoNegativo(custosOrig.eletrica, 0),
@@ -854,6 +923,8 @@
             propDataDesmontagem: p.evento.dataDesmontagem,
             propHoraDesmontagem: p.evento.horaDesmontagem,
             propEventoObs: p.evento.observacoesGerais,
+            propFreteDistanciaKm: p.custos.freteDistanciaKm,
+            propFreteValorKm: p.custos.freteValorKm,
             propCustoFrete: p.custos.frete,
             propCustoMaoObra: p.custos.maoObra,
             propCustoOperador: p.custos.operador,
@@ -901,7 +972,7 @@
             'propClienteEndereco', 'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
-            'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
+            'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
             'propCustoOutros', 'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
             'propCondicaoPagamento', 'propObsPagamento', 'propCustoInternoTotal', 'propCustoTerceirizadoTotal',
             'propOutrosCustosInternos', 'propIncluso', 'propNaoIncluso', 'propObsComerciais', 'propLocacaoVinculada'
@@ -929,6 +1000,11 @@
         if (validadeDiasEl) validadeDiasEl.value = '7';
         const formaPagamentoEl = document.getElementById('propFormaPagamento');
         if (formaPagamentoEl) formaPagamentoEl.value = '';
+        const freteEl = document.getElementById('propCustoFrete');
+        if (freteEl) {
+            freteEl.readOnly = false;
+            freteEl.removeAttribute('title');
+        }
         const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
         if (chkInterno) chkInterno.checked = false;
 
@@ -1394,6 +1470,12 @@
             <table style="width:100%; border-collapse:collapse; font-size:11px;">
                 <tbody>
                     ${linhaResumoPdf('Subtotal', formatarMoeda(p.financeiro.subtotal))}
+                    ${(numeroNaoNegativo(p.custos.freteDistanciaKm, 0) > 0 && numeroNaoNegativo(p.custos.freteValorKm, 0) > 0)
+                        ? linhaResumoPdf(
+                            `Frete (${numeroNaoNegativo(p.custos.freteDistanciaKm, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km x ${formatarMoeda(p.custos.freteValorKm)}/km)`,
+                            formatarMoeda(p.custos.frete)
+                        )
+                        : ''}
                     ${(custosAdicionaisResumo > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais', formatarMoeda(custosAdicionaisResumo)) : ''}
                     ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
                     ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}

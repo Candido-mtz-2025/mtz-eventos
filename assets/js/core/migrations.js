@@ -316,9 +316,12 @@ function migrarItemPropostaParaV12(itemOriginal) {
 function migrarPropostaParaV12(propostaOriginal, contexto) {
     const proposta = clonarObjetoSeguro(propostaOriginal);
     const itens = clonarArraySeguro(proposta.itens).map((item) => migrarItemPropostaParaV12(item));
+    const custosOriginal = clonarObjetoSeguro(proposta.custos, {});
 
-    const custos = clonarObjetoSeguro(proposta.custos, {
+    const custos = clonarObjetoSeguro(custosOriginal, {
         frete: 0,
+        freteDistanciaKm: 0,
+        freteValorKm: 0,
         maoObra: 0,
         operador: 0,
         eletrica: 0,
@@ -328,6 +331,11 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     });
 
     custos.frete = numeroNaoNegativo(custos.frete, 0);
+    custos.freteDistanciaKm = numeroNaoNegativo(custos.freteDistanciaKm ?? custos.distanciaKm, 0);
+    custos.freteValorKm = numeroNaoNegativo(custos.freteValorKm ?? custos.valorKm, 0);
+    if (custos.freteDistanciaKm > 0 && custos.freteValorKm > 0) {
+        custos.frete = Math.round((custos.freteDistanciaKm * custos.freteValorKm + Number.EPSILON) * 100) / 100;
+    }
     custos.maoObra = numeroNaoNegativo(custos.maoObra, 0);
     custos.operador = numeroNaoNegativo(custos.operador, 0);
     custos.eletrica = numeroNaoNegativo(custos.eletrica, 0);
@@ -336,7 +344,15 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     custos.outros = numeroNaoNegativo(custos.outros, 0);
 
     const totalItens = itens.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0);
-    const totalCustos = Object.values(custos).reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
+    const totalCustos = [
+        custos.frete,
+        custos.maoObra,
+        custos.operador,
+        custos.eletrica,
+        custos.gerador,
+        custos.terceirizados,
+        custos.outros
+    ].reduce((acc, valor) => acc + numeroNaoNegativo(valor, 0), 0);
 
     const financeiroOriginal = clonarObjetoSeguro(proposta.financeiro, {});
     const controleInternoOriginal = clonarObjetoSeguro(proposta.controleInterno, {});
@@ -495,6 +511,8 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('percentualEntrada' in financeiroOriginal)
         || !('tipoCalculoNF' in financeiroOriginal)
         || !('exibirInformacoesInternasPDF' in financeiroOriginal)
+        || !('freteDistanciaKm' in custosOriginal)
+        || !('freteValorKm' in custosOriginal)
     ) {
         contexto.houveMudanca = true;
     }
