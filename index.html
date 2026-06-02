@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=19.5">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.0">
 </head>
 <body>
 
@@ -109,21 +109,80 @@
 
         <div class="container">
                <div class="tabs-container">
-    <div class="tabs">
-        <button class="tab-btn active" data-tab="dashboard" data-action="abrirTab" data-arg="dashboard"><i class="bi bi-grid"></i> Dashboard</button>
-        <button class="tab-btn" data-tab="locadores" data-action="abrirTab" data-arg="locadores"><i class="bi bi-people"></i> Clientes</button>
-        <button class="tab-btn" data-tab="tipos" data-action="abrirTab" data-arg="tipos"><i class="bi bi-tags"></i> Tipos</button>
-        <button class="tab-btn" data-tab="estoque" data-action="abrirTab" data-arg="estoque"><i class="bi bi-box-seam"></i> Estoque</button>
-        <button class="tab-btn" data-tab="checklist" data-action="abrirTab" data-arg="checklist"><i class="bi bi-check2-square"></i> Checklist</button>
-        <button class="tab-btn" data-tab="locacoes" data-action="abrirTab" data-arg="locacoes"><i class="bi bi-cart"></i> Locações</button>
-        <button class="tab-btn" data-tab="propostas" data-action="abrirTab" data-arg="propostas"><i class="bi bi-file-earmark-ruled"></i> Propostas</button>
-        <button class="tab-btn" data-tab="orcamentos" data-action="abrirTab" data-arg="orcamentos"><i class="bi bi-file-earmark-text"></i> Orçamentos</button>
-        <button class="tab-btn" data-tab="financeiro" data-action="abrirTab" data-arg="financeiro"><i class="bi bi-cash-stack"></i> Financeiro</button>
-        <button class="tab-btn" data-tab="agenda" data-action="abrirTab" data-arg="agenda"><i class="bi bi-calendar-event"></i> Agenda</button>
-        <button class="tab-btn" data-tab="devolucoes" data-action="abrirTab" data-arg="devolucoes"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-        <button class="tab-btn" data-tab="auditoria" data-action="abrirTab" data-arg="auditoria"><i class="bi bi-shield-check"></i> Auditoria</button>
-        <button class="tab-btn" data-tab="config" data-action="abrirTab" data-arg="config"><i class="bi bi-gear"></i> Config</button>
-    </div>
+    <nav class="tabs app-main-nav" aria-label="Menu principal">
+        <button class="tab-btn active" data-tab="dashboard" data-action="abrirTab" data-arg="dashboard">
+            <i class="bi bi-grid"></i> Dashboard
+        </button>
+
+        <div class="nav-menu-group" data-nav-group="comercial">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="comercial" aria-expanded="false" aria-controls="menu-comercial">
+                <i class="bi bi-briefcase"></i> Comercial <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-comercial" role="menu" aria-label="Comercial">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locadores" data-action="abrirTab" data-arg="locadores">
+                    <i class="bi bi-people"></i><span>Clientes</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="propostas" data-action="abrirTab" data-arg="propostas">
+                    <i class="bi bi-file-earmark-ruled"></i><span>Orçamentos</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locacoes" data-action="abrirTab" data-arg="locacoes">
+                    <i class="bi bi-cart"></i><span>Locações</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="operacao">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="operacao" aria-expanded="false" aria-controls="menu-operacao">
+                <i class="bi bi-tools"></i> Operação <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-operacao" role="menu" aria-label="Operação">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="estoque" data-action="abrirTab" data-arg="estoque">
+                    <i class="bi bi-box-seam"></i><span>Estoque</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="checklist" data-action="abrirTab" data-arg="checklist">
+                    <i class="bi bi-check2-square"></i><span>Checklist</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="devolucoes" data-action="abrirTab" data-arg="devolucoes">
+                    <i class="bi bi-arrow-return-left"></i><span>Devoluções</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="tipos" data-action="abrirTab" data-arg="tipos">
+                    <i class="bi bi-tags"></i><span>Tipos</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="logistica">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="logistica" aria-expanded="false" aria-controls="menu-logistica">
+                <i class="bi bi-truck"></i> Logística <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-logistica" role="menu" aria-label="Logística">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="agenda" data-action="abrirTab" data-arg="agenda">
+                    <i class="bi bi-calendar-event"></i><span>Agenda</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="abrirModuloPreparado" data-arg="transporte">
+                    <i class="bi bi-truck-front"></i><span>Transporte</span>
+                </button>
+            </div>
+        </div>
+
+        <button class="tab-btn" data-tab="financeiro" data-action="abrirTab" data-arg="financeiro">
+            <i class="bi bi-cash-stack"></i> Financeiro
+        </button>
+
+        <div class="nav-menu-group" data-nav-group="admin">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="admin" aria-expanded="false" aria-controls="menu-admin">
+                <i class="bi bi-shield-lock"></i> Admin <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-admin" role="menu" aria-label="Admin">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="auditoria" data-action="abrirTab" data-arg="auditoria">
+                    <i class="bi bi-shield-check"></i><span>Auditoria</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="config" data-action="abrirTab" data-arg="config">
+                    <i class="bi bi-gear"></i><span>Configurações</span>
+                </button>
+            </div>
+        </div>
+    </nav>
 </div>
 
             <div id="moduleTopbar" class="module-topbar" style="display:none;">
@@ -629,7 +688,7 @@
             <div id="tab-propostas" class="tab-content">
                 <div class="card" id="propostasFormularioCard">
                     <div class="section-toolbar">
-                        <h3>Propostas</h3>
+                        <h3>Orçamentos</h3>
                         <div class="inline-chip-row">
                             <span id="propostaModoLabel" class="badge badge-info">Nova proposta</span>
                             <button class="btn btn-secondary btn-sm" data-action="limparFormularioProposta">
@@ -993,10 +1052,10 @@
                     </div>
 
                     <div class="inline-chip-row section-gap">
-                        <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar proposta</button>
-                        <button class="btn btn-info" data-action="editarPropostaAtual"><i class="bi bi-pencil"></i> Editar proposta</button>
-                        <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar proposta</button>
-                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir proposta</button>
+                        <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
+                        <button class="btn btn-info" data-action="editarPropostaAtual"><i class="bi bi-pencil"></i> Editar orçamento</button>
+                        <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar orçamento</button>
+                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
                         <button class="btn btn-warning" data-action="gerarPDFPropostaAtual"><i class="bi bi-printer"></i> Gerar PDF</button>
                         <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
                     </div>
@@ -1004,9 +1063,9 @@
 
                 <div class="card">
                     <div class="section-toolbar">
-                        <h3>Lista de propostas</h3>
+                        <h3>Lista de orçamentos</h3>
                     </div>
-                    <div class="locacao-kpi-grid" aria-label="Resumo de propostas">
+                    <div class="locacao-kpi-grid" aria-label="Resumo de orçamentos">
                         <div class="locacao-kpi-card" data-tone="total">
                             <small>Total</small>
                             <strong id="propKpiTotal">0</strong>
@@ -1029,14 +1088,14 @@
                         <div class="filters-row filters-segmented" id="propostasFiltros">
                             <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="todos" data-action="aplicarFiltroPropostas" data-arg="todos">Todas</button>
                             <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="rascunho" data-action="aplicarFiltroPropostas" data-arg="rascunho">Rascunho</button>
-                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-proposta="enviada" data-action="aplicarFiltroPropostas" data-arg="enviada">Enviada</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-proposta="enviada" data-action="aplicarFiltroPropostas" data-arg="enviada">Enviado</button>
                             <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="em_negociacao" data-action="aplicarFiltroPropostas" data-arg="em_negociacao">Em negociação</button>
-                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-proposta="aprovada" data-action="aplicarFiltroPropostas" data-arg="aprovada">Aprovada</button>
-                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-proposta="cancelada" data-action="aplicarFiltroPropostas" data-arg="cancelada">Cancelada</button>
-                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="recusada" data-action="aplicarFiltroPropostas" data-arg="recusada">Recusada</button>
-                            <button class="btn btn-sm btn-primary" data-tone="info" data-filtro-proposta="convertida" data-action="aplicarFiltroPropostas" data-arg="convertida">Convertida</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-proposta="aprovada" data-action="aplicarFiltroPropostas" data-arg="aprovada">Aprovado</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-proposta="cancelada" data-action="aplicarFiltroPropostas" data-arg="cancelada">Cancelado</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="recusada" data-action="aplicarFiltroPropostas" data-arg="recusada">Recusado</button>
+                            <button class="btn btn-sm btn-primary" data-tone="info" data-filtro-proposta="convertida" data-action="aplicarFiltroPropostas" data-arg="convertida">Convertido</button>
                         </div>
-                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar por código, cliente, evento, status, responsável, cidade ou data..." data-input="buscarComDebounce" data-arg="propostas">
+                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar orçamento por código, cliente, evento, status, responsável, cidade ou data..." data-input="buscarComDebounce" data-arg="propostas">
                         <div id="metaBuscaPropostas" class="search-meta" aria-live="polite"></div>
                     </div>
                     <div class="table-responsive">
@@ -1618,7 +1677,7 @@
                 <div class="shortcut-item"><kbd>Ctrl + K</kbd><span>Abrir busca da aba atual</span></div>
                 <div class="shortcut-item"><kbd>Ctrl + S</kbd><span>Salvar na tela/modal atual</span></div>
                 <div class="shortcut-item"><kbd>Esc</kbd><span>Limpar busca ativa</span></div>
-                <div class="shortcut-item"><kbd>Ctrl + 1..9</kbd><span>Navegar entre abas</span></div>
+                <div class="shortcut-item"><kbd>Ctrl + 1..9</kbd><span>Navegar entre áreas principais</span></div>
                 <div class="shortcut-item"><kbd>Shift + ?</kbd><span>Abrir este painel de atalhos</span></div>
                 <div class="shortcut-item"><kbd>F1</kbd><span>Abrir este painel de atalhos</span></div>
             </div>
@@ -1672,7 +1731,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.0"></script>
     <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=22.0"></script>
+    <script src="./assets/js/core/app.js?v=22.1"></script>
         
 </body>
 </html>

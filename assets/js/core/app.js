@@ -30,7 +30,7 @@ const TAB_TOPBAR_CONFIG = {
     estoque: { icon: 'bi-box-seam', titulo: 'Estoque', descricao: 'Controle completo de itens e disponibilidade.', meta: 'Inventário' },
     checklist: { icon: 'bi-check2-square', titulo: 'Checklist', descricao: 'Separação e conferência de montagem.', meta: 'Operação de campo' },
     locacoes: { icon: 'bi-cart', titulo: 'Locações', descricao: 'Gestão ponta a ponta dos pedidos.', meta: 'Fluxo comercial' },
-    propostas: { icon: 'bi-file-earmark-ruled', titulo: 'Propostas', descricao: 'Orçamentos completos com custos, PDF e conversão em locação.', meta: 'Pré-venda' },
+    propostas: { icon: 'bi-file-earmark-ruled', titulo: 'Orçamentos', descricao: 'Propostas comerciais com custos, PDF e conversão em locação.', meta: 'Pré-venda' },
     devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
@@ -38,6 +38,13 @@ const TAB_TOPBAR_CONFIG = {
     auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
     config: { icon: 'bi-gear', titulo: 'Configurações', descricao: 'Ajustes gerais e políticas de acesso.', meta: 'Administração' }
 };
+
+const NAV_GRUPOS_ABAS = Object.freeze({
+    comercial: ['locadores', 'propostas', 'locacoes'],
+    operacao: ['estoque', 'checklist', 'devolucoes', 'tipos'],
+    logistica: ['agenda', 'transporte'],
+    admin: ['auditoria', 'config']
+});
 
 const TAB_QUICK_ACTIONS = {
     dashboard: [
@@ -71,9 +78,9 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Atrasados' }
     ],
     propostas: [
-        { id: 'qa_nova_proposta', icon: 'bi-file-earmark-plus', label: 'Nova proposta' },
-        { id: 'qa_busca_proposta', icon: 'bi-search', label: 'Buscar proposta' },
-        { id: 'qa_converter_proposta', icon: 'bi-check2-circle', label: 'Converter proposta' }
+        { id: 'qa_nova_proposta', icon: 'bi-file-earmark-plus', label: 'Novo orçamento' },
+        { id: 'qa_busca_proposta', icon: 'bi-search', label: 'Buscar orçamento' },
+        { id: 'qa_converter_proposta', icon: 'bi-check2-circle', label: 'Converter orçamento' }
     ],
     devolucoes: [
         { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' },
@@ -245,6 +252,107 @@ function atualizarTopbarModulo(tabId) {
     descEl.textContent = cfg.descricao;
     metaEl.textContent = cfg.meta;
     topbar.style.display = 'flex';
+}
+
+function obterGrupoNavegacaoPorAba(tabId) {
+    const aba = String(tabId || '').trim();
+    if (!aba) return '';
+
+    const entrada = Object.entries(NAV_GRUPOS_ABAS).find(([, abas]) => abas.includes(aba));
+    return entrada ? entrada[0] : '';
+}
+
+function fecharMenusNavegacaoPrincipal(excecao = '') {
+    document.querySelectorAll('[data-nav-group]').forEach((grupoEl) => {
+        const grupo = String(grupoEl.dataset.navGroup || '').trim();
+        const manterAberto = excecao && grupo === excecao;
+        grupoEl.classList.toggle('is-open', Boolean(manterAberto));
+        const trigger = grupoEl.querySelector('[data-menu-toggle]');
+        if (trigger) trigger.setAttribute('aria-expanded', manterAberto ? 'true' : 'false');
+    });
+}
+
+function alternarMenuNavegacaoPrincipal(grupo) {
+    const grupoId = String(grupo || '').trim();
+    const grupoEl = document.querySelector(`[data-nav-group="${grupoId}"]`);
+    if (!grupoEl) return false;
+
+    const vaiAbrir = !grupoEl.classList.contains('is-open');
+    fecharMenusNavegacaoPrincipal(vaiAbrir ? grupoId : '');
+    return true;
+}
+
+function atualizarNavegacaoPrincipal(tabId) {
+    const aba = String(tabId || '').trim();
+    const grupoAtivo = obterGrupoNavegacaoPorAba(aba);
+
+    document.querySelectorAll('.tab-menu-item[data-tab], .tab-btn[data-tab]').forEach((item) => {
+        const ativo = String(item.dataset.tab || '') === aba;
+        item.classList.toggle('active', ativo);
+        item.classList.toggle('is-active', ativo);
+        item.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        if (ativo) item.setAttribute('aria-current', 'page');
+        else item.removeAttribute('aria-current');
+    });
+
+    document.querySelectorAll('[data-nav-group]').forEach((grupoEl) => {
+        const grupo = String(grupoEl.dataset.navGroup || '').trim();
+        const ativo = grupo && grupo === grupoAtivo;
+        grupoEl.classList.toggle('is-active', ativo);
+        const trigger = grupoEl.querySelector('[data-menu-toggle]');
+        if (trigger) {
+            trigger.classList.toggle('active', ativo);
+            trigger.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+        }
+    });
+}
+
+function inicializarNavegacaoPrincipal() {
+    if (window.__mtzNavPrincipalInicializada) return;
+    window.__mtzNavPrincipalInicializada = true;
+
+    document.addEventListener('click', (event) => {
+        const alvo = event.target;
+        if (!(alvo instanceof HTMLElement)) return;
+
+        const trigger = alvo.closest('[data-menu-toggle]');
+        if (trigger instanceof HTMLElement) {
+            event.preventDefault();
+            alternarMenuNavegacaoPrincipal(trigger.dataset.menuToggle);
+            return;
+        }
+
+        if (alvo.closest('[data-menu-item]')) {
+            setTimeout(() => fecharMenusNavegacaoPrincipal(), 40);
+            return;
+        }
+
+        if (!alvo.closest('.app-main-nav')) {
+            fecharMenusNavegacaoPrincipal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        const menuAberto = document.querySelector('[data-nav-group].is-open');
+        if (!menuAberto) return;
+        event.preventDefault();
+        fecharMenusNavegacaoPrincipal();
+    });
+}
+
+function abrirModuloPreparado(id) {
+    const tabId = String(id || '').trim();
+    if (tabId && document.getElementById(`tab-${tabId}`)) {
+        abrirTab(tabId);
+        return true;
+    }
+
+    fecharMenusNavegacaoPrincipal();
+    if (typeof mostrarToast === 'function') {
+        mostrarToast('Módulo de transporte preparado para próxima etapa.', 'info');
+    }
+    return false;
 }
 
 function sincronizarEstadoVisualDaAba(tabId) {
@@ -2204,13 +2312,13 @@ function fecharModalAtiva() {
 function navegarParaAbaPorAtalho(numero) {
     const mapa = {
         '1': 'dashboard',
-        '2': 'locadores',
-        '3': 'tipos',
-        '4': 'estoque',
-        '5': 'checklist',
-        '6': 'locacoes',
-        '7': 'devolucoes',
-        '8': 'auditoria',
+        '2': 'propostas',
+        '3': 'estoque',
+        '4': 'agenda',
+        '5': 'financeiro',
+        '6': 'auditoria',
+        '7': 'locadores',
+        '8': 'locacoes',
         '9': 'config'
     };
     const tab = mapa[String(numero)];
@@ -2445,9 +2553,10 @@ function executarAtalhoRapido(atalhoId) {
     
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
+    inicializarNavegacaoPrincipal();
     const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
     const ultimaAba = String(localStorage.getItem('mtz:lastTab') || '').trim();
-    const abaInicial = document.querySelector(`.tab-btn[data-tab="${ultimaAba}"]`)
+    const abaInicial = document.querySelector(`[data-tab="${ultimaAba}"]`)
         ? ultimaAba
         : (btnInicial?.dataset.tab || 'dashboard');
     abrirTab(abaInicial, { semRolagem: true });
@@ -2479,12 +2588,8 @@ function executarAtalhoRapido(atalhoId) {
             tab.setAttribute('aria-hidden', ativa ? 'false' : 'true');
         });
 
-        const btns = document.querySelectorAll('.tab-btn');
-        btns.forEach((btn) => {
-            const ativa = btn.dataset.tab === id;
-            btn.classList.toggle('active', ativa);
-            btn.setAttribute('aria-pressed', ativa ? 'true' : 'false');
-        });
+        atualizarNavegacaoPrincipal(id);
+        fecharMenusNavegacaoPrincipal();
 
         atualizarTopbarModulo(id);
         aplicarFeedbackTrocaAba(id);

@@ -7632,3 +7632,129 @@ header {
         padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px));
     }
 }
+
+/* === V17.0 | MENU PRINCIPAL AGRUPADO === */
+.app-main-nav {
+    align-items: center;
+    gap: 8px;
+    overflow: visible !important;
+}
+
+.nav-menu-group {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.nav-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-caret {
+    font-size: 0.72rem;
+    margin-left: 2px;
+    transition: transform 0.16s ease;
+}
+
+.nav-menu-group.is-open .nav-caret {
+    transform: rotate(180deg);
+}
+
+.nav-dropdown {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    width: 220px;
+    display: none;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+    z-index: 1600;
+}
+
+.nav-menu-group.is-open .nav-dropdown {
+    display: grid;
+    gap: 4px;
+}
+
+.tab-menu-item {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-light);
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tab-menu-item i {
+    width: 18px;
+    text-align: center;
+}
+
+.tab-menu-item:hover,
+.tab-menu-item:focus-visible {
+    background: var(--surface-soft);
+    color: var(--text);
+    outline: none;
+}
+
+.tab-menu-item.is-active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.22);
+}
+
+.nav-menu-group.is-active > .nav-menu-trigger {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
+}
+
+[data-theme="dark"] .nav-dropdown {
+    background: color-mix(in srgb, var(--surface) 92%, #020617 8%);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32);
+}
+
+@media (max-width: 820px) {
+    .app-main-nav {
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .app-main-nav > .tab-btn,
+    .app-main-nav > .nav-menu-group {
+        flex: 1 1 calc(50% - 6px);
+        min-width: 148px;
+    }
+
+    .app-main-nav > .nav-menu-group > .tab-btn,
+    .app-main-nav > .tab-btn {
+        width: 100%;
+    }
+
+    .nav-dropdown {
+        position: static;
+        width: 100%;
+        margin-top: 6px;
+        box-shadow: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .app-main-nav > .tab-btn,
+    .app-main-nav > .nav-menu-group {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+}
