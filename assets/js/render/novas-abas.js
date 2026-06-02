@@ -400,6 +400,7 @@
             if (!busca) return true;
             const alvo = normalizarTextoBusca([
                 item.clienteNome,
+                item.codigoProposta,
                 item.id,
                 item.vencimento,
                 item.rotuloVencimento,
@@ -437,7 +438,10 @@
         tabela.innerHTML = filtrados.map((item) => `
             <tr data-financeiro-id="${item.id}">
                 <td>#${String(item.id || '').slice(-4)}</td>
-                <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
+                <td>
+                    <div>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</div>
+                    ${item.codigoProposta ? `<div class="table-cell-sub">Proposta ${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.codigoProposta) : item.codigoProposta}</div>` : ''}
+                </td>
                 <td>
                     <div>${formatarDataCurta(item.vencimento)}</div>
                     ${item.rotuloVencimento ? `<div class="table-cell-sub">${item.rotuloVencimento}</div>` : ''}

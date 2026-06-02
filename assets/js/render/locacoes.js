@@ -150,6 +150,7 @@ function renderLocacoes() {
             l.clienteNome,
             idTexto,
             `#${idTexto.slice(-4)}`,
+            l.codigoProposta,
             periodoTexto,
             l.statusVisual,
             l.pago ? 'pago' : 'pendente',
@@ -230,6 +231,12 @@ function renderLocacoes() {
         const nomeCliente = typeof sanitizarTexto === 'function'
             ? sanitizarTexto(l.clienteNome || 'Removido')
             : (l.clienteNome || 'Removido');
+        const origemProposta = l.codigoProposta
+            ? `Proposta ${l.codigoProposta}`
+            : '';
+        const origemPropostaHtml = origemProposta
+            ? `<div class="locacao-cell-meta">${typeof sanitizarTexto === 'function' ? sanitizarTexto(origemProposta) : origemProposta}</div>`
+            : '';
 
         const statusVisual = l.statusVisual === 'atrasado'
             ? 'atrasado'
@@ -263,6 +270,7 @@ function renderLocacoes() {
             <td>
                 <div class="locacao-cell-main">${nomeCliente}</div>
                 <div class="locacao-cell-meta">#${l.id.toString().slice(-4)}</div>
+                ${origemPropostaHtml}
             </td>
             <td>
                 <div class="locacao-period-main">${formatarData(l.dataAluguel)}</div>
