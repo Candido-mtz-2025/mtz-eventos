@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.1">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.2">
 </head>
 <body>
 
@@ -1878,6 +1878,59 @@
         </div>
     </div>
 
+    <div id="modalPagamentoLocacao" class="modal">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header">
+                <h3>Lançar Recebimento</h3>
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalPagamentoLocacao">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="pagamentoLocacaoId">
+            <div class="pagamento-modal-head">
+                <div>
+                    <small>Cliente</small>
+                    <strong id="pagamentoLocacaoCliente">-</strong>
+                </div>
+                <span id="pagamentoLocacaoCodigo" class="badge badge-info">#----</span>
+            </div>
+            <div class="pagamento-modal-grid">
+                <div class="pagamento-modal-kpi">
+                    <small>Total</small>
+                    <strong id="pagamentoLocacaoTotal">R$ 0,00</strong>
+                </div>
+                <div class="pagamento-modal-kpi">
+                    <small>Recebido atual</small>
+                    <strong id="pagamentoLocacaoRecebidoAtual">R$ 0,00</strong>
+                </div>
+                <div class="pagamento-modal-kpi">
+                    <small>Restante atual</small>
+                    <strong id="pagamentoLocacaoRestanteAtual">R$ 0,00</strong>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Valor recebido até agora</label>
+                <input type="text" id="pagamentoLocacaoValorRecebido" inputmode="decimal" placeholder="0,00" data-input="atualizarPreviewPagamentoLocacao">
+            </div>
+            <div class="inline-chip-row pagamento-modal-quick">
+                <button class="btn btn-secondary btn-sm" data-action="preencherPagamentoRapido" data-arg="0">Zerar</button>
+                <button class="btn btn-secondary btn-sm" data-action="preencherPagamentoRapido" data-arg="50">50%</button>
+                <button class="btn btn-success btn-sm" data-action="preencherPagamentoRapido" data-arg="total">Total</button>
+            </div>
+            <div class="pagamento-modal-preview">
+                <div>
+                    <small>Novo restante</small>
+                    <strong id="pagamentoLocacaoNovoRestante">R$ 0,00</strong>
+                </div>
+                <span id="pagamentoLocacaoNovoStatus" class="badge badge-warning">PENDENTE</span>
+            </div>
+            <div class="inline-chip-row section-gap">
+                <button class="btn btn-secondary" data-action="fecharModal" data-arg="modalPagamentoLocacao">Cancelar</button>
+                <button class="btn btn-primary" data-action="salvarPagamentoLocacao">Salvar recebimento</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast"></div>
 
     
@@ -1892,7 +1945,7 @@
     <script src="./assets/js/core/domain-services.js?v=12.1"></script>
     <script src="./assets/js/core/storage.js?v=12.2"></script>
     <script src="./assets/js/ui/pwa.js"></script>
-    <script src="./assets/js/modules/locacoes.js?v=12.6"></script>
+    <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
     <script src="./assets/js/modules/propostas.js?v=2.2"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -1913,8 +1966,8 @@
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
-    <script src="./assets/js/ui/eventos.js?v=2.2"></script>
-    <script src="./assets/js/core/app.js?v=22.4"></script>
+    <script src="./assets/js/ui/eventos.js?v=2.3"></script>
+    <script src="./assets/js/core/app.js?v=22.5"></script>
         
 </body>
 </html>

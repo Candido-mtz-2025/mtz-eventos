@@ -7140,6 +7140,79 @@ header {
     overflow-y: auto;
 }
 
+.modal-pagamento-locacao {
+    width: min(560px, 94vw) !important;
+    max-height: min(88vh, 720px);
+    overflow-y: auto;
+}
+
+.pagamento-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-hover);
+    margin-bottom: 12px;
+}
+
+.pagamento-modal-head small,
+.pagamento-modal-kpi small,
+.pagamento-modal-preview small {
+    display: block;
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.pagamento-modal-head strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.pagamento-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.pagamento-modal-kpi {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    background: var(--surface);
+}
+
+.pagamento-modal-kpi strong,
+.pagamento-modal-preview strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.pagamento-modal-quick {
+    margin-top: 8px;
+}
+
+.pagamento-modal-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: var(--surface-hover);
+    margin-top: 12px;
+}
+
 .locacao-history-summary {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -7270,6 +7343,16 @@ header {
     .modal-historico-locacao {
         width: 100% !important;
         max-height: 92vh;
+    }
+
+    .pagamento-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pagamento-modal-head,
+    .pagamento-modal-preview {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 

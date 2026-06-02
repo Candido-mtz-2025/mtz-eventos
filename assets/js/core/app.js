@@ -1904,7 +1904,8 @@ function executarAtalhoEnterModal(event, modalAtivo, alvo) {
             'editPecaFamiliaEstrutural',
             'editPecaSubtipoEstrutural',
             'editPecaPodeCompor'
-        ]
+        ],
+        modalPagamentoLocacao: ['pagamentoLocacaoValorRecebido']
     };
 
     const ordemIds = mapaCamposModal[modalAtivo.id];
@@ -2414,7 +2415,8 @@ function executarSalvarModalAtivo(modal) {
         modalEditarLocador: ['salvarEdicaoLocador'],
         modalEditarTipo: ['salvarEdicaoTipo'],
         modalEditarPeca: ['salvarEdicaoPeca'],
-        modalModeloChecklist: ['salvarModeloChecklistForm']
+        modalModeloChecklist: ['salvarModeloChecklistForm'],
+        modalPagamentoLocacao: ['salvarPagamentoLocacao']
     };
 
     const lista = acoesPorModal[modal.id];
