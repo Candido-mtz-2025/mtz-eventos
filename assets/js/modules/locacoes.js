@@ -18,6 +18,23 @@ function sincronizarFinanceiroLocacao(localLocacao) {
     return localLocacao;
 }
 
+function parseValorFinanceiroLocacao(valor) {
+    const limpo = String(valor ?? '')
+        .replace(/[^\d,.-]/g, '')
+        .replace(/\.(?=\d{3}(\D|$))/g, '')
+        .replace(',', '.');
+    if (!/\d/.test(limpo)) return NaN;
+    const numero = Number(limpo);
+    return Number.isFinite(numero) ? numero : NaN;
+}
+
+function formatarValorPromptFinanceiro(valor) {
+    return (Number(valor) || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 function focarCampoLocacao(idCampo) {
     const campo = document.getElementById(idCampo);
     if (!campo) return;
@@ -780,8 +797,13 @@ function alternarPagamento(id) {
         const pagoAnterior = !!l.pago;
         l.pago = !l.pago;
         const statusPagamento = l.pago ? 'pago' : 'pendente';
+        const financeiroAtual = l.financeiro || {};
+        const valorTotal = Math.max(0, Number(financeiroAtual.valorTotal ?? l.valorTotalCalculado ?? 0) || 0);
+        const sinal = Math.max(0, Number(financeiroAtual.sinal ?? l.sinal ?? 0) || 0);
         l.financeiro = {
-            ...(l.financeiro || {}),
+            ...financeiroAtual,
+            sinal: l.pago ? valorTotal : sinal,
+            valorRestante: l.pago ? 0 : Math.max(valorTotal - sinal, 0),
             statusPagamento
         };
         const normalizada = sincronizarFinanceiroLocacao(l);
@@ -797,6 +819,7 @@ function alternarPagamento(id) {
         }
         salvarLocal();
         renderLocacoes();
+        if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
         renderStats();
         sincronizar('salvar');
         mostrarToast('Pagamento atualizado!');
@@ -813,15 +836,33 @@ function marcarPagamentoParcial(id) {
 
     const financeiroAtual = l.financeiro || {};
     const valorTotal = Number(financeiroAtual.valorTotal ?? l.valorTotalCalculado ?? 0) || 0;
-    const sinal = Math.max(0, Number(financeiroAtual.sinal ?? l.sinal ?? 0) || 0);
-    const valorRestante = Math.max(0, Number(financeiroAtual.valorRestante ?? Math.max(valorTotal - sinal, 0)) || 0);
+    const sinalAtual = Math.max(0, Number(financeiroAtual.sinal ?? l.sinal ?? 0) || 0);
+    const valorRestante = Math.max(0, Number(financeiroAtual.valorRestante ?? Math.max(valorTotal - sinalAtual, 0)) || 0);
+    const recebidoAtual = Math.max(sinalAtual, valorTotal - valorRestante, 0);
+    const informado = prompt(
+        'Informe o valor ja recebido desta locacao:',
+        formatarValorPromptFinanceiro(recebidoAtual)
+    );
+    if (informado === null) return;
 
-    l.pago = false;
+    const valorRecebido = Math.min(Math.max(parseValorFinanceiroLocacao(informado), 0), valorTotal);
+    if (!Number.isFinite(valorRecebido)) {
+        mostrarToast('Valor recebido invalido.');
+        return;
+    }
+    const novoRestante = Math.max(valorTotal - valorRecebido, 0);
+    const statusPagamento = valorRecebido <= 0
+        ? 'pendente'
+        : novoRestante <= 0
+            ? 'pago'
+            : 'parcial';
+
+    l.pago = statusPagamento === 'pago';
     l.financeiro = {
         ...financeiroAtual,
-        sinal,
-        valorRestante,
-        statusPagamento: 'parcial'
+        sinal: valorRecebido,
+        valorRestante: novoRestante,
+        statusPagamento
     };
 
     const normalizada = sincronizarFinanceiroLocacao(l);
@@ -830,7 +871,7 @@ function marcarPagamentoParcial(id) {
     if (typeof registrarHistoricoLocacaoDominio === 'function') {
         registrarHistoricoLocacaoDominio(l, {
             acao: 'financeiro_status',
-            descricao: 'Pagamento marcado como parcial.',
+            descricao: `Pagamento atualizado para ${rotuloStatusPagamentoLocacao(statusPagamento, l.pago)}.`,
             origem: 'financeiro'
         });
     }
@@ -840,7 +881,7 @@ function marcarPagamentoParcial(id) {
     if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
     renderStats();
     sincronizar('salvar');
-    mostrarToast('Pagamento marcado como parcial.');
+    mostrarToast(`Pagamento ${rotuloStatusPagamentoLocacao(statusPagamento, l.pago).toLowerCase()} atualizado.`);
 }
 
 function escaparHtmlHistoricoLocacao(valor) {

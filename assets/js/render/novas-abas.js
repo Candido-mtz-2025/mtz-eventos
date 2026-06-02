@@ -95,6 +95,7 @@
 
     function rotuloStatusPagamento(statusPagamento) {
         const mapa = {
+            todos: 'Todos',
             pendente: 'Pendente',
             parcial: 'Parcial',
             pago: 'Pago',
@@ -126,7 +127,9 @@
             const statusVisual = String(normalizada?.statusVisual || normalizada?.status || '').trim().toLowerCase() || 'ativo';
             const statusPagamento = inferirStatusPagamento(normalizada);
             const valorTotal = Number(normalizada?.financeiro?.valorTotal ?? normalizada?.valorTotalCalculado ?? 0) || 0;
-            const valorRestante = Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? (statusPagamento === 'pago' ? 0 : valorTotal)) || 0);
+            const valorRestante = statusPagamento === 'pago'
+                ? 0
+                : Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? valorTotal) || 0);
             const valorRecebido = statusPagamento === 'pago'
                 ? valorTotal
                 : statusPagamento === 'parcial'
