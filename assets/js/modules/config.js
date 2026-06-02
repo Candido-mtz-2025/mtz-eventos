@@ -7,6 +7,12 @@ function normalizarEmailsPermitidos(texto) {
         .join('\n');
 }
 
+function normalizarNumeroConfig(valor, fallback = 0) {
+    const texto = String(valor ?? '').replace(',', '.').trim();
+    const numero = Number(texto);
+    return Number.isFinite(numero) && numero >= 0 ? numero : fallback;
+}
+
 function salvarConfig() {
     if (typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode salvar configurações.')) {
         return;
@@ -15,12 +21,17 @@ function salvarConfig() {
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
+    const elValorKmFrete = document.getElementById('confValorKmFretePadrao');
     const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
     const elAdminEmails = document.getElementById('confAdminEmails');
 
     if (elRodape) config.rodape = elRodape.value;
     if (elTel) config.tel = elTel.value;
     if (elEmail) config.email = elEmail.value;
+    if (elValorKmFrete) {
+        config.valorKmFretePadrao = normalizarNumeroConfig(elValorKmFrete.value, 0);
+        elValorKmFrete.value = config.valorKmFretePadrao || '';
+    }
     if (elEmailsPermitidos) {
         config.emailsPermitidos = normalizarEmailsPermitidos(elEmailsPermitidos.value);
         elEmailsPermitidos.value = config.emailsPermitidos;
@@ -32,6 +43,7 @@ function salvarConfig() {
 
     salvarLocal();
     sincronizar('salvar');
+    if (typeof aplicarValorKmFretePadraoProposta === 'function') aplicarValorKmFretePadraoProposta();
     if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     mostrarToast('Config salva!');
 }

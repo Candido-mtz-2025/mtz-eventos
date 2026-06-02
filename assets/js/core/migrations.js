@@ -571,7 +571,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
             email: '',
             logo: '',
             emailsPermitidos: '',
-            adminEmails: ''
+            adminEmails: '',
+            valorKmFretePadrao: 0
         }),
         versao: SCHEMA_VERSION_V12
     };
@@ -580,11 +581,16 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.houveMudanca = true;
     }
 
+    if (!dadosBase.config || !('valorKmFretePadrao' in dadosBase.config)) {
+        contexto.houveMudanca = true;
+    }
+
     if (versaoAnterior !== SCHEMA_VERSION_V12) {
         contexto.houveMudanca = true;
     }
 
     dadosMigrados.config.schemaVersion = SCHEMA_VERSION_V12;
+    dadosMigrados.config.valorKmFretePadrao = numeroNaoNegativo(dadosMigrados.config.valorKmFretePadrao, 0);
 
     if (contexto.houveMudanca) {
         contexto.logs.push(

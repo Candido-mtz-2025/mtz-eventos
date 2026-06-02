@@ -129,6 +129,22 @@
         return numeroNaoNegativo(document.getElementById(id)?.value, 0);
     }
 
+    function obterValorKmFretePadrao() {
+        return numeroNaoNegativo(window.config?.valorKmFretePadrao ?? config?.valorKmFretePadrao, 0);
+    }
+
+    function aplicarValorKmFretePadraoProposta() {
+        const campoValorKm = document.getElementById('propFreteValorKm');
+        if (!campoValorKm) return;
+        if (textoSeguro(document.getElementById('propostaIdAtual')?.value)) return;
+        if (textoSeguro(campoValorKm.value)) return;
+
+        const valorPadrao = obterValorKmFretePadrao();
+        if (valorPadrao <= 0) return;
+        campoValorKm.value = String(valorPadrao);
+        recalcularResumoProposta();
+    }
+
     const CHAVES_CUSTOS_ADICIONAIS = [
         'frete',
         'maoObra',
@@ -1000,6 +1016,9 @@
         if (validadeDiasEl) validadeDiasEl.value = '7';
         const formaPagamentoEl = document.getElementById('propFormaPagamento');
         if (formaPagamentoEl) formaPagamentoEl.value = '';
+        const freteValorKmEl = document.getElementById('propFreteValorKm');
+        const valorKmPadrao = obterValorKmFretePadrao();
+        if (freteValorKmEl && valorKmPadrao > 0) freteValorKmEl.value = String(valorKmPadrao);
         const freteEl = document.getElementById('propCustoFrete');
         if (freteEl) {
             freteEl.readOnly = false;
@@ -1817,6 +1836,7 @@
             filtroPropostasAtual = 'todos';
         }
         registrarListenersPropostas();
+        aplicarValorKmFretePadraoProposta();
     }
 
     inicializarPropostas();
@@ -1840,4 +1860,5 @@
     window.converterPropostaAtual = converterPropostaAtual;
     window.aplicarFiltroPropostas = aplicarFiltroPropostas;
     window.irParaPropostasFormulario = irParaPropostasFormulario;
+    window.aplicarValorKmFretePadraoProposta = aplicarValorKmFretePadraoProposta;
 })();
