@@ -299,13 +299,15 @@ function migrarLocadorParaV12(locadorOriginal, contexto) {
 
 function migrarItemPropostaParaV12(itemOriginal) {
     const item = clonarObjetoSeguro(itemOriginal);
+    const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
     const quantidade = numeroNaoNegativo(item.quantidade, 0);
     const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
-    const valorTotal = numeroNaoNegativo(item.valorTotal, quantidade * valorUnitario);
+    const valorTotal = periodoDias * quantidade * valorUnitario;
 
     return {
         descricao: textoSeguro(item.descricao, ''),
         medida: textoSeguro(item.medida, ''),
+        periodoDias,
         quantidade,
         valorUnitario,
         valorTotal,
@@ -320,6 +322,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
 
     const custos = clonarObjetoSeguro(custosOriginal, {
         frete: 0,
+        freteTrechos: 0,
         freteDistanciaKm: 0,
         freteValorKm: 0,
         maoObra: 0,
@@ -333,8 +336,11 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     custos.frete = numeroNaoNegativo(custos.frete, 0);
     custos.freteDistanciaKm = numeroNaoNegativo(custos.freteDistanciaKm ?? custos.distanciaKm, 0);
     custos.freteValorKm = numeroNaoNegativo(custos.freteValorKm ?? custos.valorKm, 0);
+    custos.freteTrechos = numeroNaoNegativo(custos.freteTrechos ?? custos.trechos, (custos.freteDistanciaKm > 0 && custos.freteValorKm > 0) ? 1 : 0);
     if (custos.freteDistanciaKm > 0 && custos.freteValorKm > 0) {
-        custos.frete = Math.round((custos.freteDistanciaKm * custos.freteValorKm + Number.EPSILON) * 100) / 100;
+        const trechos = Math.max(1, Math.trunc(custos.freteTrechos || 1));
+        custos.freteTrechos = trechos;
+        custos.frete = Math.round((trechos * custos.freteDistanciaKm * custos.freteValorKm + Number.EPSILON) * 100) / 100;
     }
     custos.maoObra = numeroNaoNegativo(custos.maoObra, 0);
     custos.operador = numeroNaoNegativo(custos.operador, 0);
@@ -511,6 +517,8 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('percentualEntrada' in financeiroOriginal)
         || !('tipoCalculoNF' in financeiroOriginal)
         || !('exibirInformacoesInternasPDF' in financeiroOriginal)
+        || itens.some((item, indice) => !('periodoDias' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || !('freteTrechos' in custosOriginal)
         || !('freteDistanciaKm' in custosOriginal)
         || !('freteValorKm' in custosOriginal)
     ) {

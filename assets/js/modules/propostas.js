@@ -159,11 +159,13 @@
         return Math.round((numeroSeguro(valor, 0) + Number.EPSILON) * 100) / 100;
     }
 
-    function calcularFretePorKm(distanciaKm = 0, valorKm = 0) {
+    function calcularFretePorKm(distanciaKm = 0, valorKm = 0, trechos = 1) {
         const distancia = numeroNaoNegativo(distanciaKm, 0);
         const valorPorKm = numeroNaoNegativo(valorKm, 0);
+        const qtdTrechos = Math.max(1, Math.trunc(numeroNaoNegativo(trechos, 1)));
         if (distancia <= 0 || valorPorKm <= 0) {
             return {
+                trechos: qtdTrechos,
                 distanciaKm: distancia,
                 valorKm: valorPorKm,
                 freteCalculado: 0,
@@ -172,20 +174,23 @@
         }
 
         return {
+            trechos: qtdTrechos,
             distanciaKm: distancia,
             valorKm: valorPorKm,
-            freteCalculado: arredondarMoeda(distancia * valorPorKm),
+            freteCalculado: arredondarMoeda(qtdTrechos * distancia * valorPorKm),
             calculoAtivo: true
         };
     }
 
     function sincronizarFretePorKmFormulario() {
         const freteEl = document.getElementById('propCustoFrete');
+        const trechosEl = document.getElementById('propFreteTrechos');
         const distanciaEl = document.getElementById('propFreteDistanciaKm');
         const valorKmEl = document.getElementById('propFreteValorKm');
         const resultado = calcularFretePorKm(
             distanciaEl?.value,
-            valorKmEl?.value
+            valorKmEl?.value,
+            trechosEl?.value || 1
         );
 
         if (freteEl) {
@@ -358,17 +363,20 @@
     function criarLinhaItemProposta(item = {}) {
         const descricao = sanitizar(item.descricao || '');
         const medida = sanitizar(item.medida || '');
+        const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo ?? 1, 1) || 1;
         const quantidade = numeroNaoNegativo(item.quantidade, 1) || 1;
         const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
         const observacoes = sanitizar(item.observacoes || '');
+        const valorTotal = periodoDias * quantidade * valorUnitario;
 
         return `
             <tr class="proposta-item-row">
                 <td><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
                 <td><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
+                <td><input type="number" class="prop-item-periodo" value="${periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
                 <td><input type="number" class="prop-item-quantidade" value="${quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
                 <td><input type="number" class="prop-item-unitario" value="${valorUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
-                <td><input type="text" class="prop-item-total" value="${formatarMoeda(quantidade * valorUnitario)}" readonly></td>
+                <td><input type="text" class="prop-item-total" value="${formatarMoeda(valorTotal)}" readonly></td>
                 <td><input type="text" class="prop-item-obs" value="${observacoes}" placeholder="Observacoes"></td>
                 <td class="col-actions">
                     <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
@@ -418,12 +426,13 @@
         return linhas.map((linha) => {
             const descricao = textoSeguro(linha.querySelector('.prop-item-descricao')?.value);
             const medida = textoSeguro(linha.querySelector('.prop-item-medida')?.value);
+            const periodoDias = numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1;
             const quantidade = numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0);
             const valorUnitario = numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0);
             const observacoes = textoSeguro(linha.querySelector('.prop-item-obs')?.value);
-            const valorTotal = quantidade * valorUnitario;
-            return { descricao, medida, quantidade, valorUnitario, valorTotal, observacoes };
-        }).filter((item) => item.descricao && item.quantidade > 0);
+            const valorTotal = periodoDias * quantidade * valorUnitario;
+            return { descricao, medida, periodoDias, quantidade, valorUnitario, valorTotal, observacoes };
+        }).filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
     }
 
     function obterCustosFormulario() {
@@ -433,6 +442,7 @@
 
         return {
             frete: freteFinal,
+            freteTrechos: freteKm.trechos,
             freteDistanciaKm: freteKm.distanciaKm,
             freteValorKm: freteKm.valorKm,
             maoObra: parseNumeroInput('propCustoMaoObra'),
@@ -522,9 +532,10 @@
     function recalcularResumoProposta() {
         const linhas = Array.from(document.querySelectorAll('#propostaItensBody tr'));
         linhas.forEach((linha) => {
+            const periodo = numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1;
             const qtd = numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0);
             const unit = numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0);
-            const total = qtd * unit;
+            const total = periodo * qtd * unit;
             const campoTotal = linha.querySelector('.prop-item-total');
             if (campoTotal) campoTotal.value = formatarMoeda(total);
         });
@@ -642,25 +653,29 @@
             : {};
 
         const itens = itensOrig.map((item) => {
+            const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
             const quantidade = numeroNaoNegativo(item.quantidade, 0);
             const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
             return {
                 descricao: textoSeguro(item.descricao, ''),
                 medida: textoSeguro(item.medida, ''),
+                periodoDias,
                 quantidade,
                 valorUnitario,
-                valorTotal: numeroNaoNegativo(item.valorTotal, quantidade * valorUnitario),
+                valorTotal: periodoDias * quantidade * valorUnitario,
                 observacoes: textoSeguro(item.observacoes, '')
             };
         });
 
         const freteDistanciaKm = numeroNaoNegativo(custosOrig.freteDistanciaKm ?? custosOrig.distanciaKm, 0);
         const freteValorKm = numeroNaoNegativo(custosOrig.freteValorKm ?? custosOrig.valorKm, 0);
-        const freteKmNormalizado = calcularFretePorKm(freteDistanciaKm, freteValorKm);
+        const freteTrechos = numeroNaoNegativo(custosOrig.freteTrechos ?? custosOrig.trechos, (freteDistanciaKm > 0 && freteValorKm > 0) ? 1 : 0);
+        const freteKmNormalizado = calcularFretePorKm(freteDistanciaKm, freteValorKm, freteTrechos || 1);
         const freteManual = numeroNaoNegativo(custosOrig.frete, 0);
 
         const custos = {
             frete: freteKmNormalizado.calculoAtivo ? freteKmNormalizado.freteCalculado : freteManual,
+            freteTrechos: freteKmNormalizado.trechos,
             freteDistanciaKm,
             freteValorKm,
             maoObra: numeroNaoNegativo(custosOrig.maoObra, 0),
@@ -939,6 +954,7 @@
             propDataDesmontagem: p.evento.dataDesmontagem,
             propHoraDesmontagem: p.evento.horaDesmontagem,
             propEventoObs: p.evento.observacoesGerais,
+            propFreteTrechos: p.custos.freteTrechos,
             propFreteDistanciaKm: p.custos.freteDistanciaKm,
             propFreteValorKm: p.custos.freteValorKm,
             propCustoFrete: p.custos.frete,
@@ -988,7 +1004,7 @@
             'propClienteEndereco', 'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
-            'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
+            'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
             'propCustoOutros', 'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
             'propCondicaoPagamento', 'propObsPagamento', 'propCustoInternoTotal', 'propCustoTerceirizadoTotal',
             'propOutrosCustosInternos', 'propIncluso', 'propNaoIncluso', 'propObsComerciais', 'propLocacaoVinculada'
@@ -1016,6 +1032,8 @@
         if (validadeDiasEl) validadeDiasEl.value = '7';
         const formaPagamentoEl = document.getElementById('propFormaPagamento');
         if (formaPagamentoEl) formaPagamentoEl.value = '';
+        const freteTrechosEl = document.getElementById('propFreteTrechos');
+        if (freteTrechosEl) freteTrechosEl.value = '1';
         const freteValorKmEl = document.getElementById('propFreteValorKm');
         const valorKmPadrao = obterValorKmFretePadrao();
         if (freteValorKmEl && valorKmPadrao > 0) freteValorKmEl.value = String(valorKmPadrao);
@@ -1293,11 +1311,16 @@
 
         const itensLocacao = proposta.itens.map((item) => {
             const peca = encontrarPecaPorDescricao(item);
+            const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
+            const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(item.quantidade, 1)));
+            const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
             return {
                 pecaId: peca?.id || '',
                 nome: item.descricao,
-                quantidade: Math.max(1, Math.trunc(numeroNaoNegativo(item.quantidade, 1))),
-                valor: numeroNaoNegativo(item.valorUnitario, 0)
+                quantidade,
+                valor: valorUnitario,
+                periodoDias,
+                valorTotalProposta: arredondarMoeda(periodoDias * quantidade * valorUnitario)
             };
         });
 
@@ -1475,6 +1498,7 @@
             <tr style="border-bottom:1px solid #e5e7eb;">
                 <td style="padding:8px; font-size:11px;">${sanitizar(item.descricao)}</td>
                 <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
+                <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
                 <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
                 <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorUnitario)}</td>
                 <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
@@ -1491,7 +1515,7 @@
                     ${linhaResumoPdf('Subtotal', formatarMoeda(p.financeiro.subtotal))}
                     ${(numeroNaoNegativo(p.custos.freteDistanciaKm, 0) > 0 && numeroNaoNegativo(p.custos.freteValorKm, 0) > 0)
                         ? linhaResumoPdf(
-                            `Frete (${numeroNaoNegativo(p.custos.freteDistanciaKm, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km x ${formatarMoeda(p.custos.freteValorKm)}/km)`,
+                            `Frete (${numeroNaoNegativo(p.custos.freteTrechos, 1)} x ${numeroNaoNegativo(p.custos.freteDistanciaKm, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km x ${formatarMoeda(p.custos.freteValorKm)}/km)`,
                             formatarMoeda(p.custos.frete)
                         )
                         : ''}
@@ -1570,13 +1594,14 @@
                             <tr>
                                 <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
                                 <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
+                                <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
                                 <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
                                 <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">UNIT.</th>
                                 <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
                                 <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">OBS.</th>
                             </tr>
                         </thead>
-                        <tbody>${linhasItens || '<tr><td colspan="6" style="padding:10px;">Sem itens</td></tr>'}</tbody>
+                        <tbody>${linhasItens || '<tr><td colspan="7" style="padding:10px;">Sem itens</td></tr>'}</tbody>
                     </table>
                 </div>
 
