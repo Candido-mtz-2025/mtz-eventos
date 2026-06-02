@@ -65,6 +65,34 @@
         return '';
     }
 
+    function prioridadeOrdenacaoFinanceira(item) {
+        if (item?.statusPagamento === 'pago') return 5;
+        if (!item?.vencimentoData) return 4;
+
+        const dias = Number(item.diasParaVencer);
+        if (!Number.isFinite(dias)) return 4;
+        if (dias < 0) return 0;
+        if (dias === 0) return 1;
+        if (dias <= 7) return 2;
+        return 3;
+    }
+
+    function compararLancamentosFinanceiros(a, b) {
+        if (a?.statusPagamento === 'pago' && b?.statusPagamento === 'pago') {
+            return Number(b.id || 0) - Number(a.id || 0);
+        }
+
+        const prioridadeA = prioridadeOrdenacaoFinanceira(a);
+        const prioridadeB = prioridadeOrdenacaoFinanceira(b);
+        if (prioridadeA !== prioridadeB) return prioridadeA - prioridadeB;
+
+        const dataA = a?.vencimentoData instanceof Date ? a.vencimentoData.getTime() : Number.MAX_SAFE_INTEGER;
+        const dataB = b?.vencimentoData instanceof Date ? b.vencimentoData.getTime() : Number.MAX_SAFE_INTEGER;
+        if (dataA !== dataB) return dataA - dataB;
+
+        return Number(b.id || 0) - Number(a.id || 0);
+    }
+
     function lerFiltroPersistido(chave, fallback, conjuntoValido) {
         try {
             const salvo = String(localStorage.getItem(chave) || '').trim().toLowerCase();
@@ -380,7 +408,7 @@
             return alvo.includes(busca);
         });
 
-        filtrados.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        filtrados.sort(compararLancamentosFinanceiros);
 
         if (typeof atualizarMetaBusca === 'function') {
             atualizarMetaBusca('metaBuscaFinanceiro', {
