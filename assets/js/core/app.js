@@ -1557,6 +1557,34 @@ function irParaLocacoesRecebidas() {
     irParaLocacoesComBusca('pago', 'todos');
 }
 
+function irParaFinanceiroFiltro(filtro = 'todos') {
+    const filtroNormalizado = String(filtro || 'todos').trim().toLowerCase();
+
+    return navegarComFocoAtalho({
+        tabId: 'financeiro',
+        preparar: () => {
+            const campoBusca = document.getElementById('buscaFinanceiro');
+            if (campoBusca instanceof HTMLInputElement) campoBusca.value = '';
+            if (typeof aplicarFiltroFinanceiroRapido === 'function') {
+                aplicarFiltroFinanceiroRapido(filtroNormalizado);
+            } else if (typeof renderFinanceiroResumo === 'function') {
+                renderFinanceiroResumo();
+            }
+        },
+        resolverAlvo: () => document.getElementById('tblFinanceiro')?.closest('.table-responsive')
+            || document.getElementById('financeiroFiltros')
+            || document.querySelector('#tab-financeiro > .card:first-child'),
+        alinhamento: 'start',
+        focarCustom: (alvo) => {
+            destacarAlvoAtalho(alvo, 1300);
+            setTimeout(() => focarCampoDepoisDaRolagem('buscaFinanceiro', false), 160);
+        },
+        mensagemFalha: 'Painel financeiro não encontrado.',
+        maxTentativas: 14,
+        intervaloMs: 90
+    });
+}
+
 function irParaLocacaoPorCodigo(locacaoId) {
     const idNormalizado = String(locacaoId ?? '').replace(/[^\d]/g, '');
     if (!idNormalizado) {

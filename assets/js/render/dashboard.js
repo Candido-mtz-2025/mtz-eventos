@@ -36,6 +36,33 @@ function calcularValorLocacao(locacao) {
     return subtotal / divisor;
 }
 
+function obterFinanceiroDashboard(locacao, valorFallback) {
+    const financeiro = locacao?.financeiro && typeof locacao.financeiro === 'object'
+        ? locacao.financeiro
+        : {};
+    const valorTotal = Math.max(0, Number(financeiro.valorTotal ?? valorFallback ?? 0) || 0);
+    const sinal = Math.max(0, Number(financeiro.sinal ?? locacao?.sinal ?? 0) || 0);
+    const statusPagamento = String(financeiro.statusPagamento || (locacao?.pago ? 'pago' : 'pendente')).trim().toLowerCase();
+    const valorRestante = statusPagamento === 'pago'
+        ? 0
+        : Math.max(0, Number(financeiro.valorRestante ?? Math.max(valorTotal - sinal, 0)) || 0);
+    const valorRecebido = statusPagamento === 'pago'
+        ? valorTotal
+        : statusPagamento === 'parcial'
+            ? Math.max(0, valorTotal - valorRestante)
+            : 0;
+    const vencimento = String(financeiro.vencimento || locacao?.dataDevolucaoPrevisao || '').trim();
+
+    return {
+        valorTotal,
+        valorRecebido,
+        valorRestante,
+        statusPagamento,
+        vencimento,
+        vencimentoData: obterDataLocal(vencimento)
+    };
+}
+
 function escaparTextoDashboard(texto) {
     const div = document.createElement('div');
     div.textContent = texto ?? '';
@@ -200,7 +227,7 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
     `;
 }
 
-function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje }) {
+function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje, financeiroVencido = 0, financeiroHoje = 0 }) {
     const box = document.getElementById('dashAcoesDia');
     const resumo = document.getElementById('dashResumoAcoesDia');
     if (!box) return;
@@ -232,14 +259,35 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
             </div>
         `);
     }
+    if (financeiroVencido > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-alta" data-action="irParaFinanceiroFiltro" data-arg="atrasado" title="Abrir cobranças atrasadas">
+                <div>
+                    <strong>${financeiroVencido} cobrança(s) atrasada(s)</strong>
+                    <small>Priorize recebimento e atualização do status financeiro.</small>
+                </div>
+                <button class="btn btn-sm btn-danger" data-action="irParaFinanceiroFiltro" data-arg="atrasado">Cobrar</button>
+            </div>
+        `);
+    } else if (financeiroHoje > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-media" data-action="irParaFinanceiroFiltro" data-arg="hoje" title="Abrir cobranças que vencem hoje">
+                <div>
+                    <strong>${financeiroHoje} cobrança(s) vencem hoje</strong>
+                    <small>Confira pagamentos previstos para o dia.</small>
+                </div>
+                <button class="btn btn-sm btn-warning" data-action="irParaFinanceiroFiltro" data-arg="hoje">Ver hoje</button>
+            </div>
+        `);
+    }
     if (pendentesFinanceiros > 0) {
         acoes.push(`
-            <div class="dash-action-item prioridade-media" data-action="irParaLocacoesCobrancas" title="Abrir cobranças pendentes">
+            <div class="dash-action-item prioridade-media" data-action="irParaFinanceiroFiltro" data-arg="pendente" title="Abrir cobranças pendentes">
                 <div>
                     <strong>${pendentesFinanceiros} locação(ões) pendentes de pagamento</strong>
                     <small>Validar cobranças para reduzir saldo em aberto.</small>
                 </div>
-                <button class="btn btn-sm btn-info" data-action="irParaLocacoesCobrancas">Cobranças</button>
+                <button class="btn btn-sm btn-info" data-action="irParaFinanceiroFiltro" data-arg="pendente">Cobranças</button>
             </div>
         `);
     }
@@ -298,13 +346,24 @@ function renderStats() {
         const previsao = obterDataLocal(locacao.dataDevolucaoPrevisao);
         const diffDias = previsao ? Math.round((previsao - hoje) / 86400000) : null;
         const statusVisual = String(locacaoNormalizada?.statusVisual || locacao.status || '').toLowerCase();
+        const valorFinal = calcularValorLocacao(locacaoNormalizada);
+        const financeiroResumo = obterFinanceiroDashboard(locacaoNormalizada, valorFinal);
+        const diffFinanceiro = financeiroResumo.vencimentoData
+            ? Math.round((financeiroResumo.vencimentoData - hoje) / 86400000)
+            : null;
         const pago = typeof locacaoNormalizada?.pago === 'boolean'
             ? locacaoNormalizada.pago
             : Boolean(locacao.pago);
         return {
             ...locacaoNormalizada,
             cliente,
-            valorFinal: calcularValorLocacao(locacao),
+            valorFinal,
+            valorFinanceiroTotal: financeiroResumo.valorTotal,
+            valorFinanceiroRecebido: financeiroResumo.valorRecebido,
+            valorFinanceiroRestante: financeiroResumo.valorRestante,
+            statusPagamento: financeiroResumo.statusPagamento,
+            vencimentoFinanceiro: financeiroResumo.vencimentoData,
+            diffFinanceiro,
             previsao,
             diffDias,
             statusVisual,
@@ -323,11 +382,9 @@ function renderStats() {
     }
 
     const totalRecebidoAtivo = ativas
-        .filter((locacao) => locacao.pago)
-        .reduce((total, locacao) => total + locacao.valorFinal, 0);
+        .reduce((total, locacao) => total + locacao.valorFinanceiroRecebido, 0);
     const totalPendenteAtivo = ativas
-        .filter((locacao) => !locacao.pago)
-        .reduce((total, locacao) => total + locacao.valorFinal, 0);
+        .reduce((total, locacao) => total + locacao.valorFinanceiroRestante, 0);
 
     const elFaturamento = document.getElementById('dashFaturamento');
     if (elFaturamento) {
@@ -348,10 +405,9 @@ function renderStats() {
         return dataAluguel && dataAluguel >= inicioMes && dataAluguel < inicioProximoMes;
     });
 
-    const receitaMes = locacoesDoMes.reduce((total, locacao) => total + locacao.valorFinal, 0);
+    const receitaMes = locacoesDoMes.reduce((total, locacao) => total + locacao.valorFinanceiroTotal, 0);
     const recebidoMes = locacoesDoMes
-        .filter((locacao) => locacao.pago)
-        .reduce((total, locacao) => total + locacao.valorFinal, 0);
+        .reduce((total, locacao) => total + locacao.valorFinanceiroRecebido, 0);
     const pendenteAtivo = totalPendenteAtivo;
     const ticketMedio = locacoesDoMes.length > 0 ? receitaMes / locacoesDoMes.length : 0;
 
@@ -369,14 +425,16 @@ function renderStats() {
     const vencemHoje = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 0);
     const vencemAmanha = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 1);
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
-    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length;
+    const financeiroVencido = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro < 0);
+    const financeiroHoje = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro === 0);
+    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length + financeiroVencido.length + financeiroHoje.length;
     const devolvidas = locacoesComValor.filter((locacao) => locacao.statusVisual === 'devolvido').length;
     const abertasSemAtraso = Math.max(ativas.length - atrasadas.length, 0);
     const iniciamHoje = locacoesComValor.filter((locacao) => {
         const dataAluguel = obterDataLocal(locacao.dataAluguel);
         return (locacao.statusVisual === 'ativo' || locacao.statusVisual === 'atrasado') && dataAluguel && dataAluguel.getTime() === hoje.getTime();
     }).length;
-    const pendentesFinanceiros = ativas.filter((locacao) => !locacao.pago).length;
+    const pendentesFinanceiros = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0).length;
     const hojeIso = new Date(hoje).toISOString().slice(0, 10);
     const amanhaBase = new Date(hoje);
     amanhaBase.setDate(amanhaBase.getDate() + 1);
@@ -442,6 +500,28 @@ function renderStats() {
                     <div class="alert-item-body">
                         <strong>${vencemAmanha.length} devolucao(oes) para amanha</strong>
                         <small>${resumoClientesAlerta(vencemAmanha, 2)}</small>
+                    </div>
+                </div>
+            `);
+        }
+        if (financeiroVencido.length > 0) {
+            cards.push(`
+                <div class="alert-item critical" data-action="irParaFinanceiroFiltro" data-arg="atrasado" title="Abrir cobranças atrasadas">
+                    <i class="bi bi-cash-coin"></i>
+                    <div class="alert-item-body">
+                        <strong>${financeiroVencido.length} cobrança(s) atrasada(s)</strong>
+                        <small>${resumoClientesAlerta(financeiroVencido, 2)}</small>
+                    </div>
+                </div>
+            `);
+        }
+        if (financeiroHoje.length > 0) {
+            cards.push(`
+                <div class="alert-item warning" data-action="irParaFinanceiroFiltro" data-arg="hoje" title="Abrir cobranças que vencem hoje">
+                    <i class="bi bi-wallet2"></i>
+                    <div class="alert-item-body">
+                        <strong>${financeiroHoje.length} cobrança(s) vence(m) hoje</strong>
+                        <small>${resumoClientesAlerta(financeiroHoje, 2)}</small>
                     </div>
                 </div>
             `);
@@ -516,6 +596,8 @@ function renderStats() {
         atrasadas: atrasadas.length,
         vencemHoje: vencemHoje.length,
         pendentesFinanceiros,
-        iniciamHoje
+        iniciamHoje,
+        financeiroVencido: financeiroVencido.length,
+        financeiroHoje: financeiroHoje.length
     });
 }
