@@ -1,6 +1,6 @@
 // Estado global do sistema
 // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
-let locadores = [], pecas = [], locacoes = [], propostas = [], devolucoes = [], tipos = [], usuarios = [], carrinhoLocacao = [];
+let locadores = [], pecas = [], locacoes = [], propostas = [], devolucoes = [], transportes = [], tipos = [], usuarios = [], carrinhoLocacao = [];
 
 let modelosChecklist = [];
 let checklistsGerados = [];

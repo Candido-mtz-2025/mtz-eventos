@@ -565,6 +565,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         locacoes: clonarArraySeguro(dadosBase.locacoes).map((locacao) => migrarLocacaoParaV12(locacao, contexto)),
         propostas: clonarArraySeguro(dadosBase.propostas).map((proposta) => migrarPropostaParaV12(proposta, contexto)),
         devolucoes: clonarArraySeguro(dadosBase.devolucoes),
+        transportes: clonarArraySeguro(dadosBase.transportes),
         tipos: clonarArraySeguro(dadosBase.tipos),
         modelosChecklist: clonarArraySeguro(dadosBase.modelosChecklist),
         checklistsGerados: clonarArraySeguro(dadosBase.checklistsGerados),
@@ -589,6 +590,10 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.houveMudanca = true;
     }
 
+    if (!('transportes' in dadosBase)) {
+        contexto.houveMudanca = true;
+    }
+
     if (!dadosBase.config || !('valorKmFretePadrao' in dadosBase.config)) {
         contexto.houveMudanca = true;
     }
@@ -603,7 +608,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     if (contexto.houveMudanca) {
         contexto.logs.push(
             `Schema migrado de ${versaoAnterior} para ${SCHEMA_VERSION_V12} (origem: ${contexto.origem}).`,
-            `Registros normalizados: ${dadosMigrados.locadores.length} clientes, ${dadosMigrados.pecas.length} itens, ${dadosMigrados.locacoes.length} locacoes e ${dadosMigrados.propostas.length} propostas.`
+            `Registros normalizados: ${dadosMigrados.locadores.length} clientes, ${dadosMigrados.pecas.length} itens, ${dadosMigrados.locacoes.length} locacoes, ${dadosMigrados.propostas.length} propostas e ${dadosMigrados.transportes.length} transportes.`
         );
     }
 

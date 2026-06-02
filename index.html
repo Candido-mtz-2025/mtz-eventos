@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.0">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.1">
 </head>
 <body>
 
@@ -159,7 +159,7 @@
                 <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="agenda" data-action="abrirTab" data-arg="agenda">
                     <i class="bi bi-calendar-event"></i><span>Agenda</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="abrirModuloPreparado" data-arg="transporte">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="abrirTab" data-arg="transporte">
                     <i class="bi bi-truck-front"></i><span>Transporte</span>
                 </button>
             </div>
@@ -1257,6 +1257,181 @@
                 </div>
             </div>
 
+            <div id="tab-transporte" class="tab-content">
+                <div class="card" id="transporteFormularioCard">
+                    <div class="section-toolbar">
+                        <h3>Transporte</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="limparFormularioTransporte">
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="transporteId">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Locação vinculada</label>
+                            <select id="transporteLocacao" data-change="preencherTransporteDaLocacao">
+                                <option value="">Sem vínculo com locação</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de operação</label>
+                            <select id="transporteTipoOperacao">
+                                <option value="entrega">Entrega</option>
+                                <option value="retirada">Retirada</option>
+                                <option value="montagem">Montagem</option>
+                                <option value="desmontagem">Desmontagem</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="transporteStatus">
+                                <option value="pendente">Pendente</option>
+                                <option value="em_rota">Em rota</option>
+                                <option value="entregue">Entregue</option>
+                                <option value="retirado">Retirado</option>
+                                <option value="concluido">Concluído</option>
+                                <option value="cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="transporteClienteNome" placeholder="Nome do cliente ou empresa">
+                        </div>
+                        <div class="form-group">
+                            <label>Cidade</label>
+                            <input type="text" id="transporteCidade" placeholder="Cidade">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Endereço / rota</label>
+                            <input type="text" id="transporteEndereco" placeholder="Endereço de entrega, retirada ou montagem">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Veículo</label>
+                            <input type="text" id="transporteVeiculo" placeholder="Ex: HR, caminhão, Fiorino">
+                        </div>
+                        <div class="form-group">
+                            <label>Placa</label>
+                            <input type="text" id="transportePlaca" placeholder="Placa">
+                        </div>
+                        <div class="form-group">
+                            <label>Motorista</label>
+                            <input type="text" id="transporteMotorista" placeholder="Responsável pelo transporte">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Equipe</label>
+                            <input type="text" id="transporteEquipe" placeholder="Equipe, ajudantes ou observação de escala">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data saída</label>
+                            <input type="date" id="transporteDataSaida">
+                        </div>
+                        <div class="form-group">
+                            <label>Hora saída</label>
+                            <input type="time" id="transporteHoraSaida">
+                        </div>
+                        <div class="form-group">
+                            <label>Data chegada</label>
+                            <input type="date" id="transporteDataChegada">
+                        </div>
+                        <div class="form-group">
+                            <label>Hora chegada</label>
+                            <input type="time" id="transporteHoraChegada">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Distância (km)</label>
+                            <input type="number" id="transporteDistanciaKm" min="0" step="0.1" placeholder="0" data-input="calcularCustoTransporte">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor por km</label>
+                            <input type="number" id="transporteValorKm" min="0" step="0.01" placeholder="0,00" data-input="calcularCustoTransporte">
+                        </div>
+                        <div class="form-group">
+                            <label>Custo estimado</label>
+                            <input type="text" id="transporteCustoEstimado" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Observações</label>
+                            <textarea id="transporteObservacoes" rows="3" placeholder="Informações de portaria, rota, carga, restrições de horário ou contato no local"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="inline-chip-row section-gap">
+                        <button class="btn btn-primary" data-action="salvarTransporte">
+                            <i class="bi bi-save"></i> Salvar transporte
+                        </button>
+                        <button class="btn btn-secondary" data-action="irParaTransporteBusca">
+                            <i class="bi bi-search"></i> Ver lista
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card" id="transporteListaCard">
+                    <div class="section-toolbar">
+                        <h3>Rotas cadastradas</h3>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo de transportes">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Transportes</small>
+                            <strong id="transporteKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Em rota</small>
+                            <strong id="transporteKpiRota">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Hoje</small>
+                            <strong id="transporteKpiHoje">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="positivo">
+                            <small>Concluídos</small>
+                            <strong id="transporteKpiConcluidos">0</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="transporteFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-transporte="todos" data-action="aplicarFiltroTransporteRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-warning" data-tone="critico" data-filtro-transporte="pendente" data-action="aplicarFiltroTransporteRapido" data-arg="pendente">Pendentes</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-transporte="em_rota" data-action="aplicarFiltroTransporteRapido" data-arg="em_rota">Em rota</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-transporte="concluido" data-action="aplicarFiltroTransporteRapido" data-arg="concluido">Concluídos</button>
+                        </div>
+                        <input type="text" id="buscaTransporte" class="search-input" placeholder="🔍 Buscar cliente, motorista, veículo, cidade ou placa..." data-input="buscarComDebounce" data-arg="transporte">
+                        <div id="metaBuscaTransporte" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Saída</th><th>Cliente</th><th>Destino</th><th>Equipe</th><th>Status</th><th>Custo</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblTransporte"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="tab-checklist" class="tab-content">
                 <div class="card">
                     <h2>Checklist</h2>
@@ -1700,15 +1875,15 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js"></script>
+    <script src="./assets/js/core/state.js?v=12.2"></script>
     <script src="./assets/js/core/utils.js?v=2.3"></script>
     <script src="./assets/js/ui/toast.js"></script>
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.1"></script>
+    <script src="./assets/js/core/migrations.js?v=12.2"></script>
     <script src="./assets/js/core/domain-services.js?v=12.1"></script>
-    <script src="./assets/js/core/storage.js"></script>
+    <script src="./assets/js/core/storage.js?v=12.2"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.5"></script>
     <script src="./assets/js/modules/propostas.js?v=2.0"></script>
@@ -1723,6 +1898,7 @@
     <script src="./assets/js/modules/scanner.js"></script>
     <script src="./assets/js/modules/backup-tools.js"></script>
     <script src="./assets/js/modules/whatsapp.js"></script>
+    <script src="./assets/js/modules/transporte.js?v=1.0"></script>
     <script src="./assets/js/modules/shared-actions.js"></script>
     <script src="./assets/js/render/locacoes.js?v=15.0"></script>
     <script src="./assets/js/render/cadastros.js?v=3.2"></script>
@@ -1730,8 +1906,8 @@
     <script src="./assets/js/render/dashboard.js?v=1.5"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.0"></script>
-    <script src="./assets/js/ui/eventos.js?v=2.1"></script>
-    <script src="./assets/js/core/app.js?v=22.1"></script>
+    <script src="./assets/js/ui/eventos.js?v=2.2"></script>
+    <script src="./assets/js/core/app.js?v=22.2"></script>
         
 </body>
 </html>

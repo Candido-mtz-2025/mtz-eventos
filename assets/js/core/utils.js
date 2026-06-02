@@ -52,6 +52,11 @@ const buscarComDebounce = debounce(function(tipo) {
         return;
     }
 
+    if (alvo === 'transporte' && typeof renderTransporteOperacional === 'function') {
+        renderTransporteOperacional();
+        return;
+    }
+
     if (alvo === 'tipos' && typeof renderTipos === 'function') {
         renderTipos();
         return;

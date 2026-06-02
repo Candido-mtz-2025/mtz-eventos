@@ -17,6 +17,7 @@ function gerarSnapshotDadosSistema() {
         locacoes: Array.isArray(locacoes) ? locacoes : [],
         propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
+        transportes: Array.isArray(transportes) ? transportes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
         usuarios: Array.isArray(usuarios) ? usuarios : [],
         config: config && typeof config === 'object' ? config : {},
@@ -82,6 +83,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     locacoes = Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [];
     propostas = Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [];
     devolucoes = Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [];
+    transportes = Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [];
     tipos = Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [];
     usuarios = Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [];
     config = { ...baseConfig, ...configEntrada };
@@ -117,6 +119,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     window.checklistMontagem = checklistMontagem;
     window.checklistConferencia = checklistConferencia;
     window.checklistEtapasMontagem = checklistEtapasMontagem;
+    window.transportes = transportes;
 }
 
 function obterContextoSyncSeguro() {
@@ -504,6 +507,7 @@ function carregarLocal() {
             itens: pecas.length,
             locacoes: locacoes.length,
             propostas: propostas.length,
+            transportes: transportes.length,
             versao: dados.versao || 'antiga'
         });
 

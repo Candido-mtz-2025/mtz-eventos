@@ -9,6 +9,7 @@ function renderTudo() {
     if(typeof renderOrcamentos === 'function') renderOrcamentos();
     if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
     if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
+    if(typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
     if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
     if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
     if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
@@ -35,6 +36,7 @@ const TAB_TOPBAR_CONFIG = {
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
     agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
+    transporte: { icon: 'bi-truck-front', titulo: 'Transporte', descricao: 'Rotas, veículos, motoristas e custo por km.', meta: 'Logística' },
     auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
     config: { icon: 'bi-gear', titulo: 'Configurações', descricao: 'Ajustes gerais e políticas de acesso.', meta: 'Administração' }
 };
@@ -102,6 +104,11 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_registrar_devolucao', icon: 'bi-truck', label: 'Retornos' },
         { id: 'qa_abrir_auditoria', icon: 'bi-shield-check', label: 'Rastrear ações' }
     ],
+    transporte: [
+        { id: 'qa_novo_transporte', icon: 'bi-truck-front', label: 'Novo transporte' },
+        { id: 'qa_busca_transporte', icon: 'bi-search', label: 'Buscar transporte' },
+        { id: 'qa_transporte_em_rota', icon: 'bi-truck', label: 'Em rota' }
+    ],
     auditoria: [
         { id: 'qa_log_locacao', icon: 'bi-cart', label: 'Logs de locacoes' },
         { id: 'qa_log_sistema', icon: 'bi-cpu', label: 'Logs do sistema' },
@@ -124,6 +131,7 @@ const CAMPOS_BUSCA_PERSISTENTES = [
     'buscaOrcamentos',
     'buscaFinanceiro',
     'buscaAgenda',
+    'buscaTransporte',
     'devBuscaHistorico',
     'auditBusca'
 ];
@@ -145,6 +153,7 @@ const IDS_CAMPOS_BUSCA_ENTER_RESULTADO = new Set([
     'buscaOrcamentos',
     'buscaFinanceiro',
     'buscaAgenda',
+    'buscaTransporte',
     'devBuscaHistorico',
     'auditBusca'
 ]);
@@ -157,6 +166,7 @@ const META_BUSCA_POR_ABA = Object.freeze({
     orcamentos: 'metaBuscaOrcamentos',
     financeiro: 'metaBuscaFinanceiro',
     agenda: 'metaBuscaAgenda',
+    transporte: 'metaBuscaTransporte',
     devolucoes: 'metaBuscaDevolucoes',
     auditoria: 'metaBuscaAuditoria'
 });
@@ -376,6 +386,11 @@ function sincronizarEstadoVisualDaAba(tabId) {
 
     if (aba === 'agenda') {
         if (typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
+        return;
+    }
+
+    if (aba === 'transporte') {
+        if (typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
         return;
     }
 
@@ -617,6 +632,7 @@ function obterAlvoInicialDaTab(tabId) {
         orcamentos: '#tab-orcamentos > .card:first-child',
         financeiro: '#tab-financeiro > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',
+        transporte: '#tab-transporte > .card:first-child',
         devolucoes: '#tab-devolucoes > .card:first-child',
         auditoria: '#tab-auditoria > .card:first-child',
         config: '#tab-config > .card:first-child'
@@ -999,6 +1015,12 @@ const CONFIG_RESULTADO_POR_BUSCA = Object.freeze({
         focusSelector: '[data-action="irParaLocacaoPorId"], [data-action="abrirHistoricoLocacao"], button, input, a, [tabindex]',
         emptyMessage: 'Nenhuma atividade encontrada na agenda atual.'
     },
+    buscaTransporte: {
+        tbodyId: 'tblTransporte',
+        rowSelector: 'tr[data-transporte-id]',
+        focusSelector: '[data-action="editarTransporte"], [data-action="alterarStatusTransporte"], button, input, a, [tabindex]',
+        emptyMessage: 'Nenhum transporte encontrado na busca atual.'
+    },
     devBuscaHistorico: {
         tbodyId: 'tblDevolucoes',
         rowSelector: 'tr[data-devolucao-id]',
@@ -1084,6 +1106,11 @@ function restaurarContextoBuscaPadrao(idCampoBusca, opcoes = {}) {
 
     if (chave === 'buscaAgenda' && typeof aplicarFiltroAgendaRapido === 'function') {
         aplicarFiltroAgendaRapido('todos');
+        return true;
+    }
+
+    if (chave === 'buscaTransporte' && typeof aplicarFiltroTransporteRapido === 'function') {
+        aplicarFiltroTransporteRapido('todos');
         return true;
     }
 
@@ -2251,6 +2278,7 @@ function focoBuscaPorAba(abaId) {
         orcamentos: 'buscaOrcamentos',
         financeiro: 'buscaFinanceiro',
         agenda: 'buscaAgenda',
+        transporte: 'buscaTransporte',
         devolucoes: 'devBuscaHistorico',
         auditoria: 'auditBusca'
     };
@@ -2471,6 +2499,21 @@ function executarAtalhoRapido(atalhoId) {
         case 'qa_importar_excel':
             acionarImportacaoEstoqueViaAtalho();
             return;
+        case 'qa_novo_transporte':
+            if (typeof irParaTransporteFormulario === 'function') irParaTransporteFormulario();
+            else abrirTab('transporte');
+            return;
+        case 'qa_busca_transporte':
+            if (typeof irParaTransporteBusca === 'function') irParaTransporteBusca();
+            else abrirTab('transporte');
+            return;
+        case 'qa_transporte_em_rota':
+            abrirTab('transporte', { semRolagem: true });
+            setTimeout(() => {
+                if (typeof aplicarFiltroTransporteRapido === 'function') aplicarFiltroTransporteRapido('em_rota');
+                if (typeof irParaTransporteLista === 'function') irParaTransporteLista();
+            }, 120);
+            return;
         case 'qa_novo_checklist':
             irParaChecklistOperacional();
             return;
@@ -2642,6 +2685,7 @@ document.addEventListener('keydown', (event) => {
             buscaOrcamentos: 'Filtro de orcamentos voltou para Todos.',
             buscaFinanceiro: 'Filtro financeiro voltou para Todos.',
             buscaAgenda: 'Filtro da agenda voltou para Todos.',
+            buscaTransporte: 'Filtro de transporte voltou para Todos.',
             devBuscaHistorico: 'Filtro de devolucoes voltou para Todos.',
             auditBusca: 'Filtro de logs voltou para Todos.'
         };
