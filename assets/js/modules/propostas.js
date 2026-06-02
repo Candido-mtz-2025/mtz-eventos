@@ -1323,6 +1323,16 @@
             textoSeguro(proposta.evento.referenciaAcesso || ''),
             textoSeguro(proposta.evento.observacoesGerais || '')
         ].filter(Boolean).join(' | ');
+        const valorEntradaLocacao = numeroNaoNegativo(proposta.financeiro.valorEntrada, 0);
+        const valorRestanteLocacao = numeroNaoNegativo(
+            proposta.financeiro.valorSaldo,
+            Math.max(valorFinalComercial - valorEntradaLocacao, 0)
+        );
+        const statusPagamentoLocacao = valorFinalComercial > 0 && valorRestanteLocacao <= 0
+            ? 'pago'
+            : valorEntradaLocacao > 0
+                ? 'parcial'
+                : 'pendente';
 
         const itensLocacao = proposta.itens.map((item) => {
             const peca = encontrarPecaPorDescricao(item);
@@ -1394,11 +1404,11 @@
             },
             financeiro: {
                 valorTotal: valorFinalComercial,
-                sinal: numeroNaoNegativo(proposta.financeiro.valorEntrada, 0),
-                valorRestante: numeroNaoNegativo(proposta.financeiro.valorSaldo, 0),
+                sinal: valorEntradaLocacao,
+                valorRestante: valorRestanteLocacao,
                 vencimento: proposta.financeiro.vencimentoSaldo || proposta.evento.dataEvento || dataMontagem,
                 formaPagamento: rotuloFormaPagamento(proposta.financeiro.formaPagamento),
-                statusPagamento: 'pendente',
+                statusPagamento: statusPagamentoLocacao,
                 notaFiscal: '',
                 comprovante: '',
                 condicaoPagamento: proposta.financeiro.condicaoPagamento || '',
