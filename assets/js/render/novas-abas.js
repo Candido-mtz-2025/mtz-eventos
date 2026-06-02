@@ -1,7 +1,7 @@
 // Renderizacoes das abas Orcamentos, Financeiro e Agenda
 (function () {
     const FILTROS_ORCAMENTOS = new Set(['todos', 'orcamento', 'aprovado', 'finalizado', 'cancelado']);
-    const FILTROS_FINANCEIRO = new Set(['todos', 'pendente', 'parcial', 'atrasado', 'pago']);
+    const FILTROS_FINANCEIRO = new Set(['todos', 'pendente', 'parcial', 'hoje', 'semana', 'atrasado', 'pago']);
     const FILTROS_AGENDA = new Set(['todos', 'hoje', 'semana', 'atrasado']);
 
     const CHAVE_FILTRO_ORCAMENTOS = 'mtz:orcamentosFiltro';
@@ -41,6 +41,28 @@
         const data = parseDataIsoLocal(valor);
         if (!data) return '-';
         return data.toLocaleDateString('pt-BR');
+    }
+
+    function calcularDiferencaDias(data, referencia) {
+        if (!(data instanceof Date) || Number.isNaN(data.getTime())) return null;
+        const dataBase = new Date(data);
+        const referenciaBase = new Date(referencia);
+        dataBase.setHours(0, 0, 0, 0);
+        referenciaBase.setHours(0, 0, 0, 0);
+        return Math.round((dataBase.getTime() - referenciaBase.getTime()) / 86400000);
+    }
+
+    function rotuloPrazoFinanceiro(item) {
+        if (!item?.vencimento) return 'Sem vencimento';
+        if (item.statusPagamento === 'pago') return 'Quitado';
+
+        const dias = Number(item.diasParaVencer);
+        if (!Number.isFinite(dias)) return '';
+        if (dias < 0) return `Vencido há ${Math.abs(dias)} dia${Math.abs(dias) === 1 ? '' : 's'}`;
+        if (dias === 0) return 'Vence hoje';
+        if (dias === 1) return 'Vence amanhã';
+        if (dias <= 7) return `Vence em ${dias} dias`;
+        return '';
     }
 
     function lerFiltroPersistido(chave, fallback, conjuntoValido) {
@@ -99,6 +121,8 @@
             pendente: 'Pendente',
             parcial: 'Parcial',
             pago: 'Pago',
+            hoje: 'Vence hoje',
+            semana: 'Próximos 7 dias',
             atrasado: 'Atrasado',
             cancelado: 'Cancelado'
         };
@@ -136,6 +160,8 @@
                     ? Math.max(0, valorTotal - valorRestante)
                     : 0;
             const vencimento = String(normalizada?.financeiro?.vencimento || normalizada?.dataDevolucaoPrevisao || '').trim();
+            const vencimentoData = parseDataIsoLocal(vencimento);
+            const diasParaVencer = vencimentoData ? calcularDiferencaDias(vencimentoData, hoje) : null;
             const dataMontagem = String(normalizada?.datasMontagem?.inicio || normalizada?.dataAluguel || '').trim();
             const dataDesmontagem = String(normalizada?.datasDesmontagem?.inicio || normalizada?.dataDevolucaoPrevisao || '').trim();
 
@@ -148,6 +174,8 @@
                 valorRecebido,
                 valorRestante,
                 vencimento,
+                vencimentoData,
+                diasParaVencer,
                 dataMontagem,
                 dataDesmontagem,
                 clienteNome: obterNomeCliente(normalizada.locadorId)
@@ -302,17 +330,26 @@
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
+        const limiteSemana = new Date(hoje.getTime() + (7 * 86400000));
         const buscaRaw = String(document.getElementById('buscaFinanceiro')?.value || '').trim();
         const busca = normalizarTextoBusca(buscaRaw);
         const base = obterBaseLocacoes().map((item) => {
             let statusPagamento = item.statusPagamento;
-            const vencimentoData = parseDataIsoLocal(item.vencimento);
+            const vencimentoData = item.vencimentoData || parseDataIsoLocal(item.vencimento);
             if (statusPagamento !== 'pago' && vencimentoData && vencimentoData < hoje) {
                 statusPagamento = 'atrasado';
             }
             return {
                 ...item,
-                statusPagamento
+                statusPagamento,
+                vencimentoData,
+                diasParaVencer: vencimentoData ? calcularDiferencaDias(vencimentoData, hoje) : null,
+                rotuloVencimento: rotuloPrazoFinanceiro({
+                    ...item,
+                    statusPagamento,
+                    vencimentoData,
+                    diasParaVencer: vencimentoData ? calcularDiferencaDias(vencimentoData, hoje) : null
+                })
             };
         });
 
@@ -323,6 +360,10 @@
             if (filtroFinanceiroAtual !== 'todos') {
                 if (filtroFinanceiroAtual === 'pendente') {
                     if (!['pendente', 'parcial'].includes(item.statusPagamento)) return false;
+                } else if (filtroFinanceiroAtual === 'hoje') {
+                    if (item.statusPagamento === 'pago' || !item.vencimentoData || item.vencimentoData.getTime() !== hoje.getTime()) return false;
+                } else if (filtroFinanceiroAtual === 'semana') {
+                    if (item.statusPagamento === 'pago' || !item.vencimentoData || item.vencimentoData < hoje || item.vencimentoData > limiteSemana) return false;
                 } else if (item.statusPagamento !== filtroFinanceiroAtual) {
                     return false;
                 }
@@ -333,6 +374,7 @@
                 item.clienteNome,
                 item.id,
                 item.vencimento,
+                item.rotuloVencimento,
                 item.statusPagamento
             ].join(' '));
             return alvo.includes(busca);
@@ -368,7 +410,10 @@
             <tr data-financeiro-id="${item.id}">
                 <td>#${String(item.id || '').slice(-4)}</td>
                 <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
-                <td>${formatarDataCurta(item.vencimento)}</td>
+                <td>
+                    <div>${formatarDataCurta(item.vencimento)}</div>
+                    ${item.rotuloVencimento ? `<div class="table-cell-sub">${item.rotuloVencimento}</div>` : ''}
+                </td>
                 <td>${formatarMoeda(item.valorTotal)}</td>
                 <td>${formatarMoeda(item.valorRecebido)}</td>
                 <td>${formatarMoeda(item.valorRestante)}</td>
