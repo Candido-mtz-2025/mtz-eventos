@@ -7681,13 +7681,31 @@ header {
     margin-top: 8px;
 }
 
-#tab-propostas #propostaItensBody input {
+#tab-propostas #propostaItensBody input,
+#tab-propostas #propostaItensBody select {
     width: 100%;
+}
+
+#tab-propostas #propostaItensBody .prop-item-categoria {
+    min-width: 164px;
+}
+
+#tab-propostas #propostaItensBody .prop-item-descricao {
+    min-width: 220px;
+}
+
+#tab-propostas #propostaItensBody .prop-item-medida {
+    min-width: 120px;
+}
+
+#tab-propostas #propostaItensBody .prop-item-obs {
+    min-width: 180px;
 }
 
 #tab-propostas #propostaItensBody .prop-item-total {
     font-weight: 700;
     color: var(--text);
+    min-width: 118px;
 }
 
 #tab-propostas textarea {

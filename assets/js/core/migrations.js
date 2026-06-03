@@ -312,8 +312,26 @@ function migrarItemPropostaParaV12(itemOriginal) {
     const quantidade = numeroNaoNegativo(item.quantidade, 0);
     const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
     const valorTotal = periodoDias * quantidade * valorUnitario;
+    const categoriasValidas = [
+        'Estrutura',
+        'Mobiliário',
+        'Elétrica',
+        'Comunicação / Impressão',
+        'Alimentação',
+        'Mão de Obra',
+        'Logística',
+        'Outros'
+    ];
+    const normalizarCategoria = (valor) => String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    const categoriaRaw = textoSeguro(item.categoria, 'Outros');
+    const categoria = categoriasValidas.find((valor) => normalizarCategoria(valor) === normalizarCategoria(categoriaRaw)) || 'Outros';
 
     return {
+        categoria,
         descricao: textoSeguro(item.descricao, ''),
         medida: textoSeguro(item.medida, ''),
         periodoDias,
@@ -527,6 +545,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('tipoCalculoNF' in financeiroOriginal)
         || !('exibirInformacoesInternasPDF' in financeiroOriginal)
         || itens.some((item, indice) => !('periodoDias' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || itens.some((item, indice) => !('categoria' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
         || !('freteTrechos' in custosOriginal)
         || !('freteDistanciaKm' in custosOriginal)
         || !('freteValorKm' in custosOriginal)

@@ -34,6 +34,17 @@
     const TEXTO_PADRAO_OBS_PAGAMENTO = '50% na aprovacao e 50% na montagem/desmontagem, conforme alinhamento comercial.';
     const TEXTO_PADRAO_INCLUSO = 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.';
     const TEXTO_PADRAO_NAO_INCLUSO = 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.';
+    const CATEGORIA_ITEM_PROPOSTA_PADRAO = 'Outros';
+    const CATEGORIAS_ITEM_PROPOSTA = Object.freeze([
+        'Estrutura',
+        'Mobiliário',
+        'Elétrica',
+        'Comunicação / Impressão',
+        'Alimentação',
+        'Mão de Obra',
+        'Logística',
+        'Outros'
+    ]);
 
     let filtroPropostasAtual = 'todos';
     let listenersRegistrados = false;
@@ -114,6 +125,42 @@
     function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
         const valor = normalizarTextoBusca(tipo || fallback);
         return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
+    }
+
+    function normalizarCategoriaItemProposta(categoria) {
+        const alvo = normalizarTextoBusca(categoria);
+        const encontrada = CATEGORIAS_ITEM_PROPOSTA.find((item) => normalizarTextoBusca(item) === alvo);
+        return encontrada || CATEGORIA_ITEM_PROPOSTA_PADRAO;
+    }
+
+    function montarOptionsCategoriaItemProposta(categoriaAtual) {
+        const atual = normalizarCategoriaItemProposta(categoriaAtual);
+        return CATEGORIAS_ITEM_PROPOSTA.map((categoria) => {
+            const selected = categoria === atual ? ' selected' : '';
+            return `<option value="${sanitizar(categoria)}"${selected}>${sanitizar(categoria)}</option>`;
+        }).join('');
+    }
+
+    function agruparItensPropostaPorCategoria(itens = []) {
+        const grupos = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => ({
+            categoria,
+            itens: [],
+            subtotal: 0
+        }));
+        const porCategoria = new Map(grupos.map((grupo) => [grupo.categoria, grupo]));
+
+        (Array.isArray(itens) ? itens : []).forEach((item) => {
+            const categoria = normalizarCategoriaItemProposta(item?.categoria);
+            const grupo = porCategoria.get(categoria) || porCategoria.get(CATEGORIA_ITEM_PROPOSTA_PADRAO);
+            const itemNormalizado = {
+                ...item,
+                categoria
+            };
+            grupo.itens.push(itemNormalizado);
+            grupo.subtotal += numeroNaoNegativo(itemNormalizado.valorTotal, 0);
+        });
+
+        return grupos.filter((grupo) => grupo.itens.length > 0);
     }
 
     function normalizarFormaPagamento(forma) {
@@ -289,6 +336,13 @@
         return 'offline@local';
     }
 
+    function preencherResponsavelPropostaSeVazio() {
+        const campo = document.getElementById('propResponsavel');
+        if (campo && !textoSeguro(campo.value)) {
+            campo.value = obterUsuarioAtualNomeOuEmail();
+        }
+    }
+
     function gerarCodigoProposta() {
         const anoAtual = String(new Date().getFullYear());
         const lista = Array.isArray(propostas) ? propostas : [];
@@ -361,6 +415,7 @@
     }
 
     function criarLinhaItemProposta(item = {}) {
+        const categoria = normalizarCategoriaItemProposta(item.categoria);
         const descricao = sanitizar(item.descricao || '');
         const medida = sanitizar(item.medida || '');
         const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo ?? 1, 1) || 1;
@@ -371,6 +426,11 @@
 
         return `
             <tr class="proposta-item-row">
+                <td>
+                    <select class="prop-item-categoria" data-change="recalcularResumoProposta">
+                        ${montarOptionsCategoriaItemProposta(categoria)}
+                    </select>
+                </td>
                 <td><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
                 <td><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
                 <td><input type="number" class="prop-item-periodo" value="${periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
@@ -424,6 +484,7 @@
     function coletarItensFormulario() {
         const linhas = Array.from(document.querySelectorAll('#propostaItensBody tr'));
         return linhas.map((linha) => {
+            const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
             const descricao = textoSeguro(linha.querySelector('.prop-item-descricao')?.value);
             const medida = textoSeguro(linha.querySelector('.prop-item-medida')?.value);
             const periodoDias = numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1;
@@ -431,7 +492,7 @@
             const valorUnitario = numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0);
             const observacoes = textoSeguro(linha.querySelector('.prop-item-obs')?.value);
             const valorTotal = periodoDias * quantidade * valorUnitario;
-            return { descricao, medida, periodoDias, quantidade, valorUnitario, valorTotal, observacoes };
+            return { categoria, descricao, medida, periodoDias, quantidade, valorUnitario, valorTotal, observacoes };
         }).filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
     }
 
@@ -657,6 +718,7 @@
             const quantidade = numeroNaoNegativo(item.quantidade, 0);
             const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
             return {
+                categoria: normalizarCategoriaItemProposta(item.categoria),
                 descricao: textoSeguro(item.descricao, ''),
                 medida: textoSeguro(item.medida, ''),
                 periodoDias,
@@ -1538,23 +1600,48 @@
         `;
     }
 
+    function montarLinhasItensPdfPorCategoria(itens = []) {
+        const grupos = agruparItensPropostaPorCategoria(itens);
+        if (!grupos.length) {
+            return '<tr><td colspan="7" style="padding:10px;">Sem itens</td></tr>';
+        }
+
+        return grupos.map((grupo, indiceGrupo) => {
+            const numeroGrupo = indiceGrupo + 1;
+            const linhas = grupo.itens.map((item, indiceItem) => `
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                    <td style="padding:8px; font-size:11px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
+                    <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
+                    <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                    <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
+                    <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorUnitario)}</td>
+                    <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
+                    <td style="padding:8px; font-size:11px;">${sanitizar(item.observacoes || '-')}</td>
+                </tr>
+            `).join('');
+
+            return `
+                <tr>
+                    <td colspan="7" style="padding:9px 8px; background:#eaf2ff; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; color:#0f172a; font-weight:800; font-size:11px;">
+                        ${numeroGrupo}. ${sanitizar(grupo.categoria)}
+                    </td>
+                </tr>
+                ${linhas}
+                <tr>
+                    <td colspan="5" style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(grupo.categoria)}</td>
+                    <td style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.subtotal)}</td>
+                    <td style="padding:8px; border-bottom:1px solid #cbd5e1;"></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
     function montarHtmlPdfProposta(proposta) {
         const p = normalizarProposta(proposta);
         const exibirInterno = p.financeiro.exibirInformacoesInternasPDF === true;
         const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
         const valorFinalComercial = obterValorFinalComercial(p);
-
-        const linhasItens = p.itens.map((item) => `
-            <tr style="border-bottom:1px solid #e5e7eb;">
-                <td style="padding:8px; font-size:11px;">${sanitizar(item.descricao)}</td>
-                <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
-                <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
-                <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
-                <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorUnitario)}</td>
-                <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
-                <td style="padding:8px; font-size:11px;">${sanitizar(item.observacoes || '-')}</td>
-            </tr>
-        `).join('');
+        const linhasItens = montarLinhasItensPdfPorCategoria(p.itens);
 
         const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
         const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
@@ -1651,7 +1738,7 @@
                                 <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">OBS.</th>
                             </tr>
                         </thead>
-                        <tbody>${linhasItens || '<tr><td colspan="7" style="padding:10px;">Sem itens</td></tr>'}</tbody>
+                        <tbody>${linhasItens}</tbody>
                     </table>
                 </div>
 
@@ -1912,6 +1999,7 @@
         }
         registrarListenersPropostas();
         aplicarValorKmFretePadraoProposta();
+        preencherResponsavelPropostaSeVazio();
     }
 
     inicializarPropostas();
