@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.8">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.9">
 </head>
 <body>
 
@@ -686,13 +686,101 @@
   </div>
 
             <div id="tab-propostas" class="tab-content">
-                <div class="propostas-subnav" role="tablist" aria-label="Área de propostas">
-                    <button type="button" class="propostas-subtab is-active" id="propostasSubtabFormulario" role="tab" aria-selected="true" aria-controls="propostasPainelFormulario" data-propostas-subtab="formulario" data-action="mostrarSubAbaPropostas" data-arg="formulario">
-                        <i class="bi bi-file-earmark-plus"></i> Nova/Editar proposta
+                <div class="propostas-hero-card">
+                    <div class="propostas-hero-main">
+                        <span class="propostas-hero-icon"><i class="bi bi-file-earmark-ruled"></i></span>
+                        <div>
+                            <h2>Orçamentos</h2>
+                            <p>Propostas comerciais com custos, PDF e conversão em locação.</p>
+                        </div>
+                    </div>
+                    <span id="propHeaderMeta" class="propostas-hero-badge">0 de 0 propostas • Lista completa</span>
+                </div>
+
+                <div class="propostas-workbar">
+                    <div class="propostas-subnav" role="tablist" aria-label="Área de propostas">
+                        <button type="button" class="propostas-subtab is-active" id="propostasSubtabFormulario" role="tab" aria-selected="true" aria-controls="propostasPainelFormulario" data-propostas-subtab="formulario" data-action="mostrarSubAbaPropostas" data-arg="formulario">
+                            <i class="bi bi-file-earmark-plus"></i> Nova/Editar proposta
+                        </button>
+                        <button type="button" class="propostas-subtab" id="propostasSubtabLista" role="tab" aria-selected="false" aria-controls="propostasPainelLista" data-propostas-subtab="lista" data-action="mostrarSubAbaPropostas" data-arg="lista">
+                            <i class="bi bi-list-check"></i> Lista de orçamentos
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary proposta-config-open-btn" data-action="abrirConfigOrcamentoProposta" aria-controls="propostaConfigDrawer" aria-expanded="false">
+                        <i class="bi bi-sliders"></i> Configurar orçamento
                     </button>
-                    <button type="button" class="propostas-subtab" id="propostasSubtabLista" role="tab" aria-selected="false" aria-controls="propostasPainelLista" data-propostas-subtab="lista" data-action="mostrarSubAbaPropostas" data-arg="lista">
-                        <i class="bi bi-list-check"></i> Lista de orçamentos
-                    </button>
+                </div>
+
+                <div id="propostaConfigDrawer" class="proposta-config-drawer" aria-hidden="true">
+                    <button type="button" class="proposta-config-backdrop" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar configurações do orçamento"></button>
+                    <aside class="proposta-config-panel" role="dialog" aria-modal="true" aria-labelledby="propostaConfigTitle">
+                        <div class="proposta-config-head">
+                            <div>
+                                <h3 id="propostaConfigTitle">Configurações do orçamento</h3>
+                                <p>Padrões que serão aplicados nesta proposta.</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary proposta-config-close" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <h4>Regras gerais</h4>
+                            <div class="proposta-config-grid">
+                                <div class="form-group">
+                                    <label>Entrada padrão (%)</label>
+                                    <input type="number" id="propOrcConfigEntradaPadrao" min="0" max="100" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label>Honorários padrão (%)</label>
+                                    <input type="number" id="propOrcConfigHonorariosPadrao" min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label>Encargos padrão (%)</label>
+                                    <input type="number" id="propOrcConfigEncargosPadrao" min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label>INSS padrão (%)</label>
+                                    <input type="number" id="propOrcConfigINSSPadrao" min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de encargos</label>
+                                    <select id="propOrcConfigTipoEncargosPadrao">
+                                        <option value="simples">Simples</option>
+                                        <option value="por_dentro">Por dentro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de INSS</label>
+                                    <select id="propOrcConfigTipoINSSPadrao">
+                                        <option value="simples">Simples</option>
+                                        <option value="por_dentro">Por dentro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor padrão do km (frete)</label>
+                                    <input type="number" id="propOrcConfigValorKmPadrao" min="0" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <div class="proposta-config-section-title">
+                                <h4>Regras por categoria</h4>
+                                <span>Aplicadas automaticamente nos itens</span>
+                            </div>
+                            <div id="propOrcConfigCategorias" class="proposta-config-categories" aria-live="polite"></div>
+                        </div>
+
+                        <div class="proposta-config-actions">
+                            <button type="button" class="btn btn-secondary" data-action="restaurarPadroesConfigOrcamentoProposta">
+                                <i class="bi bi-arrow-counterclockwise"></i> Restaurar padrões
+                            </button>
+                            <button type="button" class="btn btn-primary" data-action="aplicarConfigOrcamentoProposta">
+                                <i class="bi bi-check2-circle"></i> Aplicar configurações
+                            </button>
+                        </div>
+                    </aside>
                 </div>
 
                 <section id="propostasPainelFormulario" class="propostas-subpanel is-active" role="tabpanel" aria-labelledby="propostasSubtabFormulario">
@@ -710,16 +798,20 @@
                     <input type="hidden" id="propostaIdAtual">
                     <div class="proposta-form-nav" role="tablist" aria-label="Etapas do orçamento">
                         <button type="button" class="proposta-form-tab is-active" id="propostaFormTabDados" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="dados" data-action="mostrarSecaoFormularioProposta" data-arg="dados">
-                            <i class="bi bi-person-lines-fill"></i> 1. Dados do orçamento
+                            <span class="proposta-step-index">1</span>
+                            <span class="proposta-step-text"><strong>Dados do orçamento</strong><small>Informações gerais</small></span>
                         </button>
                         <button type="button" class="proposta-form-tab" id="propostaFormTabItens" role="tab" aria-selected="false" aria-controls="propostaSecaoItens" data-proposta-form-tab="itens" data-action="mostrarSecaoFormularioProposta" data-arg="itens">
-                            <i class="bi bi-list-check"></i> 2. Itens e composição
+                            <span class="proposta-step-index">2</span>
+                            <span class="proposta-step-text"><strong>Itens e composição</strong><small>Produtos e serviços</small></span>
                         </button>
                         <button type="button" class="proposta-form-tab" id="propostaFormTabFechamento" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="fechamento" data-action="mostrarSecaoFormularioProposta" data-arg="fechamento">
-                            <i class="bi bi-cash-coin"></i> 3. Fechamento comercial
+                            <span class="proposta-step-index">3</span>
+                            <span class="proposta-step-text"><strong>Fechamento comercial</strong><small>Custos, descontos e notas</small></span>
                         </button>
                         <button type="button" class="proposta-form-tab" id="propostaFormTabPdf" role="tab" aria-selected="false" aria-controls="propostaSecaoPdf" data-proposta-form-tab="pdf" data-action="mostrarSecaoFormularioProposta" data-arg="pdf">
-                            <i class="bi bi-card-checklist"></i> 4. PDF e observações
+                            <span class="proposta-step-index">4</span>
+                            <span class="proposta-step-text"><strong>PDF e observações</strong><small>Documentos e envio</small></span>
                         </button>
                     </div>
 
@@ -1988,7 +2080,7 @@
     <script src="./assets/js/core/storage.js?v=12.3"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=2.8"></script>
+    <script src="./assets/js/modules/propostas.js?v=2.9"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

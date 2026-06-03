@@ -5191,6 +5191,13 @@ textarea::placeholder {
 
 [data-theme="dark"] #tab-config .config-budget-box,
 [data-theme="dark"] #tab-config .config-budget-category-row,
+[data-theme="dark"] #tab-propostas .propostas-hero-card,
+[data-theme="dark"] #tab-propostas .propostas-hero-badge,
+[data-theme="dark"] #tab-propostas .proposta-config-open-btn,
+[data-theme="dark"] #tab-propostas .proposta-config-panel,
+[data-theme="dark"] #tab-propostas .proposta-config-section,
+[data-theme="dark"] #tab-propostas .proposta-config-category-card,
+[data-theme="dark"] #tab-propostas .proposta-config-check,
 [data-theme="dark"] #tab-propostas .proposta-sticky-summary,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics span,
 [data-theme="dark"] #tab-propostas .proposta-closing-block,
@@ -5205,6 +5212,10 @@ textarea::placeholder {
 [data-theme="dark"] #tab-config .config-budget-box h4,
 [data-theme="dark"] #tab-config .config-budget-category-name,
 [data-theme="dark"] #tab-config .config-budget-rule,
+[data-theme="dark"] #tab-propostas .propostas-hero-card h2,
+[data-theme="dark"] #tab-propostas .proposta-config-head h3,
+[data-theme="dark"] #tab-propostas .proposta-config-section h4,
+[data-theme="dark"] #tab-propostas .proposta-config-category-title strong,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics strong,
 [data-theme="dark"] #tab-propostas .proposta-closing-block h5,
 [data-theme="dark"] #tab-propostas .proposta-closing-section > h5,
@@ -7715,16 +7726,294 @@ header {
     padding-bottom: 10px !important;
 }
 
+#tab-propostas .propostas-hero-card,
+#tab-propostas .propostas-workbar {
+    margin-bottom: 16px;
+}
+
+#tab-propostas .propostas-hero-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.06)),
+        var(--surface);
+    box-shadow: var(--shadow-soft);
+}
+
+#tab-propostas .propostas-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+#tab-propostas .propostas-hero-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    border-radius: 14px;
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.24);
+}
+
+#tab-propostas .propostas-hero-card h2,
+#tab-propostas .propostas-hero-card p {
+    margin: 0;
+}
+
+#tab-propostas .propostas-hero-card p {
+    margin-top: 4px;
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .propostas-hero-badge {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.82);
+    color: var(--text-light);
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+#tab-propostas .propostas-workbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 #tab-propostas .propostas-subnav {
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    margin: 0 0 16px;
+    margin: 0;
     padding: 6px;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.82);
     box-shadow: var(--shadow-soft);
+}
+
+#tab-propostas .proposta-config-open-btn {
+    min-height: 44px;
+    border-radius: 12px;
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+    background: var(--surface);
+    color: var(--primary);
+    font-weight: 900;
+    box-shadow: var(--shadow-soft);
+}
+
+#tab-propostas .proposta-config-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 2600;
+    display: none;
+    pointer-events: none;
+}
+
+#tab-propostas .proposta-config-drawer.is-open {
+    display: block;
+    pointer-events: auto;
+}
+
+#tab-propostas .proposta-config-backdrop {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.34);
+    cursor: pointer;
+}
+
+#tab-propostas .proposta-config-panel {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    width: min(520px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+    overflow: auto;
+    transform: translateX(18px);
+    animation: propostaDrawerIn 0.18s ease forwards;
+}
+
+@keyframes propostaDrawerIn {
+    to {
+        transform: translateX(0);
+    }
+}
+
+#tab-propostas .proposta-config-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-config-head h3,
+#tab-propostas .proposta-config-head p,
+#tab-propostas .proposta-config-section h4,
+#tab-propostas .proposta-config-section-title h4 {
+    margin: 0;
+}
+
+#tab-propostas .proposta-config-head p,
+#tab-propostas .proposta-config-section-title span {
+    margin-top: 4px;
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .proposta-config-close {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+}
+
+#tab-propostas .proposta-config-section {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+#tab-propostas .proposta-config-section-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+#tab-propostas .proposta-config-categories {
+    display: grid;
+    gap: 12px;
+}
+
+#tab-propostas .proposta-config-category-card {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-config-category-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#tab-propostas .proposta-config-category-title strong {
+    font-size: 0.98rem;
+}
+
+#tab-propostas .proposta-config-category-title span {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-soft));
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+#tab-propostas .proposta-config-rule-grid {
+    display: grid;
+    grid-template-columns: minmax(112px, 0.9fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: end;
+}
+
+#tab-propostas .proposta-config-check {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    color: var(--text);
+    font-weight: 900;
+}
+
+#tab-propostas .proposta-config-check input {
+    width: 16px;
+    height: 16px;
+}
+
+#tab-propostas .proposta-config-actions {
+    position: sticky;
+    bottom: -18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 0 -18px -18px;
+    padding: 14px 18px 18px;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+}
+
+#tab-propostas .proposta-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 950;
+}
+
+#tab-propostas .proposta-form-tab.is-active .proposta-step-index {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+#tab-propostas .proposta-step-text {
+    display: grid;
+    gap: 2px;
+    text-align: left;
+}
+
+#tab-propostas .proposta-step-text small {
+    opacity: 0.76;
+    font-size: 0.68rem;
 }
 
 #tab-propostas .propostas-subtab {
@@ -8233,6 +8522,23 @@ header {
 }
 
 @media (max-width: 860px) {
+    #tab-propostas .propostas-hero-card,
+    #tab-propostas .propostas-workbar,
+    #tab-propostas .proposta-config-section-title {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #tab-propostas .propostas-hero-main {
+        align-items: flex-start;
+    }
+
+    #tab-propostas .propostas-hero-badge {
+        width: 100%;
+        text-align: center;
+        white-space: normal;
+    }
+
     #tab-propostas .propostas-subnav {
         display: flex;
         width: 100%;
@@ -8241,6 +8547,32 @@ header {
 
     #tab-propostas .propostas-subtab {
         flex: 1 0 max-content;
+    }
+
+    #tab-propostas .proposta-config-open-btn {
+        width: 100%;
+    }
+
+    #tab-propostas .proposta-config-panel {
+        top: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: calc(100vw - 16px);
+        padding: 14px;
+        border-radius: 18px;
+    }
+
+    #tab-propostas .proposta-config-grid,
+    #tab-propostas .proposta-config-rule-grid,
+    #tab-propostas .proposta-config-actions {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-config-actions {
+        margin-right: -14px;
+        margin-left: -14px;
+        padding-right: 14px;
+        padding-left: 14px;
     }
 
     #tab-propostas .proposta-form-nav {

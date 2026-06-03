@@ -441,6 +441,197 @@
         `;
     }
 
+    function valorNumeroConfigOrcamento(id, fallback = 0, max = Infinity) {
+        const valor = numeroNaoNegativo(document.getElementById(id)?.value, fallback);
+        return Math.min(max, valor);
+    }
+
+    function preencherValorConfigOrcamento(id, valor) {
+        const el = document.getElementById(id);
+        if (el) el.value = Number(valor || 0);
+    }
+
+    function atualizarMetaTopoPropostas(total = 0, filtradas = 0, termoRaw = '') {
+        const el = document.getElementById('propHeaderMeta');
+        if (!el) return;
+        const filtroAtivo = filtroPropostasAtual !== 'todos';
+        const temBusca = !!textoSeguro(termoRaw);
+        const status = filtroAtivo || temBusca ? 'Lista filtrada' : 'Lista completa';
+        el.textContent = `${filtradas} de ${total} propostas • ${status}`;
+    }
+
+    function renderConfigOrcamentoProposta(padroesOrigem = null, valorKmOrigem = null) {
+        const padroes = normalizarPadroesOrcamento(padroesOrigem || config?.padroesOrcamento);
+        const globais = padroes.globais || {};
+
+        preencherValorConfigOrcamento('propOrcConfigEntradaPadrao', globais.percentualEntradaPadrao ?? 50);
+        preencherValorConfigOrcamento('propOrcConfigHonorariosPadrao', globais.percentualHonorariosPadrao || 0);
+        preencherValorConfigOrcamento('propOrcConfigEncargosPadrao', globais.percentualEncargosPadrao || 0);
+        preencherValorConfigOrcamento('propOrcConfigINSSPadrao', globais.percentualINSSPadrao || 0);
+        preencherValorConfigOrcamento('propOrcConfigValorKmPadrao', valorKmOrigem ?? obterValorKmFretePadrao());
+
+        const tipoEncargos = document.getElementById('propOrcConfigTipoEncargosPadrao');
+        if (tipoEncargos) tipoEncargos.value = globais.tipoCalculoEncargosPadrao || 'simples';
+        const tipoINSS = document.getElementById('propOrcConfigTipoINSSPadrao');
+        if (tipoINSS) tipoINSS.value = globais.tipoCalculoINSSPadrao || 'simples';
+
+        const container = document.getElementById('propOrcConfigCategorias');
+        if (!container) return;
+
+        container.innerHTML = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => {
+            const regra = padroes.categorias?.[categoria] || normalizarRegraCategoriaOrcamento(categoria, {}, globais);
+            return `
+                <div class="proposta-config-category-card" data-prop-orc-categoria="${sanitizar(categoria)}">
+                    <div class="proposta-config-category-title">
+                        <strong>${sanitizar(categoria)}</strong>
+                        <span>${regra.aplicarINSS ? 'Com INSS' : 'Sem INSS padrão'}</span>
+                    </div>
+                    <div class="proposta-config-rule-grid">
+                        <label class="proposta-config-check">
+                            <input type="checkbox" class="prop-orc-cat-honorarios-check" ${regra.aplicarHonorarios !== false ? 'checked' : ''}>
+                            Honorários
+                        </label>
+                        <div class="form-group">
+                            <label>% Honorários</label>
+                            <input type="number" class="prop-orc-cat-honorarios-percent" min="0" step="0.01" value="${Number(regra.percentualHonorarios || 0)}">
+                        </div>
+                        <label class="proposta-config-check">
+                            <input type="checkbox" class="prop-orc-cat-encargos-check" ${regra.aplicarEncargos !== false ? 'checked' : ''}>
+                            Encargos
+                        </label>
+                        <div class="form-group">
+                            <label>% Encargos</label>
+                            <input type="number" class="prop-orc-cat-encargos-percent" min="0" step="0.01" value="${Number(regra.percentualEncargos || 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo encargos</label>
+                            <select class="prop-orc-cat-encargos-tipo">
+                                ${montarOptionsTipoCalculoTributo(regra.tipoCalculoEncargos)}
+                            </select>
+                        </div>
+                        <label class="proposta-config-check">
+                            <input type="checkbox" class="prop-orc-cat-inss-check" ${regra.aplicarINSS === true ? 'checked' : ''}>
+                            INSS
+                        </label>
+                        <div class="form-group">
+                            <label>% INSS</label>
+                            <input type="number" class="prop-orc-cat-inss-percent" min="0" step="0.01" value="${Number(regra.percentualINSS || 0)}">
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo INSS</label>
+                            <select class="prop-orc-cat-inss-tipo">
+                                ${montarOptionsTipoCalculoTributo(regra.tipoCalculoINSS)}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function coletarConfigOrcamentoProposta() {
+        const atuais = obterPadroesOrcamento();
+        const globaisAtuais = atuais.globais || {};
+        const globais = {
+            percentualHonorariosPadrao: valorNumeroConfigOrcamento('propOrcConfigHonorariosPadrao'),
+            percentualEncargosPadrao: valorNumeroConfigOrcamento('propOrcConfigEncargosPadrao'),
+            percentualINSSPadrao: valorNumeroConfigOrcamento('propOrcConfigINSSPadrao'),
+            percentualEntradaPadrao: valorNumeroConfigOrcamento('propOrcConfigEntradaPadrao', 50, 100),
+            percentualDescontoPadrao: globaisAtuais.percentualDescontoPadrao || 0,
+            tipoCalculoEncargosPadrao: normalizarTipoCalculoTributo(document.getElementById('propOrcConfigTipoEncargosPadrao')?.value),
+            tipoCalculoINSSPadrao: normalizarTipoCalculoTributo(document.getElementById('propOrcConfigTipoINSSPadrao')?.value),
+            aplicarHonorariosAutomaticamente: globaisAtuais.aplicarHonorariosAutomaticamente !== false,
+            aplicarEncargosAutomaticamente: globaisAtuais.aplicarEncargosAutomaticamente !== false,
+            aplicarINSSAutomaticamente: globaisAtuais.aplicarINSSAutomaticamente !== false
+        };
+
+        const categorias = {};
+        document.querySelectorAll('#propOrcConfigCategorias [data-prop-orc-categoria]').forEach((linha) => {
+            const categoria = linha.getAttribute('data-prop-orc-categoria') || CATEGORIA_ITEM_PROPOSTA_PADRAO;
+            const regraAtual = atuais.categorias?.[categoria] || {};
+            categorias[categoria] = {
+                ativa: regraAtual.ativa !== false,
+                aplicarHonorarios: linha.querySelector('.prop-orc-cat-honorarios-check')?.checked === true,
+                percentualHonorarios: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+                aplicarEncargos: linha.querySelector('.prop-orc-cat-encargos-check')?.checked === true,
+                percentualEncargos: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
+                tipoCalculoEncargos: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-encargos-tipo')?.value),
+                aplicarINSS: linha.querySelector('.prop-orc-cat-inss-check')?.checked === true,
+                percentualINSS: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
+                tipoCalculoINSS: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-inss-tipo')?.value)
+            };
+        });
+
+        return {
+            padroes: normalizarPadroesOrcamento({ globais, categorias }),
+            valorKmFretePadrao: numeroNaoNegativo(document.getElementById('propOrcConfigValorKmPadrao')?.value, 0)
+        };
+    }
+
+    function abrirConfigOrcamentoProposta() {
+        renderConfigOrcamentoProposta();
+        const drawer = document.getElementById('propostaConfigDrawer');
+        if (!drawer) return;
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        document.querySelectorAll('[data-action="abrirConfigOrcamentoProposta"]').forEach((btn) => {
+            btn.setAttribute('aria-expanded', 'true');
+        });
+        setTimeout(() => document.getElementById('propOrcConfigEntradaPadrao')?.focus(), 80);
+    }
+
+    function fecharConfigOrcamentoProposta() {
+        const drawer = document.getElementById('propostaConfigDrawer');
+        if (!drawer) return;
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+        document.querySelectorAll('[data-action="abrirConfigOrcamentoProposta"]').forEach((btn) => {
+            btn.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function aplicarPadroesOrcamentoNaPropostaAtual() {
+        const padroes = obterPadroesOrcamento();
+        const entradaEl = document.getElementById('propPercentualEntrada');
+        if (entradaEl) entradaEl.value = String(padroes.globais.percentualEntradaPadrao ?? 50);
+
+        const valorKm = obterValorKmFretePadrao();
+        const valorKmEl = document.getElementById('propFreteValorKm');
+        if (valorKmEl && valorKm > 0) valorKmEl.value = String(valorKm);
+
+        document.querySelectorAll('#propostaItensBody .proposta-item-row').forEach((linha) => {
+            const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
+            preencherLinhaComRegraCategoria(linha, categoria);
+            linha.dataset.categoriaAtual = categoria;
+        });
+        recalcularResumoProposta();
+    }
+
+    function aplicarConfigOrcamentoProposta() {
+        if (typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode alterar configurações de orçamento.')) {
+            return;
+        }
+
+        const { padroes, valorKmFretePadrao } = coletarConfigOrcamentoProposta();
+        if (config && typeof config === 'object') {
+            config.padroesOrcamento = padroes;
+            config.valorKmFretePadrao = valorKmFretePadrao;
+        }
+
+        salvarLocal();
+        sincronizar('salvar');
+        aplicarPadroesOrcamentoNaPropostaAtual();
+        if (typeof renderConfigPadroesOrcamento === 'function') renderConfigPadroesOrcamento();
+        if (typeof registrarLog === 'function') registrarLog('config', 'Atualizar', 'Padrões de orçamento atualizados pela aba Orçamentos.');
+        fecharConfigOrcamentoProposta();
+        mostrarToast('Configurações aplicadas ao orçamento.');
+    }
+
+    function restaurarPadroesConfigOrcamentoProposta() {
+        renderConfigOrcamentoProposta(criarPadroesOrcamentoDefault(), 0);
+        mostrarToast('Padrões originais carregados. Clique em aplicar para salvar.', 'info');
+    }
+
     function mostrarSubAbaPropostas(alvo = 'formulario', opcoes = {}) {
         const subAba = alvo === 'lista' ? 'lista' : 'formulario';
         subAbaPropostasAtual = subAba;
@@ -2538,6 +2729,7 @@
         });
 
         filtradas.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        atualizarMetaTopoPropostas(base.length, filtradas.length, termoRaw);
 
         if (typeof atualizarMetaBusca === 'function') {
             atualizarMetaBusca('metaBuscaPropostas', {
@@ -2634,6 +2826,10 @@
         if (campoStatus) {
             campoStatus.addEventListener('change', () => recalcularResumoProposta());
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') fecharConfigOrcamentoProposta();
+        });
     }
 
     function inicializarPropostas() {
@@ -2647,8 +2843,10 @@
         registrarListenersPropostas();
         aplicarValorKmFretePadraoProposta();
         preencherResponsavelPropostaSeVazio();
+        renderConfigOrcamentoProposta();
         mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
         mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
+        renderPropostas();
     }
 
     inicializarPropostas();
@@ -2680,4 +2878,8 @@
     window.aplicarValorKmFretePadraoProposta = aplicarValorKmFretePadraoProposta;
     window.mostrarSubAbaPropostas = mostrarSubAbaPropostas;
     window.mostrarSecaoFormularioProposta = mostrarSecaoFormularioProposta;
+    window.abrirConfigOrcamentoProposta = abrirConfigOrcamentoProposta;
+    window.fecharConfigOrcamentoProposta = fecharConfigOrcamentoProposta;
+    window.aplicarConfigOrcamentoProposta = aplicarConfigOrcamentoProposta;
+    window.restaurarPadroesConfigOrcamentoProposta = restaurarPadroesConfigOrcamentoProposta;
 })();
