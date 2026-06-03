@@ -13,6 +13,139 @@ function normalizarNumeroConfig(valor, fallback = 0) {
     return Number.isFinite(numero) && numero >= 0 ? numero : fallback;
 }
 
+function sanitizarConfigTexto(valor) {
+    if (typeof sanitizarTexto === 'function') return sanitizarTexto(valor);
+    const div = document.createElement('div');
+    div.textContent = valor == null ? '' : String(valor);
+    return div.innerHTML;
+}
+
+function obterPadroesOrcamentoConfig() {
+    if (typeof normalizarPadroesOrcamento === 'function') {
+        return normalizarPadroesOrcamento(config?.padroesOrcamento);
+    }
+
+    return {
+        globais: {
+            percentualHonorariosPadrao: 0,
+            percentualEncargosPadrao: 0,
+            percentualINSSPadrao: 0,
+            percentualEntradaPadrao: 50,
+            percentualDescontoPadrao: 0,
+            tipoCalculoEncargosPadrao: 'simples',
+            tipoCalculoINSSPadrao: 'simples',
+            aplicarHonorariosAutomaticamente: true,
+            aplicarEncargosAutomaticamente: true,
+            aplicarINSSAutomaticamente: true
+        },
+        categorias: {}
+    };
+}
+
+function preencherCampoConfig(id, valor, prop = 'value') {
+    const el = document.getElementById(id);
+    if (el) el[prop] = valor;
+}
+
+function renderConfigPadroesOrcamento() {
+    const padroes = obterPadroesOrcamentoConfig();
+    if (config && typeof config === 'object') config.padroesOrcamento = padroes;
+
+    const globais = padroes.globais || {};
+    preencherCampoConfig('confOrcHonorariosPadrao', globais.percentualHonorariosPadrao || '');
+    preencherCampoConfig('confOrcEncargosPadrao', globais.percentualEncargosPadrao || '');
+    preencherCampoConfig('confOrcINSSPadrao', globais.percentualINSSPadrao || '');
+    preencherCampoConfig('confOrcEntradaPadrao', globais.percentualEntradaPadrao ?? 50);
+    preencherCampoConfig('confOrcDescontoPadrao', globais.percentualDescontoPadrao || '');
+    preencherCampoConfig('confOrcTipoEncargosPadrao', globais.tipoCalculoEncargosPadrao || 'simples');
+    preencherCampoConfig('confOrcTipoINSSPadrao', globais.tipoCalculoINSSPadrao || 'simples');
+    preencherCampoConfig('confOrcAplicarHonorarios', globais.aplicarHonorariosAutomaticamente !== false, 'checked');
+    preencherCampoConfig('confOrcAplicarEncargos', globais.aplicarEncargosAutomaticamente !== false, 'checked');
+    preencherCampoConfig('confOrcAplicarINSS', globais.aplicarINSSAutomaticamente !== false, 'checked');
+
+    const categorias = Array.isArray(window.CATEGORIAS_ITEM_PROPOSTA)
+        ? window.CATEGORIAS_ITEM_PROPOSTA
+        : ['Estrutura', 'Mobiliário', 'Elétrica', 'Comunicação / Impressão', 'Alimentação', 'Mão de Obra', 'Logística', 'Outros'];
+    const container = document.getElementById('confOrcCategorias');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="config-budget-category-head">
+            <span>Categoria</span>
+            <span>Honorários</span>
+            <span>Encargos</span>
+            <span>INSS</span>
+        </div>
+        ${categorias.map((categoria) => {
+            const regra = padroes.categorias?.[categoria] || {};
+            const tipoEncargos = regra.tipoCalculoEncargos === 'por_dentro' ? 'por_dentro' : 'simples';
+            const tipoINSS = regra.tipoCalculoINSS === 'por_dentro' ? 'por_dentro' : 'simples';
+            return `
+                <div class="config-budget-category-row" data-orc-categoria="${sanitizarConfigTexto(categoria)}">
+                    <label class="config-budget-category-name">
+                        <input type="checkbox" class="conf-orc-cat-ativa" ${regra.ativa !== false ? 'checked' : ''}>
+                        ${sanitizarConfigTexto(categoria)}
+                    </label>
+                    <div class="config-budget-rule">
+                        <label><input type="checkbox" class="conf-orc-cat-honorarios-check" ${regra.aplicarHonorarios !== false ? 'checked' : ''}> aplicar</label>
+                        <input type="number" class="conf-orc-cat-honorarios-percent" min="0" step="0.01" value="${Number(regra.percentualHonorarios || 0)}">
+                    </div>
+                    <div class="config-budget-rule">
+                        <label><input type="checkbox" class="conf-orc-cat-encargos-check" ${regra.aplicarEncargos !== false ? 'checked' : ''}> aplicar</label>
+                        <input type="number" class="conf-orc-cat-encargos-percent" min="0" step="0.01" value="${Number(regra.percentualEncargos || 0)}">
+                        <select class="conf-orc-cat-encargos-tipo">
+                            <option value="simples"${tipoEncargos === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoEncargos === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
+                    </div>
+                    <div class="config-budget-rule">
+                        <label><input type="checkbox" class="conf-orc-cat-inss-check" ${regra.aplicarINSS === true ? 'checked' : ''}> aplicar</label>
+                        <input type="number" class="conf-orc-cat-inss-percent" min="0" step="0.01" value="${Number(regra.percentualINSS || 0)}">
+                        <select class="conf-orc-cat-inss-tipo">
+                            <option value="simples"${tipoINSS === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoINSS === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+        }).join('')}
+    `;
+}
+
+function coletarConfigPadroesOrcamento() {
+    const globais = {
+        percentualHonorariosPadrao: normalizarNumeroConfig(document.getElementById('confOrcHonorariosPadrao')?.value, 0),
+        percentualEncargosPadrao: normalizarNumeroConfig(document.getElementById('confOrcEncargosPadrao')?.value, 0),
+        percentualINSSPadrao: normalizarNumeroConfig(document.getElementById('confOrcINSSPadrao')?.value, 0),
+        percentualEntradaPadrao: Math.min(100, normalizarNumeroConfig(document.getElementById('confOrcEntradaPadrao')?.value, 50)),
+        percentualDescontoPadrao: Math.min(100, normalizarNumeroConfig(document.getElementById('confOrcDescontoPadrao')?.value, 0)),
+        tipoCalculoEncargosPadrao: document.getElementById('confOrcTipoEncargosPadrao')?.value === 'por_dentro' ? 'por_dentro' : 'simples',
+        tipoCalculoINSSPadrao: document.getElementById('confOrcTipoINSSPadrao')?.value === 'por_dentro' ? 'por_dentro' : 'simples',
+        aplicarHonorariosAutomaticamente: document.getElementById('confOrcAplicarHonorarios')?.checked !== false,
+        aplicarEncargosAutomaticamente: document.getElementById('confOrcAplicarEncargos')?.checked !== false,
+        aplicarINSSAutomaticamente: document.getElementById('confOrcAplicarINSS')?.checked !== false
+    };
+
+    const categorias = {};
+    document.querySelectorAll('#confOrcCategorias [data-orc-categoria]').forEach((linha) => {
+        const categoria = linha.getAttribute('data-orc-categoria') || '';
+        categorias[categoria] = {
+            ativa: linha.querySelector('.conf-orc-cat-ativa')?.checked !== false,
+            aplicarHonorarios: linha.querySelector('.conf-orc-cat-honorarios-check')?.checked === true,
+            percentualHonorarios: normalizarNumeroConfig(linha.querySelector('.conf-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+            aplicarEncargos: linha.querySelector('.conf-orc-cat-encargos-check')?.checked === true,
+            percentualEncargos: normalizarNumeroConfig(linha.querySelector('.conf-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
+            tipoCalculoEncargos: linha.querySelector('.conf-orc-cat-encargos-tipo')?.value === 'por_dentro' ? 'por_dentro' : 'simples',
+            aplicarINSS: linha.querySelector('.conf-orc-cat-inss-check')?.checked === true,
+            percentualINSS: normalizarNumeroConfig(linha.querySelector('.conf-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
+            tipoCalculoINSS: linha.querySelector('.conf-orc-cat-inss-tipo')?.value === 'por_dentro' ? 'por_dentro' : 'simples'
+        };
+    });
+
+    const padroes = { globais, categorias };
+    return typeof normalizarPadroesOrcamento === 'function' ? normalizarPadroesOrcamento(padroes) : padroes;
+}
+
 function salvarConfig() {
     if (typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode salvar configurações.')) {
         return;
@@ -40,6 +173,7 @@ function salvarConfig() {
         config.adminEmails = normalizarEmailsPermitidos(elAdminEmails.value);
         elAdminEmails.value = config.adminEmails;
     }
+    config.padroesOrcamento = coletarConfigPadroesOrcamento();
 
     salvarLocal();
     sincronizar('salvar');

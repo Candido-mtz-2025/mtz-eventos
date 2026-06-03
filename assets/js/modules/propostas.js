@@ -45,6 +45,8 @@
         'Logística',
         'Outros'
     ]);
+    const TIPOS_CALCULO_TRIBUTO_PROPOSTA = new Set(['simples', 'por_dentro']);
+    const CATEGORIA_MAO_OBRA_PROPOSTA = 'Mão de Obra';
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
         'itens',
@@ -137,10 +139,218 @@
         return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
     }
 
+    function normalizarTipoCalculoTributo(tipo, fallback = 'simples') {
+        const valor = normalizarTextoBusca(tipo || fallback).replace(/[\s-]+/g, '_');
+        return TIPOS_CALCULO_TRIBUTO_PROPOSTA.has(valor) ? valor : 'simples';
+    }
+
+    function normalizarBooleanoProposta(valor, fallback = false) {
+        if (typeof valor === 'boolean') return valor;
+        if (valor == null || valor === '') return !!fallback;
+        const texto = normalizarTextoBusca(valor);
+        if (['true', '1', 'sim', 's', 'yes'].includes(texto)) return true;
+        if (['false', '0', 'nao', 'não', 'n', 'no'].includes(texto)) return false;
+        return !!fallback;
+    }
+
     function normalizarCategoriaItemProposta(categoria) {
         const alvo = normalizarTextoBusca(categoria);
         const encontrada = CATEGORIAS_ITEM_PROPOSTA.find((item) => normalizarTextoBusca(item) === alvo);
         return encontrada || CATEGORIA_ITEM_PROPOSTA_PADRAO;
+    }
+
+    function criarPadroesOrcamentoDefault() {
+        const globais = {
+            percentualHonorariosPadrao: 0,
+            percentualEncargosPadrao: 0,
+            percentualINSSPadrao: 0,
+            percentualEntradaPadrao: 50,
+            percentualDescontoPadrao: 0,
+            tipoCalculoEncargosPadrao: 'simples',
+            tipoCalculoINSSPadrao: 'simples',
+            aplicarHonorariosAutomaticamente: true,
+            aplicarEncargosAutomaticamente: true,
+            aplicarINSSAutomaticamente: true
+        };
+
+        const categorias = {};
+        CATEGORIAS_ITEM_PROPOSTA.forEach((categoria) => {
+            const ehMaoObra = categoria === CATEGORIA_MAO_OBRA_PROPOSTA;
+            categorias[categoria] = {
+                ativa: true,
+                aplicarHonorarios: true,
+                percentualHonorarios: globais.percentualHonorariosPadrao,
+                aplicarEncargos: true,
+                percentualEncargos: globais.percentualEncargosPadrao,
+                tipoCalculoEncargos: globais.tipoCalculoEncargosPadrao,
+                aplicarINSS: ehMaoObra,
+                percentualINSS: globais.percentualINSSPadrao,
+                tipoCalculoINSS: globais.tipoCalculoINSSPadrao
+            };
+        });
+
+        return { globais, categorias };
+    }
+
+    function normalizarRegraCategoriaOrcamento(categoria, regra = {}, globais = criarPadroesOrcamentoDefault().globais) {
+        const categoriaNormalizada = normalizarCategoriaItemProposta(categoria);
+        const ehMaoObra = categoriaNormalizada === CATEGORIA_MAO_OBRA_PROPOSTA;
+        const origem = regra && typeof regra === 'object' ? regra : {};
+
+        return {
+            ativa: normalizarBooleanoProposta(origem.ativa, true),
+            aplicarHonorarios: normalizarBooleanoProposta(origem.aplicarHonorarios, true),
+            percentualHonorarios: numeroNaoNegativo(origem.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
+            aplicarEncargos: normalizarBooleanoProposta(origem.aplicarEncargos, true),
+            percentualEncargos: numeroNaoNegativo(origem.percentualEncargos, globais.percentualEncargosPadrao || 0),
+            tipoCalculoEncargos: normalizarTipoCalculoTributo(origem.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao || 'simples'),
+            aplicarINSS: normalizarBooleanoProposta(origem.aplicarINSS, ehMaoObra),
+            percentualINSS: numeroNaoNegativo(origem.percentualINSS, globais.percentualINSSPadrao || 0),
+            tipoCalculoINSS: normalizarTipoCalculoTributo(origem.tipoCalculoINSS, globais.tipoCalculoINSSPadrao || 'simples')
+        };
+    }
+
+    function normalizarPadroesOrcamento(valor = {}) {
+        const padrao = criarPadroesOrcamentoDefault();
+        const origem = valor && typeof valor === 'object' ? valor : {};
+        const origemGlobais = origem.globais && typeof origem.globais === 'object' ? origem.globais : origem;
+
+        const globais = {
+            percentualHonorariosPadrao: numeroNaoNegativo(origemGlobais.percentualHonorariosPadrao ?? origemGlobais.honorariosPadrao, padrao.globais.percentualHonorariosPadrao),
+            percentualEncargosPadrao: numeroNaoNegativo(origemGlobais.percentualEncargosPadrao ?? origemGlobais.encargosPadrao, padrao.globais.percentualEncargosPadrao),
+            percentualINSSPadrao: numeroNaoNegativo(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, padrao.globais.percentualINSSPadrao),
+            percentualEntradaPadrao: clampPercentual(origemGlobais.percentualEntradaPadrao ?? origemGlobais.entradaPadrao ?? padrao.globais.percentualEntradaPadrao),
+            percentualDescontoPadrao: clampPercentual(origemGlobais.percentualDescontoPadrao ?? origemGlobais.descontoPadrao ?? padrao.globais.percentualDescontoPadrao),
+            tipoCalculoEncargosPadrao: normalizarTipoCalculoTributo(origemGlobais.tipoCalculoEncargosPadrao, padrao.globais.tipoCalculoEncargosPadrao),
+            tipoCalculoINSSPadrao: normalizarTipoCalculoTributo(origemGlobais.tipoCalculoINSSPadrao, padrao.globais.tipoCalculoINSSPadrao),
+            aplicarHonorariosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarHonorariosAutomaticamente, padrao.globais.aplicarHonorariosAutomaticamente),
+            aplicarEncargosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarEncargosAutomaticamente, padrao.globais.aplicarEncargosAutomaticamente),
+            aplicarINSSAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarINSSAutomaticamente, padrao.globais.aplicarINSSAutomaticamente)
+        };
+
+        const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
+        const categorias = {};
+        CATEGORIAS_ITEM_PROPOSTA.forEach((categoria) => {
+            categorias[categoria] = normalizarRegraCategoriaOrcamento(categoria, origemCategorias[categoria], globais);
+        });
+
+        return { globais, categorias };
+    }
+
+    function obterPadroesOrcamento() {
+        const normalizado = normalizarPadroesOrcamento(config?.padroesOrcamento);
+        if (config && typeof config === 'object') {
+            config.padroesOrcamento = normalizado;
+        }
+        return normalizado;
+    }
+
+    function obterRegraCategoriaParaItem(categoria) {
+        const categoriaNormalizada = normalizarCategoriaItemProposta(categoria);
+        const padroes = obterPadroesOrcamento();
+        const regra = padroes.categorias[categoriaNormalizada] || normalizarRegraCategoriaOrcamento(categoriaNormalizada, {}, padroes.globais);
+
+        return {
+            ...regra,
+            aplicarHonorarios: padroes.globais.aplicarHonorariosAutomaticamente && regra.aplicarHonorarios,
+            aplicarEncargos: padroes.globais.aplicarEncargosAutomaticamente && regra.aplicarEncargos,
+            aplicarINSS: padroes.globais.aplicarINSSAutomaticamente && regra.aplicarINSS
+        };
+    }
+
+    function calcularValorPercentualTributo(base, percentual, tipoCalculo = 'simples') {
+        const baseNormalizada = numeroNaoNegativo(base, 0);
+        const percentualNormalizado = Math.min(99.99, numeroNaoNegativo(percentual, 0));
+        if (baseNormalizada <= 0 || percentualNormalizado <= 0) return 0;
+        if (normalizarTipoCalculoTributo(tipoCalculo) === 'por_dentro') {
+            return arredondarMoeda((baseNormalizada / (1 - (percentualNormalizado / 100))) - baseNormalizada);
+        }
+        return arredondarMoeda((baseNormalizada * percentualNormalizado) / 100);
+    }
+
+    function calcularItemProposta(item = {}) {
+        const categoria = normalizarCategoriaItemProposta(item.categoria);
+        const regra = obterRegraCategoriaParaItem(categoria);
+        const usarPadrao = item.usarPadraoCalculo === true;
+        const temCalculoSalvo = !usarPadrao && [
+            'aplicarHonorarios',
+            'percentualHonorarios',
+            'aplicarEncargos',
+            'percentualEncargos',
+            'tipoCalculoEncargos',
+            'aplicarINSS',
+            'percentualINSS',
+            'tipoCalculoINSS'
+        ].some((campo) => Object.prototype.hasOwnProperty.call(item, campo));
+
+        const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
+        const quantidade = numeroNaoNegativo(item.quantidade, 0);
+        const custoUnitario = numeroNaoNegativo(item.custoUnitario ?? item.valorUnitario, 0);
+        const custoTotal = arredondarMoeda(periodoDias * quantidade * custoUnitario);
+
+        const aplicarHonorarios = temCalculoSalvo
+            ? normalizarBooleanoProposta(item.aplicarHonorarios, regra.aplicarHonorarios)
+            : regra.aplicarHonorarios;
+        const percentualHonorarios = temCalculoSalvo
+            ? numeroNaoNegativo(item.percentualHonorarios, regra.percentualHonorarios)
+            : regra.percentualHonorarios;
+        const valorHonorarios = aplicarHonorarios
+            ? calcularValorPercentualTributo(custoTotal, percentualHonorarios, 'simples')
+            : 0;
+
+        const aplicarEncargos = temCalculoSalvo
+            ? normalizarBooleanoProposta(item.aplicarEncargos, regra.aplicarEncargos)
+            : regra.aplicarEncargos;
+        const percentualEncargos = temCalculoSalvo
+            ? numeroNaoNegativo(item.percentualEncargos, regra.percentualEncargos)
+            : regra.percentualEncargos;
+        const tipoCalculoEncargos = temCalculoSalvo
+            ? normalizarTipoCalculoTributo(item.tipoCalculoEncargos, regra.tipoCalculoEncargos)
+            : regra.tipoCalculoEncargos;
+        const valorEncargos = aplicarEncargos
+            ? calcularValorPercentualTributo(custoTotal + valorHonorarios, percentualEncargos, tipoCalculoEncargos)
+            : 0;
+
+        const aplicarINSS = temCalculoSalvo
+            ? normalizarBooleanoProposta(item.aplicarINSS, regra.aplicarINSS)
+            : regra.aplicarINSS;
+        const percentualINSS = temCalculoSalvo
+            ? numeroNaoNegativo(item.percentualINSS, regra.percentualINSS)
+            : regra.percentualINSS;
+        const tipoCalculoINSS = temCalculoSalvo
+            ? normalizarTipoCalculoTributo(item.tipoCalculoINSS, regra.tipoCalculoINSS)
+            : regra.tipoCalculoINSS;
+        const valorINSS = aplicarINSS
+            ? calcularValorPercentualTributo(custoTotal + valorHonorarios, percentualINSS, tipoCalculoINSS)
+            : 0;
+
+        const valorTotal = arredondarMoeda(custoTotal + valorHonorarios + valorEncargos + valorINSS);
+
+        return {
+            categoria,
+            descricao: textoSeguro(item.descricao, ''),
+            medida: textoSeguro(item.medida, ''),
+            periodoDias,
+            quantidade,
+            custoUnitario,
+            valorUnitario: custoUnitario,
+            custoTotal,
+            aplicarHonorarios,
+            percentualHonorarios,
+            valorHonorarios,
+            aplicarEncargos,
+            percentualEncargos,
+            tipoCalculoEncargos,
+            valorEncargos,
+            aplicarINSS,
+            percentualINSS,
+            tipoCalculoINSS,
+            valorINSS,
+            valorTotal,
+            totalFinal: valorTotal,
+            observacoes: textoSeguro(item.observacoes, ''),
+            usarPadraoCalculo: false
+        };
     }
 
     function montarOptionsCategoriaItemProposta(categoriaAtual) {
@@ -155,19 +365,26 @@
         const grupos = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => ({
             categoria,
             itens: [],
-            subtotal: 0
+            subtotal: 0,
+            custoTotal: 0,
+            honorarios: 0,
+            encargos: 0,
+            inss: 0,
+            totalFinal: 0
         }));
         const porCategoria = new Map(grupos.map((grupo) => [grupo.categoria, grupo]));
 
         (Array.isArray(itens) ? itens : []).forEach((item) => {
-            const categoria = normalizarCategoriaItemProposta(item?.categoria);
+            const itemCalculado = calcularItemProposta(item || {});
+            const categoria = itemCalculado.categoria;
             const grupo = porCategoria.get(categoria) || porCategoria.get(CATEGORIA_ITEM_PROPOSTA_PADRAO);
-            const itemNormalizado = {
-                ...item,
-                categoria
-            };
-            grupo.itens.push(itemNormalizado);
-            grupo.subtotal += numeroNaoNegativo(itemNormalizado.valorTotal, 0);
+            grupo.itens.push(itemCalculado);
+            grupo.custoTotal += numeroNaoNegativo(itemCalculado.custoTotal, 0);
+            grupo.honorarios += numeroNaoNegativo(itemCalculado.valorHonorarios, 0);
+            grupo.encargos += numeroNaoNegativo(itemCalculado.valorEncargos, 0);
+            grupo.inss += numeroNaoNegativo(itemCalculado.valorINSS, 0);
+            grupo.totalFinal += numeroNaoNegativo(itemCalculado.valorTotal, 0);
+            grupo.subtotal = grupo.totalFinal;
         });
 
         return grupos.filter((grupo) => grupo.itens.length > 0);
@@ -177,15 +394,24 @@
         const grupos = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => ({
             categoria,
             quantidade: 0,
+            custoTotal: 0,
+            honorarios: 0,
+            encargos: 0,
+            inss: 0,
             subtotal: 0
         }));
         const porCategoria = new Map(grupos.map((grupo) => [grupo.categoria, grupo]));
 
         (Array.isArray(itens) ? itens : []).forEach((item) => {
-            const categoria = normalizarCategoriaItemProposta(item?.categoria);
+            const itemCalculado = calcularItemProposta(item || {});
+            const categoria = itemCalculado.categoria;
             const grupo = porCategoria.get(categoria) || porCategoria.get(CATEGORIA_ITEM_PROPOSTA_PADRAO);
             grupo.quantidade += 1;
-            grupo.subtotal += numeroNaoNegativo(item?.valorTotal, 0);
+            grupo.custoTotal += numeroNaoNegativo(itemCalculado.custoTotal, 0);
+            grupo.honorarios += numeroNaoNegativo(itemCalculado.valorHonorarios, 0);
+            grupo.encargos += numeroNaoNegativo(itemCalculado.valorEncargos, 0);
+            grupo.inss += numeroNaoNegativo(itemCalculado.valorINSS, 0);
+            grupo.subtotal += numeroNaoNegativo(itemCalculado.valorTotal, 0);
         });
 
         return grupos;
@@ -208,6 +434,8 @@
                     <div class="proposta-category-chip${grupo.quantidade > 0 ? ' has-value' : ''}">
                         <span>${sanitizar(grupo.categoria)}</span>
                         <strong>${formatarMoeda(grupo.subtotal)}</strong>
+                        <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
+                        <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
                     </div>
                 `).join('')}
             </div>
@@ -562,37 +790,190 @@
         bloqueioSincronizacaoValidade = false;
     }
 
+    function montarOptionsTipoCalculoTributo(tipoAtual) {
+        const atual = normalizarTipoCalculoTributo(tipoAtual);
+        return [
+            ['simples', 'Simples'],
+            ['por_dentro', 'Por dentro']
+        ].map(([valor, rotulo]) => {
+            const selected = valor === atual ? ' selected' : '';
+            return `<option value="${valor}"${selected}>${rotulo}</option>`;
+        }).join('');
+    }
+
     function criarLinhaItemProposta(item = {}) {
-        const categoria = normalizarCategoriaItemProposta(item.categoria);
-        const descricao = sanitizar(item.descricao || '');
-        const medida = sanitizar(item.medida || '');
-        const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo ?? 1, 1) || 1;
-        const quantidade = numeroNaoNegativo(item.quantidade, 1) || 1;
-        const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
-        const observacoes = sanitizar(item.observacoes || '');
-        const valorTotal = periodoDias * quantidade * valorUnitario;
+        const itemCalculado = calcularItemProposta(item);
+        const descricao = sanitizar(itemCalculado.descricao);
+        const medida = sanitizar(itemCalculado.medida);
+        const observacoes = sanitizar(itemCalculado.observacoes);
+        const checkedHonorarios = itemCalculado.aplicarHonorarios ? ' checked' : '';
+        const checkedEncargos = itemCalculado.aplicarEncargos ? ' checked' : '';
+        const checkedINSS = itemCalculado.aplicarINSS ? ' checked' : '';
 
         return `
-            <tr class="proposta-item-row">
+            <tr class="proposta-item-row" data-categoria-atual="${sanitizar(itemCalculado.categoria)}">
                 <td>
                     <select class="prop-item-categoria" data-change="recalcularResumoProposta">
-                        ${montarOptionsCategoriaItemProposta(categoria)}
+                        ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
                 <td><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
                 <td><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-periodo" value="${periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-quantidade" value="${quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-unitario" value="${valorUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
-                <td><input type="text" class="prop-item-total" value="${formatarMoeda(valorTotal)}" readonly></td>
-                <td><input type="text" class="prop-item-obs" value="${observacoes}" placeholder="Observacoes"></td>
+                <td><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
+                <td><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
+                <td><input type="number" class="prop-item-unitario" value="${itemCalculado.custoUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
+                <td><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
+                <td><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
                 <td class="col-actions">
-                    <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    <div class="actions-cell">
+                        <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr class="proposta-item-details-row" hidden>
+                <td colspan="9">
+                    <div class="prop-item-details-panel">
+                        <div class="prop-item-details-title">
+                            <strong>Detalhes de calculo</strong>
+                            <span>Use estes campos apenas para excecoes do item.</span>
+                        </div>
+                        <div class="prop-item-details-grid">
+                            <label class="prop-calc-toggle">
+                                <input type="checkbox" class="prop-item-aplicar-honorarios" data-change="recalcularResumoProposta"${checkedHonorarios}>
+                                Aplicar honorarios
+                            </label>
+                            <div class="form-group">
+                                <label>% Honorarios</label>
+                                <input type="number" class="prop-item-percentual-honorarios" value="${itemCalculado.percentualHonorarios}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Valor honorarios</label>
+                                <input type="text" class="prop-item-valor-honorarios" value="${formatarMoeda(itemCalculado.valorHonorarios)}" readonly>
+                            </div>
+                            <label class="prop-calc-toggle">
+                                <input type="checkbox" class="prop-item-aplicar-encargos" data-change="recalcularResumoProposta"${checkedEncargos}>
+                                Aplicar encargos
+                            </label>
+                            <div class="form-group">
+                                <label>% Encargos</label>
+                                <input type="number" class="prop-item-percentual-encargos" value="${itemCalculado.percentualEncargos}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo encargos</label>
+                                <select class="prop-item-tipo-encargos" data-change="recalcularResumoProposta">
+                                    ${montarOptionsTipoCalculoTributo(itemCalculado.tipoCalculoEncargos)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor encargos</label>
+                                <input type="text" class="prop-item-valor-encargos" value="${formatarMoeda(itemCalculado.valorEncargos)}" readonly>
+                            </div>
+                            <label class="prop-calc-toggle">
+                                <input type="checkbox" class="prop-item-aplicar-inss" data-change="recalcularResumoProposta"${checkedINSS}>
+                                Aplicar INSS
+                            </label>
+                            <div class="form-group">
+                                <label>% INSS</label>
+                                <input type="number" class="prop-item-percentual-inss" value="${itemCalculado.percentualINSS}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo INSS</label>
+                                <select class="prop-item-tipo-inss" data-change="recalcularResumoProposta">
+                                    ${montarOptionsTipoCalculoTributo(itemCalculado.tipoCalculoINSS)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor INSS</label>
+                                <input type="text" class="prop-item-valor-inss" value="${formatarMoeda(itemCalculado.valorINSS)}" readonly>
+                            </div>
+                            <div class="form-group prop-item-obs-group">
+                                <label>Observacoes</label>
+                                <input type="text" class="prop-item-obs" value="${observacoes}" placeholder="Observacoes internas ou comerciais" data-input="recalcularResumoProposta">
+                            </div>
+                        </div>
+                    </div>
                 </td>
             </tr>
         `;
+    }
+
+    function preencherLinhaComRegraCategoria(linha, categoria) {
+        const regra = obterRegraCategoriaParaItem(categoria);
+        const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        if (!detalhes) return;
+
+        const mapa = [
+            ['.prop-item-aplicar-honorarios', 'checked', regra.aplicarHonorarios],
+            ['.prop-item-percentual-honorarios', 'value', regra.percentualHonorarios],
+            ['.prop-item-aplicar-encargos', 'checked', regra.aplicarEncargos],
+            ['.prop-item-percentual-encargos', 'value', regra.percentualEncargos],
+            ['.prop-item-tipo-encargos', 'value', regra.tipoCalculoEncargos],
+            ['.prop-item-aplicar-inss', 'checked', regra.aplicarINSS],
+            ['.prop-item-percentual-inss', 'value', regra.percentualINSS],
+            ['.prop-item-tipo-inss', 'value', regra.tipoCalculoINSS]
+        ];
+
+        mapa.forEach(([seletor, prop, valor]) => {
+            const campo = detalhes.querySelector(seletor);
+            if (campo) campo[prop] = valor;
+        });
+    }
+
+    function coletarItemDaLinhaProposta(linha) {
+        const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        const item = {
+            categoria: normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value),
+            descricao: textoSeguro(linha.querySelector('.prop-item-descricao')?.value),
+            medida: textoSeguro(linha.querySelector('.prop-item-medida')?.value),
+            periodoDias: numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1,
+            quantidade: numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0),
+            custoUnitario: numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0),
+            observacoes: textoSeguro(detalhes?.querySelector('.prop-item-obs')?.value),
+            aplicarHonorarios: detalhes?.querySelector('.prop-item-aplicar-honorarios')?.checked === true,
+            percentualHonorarios: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-honorarios')?.value, 0),
+            aplicarEncargos: detalhes?.querySelector('.prop-item-aplicar-encargos')?.checked === true,
+            percentualEncargos: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-encargos')?.value, 0),
+            tipoCalculoEncargos: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-encargos')?.value),
+            aplicarINSS: detalhes?.querySelector('.prop-item-aplicar-inss')?.checked === true,
+            percentualINSS: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-inss')?.value, 0),
+            tipoCalculoINSS: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-inss')?.value)
+        };
+        return calcularItemProposta(item);
+    }
+
+    function atualizarLinhaItemProposta(linha) {
+        const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
+        if (linha.dataset.categoriaAtual !== categoria) {
+            preencherLinhaComRegraCategoria(linha, categoria);
+            linha.dataset.categoriaAtual = categoria;
+        }
+
+        const item = coletarItemDaLinhaProposta(linha);
+        const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+
+        const campos = [
+            [linha.querySelector('.prop-item-custo-total'), formatarMoeda(item.custoTotal)],
+            [linha.querySelector('.prop-item-total'), formatarMoeda(item.valorTotal)],
+            [detalhes?.querySelector('.prop-item-valor-honorarios'), formatarMoeda(item.valorHonorarios)],
+            [detalhes?.querySelector('.prop-item-valor-encargos'), formatarMoeda(item.valorEncargos)],
+            [detalhes?.querySelector('.prop-item-valor-inss'), formatarMoeda(item.valorINSS)]
+        ];
+        campos.forEach(([campo, valor]) => {
+            if (campo) campo.value = valor;
+        });
+
+        return item;
     }
 
     function renderLinhasItensProposta(itens = []) {
@@ -608,40 +989,49 @@
         if (!tbody) return;
         tbody.insertAdjacentHTML('beforeend', criarLinhaItemProposta({}));
         recalcularResumoProposta();
-        const ultimaDescricao = tbody.querySelector('tr:last-child .prop-item-descricao');
+        const linhas = Array.from(tbody.querySelectorAll('.proposta-item-row'));
+        const ultimaDescricao = linhas[linhas.length - 1]?.querySelector('.prop-item-descricao');
         if (ultimaDescricao) ultimaDescricao.focus();
     }
 
     function removerLinhaItemProposta(botao) {
         const tbody = document.getElementById('propostaItensBody');
-        const linha = botao?.closest('tr');
+        const linha = botao?.closest('.proposta-item-row');
         if (!tbody || !linha) return;
 
-        if (tbody.querySelectorAll('tr').length <= 1) {
-            linha.querySelectorAll('input').forEach((input) => {
-                if (!input.classList.contains('prop-item-total')) input.value = '';
-            });
-            recalcularResumoProposta();
+        if (tbody.querySelectorAll('.proposta-item-row').length <= 1) {
+            renderLinhasItensProposta([{}]);
             return;
         }
 
+        const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        detalhes?.remove();
         linha.remove();
         recalcularResumoProposta();
     }
 
+    function alternarDetalhesCalculoItemProposta(botao) {
+        const linha = botao?.closest('.proposta-item-row');
+        const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        if (!detalhes) return;
+        const aberto = detalhes.hidden;
+        detalhes.hidden = !aberto;
+        botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+        const icon = botao.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-chevron-down', !aberto);
+            icon.classList.toggle('bi-chevron-up', aberto);
+        }
+    }
+
     function coletarItensFormulario() {
-        const linhas = Array.from(document.querySelectorAll('#propostaItensBody tr'));
-        return linhas.map((linha) => {
-            const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
-            const descricao = textoSeguro(linha.querySelector('.prop-item-descricao')?.value);
-            const medida = textoSeguro(linha.querySelector('.prop-item-medida')?.value);
-            const periodoDias = numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1;
-            const quantidade = numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0);
-            const valorUnitario = numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0);
-            const observacoes = textoSeguro(linha.querySelector('.prop-item-obs')?.value);
-            const valorTotal = periodoDias * quantidade * valorUnitario;
-            return { categoria, descricao, medida, periodoDias, quantidade, valorUnitario, valorTotal, observacoes };
-        }).filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
+        const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+        return linhas.map((linha) => atualizarLinhaItemProposta(linha))
+            .filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
     }
 
     function obterCustosFormulario() {
@@ -681,9 +1071,12 @@
         percentualEntrada = 50,
         controleInterno = {}
     } = {}) {
-        const subtotalItens = (Array.isArray(itens) ? itens : []).reduce((acc, item) => {
-            return acc + numeroNaoNegativo(item.valorTotal, 0);
-        }, 0);
+        const itensCalculados = (Array.isArray(itens) ? itens : []).map((item) => calcularItemProposta(item || {}));
+        const subtotalItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0);
+        const subtotalCustoItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.custoTotal, 0), 0);
+        const subtotalHonorariosItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorHonorarios, 0), 0);
+        const subtotalEncargosItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorEncargos, 0), 0);
+        const subtotalINSSItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorINSS, 0), 0);
 
         const totalCustosAdicionais = CHAVES_CUSTOS_ADICIONAIS.reduce((acc, chave) => {
             return acc + numeroNaoNegativo(custos?.[chave], 0);
@@ -714,6 +1107,10 @@
 
         return {
             subtotalItens,
+            subtotalCustoItens,
+            subtotalHonorariosItens,
+            subtotalEncargosItens,
+            subtotalINSSItens,
             totalCustosAdicionais,
             desconto: descontoNormalizado,
             acrescimo: acrescimoNormalizado,
@@ -739,17 +1136,9 @@
     }
 
     function recalcularResumoProposta() {
-        const linhas = Array.from(document.querySelectorAll('#propostaItensBody tr'));
-        linhas.forEach((linha) => {
-            const periodo = numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1;
-            const qtd = numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0);
-            const unit = numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0);
-            const total = periodo * qtd * unit;
-            const campoTotal = linha.querySelector('.prop-item-total');
-            if (campoTotal) campoTotal.value = formatarMoeda(total);
-        });
-
-        const itens = coletarItensFormulario();
+        const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+        const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
+        const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
         renderizarResumoCategoriasProposta(itens);
         const custos = obterCustosFormulario();
         const controleInterno = obterControleInternoFormulario();
@@ -862,21 +1251,7 @@
             ? proposta.financeiro
             : {};
 
-        const itens = itensOrig.map((item) => {
-            const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
-            const quantidade = numeroNaoNegativo(item.quantidade, 0);
-            const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
-            return {
-                categoria: normalizarCategoriaItemProposta(item.categoria),
-                descricao: textoSeguro(item.descricao, ''),
-                medida: textoSeguro(item.medida, ''),
-                periodoDias,
-                quantidade,
-                valorUnitario,
-                valorTotal: periodoDias * quantidade * valorUnitario,
-                observacoes: textoSeguro(item.observacoes, '')
-            };
-        });
+        const itens = itensOrig.map((item) => calcularItemProposta(item));
 
         const freteDistanciaKm = numeroNaoNegativo(custosOrig.freteDistanciaKm ?? custosOrig.distanciaKm, 0);
         const freteValorKm = numeroNaoNegativo(custosOrig.freteValorKm ?? custosOrig.valorKm, 0);
@@ -1242,7 +1617,7 @@
         const percentualNFEl = document.getElementById('propPercentualNF');
         if (percentualNFEl) percentualNFEl.value = '0';
         const percentualEntradaEl = document.getElementById('propPercentualEntrada');
-        if (percentualEntradaEl) percentualEntradaEl.value = '50';
+        if (percentualEntradaEl) percentualEntradaEl.value = String(obterPadroesOrcamento().globais.percentualEntradaPadrao || 50);
         const validadeDiasEl = document.getElementById('propValidadeDias');
         if (validadeDiasEl) validadeDiasEl.value = '7';
         const formaPagamentoEl = document.getElementById('propFormaPagamento');
@@ -1558,14 +1933,14 @@
             const peca = encontrarPecaPorDescricao(item);
             const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
             const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(item.quantidade, 1)));
-            const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
+            const valorUnitario = numeroNaoNegativo(item.custoUnitario ?? item.valorUnitario, 0);
             return {
                 pecaId: peca?.id || '',
                 nome: item.descricao,
                 quantidade,
                 valor: valorUnitario,
                 periodoDias,
-                valorTotalProposta: arredondarMoeda(periodoDias * quantidade * valorUnitario)
+                valorTotalProposta: numeroNaoNegativo(item.valorTotal, arredondarMoeda(periodoDias * quantidade * valorUnitario))
             };
         });
 
@@ -1758,38 +2133,77 @@
         `;
     }
 
-    function montarLinhasItensPdfPorCategoria(itens = []) {
+    function montarLinhasItensPdfPorCategoria(itens = [], exibirInterno = false) {
         const grupos = agruparItensPropostaPorCategoria(itens);
+        const totalColunas = exibirInterno ? 9 : 7;
         if (!grupos.length) {
-            return '<tr><td colspan="7" style="padding:10px;">Sem itens</td></tr>';
+            return `<tr><td colspan="${totalColunas}" style="padding:10px;">Sem itens</td></tr>`;
         }
 
         return grupos.map((grupo, indiceGrupo) => {
             const numeroGrupo = indiceGrupo + 1;
-            const linhas = grupo.itens.map((item, indiceItem) => `
-                <tr style="border-bottom:1px solid #e5e7eb;">
-                    <td style="padding:8px; font-size:11px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
-                    <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
-                    <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
-                    <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
-                    <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorUnitario)}</td>
-                    <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
-                    <td style="padding:8px; font-size:11px;">${sanitizar(item.observacoes || '-')}</td>
-                </tr>
-            `).join('');
+            const linhas = grupo.itens.map((item, indiceItem) => {
+                if (exibirInterno) {
+                    return `
+                        <tr style="border-bottom:1px solid #e5e7eb;">
+                            <td style="padding:8px; font-size:10.5px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
+                            <td style="padding:8px; text-align:center; font-size:10.5px;">${sanitizar(item.medida || '-')}</td>
+                            <td style="padding:8px; text-align:center; font-size:10.5px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                            <td style="padding:8px; text-align:center; font-size:10.5px;">${item.quantidade}</td>
+                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.custoTotal)}</td>
+                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorHonorarios)}</td>
+                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorEncargos)}</td>
+                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorINSS)}</td>
+                            <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800;">${formatarMoeda(item.valorTotal)}</td>
+                        </tr>
+                    `;
+                }
+
+                const baseComercial = numeroNaoNegativo(item.periodoDias, 1) * numeroNaoNegativo(item.quantidade, 0);
+                const valorUnitarioComercial = baseComercial > 0
+                    ? item.valorTotal / baseComercial
+                    : item.valorTotal;
+
+                return `
+                    <tr style="border-bottom:1px solid #e5e7eb;">
+                        <td style="padding:8px; font-size:11px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
+                        <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
+                        <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                        <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
+                        <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(valorUnitarioComercial)}</td>
+                        <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
+                        <td style="padding:8px; font-size:11px;">${sanitizar(item.observacoes || '-')}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const subtotalGrupo = exibirInterno
+                ? `
+                    <tr>
+                        <td colspan="4" style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(grupo.categoria)}</td>
+                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.custoTotal)}</td>
+                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.honorarios)}</td>
+                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.encargos)}</td>
+                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.inss)}</td>
+                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.totalFinal)}</td>
+                    </tr>
+                `
+                : `
+                    <tr>
+                        <td colspan="5" style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(grupo.categoria)}</td>
+                        <td style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.totalFinal)}</td>
+                        <td style="padding:8px; border-bottom:1px solid #cbd5e1;"></td>
+                    </tr>
+                `;
 
             return `
                 <tr>
-                    <td colspan="7" style="padding:9px 8px; background:#eaf2ff; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; color:#0f172a; font-weight:800; font-size:11px;">
+                    <td colspan="${totalColunas}" style="padding:9px 8px; background:#eaf2ff; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; color:#0f172a; font-weight:800; font-size:11px;">
                         ${numeroGrupo}. ${sanitizar(grupo.categoria)}
                     </td>
                 </tr>
                 ${linhas}
-                <tr>
-                    <td colspan="5" style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(grupo.categoria)}</td>
-                    <td style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.subtotal)}</td>
-                    <td style="padding:8px; border-bottom:1px solid #cbd5e1;"></td>
-                </tr>
+                ${subtotalGrupo}
             `;
         }).join('');
     }
@@ -1799,7 +2213,32 @@
         const exibirInterno = p.financeiro.exibirInformacoesInternasPDF === true;
         const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
         const valorFinalComercial = obterValorFinalComercial(p);
-        const linhasItens = montarLinhasItensPdfPorCategoria(p.itens);
+        const linhasItens = montarLinhasItensPdfPorCategoria(p.itens, exibirInterno);
+        const cabecalhoItens = exibirInterno
+            ? `
+                <tr>
+                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">CUSTO</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">HON.</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">ENC.</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">INSS</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
+                </tr>
+            `
+            : `
+                <tr>
+                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
+                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">UNIT.</th>
+                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
+                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">OBS.</th>
+                </tr>
+            `;
 
         const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
         const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
@@ -1886,15 +2325,7 @@
                     <strong style="display:block; margin-bottom:6px; font-size:12px;">Itens da proposta</strong>
                     <table style="width:100%; border-collapse:collapse;">
                         <thead style="background:#0f172a; color:#fff;">
-                            <tr>
-                                <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
-                                <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
-                                <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
-                                <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
-                                <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">UNIT.</th>
-                                <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
-                                <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">OBS.</th>
-                            </tr>
+                            ${cabecalhoItens}
                         </thead>
                         <tbody>${linhasItens}</tbody>
                     </table>
@@ -2166,10 +2597,13 @@
     inicializarPropostas();
 
     window.calcularResumoProposta = calcularResumoProposta;
+    window.normalizarPadroesOrcamento = normalizarPadroesOrcamento;
+    window.CATEGORIAS_ITEM_PROPOSTA = CATEGORIAS_ITEM_PROPOSTA;
     window.renderPropostas = renderPropostas;
     window.recalcularResumoProposta = recalcularResumoProposta;
     window.adicionarLinhaItemProposta = adicionarLinhaItemProposta;
     window.removerLinhaItemProposta = removerLinhaItemProposta;
+    window.alternarDetalhesCalculoItemProposta = alternarDetalhesCalculoItemProposta;
     window.salvarProposta = salvarProposta;
     window.limparFormularioProposta = limparFormularioProposta;
     window.editarProposta = editarProposta;

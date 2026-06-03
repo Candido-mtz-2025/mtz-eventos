@@ -1,5 +1,5 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.1';
+const SCHEMA_VERSION_V12 = '12.2';
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
 const STATUS_FLUXO_LOCACAO_V12 = new Set([
@@ -24,6 +24,16 @@ const STATUS_PROPOSTA_V12 = new Set([
     'recusada',
     'convertida'
 ]);
+const CATEGORIAS_PROPOSTA_V12 = [
+    'Estrutura',
+    'Mobiliário',
+    'Elétrica',
+    'Comunicação / Impressão',
+    'Alimentação',
+    'Mão de Obra',
+    'Logística',
+    'Outros'
+];
 
 function clonarObjetoSeguro(valor, fallback = {}) {
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...fallback };
@@ -58,6 +68,70 @@ function inteiroNaoNegativo(valor, fallback = 0) {
 function valorEmConjunto(valor, conjunto, fallback) {
     const normalizado = String(valor || '').trim().toLowerCase();
     return conjunto.has(normalizado) ? normalizado : fallback;
+}
+
+function normalizarTextoBuscaMigracao(valor) {
+    return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+function normalizarCategoriaPropostaV12(valor) {
+    const alvo = normalizarTextoBuscaMigracao(valor);
+    return CATEGORIAS_PROPOSTA_V12.find((categoria) => normalizarTextoBuscaMigracao(categoria) === alvo) || 'Outros';
+}
+
+function normalizarTipoTributoPropostaV12(valor, fallback = 'simples') {
+    const normalizado = normalizarTextoBuscaMigracao(valor || fallback).replace(/[\s-]+/g, '_');
+    return normalizado === 'por_dentro' ? 'por_dentro' : 'simples';
+}
+
+function normalizarBooleanoPropostaV12(valor, fallback = false) {
+    if (typeof valor === 'boolean') return valor;
+    if (valor == null || valor === '') return !!fallback;
+    const texto = normalizarTextoBuscaMigracao(valor);
+    if (['true', '1', 'sim', 's', 'yes'].includes(texto)) return true;
+    if (['false', '0', 'nao', 'não', 'n', 'no'].includes(texto)) return false;
+    return !!fallback;
+}
+
+function criarPadroesOrcamentoV12(valor = {}) {
+    const origem = valor && typeof valor === 'object' ? valor : {};
+    const origemGlobais = origem.globais && typeof origem.globais === 'object' ? origem.globais : origem;
+    const globais = {
+        percentualHonorariosPadrao: numeroNaoNegativo(origemGlobais.percentualHonorariosPadrao ?? origemGlobais.honorariosPadrao, 0),
+        percentualEncargosPadrao: numeroNaoNegativo(origemGlobais.percentualEncargosPadrao ?? origemGlobais.encargosPadrao, 0),
+        percentualINSSPadrao: numeroNaoNegativo(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, 0),
+        percentualEntradaPadrao: Math.min(100, numeroNaoNegativo(origemGlobais.percentualEntradaPadrao ?? origemGlobais.entradaPadrao, 50)),
+        percentualDescontoPadrao: Math.min(100, numeroNaoNegativo(origemGlobais.percentualDescontoPadrao ?? origemGlobais.descontoPadrao, 0)),
+        tipoCalculoEncargosPadrao: normalizarTipoTributoPropostaV12(origemGlobais.tipoCalculoEncargosPadrao, 'simples'),
+        tipoCalculoINSSPadrao: normalizarTipoTributoPropostaV12(origemGlobais.tipoCalculoINSSPadrao, 'simples'),
+        aplicarHonorariosAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarHonorariosAutomaticamente, true),
+        aplicarEncargosAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarEncargosAutomaticamente, true),
+        aplicarINSSAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarINSSAutomaticamente, true)
+    };
+    const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
+    const categorias = {};
+    CATEGORIAS_PROPOSTA_V12.forEach((categoria) => {
+        const regra = origemCategorias[categoria] && typeof origemCategorias[categoria] === 'object'
+            ? origemCategorias[categoria]
+            : {};
+        const ehMaoObra = categoria === 'Mão de Obra';
+        categorias[categoria] = {
+            ativa: normalizarBooleanoPropostaV12(regra.ativa, true),
+            aplicarHonorarios: normalizarBooleanoPropostaV12(regra.aplicarHonorarios, true),
+            percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globais.percentualHonorariosPadrao),
+            aplicarEncargos: normalizarBooleanoPropostaV12(regra.aplicarEncargos, true),
+            percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globais.percentualEncargosPadrao),
+            tipoCalculoEncargos: normalizarTipoTributoPropostaV12(regra.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao),
+            aplicarINSS: normalizarBooleanoPropostaV12(regra.aplicarINSS, ehMaoObra),
+            percentualINSS: numeroNaoNegativo(regra.percentualINSS, globais.percentualINSSPadrao),
+            tipoCalculoINSS: normalizarTipoTributoPropostaV12(regra.tipoCalculoINSS, globais.tipoCalculoINSSPadrao)
+        };
+    });
+    return { globais, categorias };
 }
 
 function criarPermissoesPadraoV12(perfil) {
@@ -310,25 +384,34 @@ function migrarItemPropostaParaV12(itemOriginal) {
     const item = clonarObjetoSeguro(itemOriginal);
     const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
     const quantidade = numeroNaoNegativo(item.quantidade, 0);
-    const valorUnitario = numeroNaoNegativo(item.valorUnitario, 0);
-    const valorTotal = periodoDias * quantidade * valorUnitario;
-    const categoriasValidas = [
-        'Estrutura',
-        'Mobiliário',
-        'Elétrica',
-        'Comunicação / Impressão',
-        'Alimentação',
-        'Mão de Obra',
-        'Logística',
-        'Outros'
-    ];
-    const normalizarCategoria = (valor) => String(valor || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .trim();
-    const categoriaRaw = textoSeguro(item.categoria, 'Outros');
-    const categoria = categoriasValidas.find((valor) => normalizarCategoria(valor) === normalizarCategoria(categoriaRaw)) || 'Outros';
+    const valorUnitario = numeroNaoNegativo(item.custoUnitario ?? item.valorUnitario, 0);
+    const custoTotal = Math.round(((periodoDias * quantidade * valorUnitario) + Number.EPSILON) * 100) / 100;
+    const categoria = normalizarCategoriaPropostaV12(item.categoria);
+    const temCalculoSalvo = [
+        'aplicarHonorarios',
+        'percentualHonorarios',
+        'aplicarEncargos',
+        'percentualEncargos',
+        'tipoCalculoEncargos',
+        'aplicarINSS',
+        'percentualINSS',
+        'tipoCalculoINSS'
+    ].some((campo) => Object.prototype.hasOwnProperty.call(item, campo));
+
+    const aplicarHonorarios = temCalculoSalvo ? normalizarBooleanoPropostaV12(item.aplicarHonorarios, false) : false;
+    const percentualHonorarios = temCalculoSalvo ? numeroNaoNegativo(item.percentualHonorarios, 0) : 0;
+    const valorHonorarios = temCalculoSalvo ? numeroNaoNegativo(item.valorHonorarios, 0) : 0;
+    const aplicarEncargos = temCalculoSalvo ? normalizarBooleanoPropostaV12(item.aplicarEncargos, false) : false;
+    const percentualEncargos = temCalculoSalvo ? numeroNaoNegativo(item.percentualEncargos, 0) : 0;
+    const tipoCalculoEncargos = normalizarTipoTributoPropostaV12(item.tipoCalculoEncargos, 'simples');
+    const valorEncargos = temCalculoSalvo ? numeroNaoNegativo(item.valorEncargos, 0) : 0;
+    const aplicarINSS = temCalculoSalvo ? normalizarBooleanoPropostaV12(item.aplicarINSS, false) : false;
+    const percentualINSS = temCalculoSalvo ? numeroNaoNegativo(item.percentualINSS, 0) : 0;
+    const tipoCalculoINSS = normalizarTipoTributoPropostaV12(item.tipoCalculoINSS, 'simples');
+    const valorINSS = temCalculoSalvo ? numeroNaoNegativo(item.valorINSS, 0) : 0;
+    const valorTotal = temCalculoSalvo
+        ? Math.round((custoTotal + valorHonorarios + valorEncargos + valorINSS + Number.EPSILON) * 100) / 100
+        : custoTotal;
 
     return {
         categoria,
@@ -336,8 +419,23 @@ function migrarItemPropostaParaV12(itemOriginal) {
         medida: textoSeguro(item.medida, ''),
         periodoDias,
         quantidade,
+        custoUnitario: valorUnitario,
         valorUnitario,
+        custoTotal,
+        aplicarHonorarios,
+        percentualHonorarios,
+        valorHonorarios,
+        aplicarEncargos,
+        percentualEncargos,
+        tipoCalculoEncargos,
+        valorEncargos,
+        aplicarINSS,
+        percentualINSS,
+        tipoCalculoINSS,
+        valorINSS,
         valorTotal,
+        totalFinal: valorTotal,
+        usarPadraoCalculo: !temCalculoSalvo,
         observacoes: textoSeguro(item.observacoes, '')
     };
 }
@@ -546,6 +644,10 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('exibirInformacoesInternasPDF' in financeiroOriginal)
         || itens.some((item, indice) => !('periodoDias' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
         || itens.some((item, indice) => !('categoria' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || itens.some((item, indice) => !('custoTotal' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || itens.some((item, indice) => !('percentualHonorarios' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || itens.some((item, indice) => !('percentualEncargos' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
+        || itens.some((item, indice) => !('percentualINSS' in clonarObjetoSeguro(proposta.itens?.[indice], {})))
         || !('freteTrechos' in custosOriginal)
         || !('freteDistanciaKm' in custosOriginal)
         || !('freteValorKm' in custosOriginal)
@@ -609,7 +711,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
             logo: '',
             emailsPermitidos: '',
             adminEmails: '',
-            valorKmFretePadrao: 0
+            valorKmFretePadrao: 0,
+            padroesOrcamento: null
         }),
         versao: SCHEMA_VERSION_V12
     };
@@ -626,12 +729,17 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.houveMudanca = true;
     }
 
+    if (!dadosBase.config || !('padroesOrcamento' in dadosBase.config)) {
+        contexto.houveMudanca = true;
+    }
+
     if (versaoAnterior !== SCHEMA_VERSION_V12) {
         contexto.houveMudanca = true;
     }
 
     dadosMigrados.config.schemaVersion = SCHEMA_VERSION_V12;
     dadosMigrados.config.valorKmFretePadrao = numeroNaoNegativo(dadosMigrados.config.valorKmFretePadrao, 0);
+    dadosMigrados.config.padroesOrcamento = criarPadroesOrcamentoV12(dadosMigrados.config.padroesOrcamento);
 
     if (contexto.houveMudanca) {
         contexto.logs.push(

@@ -256,6 +256,7 @@ function renderConfig() {
     if (elValorKmFrete) elValorKmFrete.value = Number(config.valorKmFretePadrao || 0) || '';
     if (elEmailsPermitidos) elEmailsPermitidos.value = config.emailsPermitidos || '';
     if (elAdminEmails) elAdminEmails.value = config.adminEmails || '';
+    if (typeof renderConfigPadroesOrcamento === 'function') renderConfigPadroesOrcamento();
     
     // Mostra a logo se existir
     if (elLogo && config.logo) {

@@ -5086,6 +5086,69 @@ textarea::placeholder {
     color: #607089;
 }
 
+#tab-config .config-budget-box {
+    margin: 16px 0;
+    padding: 14px;
+    border: 1px solid #d7e3f1;
+    border-radius: 12px;
+    background: rgba(248, 251, 255, 0.78);
+}
+
+#tab-config .config-budget-box h4 {
+    margin: 0 0 4px;
+    color: #0f172a;
+}
+
+#tab-config .config-budget-toggles {
+    margin: 8px 0 12px;
+}
+
+#tab-config .config-budget-categories {
+    display: grid;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+#tab-config .config-budget-category-head,
+#tab-config .config-budget-category-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.1fr) repeat(3, minmax(220px, 1fr));
+    gap: 8px;
+    align-items: center;
+    min-width: 900px;
+}
+
+#tab-config .config-budget-category-head {
+    color: #53627a;
+    font-size: 0.78rem;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+#tab-config .config-budget-category-row {
+    padding: 8px;
+    border: 1px solid #d7e3f1;
+    border-radius: 10px;
+    background: #fff;
+}
+
+#tab-config .config-budget-category-name,
+#tab-config .config-budget-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+}
+
+#tab-config .config-budget-rule input[type="number"] {
+    width: 82px;
+}
+
+#tab-config .config-budget-rule select {
+    min-width: 110px;
+}
+
 #tab-config .config-actions-card .inline-chip-row {
     gap: 10px;
 }
@@ -5123,6 +5186,20 @@ textarea::placeholder {
 [data-theme="dark"] #tab-config .config-card h3,
 [data-theme="dark"] #tab-config .config-actions-card h3,
 [data-theme="dark"] #tab-config .field-hint {
+    color: #e2e8f0;
+}
+
+[data-theme="dark"] #tab-config .config-budget-box,
+[data-theme="dark"] #tab-config .config-budget-category-row,
+[data-theme="dark"] #tab-propostas .prop-item-details-panel,
+[data-theme="dark"] #tab-propostas .proposta-item-details-row td {
+    background: #0f1a2b;
+    border-color: #334155;
+}
+
+[data-theme="dark"] #tab-config .config-budget-box h4,
+[data-theme="dark"] #tab-config .config-budget-category-name,
+[data-theme="dark"] #tab-config .config-budget-rule {
     color: #e2e8f0;
 }
 
@@ -7877,6 +7954,65 @@ header {
     min-width: 118px;
 }
 
+#tab-propostas #propostaItensBody .prop-item-custo-total {
+    font-weight: 700;
+    color: var(--text-light);
+    min-width: 118px;
+}
+
+#tab-propostas .proposta-item-details-row td {
+    background: rgba(248, 251, 255, 0.92);
+    border-top: 0;
+}
+
+#tab-propostas .prop-item-details-panel {
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.82);
+}
+
+#tab-propostas .prop-item-details-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#tab-propostas .prop-item-details-title span {
+    color: var(--text-light);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+#tab-propostas .prop-item-details-grid {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) repeat(3, minmax(120px, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+
+#tab-propostas .prop-calc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-weight: 800;
+}
+
+#tab-propostas .prop-calc-toggle input {
+    width: auto !important;
+}
+
+#tab-propostas .prop-item-obs-group {
+    grid-column: span 2;
+}
+
 #tab-propostas .proposta-category-summary {
     margin-top: 14px;
     padding: 12px;
@@ -7925,6 +8061,13 @@ header {
 #tab-propostas .proposta-category-chip strong {
     color: var(--text);
     font-size: 0.98rem;
+}
+
+#tab-propostas .proposta-category-chip small {
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 750;
+    line-height: 1.35;
 }
 
 #tab-propostas .proposta-category-chip.has-value {
@@ -7990,6 +8133,18 @@ header {
 
     #tab-propostas .proposta-category-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #tab-propostas .prop-item-details-title {
+        display: block;
+    }
+
+    #tab-propostas .prop-item-details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .prop-item-obs-group {
+        grid-column: auto;
     }
 
     #tab-propostas .inline-chip-row {
