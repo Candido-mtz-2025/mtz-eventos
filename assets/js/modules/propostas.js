@@ -50,10 +50,8 @@
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
         'itens',
-        'financeiro',
-        'condicoes',
-        'interno',
-        'escopo'
+        'fechamento',
+        'pdf'
     ]);
 
     let filtroPropostasAtual = 'todos';
@@ -434,6 +432,7 @@
                     <div class="proposta-category-chip${grupo.quantidade > 0 ? ' has-value' : ''}">
                         <span>${sanitizar(grupo.categoria)}</span>
                         <strong>${formatarMoeda(grupo.subtotal)}</strong>
+                        <small>${grupo.quantidade} ${grupo.quantidade === 1 ? 'item' : 'itens'}</small>
                         <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
                         <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
                     </div>
@@ -523,10 +522,8 @@
             const focoPorSecao = {
                 dados: 'propClienteNome',
                 itens: null,
-                financeiro: 'propFreteDistanciaKm',
-                condicoes: 'propPercentualEntrada',
-                interno: 'propExibirInformacoesInternasPDF',
-                escopo: 'propIncluso'
+                fechamento: 'propFreteDistanciaKm',
+                pdf: 'propIncluso'
             };
 
             const campoId = focoPorSecao[secao];
@@ -826,8 +823,9 @@
                 <td><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
+                        <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
                             <i class="bi bi-chevron-down"></i>
+                            <span>Detalhes</span>
                         </button>
                         <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
                             <i class="bi bi-trash"></i>
@@ -1135,6 +1133,24 @@
         };
     }
 
+    function atualizarResumoCompactoProposta(resumo) {
+        const statusAtual = document.getElementById('propStatus')?.value || 'rascunho';
+        const mapa = [
+            ['propStickySubtotal', formatarMoeda(resumo.subtotalItens)],
+            ['propStickyCustos', formatarMoeda(resumo.totalCustosAdicionais)],
+            ['propStickyDesconto', formatarMoeda(resumo.desconto)],
+            ['propStickyFinal', formatarMoeda(resumo.valorFinalComercial)],
+            ['propStickyLucro', formatarMoeda(resumo.lucroPrevisto)],
+            ['propStickyMargem', formatarPercentual(resumo.margemPrevista)],
+            ['propStickyStatus', statusRotulo(statusAtual)]
+        ];
+
+        mapa.forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = valor;
+        });
+    }
+
     function recalcularResumoProposta() {
         const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
         const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
@@ -1176,6 +1192,7 @@
             const el = document.getElementById(id);
             if (el) el.value = valor;
         });
+        atualizarResumoCompactoProposta(resumo);
     }
 
     function obterCamposPadraoEscopo() {
@@ -2392,6 +2409,46 @@
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
     }
 
+    function abrirPreviewPDFProposta(proposta, exibirInterno = false) {
+        const printArea = document.getElementById('printArea');
+        const modal = document.getElementById('modalRelatorio');
+        if (!printArea || !modal) {
+            mostrarToast('Area de impressao nao encontrada.', 'erro');
+            return;
+        }
+
+        const propostaPdf = normalizarProposta({
+            ...proposta,
+            financeiro: {
+                ...(proposta?.financeiro || {}),
+                exibirInformacoesInternasPDF: exibirInterno === true
+            }
+        });
+
+        printArea.innerHTML = montarHtmlPdfProposta(propostaPdf);
+        modal.classList.add('active');
+        mostrarToast(exibirInterno
+            ? 'PDF interno pronto. Clique em "Salvar PDF".'
+            : 'PDF do cliente pronto. Clique em "Salvar PDF".');
+    }
+
+    function gerarPDFPropostaAtualComTipo(exibirInterno = false) {
+        const propostaTemp = coletarDadosFormulario(false);
+        if (!propostaTemp || propostaTemp.itens.length === 0) {
+            mostrarToast('Preencha os itens da proposta antes de gerar PDF.', 'info');
+            return;
+        }
+        abrirPreviewPDFProposta(propostaTemp, exibirInterno);
+    }
+
+    function gerarPDFPropostaAtualCliente() {
+        gerarPDFPropostaAtualComTipo(false);
+    }
+
+    function gerarPDFPropostaAtualInterno() {
+        gerarPDFPropostaAtualComTipo(true);
+    }
+
     function gerarPDFPropostaAtual() {
         const id = obterIdPropostaEmEdicao();
         if (id) {
@@ -2614,6 +2671,8 @@
     window.excluirPropostaAtual = excluirPropostaAtual;
     window.gerarPDFProposta = gerarPDFProposta;
     window.gerarPDFPropostaAtual = gerarPDFPropostaAtual;
+    window.gerarPDFPropostaAtualCliente = gerarPDFPropostaAtualCliente;
+    window.gerarPDFPropostaAtualInterno = gerarPDFPropostaAtualInterno;
     window.converterPropostaEmLocacaoFechada = converterPropostaEmLocacaoFechada;
     window.converterPropostaAtual = converterPropostaAtual;
     window.aplicarFiltroPropostas = aplicarFiltroPropostas;

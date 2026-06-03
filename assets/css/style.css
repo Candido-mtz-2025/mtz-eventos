@@ -5191,6 +5191,11 @@ textarea::placeholder {
 
 [data-theme="dark"] #tab-config .config-budget-box,
 [data-theme="dark"] #tab-config .config-budget-category-row,
+[data-theme="dark"] #tab-propostas .proposta-sticky-summary,
+[data-theme="dark"] #tab-propostas .proposta-sticky-metrics span,
+[data-theme="dark"] #tab-propostas .proposta-closing-block,
+[data-theme="dark"] #tab-propostas .proposta-internal-details,
+[data-theme="dark"] #tab-propostas .proposta-action-panel,
 [data-theme="dark"] #tab-propostas .prop-item-details-panel,
 [data-theme="dark"] #tab-propostas .proposta-item-details-row td {
     background: #0f1a2b;
@@ -5199,7 +5204,11 @@ textarea::placeholder {
 
 [data-theme="dark"] #tab-config .config-budget-box h4,
 [data-theme="dark"] #tab-config .config-budget-category-name,
-[data-theme="dark"] #tab-config .config-budget-rule {
+[data-theme="dark"] #tab-config .config-budget-rule,
+[data-theme="dark"] #tab-propostas .proposta-sticky-metrics strong,
+[data-theme="dark"] #tab-propostas .proposta-closing-block h5,
+[data-theme="dark"] #tab-propostas .proposta-closing-section > h5,
+[data-theme="dark"] #tab-propostas .proposta-internal-details summary {
     color: #e2e8f0;
 }
 
@@ -7632,8 +7641,7 @@ header {
     opacity: 1 !important;
 }
 
-/* === V16.8 | ABAS NOVAS (ORCAMENTOS / FINANCEIRO / AGENDA) === */
-#tab-orcamentos .filters-row.filters-segmented,
+/* === V16.8 | ABAS NOVAS (FINANCEIRO / AGENDA) === */
 #tab-financeiro .filters-row.filters-segmented,
 #tab-agenda .filters-row.filters-segmented,
 #tab-transporte .filters-row.filters-segmented {
@@ -7643,7 +7651,6 @@ header {
     padding: 4px;
 }
 
-#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc],
 #tab-financeiro .filters-row.filters-segmented [data-filtro-fin],
 #tab-agenda .filters-row.filters-segmented [data-filtro-agenda],
 #tab-transporte .filters-row.filters-segmented [data-filtro-transporte] {
@@ -7654,17 +7661,12 @@ header {
     font-weight: 700;
 }
 
-#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc].is-active,
 #tab-financeiro .filters-row.filters-segmented [data-filtro-fin].is-active,
 #tab-agenda .filters-row.filters-segmented [data-filtro-agenda].is-active,
 #tab-transporte .filters-row.filters-segmented [data-filtro-transporte].is-active {
     color: #ffffff;
     border-color: transparent;
     box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
-}
-
-#tab-orcamentos .filters-row.filters-segmented [data-filtro-orc].is-active {
-    background: #2563eb;
 }
 
 #tab-financeiro .filters-row.filters-segmented [data-filtro-fin].is-active {
@@ -7679,7 +7681,6 @@ header {
     background: #0ea5e9;
 }
 
-#tab-orcamentos #metaBuscaOrcamentos,
 #tab-financeiro #metaBuscaFinanceiro,
 #tab-agenda #metaBuscaAgenda,
 #tab-transporte #metaBuscaTransporte {
@@ -7687,7 +7688,6 @@ header {
 }
 
 @media (max-width: 780px) {
-    #tab-orcamentos .filters-row.filters-segmented,
     #tab-financeiro .filters-row.filters-segmented,
     #tab-agenda .filters-row.filters-segmented,
     #tab-transporte .filters-row.filters-segmented {
@@ -7799,8 +7799,65 @@ header {
     box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
 }
 
+#tab-propostas .proposta-sticky-summary {
+    position: sticky;
+    top: calc(var(--app-sticky-total-height, 154px) + 8px);
+    z-index: 6;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    margin: 0 0 18px;
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface) 88%, #eef5ff);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.11);
+    backdrop-filter: blur(12px);
+}
+
+#tab-propostas .proposta-sticky-metrics {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(86px, 1fr));
+    gap: 8px;
+}
+
+#tab-propostas .proposta-sticky-metrics span {
+    min-width: 0;
+    padding: 8px 9px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+#tab-propostas .proposta-sticky-metrics small {
+    display: block;
+    color: var(--text-light);
+    font-size: 0.68rem;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+#tab-propostas .proposta-sticky-metrics strong {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 0.88rem;
+    font-weight: 950;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#tab-propostas .proposta-sticky-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 #tab-propostas .proposta-form-section {
     min-height: 220px;
+    scroll-margin-top: calc(var(--app-sticky-total-height, 154px) + 112px);
 }
 
 #tab-propostas .proposta-form-section[hidden] {
@@ -7960,6 +8017,13 @@ header {
     min-width: 118px;
 }
 
+#tab-propostas #propostaItensBody .prop-details-toggle-btn {
+    gap: 6px;
+    width: auto;
+    min-width: 92px;
+    padding-inline: 10px;
+}
+
 #tab-propostas .proposta-item-details-row td {
     background: rgba(248, 251, 255, 0.92);
     border-top: 0;
@@ -8075,6 +8139,79 @@ header {
     background: rgba(37, 99, 235, 0.065);
 }
 
+#tab-propostas .proposta-closing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.88fr);
+    gap: 14px;
+    align-items: start;
+}
+
+#tab-propostas .proposta-closing-block,
+#tab-propostas .proposta-internal-details,
+#tab-propostas .proposta-action-panel {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-closing-block {
+    padding: 14px;
+}
+
+#tab-propostas .proposta-closing-block h5,
+#tab-propostas .proposta-closing-section > h5 {
+    margin: 0 0 12px;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+#tab-propostas .proposta-internal-details {
+    margin-top: 14px;
+    padding: 0;
+    overflow: hidden;
+}
+
+#tab-propostas .proposta-internal-details summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 0 14px;
+    color: var(--text);
+    font-weight: 900;
+    cursor: pointer;
+    list-style: none;
+}
+
+#tab-propostas .proposta-internal-details summary::-webkit-details-marker {
+    display: none;
+}
+
+#tab-propostas .proposta-internal-details[open] {
+    padding-bottom: 14px;
+}
+
+#tab-propostas .proposta-internal-details[open] summary {
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-internal-details .form-row {
+    padding-inline: 14px;
+}
+
+#tab-propostas .proposta-action-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 14px;
+}
+
+#tab-propostas .proposta-action-panel .btn {
+    min-height: 42px;
+}
+
 #tab-propostas textarea {
     resize: vertical;
     min-height: 72px;
@@ -8119,6 +8256,23 @@ header {
         min-width: max-content;
     }
 
+    #tab-propostas .proposta-sticky-summary {
+        position: static;
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-sticky-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #tab-propostas .proposta-sticky-actions {
+        justify-content: stretch;
+    }
+
+    #tab-propostas .proposta-sticky-actions .btn {
+        flex: 1 1 140px;
+    }
+
     #tab-propostas .proposta-items-section {
         padding: 12px;
     }
@@ -8147,6 +8301,14 @@ header {
         grid-column: auto;
     }
 
+    #tab-propostas .proposta-closing-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-action-panel .btn {
+        flex: 1 1 100%;
+    }
+
     #tab-propostas .inline-chip-row {
         flex-wrap: wrap;
     }
@@ -8163,6 +8325,10 @@ header {
 
 @media (max-width: 560px) {
     #tab-propostas .proposta-category-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-sticky-metrics {
         grid-template-columns: 1fr;
     }
 }
@@ -8366,8 +8532,8 @@ html {
 }
 
 #tab-propostas .proposta-items-table .col-actions {
-    min-width: 92px;
-    width: 92px;
+    min-width: 148px;
+    width: 148px;
     text-align: right;
 }
 

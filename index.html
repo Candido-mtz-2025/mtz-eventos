@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.7">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.8">
 </head>
 <body>
 
@@ -710,23 +710,34 @@
                     <input type="hidden" id="propostaIdAtual">
                     <div class="proposta-form-nav" role="tablist" aria-label="Etapas do orçamento">
                         <button type="button" class="proposta-form-tab is-active" id="propostaFormTabDados" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="dados" data-action="mostrarSecaoFormularioProposta" data-arg="dados">
-                            <i class="bi bi-person-lines-fill"></i> Dados principais
+                            <i class="bi bi-person-lines-fill"></i> 1. Dados do orçamento
                         </button>
                         <button type="button" class="proposta-form-tab" id="propostaFormTabItens" role="tab" aria-selected="false" aria-controls="propostaSecaoItens" data-proposta-form-tab="itens" data-action="mostrarSecaoFormularioProposta" data-arg="itens">
-                            <i class="bi bi-list-check"></i> Itens da proposta
+                            <i class="bi bi-list-check"></i> 2. Itens e composição
                         </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabFinanceiro" role="tab" aria-selected="false" aria-controls="propostaSecaoFinanceiro" data-proposta-form-tab="financeiro" data-action="mostrarSecaoFormularioProposta" data-arg="financeiro">
-                            <i class="bi bi-cash-coin"></i> Custos e financeiro
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabFechamento" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="fechamento" data-action="mostrarSecaoFormularioProposta" data-arg="fechamento">
+                            <i class="bi bi-cash-coin"></i> 3. Fechamento comercial
                         </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabCondicoes" role="tab" aria-selected="false" aria-controls="propostaSecaoCondicoes" data-proposta-form-tab="condicoes" data-action="mostrarSecaoFormularioProposta" data-arg="condicoes">
-                            <i class="bi bi-receipt"></i> Condições comerciais
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabPdf" role="tab" aria-selected="false" aria-controls="propostaSecaoPdf" data-proposta-form-tab="pdf" data-action="mostrarSecaoFormularioProposta" data-arg="pdf">
+                            <i class="bi bi-card-checklist"></i> 4. PDF e observações
                         </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabInterno" role="tab" aria-selected="false" aria-controls="propostaSecaoInterno" data-proposta-form-tab="interno" data-action="mostrarSecaoFormularioProposta" data-arg="interno">
-                            <i class="bi bi-shield-check"></i> Controle interno
-                        </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabEscopo" role="tab" aria-selected="false" aria-controls="propostaSecaoEscopo" data-proposta-form-tab="escopo" data-action="mostrarSecaoFormularioProposta" data-arg="escopo">
-                            <i class="bi bi-card-checklist"></i> Escopo
-                        </button>
+                    </div>
+
+                    <div class="proposta-sticky-summary" aria-label="Resumo rápido da proposta">
+                        <div class="proposta-sticky-metrics">
+                            <span><small>Subtotal</small><strong id="propStickySubtotal">R$ 0,00</strong></span>
+                            <span><small>Custos</small><strong id="propStickyCustos">R$ 0,00</strong></span>
+                            <span><small>Desconto</small><strong id="propStickyDesconto">R$ 0,00</strong></span>
+                            <span><small>Final</small><strong id="propStickyFinal">R$ 0,00</strong></span>
+                            <span><small>Lucro</small><strong id="propStickyLucro">R$ 0,00</strong></span>
+                            <span><small>Margem</small><strong id="propStickyMargem">0%</strong></span>
+                            <span><small>Status</small><strong id="propStickyStatus">Rascunho</strong></span>
+                        </div>
+                        <div class="proposta-sticky-actions">
+                            <button class="btn btn-primary btn-sm" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar</button>
+                            <button class="btn btn-warning btn-sm" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF</button>
+                            <button class="btn btn-secondary btn-sm" data-action="mostrarSubAbaPropostas" data-arg="lista"><i class="bi bi-list-check"></i> Ver lista</button>
+                        </div>
                     </div>
 
                     <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabDados" data-proposta-form-section="dados">
@@ -871,11 +882,11 @@
                     <div id="propostaSecaoItens" class="proposta-form-section proposta-items-section" role="tabpanel" aria-labelledby="propostaFormTabItens" data-proposta-form-section="itens" hidden>
                         <div class="proposta-items-header">
                             <div>
-                                <h4>3. Itens da proposta</h4>
+                                <h4>2. Itens e composição</h4>
                                 <p>Organize os itens por categoria para deixar o orçamento mais claro.</p>
                             </div>
                             <button class="btn btn-primary proposta-add-item-btn" data-action="adicionarLinhaItemProposta">
-                                <i class="bi bi-plus-circle"></i> Adicionar item à proposta
+                                <i class="bi bi-plus-circle"></i> + Adicionar item à proposta
                             </button>
                         </div>
                         <div class="table-responsive proposta-items-table-wrap">
@@ -899,83 +910,88 @@
                         <div class="proposta-category-summary" id="propostaResumoCategorias" aria-live="polite"></div>
                     </div>
 
-                    <div id="propostaSecaoFinanceiro" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabFinanceiro" data-proposta-form-section="financeiro" hidden>
-                    <h4>4. Custos adicionais</h4>
-                    <div class="form-row">
-                        <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
-                        <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                        <div class="form-group"><label>Valor por km (R$)</label><input type="number" id="propFreteValorKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Frete (R$)</label><input type="number" id="propCustoFrete" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                        <div class="form-group"><label>Mão de obra</label><input type="number" id="propCustoMaoObra" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Operador</label><input type="number" id="propCustoOperador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                        <div class="form-group"><label>Elétrica</label><input type="number" id="propCustoEletrica" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Gerador</label><input type="number" id="propCustoGerador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                        <div class="form-group"><label>Terceirizados</label><input type="number" id="propCustoTerceirizados" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Outros custos</label><input type="number" id="propCustoOutros" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                    <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabFechamento" data-proposta-form-section="fechamento" hidden>
+                    <h4>3. Fechamento comercial</h4>
+                    <div class="proposta-closing-grid">
+                        <div class="proposta-closing-block">
+                            <h5>Custos adicionais</h5>
+                            <div class="form-row">
+                                <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Valor por km (R$)</label><input type="number" id="propFreteValorKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Frete (R$)</label><input type="number" id="propCustoFrete" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Mão de obra</label><input type="number" id="propCustoMaoObra" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Operador</label><input type="number" id="propCustoOperador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Elétrica</label><input type="number" id="propCustoEletrica" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Gerador</label><input type="number" id="propCustoGerador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Terceirizados</label><input type="number" id="propCustoTerceirizados" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Outros custos</label><input type="number" id="propCustoOutros" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                            </div>
+                        </div>
+
+                        <div class="proposta-closing-block">
+                            <h5>Resumo financeiro</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Subtotal dos itens</label>
+                                    <input type="text" id="propSubtotal" value="R$ 0,00" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Desconto</label>
+                                    <input type="number" id="propDesconto" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Acréscimo</label>
+                                    <input type="number" id="propAcrescimo" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor final</label>
+                                    <input type="text" id="propValorFinal" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Percentual da Nota Fiscal (%)</label>
+                                    <input type="number" id="propPercentualNF" min="0" step="0.01" value="0" data-input="recalcularResumoProposta">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de cálculo da Nota Fiscal</label>
+                                    <select id="propTipoCalculoNF" data-change="recalcularResumoProposta">
+                                        <option value="descontar">Descontar do valor final</option>
+                                        <option value="acrescentar">Acrescentar ao valor final</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Valor calculado da Nota Fiscal</label>
+                                    <input type="text" id="propValorNF" value="R$ 0,00" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor final com NF</label>
+                                    <input type="text" id="propValorFinalComNF" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Valor líquido previsto após NF</label>
+                                    <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <h4>5. Resumo financeiro</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Subtotal</label>
-                            <input type="text" id="propSubtotal" value="R$ 0,00" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label>Desconto</label>
-                            <input type="number" id="propDesconto" min="0" step="0.01" data-input="recalcularResumoProposta">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Acréscimo</label>
-                            <input type="number" id="propAcrescimo" min="0" step="0.01" data-input="recalcularResumoProposta">
-                        </div>
-                        <div class="form-group">
-                            <label>Valor final</label>
-                            <input type="text" id="propValorFinal" value="R$ 0,00" readonly>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Percentual da Nota Fiscal (%)</label>
-                            <input type="number" id="propPercentualNF" min="0" step="0.01" value="0" data-input="recalcularResumoProposta">
-                        </div>
-                        <div class="form-group">
-                            <label>Tipo de cálculo da Nota Fiscal</label>
-                            <select id="propTipoCalculoNF" data-change="recalcularResumoProposta">
-                                <option value="descontar">Descontar do valor final</option>
-                                <option value="acrescentar">Acrescentar ao valor final</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Valor calculado da Nota Fiscal</label>
-                            <input type="text" id="propValorNF" value="R$ 0,00" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label>Valor final com NF</label>
-                            <input type="text" id="propValorFinalComNF" value="R$ 0,00" readonly>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Valor líquido previsto após NF</label>
-                            <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
-                        </div>
-                    </div>
-                    </div>
-
-                    <div id="propostaSecaoCondicoes" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabCondicoes" data-proposta-form-section="condicoes" hidden>
-                    <h4>6. Condições comerciais</h4>
+                    <h5>Condições comerciais</h5>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Percentual de entrada (%)</label>
@@ -1030,52 +1046,52 @@
                             <textarea id="propObsPagamento" rows="2" placeholder="Detalhes adicionais de pagamento"></textarea>
                         </div>
                     </div>
+
+                    <details class="proposta-internal-details">
+                        <summary><i class="bi bi-shield-lock"></i> Informações internas</summary>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="prop-interno-toggle">
+                                    <input type="checkbox" id="propExibirInformacoesInternasPDF">
+                                    Exibir informações internas no PDF
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Custo interno total</label>
+                                <input type="number" id="propCustoInternoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Custo terceirizado total</label>
+                                <input type="number" id="propCustoTerceirizadoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Outros custos internos</label>
+                                <input type="number" id="propOutrosCustosInternos" min="0" step="0.01" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Custo total da proposta</label>
+                                <input type="text" id="propCustoTotalProposta" value="R$ 0,00" readonly>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Lucro previsto</label>
+                                <input type="text" id="propLucroPrevisto" value="R$ 0,00" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Margem prevista (%)</label>
+                                <input type="text" id="propMargemPrevista" value="0%" readonly>
+                            </div>
+                        </div>
+                    </details>
                     </div>
 
-                    <div id="propostaSecaoInterno" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabInterno" data-proposta-form-section="interno" hidden>
-                    <h4>7. Controle interno</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="prop-interno-toggle">
-                                <input type="checkbox" id="propExibirInformacoesInternasPDF">
-                                Exibir informações internas no PDF
-                            </label>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Custo interno total</label>
-                            <input type="number" id="propCustoInternoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
-                        </div>
-                        <div class="form-group">
-                            <label>Custo terceirizado total</label>
-                            <input type="number" id="propCustoTerceirizadoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Outros custos internos</label>
-                            <input type="number" id="propOutrosCustosInternos" min="0" step="0.01" data-input="recalcularResumoProposta">
-                        </div>
-                        <div class="form-group">
-                            <label>Custo total da proposta</label>
-                            <input type="text" id="propCustoTotalProposta" value="R$ 0,00" readonly>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Lucro previsto</label>
-                            <input type="text" id="propLucroPrevisto" value="R$ 0,00" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label>Margem prevista (%)</label>
-                            <input type="text" id="propMargemPrevista" value="0%" readonly>
-                        </div>
-                    </div>
-                    </div>
-
-                    <div id="propostaSecaoEscopo" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabEscopo" data-proposta-form-section="escopo" hidden>
-                    <h4>8. Escopo da proposta</h4>
+                    <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabPdf" data-proposta-form-section="pdf" hidden>
+                    <h4>4. PDF e observações</h4>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Incluso na proposta</label>
@@ -1098,15 +1114,14 @@
                             <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
                         </div>
                     </div>
-                    </div>
-
-                    <div class="inline-chip-row section-gap">
+                    <div class="proposta-action-panel">
                         <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
-                        <button class="btn btn-info" data-action="editarPropostaAtual"><i class="bi bi-pencil"></i> Editar orçamento</button>
+                        <button class="btn btn-warning" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF cliente</button>
+                        <button class="btn btn-info" data-action="gerarPDFPropostaAtualInterno"><i class="bi bi-file-earmark-lock"></i> Gerar PDF interno</button>
                         <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar orçamento</button>
-                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
-                        <button class="btn btn-warning" data-action="gerarPDFPropostaAtual"><i class="bi bi-printer"></i> Gerar PDF</button>
                         <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
+                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
+                    </div>
                     </div>
                 </div>
                 </section>
@@ -1159,56 +1174,6 @@
                     </div>
                 </div>
                 </section>
-            </div>
-
-            <div id="tab-orcamentos" class="tab-content">
-                <div class="card">
-                    <div class="section-toolbar">
-                        <h3>Orçamentos</h3>
-                        <div class="inline-chip-row">
-                            <button class="btn btn-primary btn-sm" data-action="irParaLocacoesFormulario">
-                                <i class="bi bi-plus-circle"></i> Nova proposta
-                            </button>
-                        </div>
-                    </div>
-                    <div class="locacao-kpi-grid" aria-label="Resumo de orçamentos">
-                        <div class="locacao-kpi-card" data-tone="total">
-                            <small>Total</small>
-                            <strong id="orcKpiTotal">0</strong>
-                        </div>
-                        <div class="locacao-kpi-card" data-tone="aberto">
-                            <small>Orçamento</small>
-                            <strong id="orcKpiOrcamento">0</strong>
-                        </div>
-                        <div class="locacao-kpi-card" data-tone="info">
-                            <small>Aprovado</small>
-                            <strong id="orcKpiAprovado">0</strong>
-                        </div>
-                        <div class="locacao-kpi-card" data-tone="atrasado">
-                            <small>Cancelado</small>
-                            <strong id="orcKpiCancelado">0</strong>
-                        </div>
-                    </div>
-                    <div class="cadastros-search-toolbar">
-                        <div class="filters-row filters-segmented" id="orcamentosFiltros">
-                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-orc="todos" data-action="aplicarFiltroOrcamentosRapido" data-arg="todos">Todos</button>
-                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-orc="orcamento" data-action="aplicarFiltroOrcamentosRapido" data-arg="orcamento">Orçamento</button>
-                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-orc="aprovado" data-action="aplicarFiltroOrcamentosRapido" data-arg="aprovado">Aprovado</button>
-                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-orc="finalizado" data-action="aplicarFiltroOrcamentosRapido" data-arg="finalizado">Finalizado</button>
-                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-orc="cancelado" data-action="aplicarFiltroOrcamentosRapido" data-arg="cancelado">Cancelado</button>
-                        </div>
-                        <input type="text" id="buscaOrcamentos" class="search-input" placeholder="🔍 Buscar proposta, cliente ou status..." data-input="buscarComDebounce" data-arg="orcamentos">
-                        <div id="metaBuscaOrcamentos" class="search-meta" aria-live="polite"></div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr><th>Código</th><th>Cliente</th><th>Período</th><th>Valor</th><th>Status</th><th class="col-actions">Ações</th></tr>
-                            </thead>
-                            <tbody id="tblOrcamentos"></tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
 
             <div id="tab-financeiro" class="tab-content">
@@ -2023,7 +1988,7 @@
     <script src="./assets/js/core/storage.js?v=12.3"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=2.7"></script>
+    <script src="./assets/js/modules/propostas.js?v=2.8"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>
@@ -2044,7 +2009,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.3"></script>
-    <script src="./assets/js/core/app.js?v=22.7"></script>
+    <script src="./assets/js/core/app.js?v=22.8"></script>
         
 </body>
 </html>

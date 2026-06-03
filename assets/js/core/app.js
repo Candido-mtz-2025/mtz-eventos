@@ -352,7 +352,7 @@ function inicializarNavegacaoPrincipal() {
 }
 
 function abrirModuloPreparado(id) {
-    const tabId = String(id || '').trim();
+    const tabId = String(id || '').trim() === 'orcamentos' ? 'propostas' : String(id || '').trim();
     if (tabId && document.getElementById(`tab-${tabId}`)) {
         abrirTab(tabId);
         return true;
@@ -366,13 +366,8 @@ function abrirModuloPreparado(id) {
 }
 
 function sincronizarEstadoVisualDaAba(tabId) {
-    const aba = String(tabId || '').trim();
+    const aba = String(tabId || '').trim() === 'orcamentos' ? 'propostas' : String(tabId || '').trim();
     if (!aba) return;
-
-    if (aba === 'orcamentos') {
-        if (typeof renderOrcamentos === 'function') renderOrcamentos();
-        return;
-    }
 
     if (aba === 'propostas') {
         if (typeof renderPropostas === 'function') renderPropostas();
@@ -634,6 +629,7 @@ function atualizarMedidasTopoApp() {
 }
 
 function obterAlvoInicialDaTab(tabId) {
+    tabId = String(tabId || '').trim() === 'orcamentos' ? 'propostas' : tabId;
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return null;
 
@@ -645,7 +641,6 @@ function obterAlvoInicialDaTab(tabId) {
         checklist: '#tab-checklist > .card:first-child',
         locacoes: '#locacoesPrincipalCard',
         propostas: '#propostasFormularioCard',
-        orcamentos: '#tab-orcamentos > .card:first-child',
         financeiro: '#tab-financeiro > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',
         transporte: '#tab-transporte > .card:first-child',
@@ -2670,6 +2665,7 @@ function executarAtalhoRapido(atalhoId) {
     }
 
     function abrirTab(id, opcoes = {}) {
+        id = String(id || '').trim() === 'orcamentos' ? 'propostas' : id;
         const alvoId = `tab-${id}`;
         const tabExiste = document.getElementById(alvoId);
         if (!tabExiste) return;
