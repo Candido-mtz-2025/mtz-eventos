@@ -7622,6 +7622,20 @@ header {
 /* === V16.9 | PROPOSTAS === */
 #tab-propostas {
     padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+    scroll-margin-top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 84px);
+}
+
+#tab-propostas,
+#tab-propostas .propostas-subnav,
+#tab-propostas .propostas-subpanel,
+#tab-propostas .proposta-form-section,
+#tab-propostas #propostasListaCard {
+    scroll-margin-top: calc(var(--app-header-height, 96px) + var(--app-tabs-sticky-gap, 8px) + 92px);
+}
+
+#appArea .container > .tabs-container {
+    background: var(--bg) !important;
+    padding-bottom: 10px !important;
 }
 
 #tab-propostas .propostas-subnav {
@@ -7666,6 +7680,58 @@ header {
 
 #tab-propostas .propostas-subpanel[hidden] {
     display: none !important;
+}
+
+#tab-propostas .proposta-form-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 18px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-form-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-light);
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+#tab-propostas .proposta-form-tab:hover {
+    transform: translateY(-1px);
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+#tab-propostas .proposta-form-tab.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
+}
+
+#tab-propostas .proposta-form-section {
+    min-height: 220px;
+}
+
+#tab-propostas .proposta-form-section[hidden] {
+    display: none !important;
+}
+
+#tab-propostas .proposta-form-section > h4:first-child {
+    margin-top: 0;
 }
 
 #tab-propostas #propostasFormularioCard,
@@ -7895,6 +7961,19 @@ header {
 
     #tab-propostas .propostas-subtab {
         flex: 1 0 max-content;
+    }
+
+    #tab-propostas .proposta-form-nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        scroll-snap-type: x proximity;
+    }
+
+    #tab-propostas .proposta-form-tab {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+        min-width: max-content;
     }
 
     #tab-propostas .proposta-items-section {

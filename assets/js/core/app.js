@@ -628,7 +628,7 @@ function obterAlvoInicialDaTab(tabId) {
         estoque: '#tab-estoque > .card:first-child',
         checklist: '#tab-checklist > .card:first-child',
         locacoes: '#locacoesPrincipalCard',
-        propostas: '#tab-propostas > .card:first-child',
+        propostas: '#propostasFormularioCard',
         orcamentos: '#tab-orcamentos > .card:first-child',
         financeiro: '#tab-financeiro > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',

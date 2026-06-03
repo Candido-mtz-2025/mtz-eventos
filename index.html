@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.4">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.5">
 </head>
 <body>
 
@@ -708,6 +708,28 @@
                     </div>
 
                     <input type="hidden" id="propostaIdAtual">
+                    <div class="proposta-form-nav" role="tablist" aria-label="Etapas do orçamento">
+                        <button type="button" class="proposta-form-tab is-active" id="propostaFormTabDados" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="dados" data-action="mostrarSecaoFormularioProposta" data-arg="dados">
+                            <i class="bi bi-person-lines-fill"></i> Dados principais
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabItens" role="tab" aria-selected="false" aria-controls="propostaSecaoItens" data-proposta-form-tab="itens" data-action="mostrarSecaoFormularioProposta" data-arg="itens">
+                            <i class="bi bi-list-check"></i> Itens da proposta
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabFinanceiro" role="tab" aria-selected="false" aria-controls="propostaSecaoFinanceiro" data-proposta-form-tab="financeiro" data-action="mostrarSecaoFormularioProposta" data-arg="financeiro">
+                            <i class="bi bi-cash-coin"></i> Custos e financeiro
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabCondicoes" role="tab" aria-selected="false" aria-controls="propostaSecaoCondicoes" data-proposta-form-tab="condicoes" data-action="mostrarSecaoFormularioProposta" data-arg="condicoes">
+                            <i class="bi bi-receipt"></i> Condições comerciais
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabInterno" role="tab" aria-selected="false" aria-controls="propostaSecaoInterno" data-proposta-form-tab="interno" data-action="mostrarSecaoFormularioProposta" data-arg="interno">
+                            <i class="bi bi-shield-check"></i> Controle interno
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabEscopo" role="tab" aria-selected="false" aria-controls="propostaSecaoEscopo" data-proposta-form-tab="escopo" data-action="mostrarSecaoFormularioProposta" data-arg="escopo">
+                            <i class="bi bi-card-checklist"></i> Escopo
+                        </button>
+                    </div>
+
+                    <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabDados" data-proposta-form-section="dados">
                     <div class="form-row">
                         <div class="form-group">
                             <label>Código da proposta</label>
@@ -844,8 +866,9 @@
                             <textarea id="propEventoObs" rows="2" placeholder="Observações da proposta"></textarea>
                         </div>
                     </div>
+                    </div>
 
-                    <div class="proposta-items-section">
+                    <div id="propostaSecaoItens" class="proposta-form-section proposta-items-section" role="tabpanel" aria-labelledby="propostaFormTabItens" data-proposta-form-section="itens" hidden>
                         <div class="proposta-items-header">
                             <div>
                                 <h4>3. Itens da proposta</h4>
@@ -876,6 +899,7 @@
                         <div class="proposta-category-summary" id="propostaResumoCategorias" aria-live="polite"></div>
                     </div>
 
+                    <div id="propostaSecaoFinanceiro" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabFinanceiro" data-proposta-form-section="financeiro" hidden>
                     <h4>4. Custos adicionais</h4>
                     <div class="form-row">
                         <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
@@ -948,6 +972,9 @@
                             <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
                         </div>
                     </div>
+                    </div>
+
+                    <div id="propostaSecaoCondicoes" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabCondicoes" data-proposta-form-section="condicoes" hidden>
                     <h4>6. Condições comerciais</h4>
                     <div class="form-row">
                         <div class="form-group">
@@ -1003,7 +1030,9 @@
                             <textarea id="propObsPagamento" rows="2" placeholder="Detalhes adicionais de pagamento"></textarea>
                         </div>
                     </div>
+                    </div>
 
+                    <div id="propostaSecaoInterno" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabInterno" data-proposta-form-section="interno" hidden>
                     <h4>7. Controle interno</h4>
                     <div class="form-row">
                         <div class="form-group">
@@ -1043,7 +1072,9 @@
                             <input type="text" id="propMargemPrevista" value="0%" readonly>
                         </div>
                     </div>
+                    </div>
 
+                    <div id="propostaSecaoEscopo" class="proposta-form-section" role="tabpanel" aria-labelledby="propostaFormTabEscopo" data-proposta-form-section="escopo" hidden>
                     <h4>8. Escopo da proposta</h4>
                     <div class="form-row">
                         <div class="form-group">
@@ -1066,6 +1097,7 @@
                             <label>Locação vinculada</label>
                             <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
                         </div>
+                    </div>
                     </div>
 
                     <div class="inline-chip-row section-gap">
@@ -1966,7 +1998,7 @@
     <script src="./assets/js/core/storage.js?v=12.2"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=2.4"></script>
+    <script src="./assets/js/modules/propostas.js?v=2.5"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>
@@ -1987,7 +2019,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.3"></script>
-    <script src="./assets/js/core/app.js?v=22.5"></script>
+    <script src="./assets/js/core/app.js?v=22.6"></script>
         
 </body>
 </html>

@@ -45,9 +45,18 @@
         'Logística',
         'Outros'
     ]);
+    const SECOES_FORMULARIO_PROPOSTA = new Set([
+        'dados',
+        'itens',
+        'financeiro',
+        'condicoes',
+        'interno',
+        'escopo'
+    ]);
 
     let filtroPropostasAtual = 'todos';
     let subAbaPropostasAtual = 'formulario';
+    let secaoFormularioPropostaAtual = 'dados';
     let listenersRegistrados = false;
     let bloqueioSincronizacaoValidade = false;
 
@@ -244,9 +253,53 @@
                 return;
             }
 
+            mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
             if (opcoes.foco !== false) {
                 document.getElementById('propClienteNome')?.focus();
             }
+        }, 80);
+    }
+
+    function mostrarSecaoFormularioProposta(alvo = 'dados', opcoes = {}) {
+        const secao = SECOES_FORMULARIO_PROPOSTA.has(String(alvo)) ? String(alvo) : 'dados';
+        secaoFormularioPropostaAtual = secao;
+
+        document.querySelectorAll('[data-proposta-form-tab]').forEach((botao) => {
+            const ativo = botao.getAttribute('data-proposta-form-tab') === secao;
+            botao.classList.toggle('is-active', ativo);
+            botao.setAttribute('aria-selected', ativo ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('[data-proposta-form-section]').forEach((painel) => {
+            const ativo = painel.getAttribute('data-proposta-form-section') === secao;
+            painel.hidden = !ativo;
+            painel.classList.toggle('is-active', ativo);
+        });
+
+        if (opcoes.semRolagem) return;
+
+        setTimeout(() => {
+            const painel = document.querySelector(`[data-proposta-form-section="${secao}"]`);
+            painel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            if (opcoes.foco === false) return;
+
+            const focoPorSecao = {
+                dados: 'propClienteNome',
+                itens: null,
+                financeiro: 'propFreteDistanciaKm',
+                condicoes: 'propPercentualEntrada',
+                interno: 'propExibirInformacoesInternasPDF',
+                escopo: 'propIncluso'
+            };
+
+            const campoId = focoPorSecao[secao];
+            if (campoId) {
+                document.getElementById(campoId)?.focus();
+                return;
+            }
+
+            document.querySelector('#propostaItensBody .prop-item-descricao')?.focus();
         }, 80);
     }
 
@@ -1058,17 +1111,20 @@
         if (validar) {
             if (!proposta.cliente.nome) {
                 mostrarToast('Informe o nome/empresa do cliente.', 'erro');
-                document.getElementById('propClienteNome')?.focus();
+                mostrarSecaoFormularioProposta('dados');
+                setTimeout(() => document.getElementById('propClienteNome')?.focus(), 120);
                 return null;
             }
             if (!proposta.evento.nome) {
                 mostrarToast('Informe o nome do evento.', 'erro');
-                document.getElementById('propEventoNome')?.focus();
+                mostrarSecaoFormularioProposta('dados');
+                setTimeout(() => document.getElementById('propEventoNome')?.focus(), 120);
                 return null;
             }
             if (proposta.itens.length === 0) {
                 mostrarToast('Adicione pelo menos 1 item na proposta.', 'erro');
-                document.querySelector('#propostaItensBody .prop-item-descricao')?.focus();
+                mostrarSecaoFormularioProposta('itens');
+                setTimeout(() => document.querySelector('#propostaItensBody .prop-item-descricao')?.focus(), 120);
                 return null;
             }
         }
@@ -1146,6 +1202,7 @@
         renderLinhasItensProposta(p.itens);
         sincronizarValidadePorData();
         atualizarModoFormulario(`Editando ${p.codigo}`);
+        mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
     }
 
     function limparFormularioProposta() {
@@ -1209,6 +1266,7 @@
         renderLinhasItensProposta([{}]);
         sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
+        mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         document.getElementById('propClienteNome')?.focus();
     }
@@ -2093,6 +2151,7 @@
         registrarListenersPropostas();
         aplicarValorKmFretePadraoProposta();
         preencherResponsavelPropostaSeVazio();
+        mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
         mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
     }
 
@@ -2119,4 +2178,5 @@
     window.irParaPropostasFormulario = irParaPropostasFormulario;
     window.aplicarValorKmFretePadraoProposta = aplicarValorKmFretePadraoProposta;
     window.mostrarSubAbaPropostas = mostrarSubAbaPropostas;
+    window.mostrarSecaoFormularioProposta = mostrarSecaoFormularioProposta;
 })();
