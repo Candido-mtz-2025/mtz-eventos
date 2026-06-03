@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.3">
+    <link rel="stylesheet" href="./assets/css/style.css?v=20.4">
 </head>
 <body>
 
@@ -686,6 +686,16 @@
   </div>
 
             <div id="tab-propostas" class="tab-content">
+                <div class="propostas-subnav" role="tablist" aria-label="Área de propostas">
+                    <button type="button" class="propostas-subtab is-active" id="propostasSubtabFormulario" role="tab" aria-selected="true" aria-controls="propostasPainelFormulario" data-propostas-subtab="formulario" data-action="mostrarSubAbaPropostas" data-arg="formulario">
+                        <i class="bi bi-file-earmark-plus"></i> Nova/Editar proposta
+                    </button>
+                    <button type="button" class="propostas-subtab" id="propostasSubtabLista" role="tab" aria-selected="false" aria-controls="propostasPainelLista" data-propostas-subtab="lista" data-action="mostrarSubAbaPropostas" data-arg="lista">
+                        <i class="bi bi-list-check"></i> Lista de orçamentos
+                    </button>
+                </div>
+
+                <section id="propostasPainelFormulario" class="propostas-subpanel is-active" role="tabpanel" aria-labelledby="propostasSubtabFormulario">
                 <div class="card" id="propostasFormularioCard">
                     <div class="section-toolbar">
                         <h3>Orçamentos</h3>
@@ -835,29 +845,35 @@
                         </div>
                     </div>
 
-                    <h4>3. Itens da proposta</h4>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Categoria</th>
-                                    <th>Descrição</th>
-                                    <th>Medida</th>
-                                    <th>Período (dias)</th>
-                                    <th>Quantidade</th>
-                                    <th>Valor unitário</th>
-                                    <th>Valor total</th>
-                                    <th>Observações</th>
-                                    <th class="col-actions">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="propostaItensBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="inline-chip-row section-gap-small">
-                        <button class="btn btn-secondary btn-sm" data-action="adicionarLinhaItemProposta">
-                            <i class="bi bi-plus-circle"></i> Adicionar item
-                        </button>
+                    <div class="proposta-items-section">
+                        <div class="proposta-items-header">
+                            <div>
+                                <h4>3. Itens da proposta</h4>
+                                <p>Organize os itens por categoria para deixar o orçamento mais claro.</p>
+                            </div>
+                            <button class="btn btn-primary proposta-add-item-btn" data-action="adicionarLinhaItemProposta">
+                                <i class="bi bi-plus-circle"></i> Adicionar item à proposta
+                            </button>
+                        </div>
+                        <div class="table-responsive proposta-items-table-wrap">
+                            <table class="table proposta-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Categoria</th>
+                                        <th>Descrição</th>
+                                        <th>Medida</th>
+                                        <th>Período (dias)</th>
+                                        <th>Quantidade</th>
+                                        <th>Valor unitário</th>
+                                        <th>Valor total</th>
+                                        <th>Observações</th>
+                                        <th class="col-actions">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="propostaItensBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="proposta-category-summary" id="propostaResumoCategorias" aria-live="polite"></div>
                     </div>
 
                     <h4>4. Custos adicionais</h4>
@@ -1061,8 +1077,10 @@
                         <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
                     </div>
                 </div>
+                </section>
 
-                <div class="card">
+                <section id="propostasPainelLista" class="propostas-subpanel" role="tabpanel" aria-labelledby="propostasSubtabLista" hidden>
+                <div class="card" id="propostasListaCard">
                     <div class="section-toolbar">
                         <h3>Lista de orçamentos</h3>
                     </div>
@@ -1108,6 +1126,7 @@
                         </table>
                     </div>
                 </div>
+                </section>
             </div>
 
             <div id="tab-orcamentos" class="tab-content">
@@ -1947,7 +1966,7 @@
     <script src="./assets/js/core/storage.js?v=12.2"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=2.3"></script>
+    <script src="./assets/js/modules/propostas.js?v=2.4"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

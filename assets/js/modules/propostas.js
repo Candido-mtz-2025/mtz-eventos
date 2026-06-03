@@ -47,6 +47,7 @@
     ]);
 
     let filtroPropostasAtual = 'todos';
+    let subAbaPropostasAtual = 'formulario';
     let listenersRegistrados = false;
     let bloqueioSincronizacaoValidade = false;
 
@@ -161,6 +162,92 @@
         });
 
         return grupos.filter((grupo) => grupo.itens.length > 0);
+    }
+
+    function montarResumoCategoriasProposta(itens = []) {
+        const grupos = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => ({
+            categoria,
+            quantidade: 0,
+            subtotal: 0
+        }));
+        const porCategoria = new Map(grupos.map((grupo) => [grupo.categoria, grupo]));
+
+        (Array.isArray(itens) ? itens : []).forEach((item) => {
+            const categoria = normalizarCategoriaItemProposta(item?.categoria);
+            const grupo = porCategoria.get(categoria) || porCategoria.get(CATEGORIA_ITEM_PROPOSTA_PADRAO);
+            grupo.quantidade += 1;
+            grupo.subtotal += numeroNaoNegativo(item?.valorTotal, 0);
+        });
+
+        return grupos;
+    }
+
+    function renderizarResumoCategoriasProposta(itens = []) {
+        const container = document.getElementById('propostaResumoCategorias');
+        if (!container) return;
+
+        const grupos = montarResumoCategoriasProposta(itens);
+        const total = grupos.reduce((acc, grupo) => acc + grupo.subtotal, 0);
+
+        container.innerHTML = `
+            <div class="proposta-category-summary-head">
+                <strong>Resumo por categoria</strong>
+                <span>${formatarMoeda(total)}</span>
+            </div>
+            <div class="proposta-category-summary-grid">
+                ${grupos.map((grupo) => `
+                    <div class="proposta-category-chip${grupo.quantidade > 0 ? ' has-value' : ''}">
+                        <span>${sanitizar(grupo.categoria)}</span>
+                        <strong>${formatarMoeda(grupo.subtotal)}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function mostrarSubAbaPropostas(alvo = 'formulario', opcoes = {}) {
+        const subAba = alvo === 'lista' ? 'lista' : 'formulario';
+        subAbaPropostasAtual = subAba;
+
+        document.querySelectorAll('[data-propostas-subtab]').forEach((botao) => {
+            const ativo = botao.getAttribute('data-propostas-subtab') === subAba;
+            botao.classList.toggle('is-active', ativo);
+            botao.setAttribute('aria-selected', ativo ? 'true' : 'false');
+        });
+
+        const paineis = {
+            formulario: document.getElementById('propostasPainelFormulario'),
+            lista: document.getElementById('propostasPainelLista')
+        };
+
+        Object.entries(paineis).forEach(([chave, painel]) => {
+            if (!painel) return;
+            const ativo = chave === subAba;
+            painel.hidden = !ativo;
+            painel.classList.toggle('is-active', ativo);
+        });
+
+        if (subAba === 'lista') {
+            renderPropostas();
+        }
+
+        if (opcoes.semRolagem) return;
+
+        setTimeout(() => {
+            const alvoScroll = subAba === 'lista'
+                ? document.getElementById('propostasListaCard')
+                : document.getElementById('propostasFormularioCard');
+            alvoScroll?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            if (subAba === 'lista') {
+                document.getElementById('buscaPropostas')?.focus();
+                return;
+            }
+
+            if (opcoes.foco !== false) {
+                document.getElementById('propClienteNome')?.focus();
+            }
+        }, 80);
     }
 
     function normalizarFormaPagamento(forma) {
@@ -602,6 +689,7 @@
         });
 
         const itens = coletarItensFormulario();
+        renderizarResumoCategoriasProposta(itens);
         const custos = obterCustosFormulario();
         const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');
@@ -1121,6 +1209,7 @@
         renderLinhasItensProposta([{}]);
         sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
+        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         document.getElementById('propClienteNome')?.focus();
     }
 
@@ -1184,6 +1273,7 @@
         }
         mostrarToast(indice >= 0 ? 'Proposta atualizada!' : 'Proposta salva!');
         preencherFormularioComProposta(proposta);
+        mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
             focarRegistroRecemSalvo({ tabId: 'propostas', tabelaId: 'tblPropostas', attr: 'data-proposta-id', id: proposta.id });
         }
@@ -1197,6 +1287,7 @@
         }
         preencherFormularioComProposta(proposta);
         if (typeof abrirTab === 'function') abrirTab('propostas', { semRolagem: true });
+        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         setTimeout(() => {
             const card = document.getElementById('propostasFormularioCard');
             if (card && typeof rolarParaElementoAtalho === 'function') {
@@ -1255,6 +1346,7 @@
         }
         mostrarToast('Proposta duplicada com sucesso.');
         preencherFormularioComProposta(copia);
+        mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
             focarRegistroRecemSalvo({ tabId: 'propostas', tabelaId: 'tblPropostas', attr: 'data-proposta-id', id: copia.id });
         }
@@ -1955,6 +2047,7 @@
 
     function irParaPropostasFormulario() {
         if (typeof abrirTab === 'function') abrirTab('propostas', { semRolagem: true });
+        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         setTimeout(() => {
             const card = document.getElementById('propostasFormularioCard');
             if (card && typeof rolarParaElementoAtalho === 'function') {
@@ -2000,6 +2093,7 @@
         registrarListenersPropostas();
         aplicarValorKmFretePadraoProposta();
         preencherResponsavelPropostaSeVazio();
+        mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
     }
 
     inicializarPropostas();
@@ -2024,4 +2118,5 @@
     window.aplicarFiltroPropostas = aplicarFiltroPropostas;
     window.irParaPropostasFormulario = irParaPropostasFormulario;
     window.aplicarValorKmFretePadraoProposta = aplicarValorKmFretePadraoProposta;
+    window.mostrarSubAbaPropostas = mostrarSubAbaPropostas;
 })();
