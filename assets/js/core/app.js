@@ -617,6 +617,22 @@ function obterOffsetCabecalhoApp() {
     return Math.max(0, Math.min(offset, Math.round(window.innerHeight * 0.45)));
 }
 
+function atualizarMedidasTopoApp() {
+    const header = document.querySelector('#appArea > header');
+    const tabs = document.querySelector('#appArea .container > .tabs-container');
+    const headerVisivel = header && window.getComputedStyle(header).display !== 'none';
+    const tabsVisivel = tabs && window.getComputedStyle(tabs).display !== 'none';
+    const headerAltura = headerVisivel ? Math.ceil(header.getBoundingClientRect().height) : 0;
+    const tabsAltura = tabsVisivel ? Math.ceil(tabs.getBoundingClientRect().height) : 0;
+    const gap = window.matchMedia('(max-width: 760px)').matches ? 8 : 10;
+    const respiro = window.matchMedia('(max-width: 760px)').matches ? 18 : 22;
+
+    document.documentElement.style.setProperty('--app-header-height', `${headerAltura}px`);
+    document.documentElement.style.setProperty('--app-nav-height', `${tabsAltura}px`);
+    document.documentElement.style.setProperty('--app-tabs-sticky-gap', `${gap}px`);
+    document.documentElement.style.setProperty('--app-sticky-total-height', `${headerAltura + tabsAltura + gap + respiro}px`);
+}
+
 function obterAlvoInicialDaTab(tabId) {
     const tab = document.getElementById(`tab-${tabId}`);
     if (!tab) return null;
@@ -2627,6 +2643,7 @@ function executarAtalhoRapido(atalhoId) {
     if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
     inicializarNavegacaoPrincipal();
+    atualizarMedidasTopoApp();
     const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
     const ultimaAba = String(localStorage.getItem('mtz:lastTab') || '').trim();
     const abaInicial = document.querySelector(`[data-tab="${ultimaAba}"]`)
@@ -2638,6 +2655,10 @@ function executarAtalhoRapido(atalhoId) {
     inicializarBotoesLimparBusca();
     inicializarMetaTopbarContextual();
     iniciarBackupAutomatico();
+    window.addEventListener('resize', () => {
+        clearTimeout(window.__mtzTopMeasureTimer);
+        window.__mtzTopMeasureTimer = setTimeout(atualizarMedidasTopoApp, 120);
+    });
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
 };
@@ -2664,6 +2685,7 @@ function executarAtalhoRapido(atalhoId) {
         atualizarNavegacaoPrincipal(id);
         fecharMenusNavegacaoPrincipal();
 
+        atualizarMedidasTopoApp();
         atualizarTopbarModulo(id);
         aplicarFeedbackTrocaAba(id);
         localStorage.setItem('mtz:lastTab', id);

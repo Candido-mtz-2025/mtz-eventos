@@ -246,7 +246,11 @@
             const alvoScroll = subAba === 'lista'
                 ? document.getElementById('propostasListaCard')
                 : document.getElementById('propostasFormularioCard');
-            alvoScroll?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (typeof window.rolarParaElementoAtalho === 'function') {
+                window.rolarParaElementoAtalho(alvoScroll, 'start', { forcar: true });
+            } else {
+                alvoScroll?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
 
             if (subAba === 'lista') {
                 document.getElementById('buscaPropostas')?.focus();
@@ -280,7 +284,11 @@
 
         setTimeout(() => {
             const painel = document.querySelector(`[data-proposta-form-section="${secao}"]`);
-            painel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (typeof window.rolarParaElementoAtalho === 'function') {
+                window.rolarParaElementoAtalho(painel, 'start', { forcar: true });
+            } else {
+                painel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
 
             if (opcoes.foco === false) return;
 

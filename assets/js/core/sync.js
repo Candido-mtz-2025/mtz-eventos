@@ -447,6 +447,9 @@ function entrarApp() {
     renderUsuarioCabecalho();
     if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     renderTudo();
+    setTimeout(() => {
+        if (typeof atualizarMedidasTopoApp === 'function') atualizarMedidasTopoApp();
+    }, 80);
 }
 
 function sair() {

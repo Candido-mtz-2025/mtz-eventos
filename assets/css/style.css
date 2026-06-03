@@ -8137,3 +8137,104 @@ header {
         min-width: 0;
     }
 }
+
+/* === V20.0 | TOPO SEM SOBREPOSICAO + ORCAMENTOS RESPONSIVOS === */
+:root {
+    --app-nav-height: 68px;
+    --app-sticky-total-height: calc(var(--app-header-height, 94px) + var(--app-nav-height, 68px) + var(--app-tabs-sticky-gap, 10px) + 22px);
+}
+
+html {
+    scroll-padding-top: var(--app-sticky-total-height, 190px);
+}
+
+#appArea > header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1500 !important;
+    background: var(--bg) !important;
+}
+
+#appArea .container > .tabs-container {
+    position: sticky !important;
+    top: calc(var(--app-header-height, 94px) + var(--app-tabs-sticky-gap, 10px)) !important;
+    z-index: 1450 !important;
+    margin-bottom: 22px !important;
+    padding-top: 8px !important;
+    padding-bottom: 12px !important;
+    background: var(--bg) !important;
+}
+
+#appArea .container > .tabs-container::after {
+    display: none !important;
+    content: none !important;
+}
+
+.tab-content,
+.tab-content .card,
+.dashboard-topbar,
+#tab-propostas,
+#tab-propostas .propostas-subnav,
+#tab-propostas .propostas-subpanel,
+#tab-propostas .proposta-form-section,
+#tab-propostas #propostasFormularioCard,
+#tab-propostas #propostasListaCard {
+    scroll-margin-top: var(--app-sticky-total-height, 190px) !important;
+}
+
+#tab-dashboard .dashboard-topbar {
+    scroll-margin-top: var(--app-sticky-total-height, 190px) !important;
+}
+
+#tab-propostas .propostas-subnav {
+    margin-top: 0 !important;
+}
+
+#tab-propostas .proposta-items-table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable both-edges;
+}
+
+#tab-propostas .proposta-items-table {
+    min-width: 1180px;
+    table-layout: auto;
+}
+
+#tab-propostas .proposta-items-table th,
+#tab-propostas .proposta-items-table td {
+    vertical-align: middle;
+}
+
+#tab-propostas .proposta-items-table .col-actions {
+    min-width: 92px;
+    width: 92px;
+    text-align: right;
+}
+
+@media (max-width: 860px) {
+    :root {
+        --app-sticky-total-height: calc(var(--app-header-height, 136px) + var(--app-nav-height, 124px) + var(--app-tabs-sticky-gap, 8px) + 18px);
+    }
+
+    #appArea .container > .tabs-container {
+        top: calc(var(--app-header-height, 136px) + var(--app-tabs-sticky-gap, 8px)) !important;
+        margin-bottom: 18px !important;
+        padding-top: 6px !important;
+        padding-bottom: 10px !important;
+    }
+
+    #tab-propostas .proposta-items-table {
+        min-width: 1080px;
+    }
+}
+
+@media (max-width: 560px) {
+    #tab-propostas .proposta-items-table {
+        min-width: 1020px;
+    }
+}
