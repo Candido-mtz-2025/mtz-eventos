@@ -731,71 +731,119 @@
         if (el) el.value = Number(valor || 0);
     }
 
+    function formatarRegraResumoCategoriaConfig(aplicar, percentual) {
+        if (!aplicar) return '<span class="proposta-config-rule-badge is-muted">Não aplicado</span>';
+        return `<span class="proposta-config-rule-badge">${formatarPercentual(percentual)}</span>`;
+    }
+
+    function rotuloTipoCalculoConfig(tipo) {
+        return normalizarTipoCalculoTributo(tipo) === 'por_dentro' ? 'Por dentro' : 'Simples';
+    }
+
+    function obterListaCategoriasConfigOrcamento() {
+        return document.querySelector('#propOrcConfigCategorias .proposta-config-category-list')
+            || document.getElementById('propOrcConfigCategorias');
+    }
+
+    function obterLinhasCategoriasConfigOrcamento() {
+        return Array.from(document.querySelectorAll('#propOrcConfigCategorias .proposta-config-matrix-row'));
+    }
+
+    function lerCategoriaConfigDaLinha(linha, indice = 0, globais = criarGlobaisPadraoOrcamento()) {
+        if (!linha) return null;
+        const idOriginal = linha.getAttribute('data-prop-orc-categoria') || '';
+        const nome = textoSeguro(linha.querySelector('.prop-orc-cat-nome')?.value, CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME);
+        const id = idOriginal || normalizarIdCategoriaOrcamento(nome, `categoria-${indice + 1}`);
+        const fixa = id === CATEGORIA_ITEM_PROPOSTA_PADRAO || linha.dataset.fixed === '1';
+        return normalizarCategoriaConfigOrcamento({
+            id,
+            nome,
+            ativa: fixa ? true : linha.querySelector('.prop-orc-cat-ativa')?.checked === true,
+            ordem: inteiroNaoNegativo(linha.querySelector('.prop-orc-cat-ordem')?.value, indice + 1),
+            cor: textoSeguro(linha.querySelector('.prop-orc-cat-cor')?.value, criarCorCategoriaOrcamento(indice)),
+            icone: textoSeguro(linha.querySelector('.prop-orc-cat-icone')?.value, 'bi-tag'),
+            aplicarHonorarios: linha.querySelector('.prop-orc-cat-honorarios-check')?.checked === true,
+            percentualHonorarios: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+            aplicarEncargos: linha.querySelector('.prop-orc-cat-encargos-check')?.checked === true,
+            percentualEncargos: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
+            tipoCalculoEncargos: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-encargos-tipo')?.value, globais.tipoCalculoEncargosPadrao),
+            aplicarINSS: linha.querySelector('.prop-orc-cat-inss-check')?.checked === true,
+            percentualINSS: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
+            tipoCalculoINSS: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-inss-tipo')?.value, globais.tipoCalculoINSSPadrao),
+            fixa
+        }, indice, globais);
+    }
+
     function montarLinhaConfigCategoriaOrcamento(categoria, globais = criarGlobaisPadraoOrcamento()) {
         const normalizada = normalizarCategoriaConfigOrcamento(categoria, numeroNaoNegativo(categoria?.ordem, 1), globais);
         const tipoEncargos = normalizarTipoCalculoTributo(normalizada.tipoCalculoEncargos);
         const tipoINSS = normalizarTipoCalculoTributo(normalizada.tipoCalculoINSS);
         const fixa = normalizada.id === CATEGORIA_ITEM_PROPOSTA_PADRAO || normalizada.fixa;
         const ativa = fixa || normalizada.ativa !== false;
+        const idSeguro = sanitizar(normalizada.id);
+        const nomeSeguro = sanitizar(normalizada.nome);
+        const cor = sanitizar(normalizada.cor || criarCorCategoriaOrcamento(normalizada.ordem));
+        const icone = sanitizar(normalizada.icone || 'bi-tag');
+        const statusClasse = ativa ? 'badge-success' : 'badge-secondary';
+        const statusTexto = ativa ? 'Ativa' : 'Inativa';
         return `
-            <div class="proposta-config-matrix-row" data-prop-orc-categoria="${sanitizar(normalizada.id)}">
-                <div class="proposta-config-matrix-category">
-                    <div class="proposta-config-category-editor">
-                        <div class="proposta-config-category-main">
-                            <input type="number" class="prop-orc-cat-ordem" min="1" step="1" value="${Number(normalizada.ordem || 1)}" title="Ordem">
-                            <input type="color" class="prop-orc-cat-cor" value="${sanitizar(normalizada.cor || criarCorCategoriaOrcamento(normalizada.ordem))}" title="Cor da categoria">
-                            <input type="text" class="prop-orc-cat-icone" value="${sanitizar(normalizada.icone || 'bi-tag')}" title="Ícone Bootstrap" placeholder="bi-tag">
-                        </div>
-                        <input type="text" class="prop-orc-cat-nome" value="${sanitizar(normalizada.nome)}" ${fixa ? 'readonly' : ''} placeholder="Nome da categoria">
-                        <div class="proposta-config-category-actions">
-                            <label class="proposta-config-active-toggle">
-                                <input type="checkbox" class="prop-orc-cat-ativa" ${ativa ? 'checked' : ''} ${fixa ? 'disabled' : ''}>
-                                ${ativa ? 'Ativa' : 'Inativa'}
-                            </label>
-                            <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${sanitizar(normalizada.id)}:up" title="Subir categoria">
-                                <i class="bi bi-arrow-up"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${sanitizar(normalizada.id)}:down" title="Descer categoria">
-                                <i class="bi bi-arrow-down"></i>
-                            </button>
-                        </div>
-                        ${fixa ? '<small>Categoria obrigatória de segurança.</small>' : ''}
-                    </div>
+            <div class="proposta-config-matrix-row${ativa ? '' : ' is-inactive'}" data-prop-orc-categoria="${idSeguro}" data-fixed="${fixa ? '1' : '0'}" style="--category-color: ${cor}">
+                <input type="hidden" class="prop-orc-cat-ordem" value="${Number(normalizada.ordem || 1)}">
+                <input type="hidden" class="prop-orc-cat-cor" value="${cor}">
+                <input type="hidden" class="prop-orc-cat-icone" value="${icone}">
+                <input type="hidden" class="prop-orc-cat-nome" value="${nomeSeguro}">
+                <input type="checkbox" class="prop-orc-cat-ativa proposta-config-hidden-field" ${ativa ? 'checked' : ''} hidden>
+                <input type="checkbox" class="prop-orc-cat-honorarios-check proposta-config-hidden-field" ${normalizada.aplicarHonorarios !== false ? 'checked' : ''} hidden>
+                <input type="hidden" class="prop-orc-cat-honorarios-percent" value="${Number(normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}">
+                <input type="checkbox" class="prop-orc-cat-encargos-check proposta-config-hidden-field" ${normalizada.aplicarEncargos !== false ? 'checked' : ''} hidden>
+                <input type="hidden" class="prop-orc-cat-encargos-percent" value="${Number(normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}">
+                <select class="prop-orc-cat-encargos-tipo proposta-config-hidden-field" hidden>
+                    <option value="simples"${tipoEncargos === 'simples' ? ' selected' : ''}>Simples</option>
+                    <option value="por_dentro"${tipoEncargos === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                </select>
+                <input type="checkbox" class="prop-orc-cat-inss-check proposta-config-hidden-field" ${normalizada.aplicarINSS === true ? 'checked' : ''} hidden>
+                <input type="hidden" class="prop-orc-cat-inss-percent" value="${Number(normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}">
+                <select class="prop-orc-cat-inss-tipo proposta-config-hidden-field" hidden>
+                    <option value="simples"${tipoINSS === 'simples' ? ' selected' : ''}>Simples</option>
+                    <option value="por_dentro"${tipoINSS === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                </select>
+
+                <div class="proposta-config-order-badge" data-label="Ordem">${Number(normalizada.ordem || 1)}</div>
+                <div class="proposta-config-matrix-category" data-label="Categoria">
+                    <span class="proposta-config-color-dot" aria-hidden="true"></span>
+                    <span class="proposta-config-category-icon"><i class="bi ${icone}"></i></span>
+                    <span class="proposta-config-category-title">
+                        <strong>${nomeSeguro}</strong>
+                        <small>${fixa ? 'Categoria de segurança' : (ativa ? 'Disponível nos itens' : 'Oculta para novos itens')}</small>
+                    </span>
                 </div>
-                <div class="proposta-config-tax-cell">
-                    <label class="proposta-config-tax-toggle">
-                        <input type="checkbox" class="prop-orc-cat-honorarios-check" ${normalizada.aplicarHonorarios !== false ? 'checked' : ''}> Honorários
-                    </label>
-                    <div class="proposta-config-percent-field">
-                        <input type="number" class="prop-orc-cat-honorarios-percent" min="0" step="0.01" value="${Number(normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}" aria-label="Percentual de honorários em ${sanitizar(normalizada.nome)}">
-                        <span>%</span>
-                    </div>
+                <div class="proposta-config-status-cell" data-label="Status">
+                    <span class="badge ${statusClasse}">${statusTexto}</span>
                 </div>
-                <div class="proposta-config-tax-cell">
-                    <label class="proposta-config-tax-toggle">
-                        <input type="checkbox" class="prop-orc-cat-encargos-check" ${normalizada.aplicarEncargos !== false ? 'checked' : ''}> Encargos
-                    </label>
-                    <div class="proposta-config-percent-field">
-                        <input type="number" class="prop-orc-cat-encargos-percent" min="0" step="0.01" value="${Number(normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}" aria-label="Percentual de encargos em ${sanitizar(normalizada.nome)}">
-                        <span>%</span>
-                    </div>
-                    <select class="prop-orc-cat-encargos-tipo proposta-config-type-select" aria-label="Tipo de cálculo dos encargos em ${sanitizar(normalizada.nome)}">
-                        <option value="simples"${tipoEncargos === 'simples' ? ' selected' : ''}>Simples</option>
-                        <option value="por_dentro"${tipoEncargos === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
-                    </select>
+                <div class="proposta-config-rule-summary" data-label="Honorários">
+                    ${formatarRegraResumoCategoriaConfig(normalizada.aplicarHonorarios !== false, normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}
                 </div>
-                <div class="proposta-config-tax-cell">
-                    <label class="proposta-config-tax-toggle">
-                        <input type="checkbox" class="prop-orc-cat-inss-check" ${normalizada.aplicarINSS === true ? 'checked' : ''}> INSS
-                    </label>
-                    <div class="proposta-config-percent-field">
-                        <input type="number" class="prop-orc-cat-inss-percent" min="0" step="0.01" value="${Number(normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}" aria-label="Percentual de INSS em ${sanitizar(normalizada.nome)}">
-                        <span>%</span>
-                    </div>
-                    <select class="prop-orc-cat-inss-tipo proposta-config-type-select" aria-label="Tipo de cálculo do INSS em ${sanitizar(normalizada.nome)}">
-                        <option value="simples"${tipoINSS === 'simples' ? ' selected' : ''}>Simples</option>
-                        <option value="por_dentro"${tipoINSS === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
-                    </select>
+                <div class="proposta-config-rule-summary" data-label="Encargos">
+                    ${formatarRegraResumoCategoriaConfig(normalizada.aplicarEncargos !== false, normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}
+                    ${normalizada.aplicarEncargos !== false ? `<small>${rotuloTipoCalculoConfig(tipoEncargos)}</small>` : ''}
+                </div>
+                <div class="proposta-config-rule-summary" data-label="INSS">
+                    ${formatarRegraResumoCategoriaConfig(normalizada.aplicarINSS === true, normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}
+                    ${normalizada.aplicarINSS === true ? `<small>${rotuloTipoCalculoConfig(tipoINSS)}</small>` : ''}
+                </div>
+                <div class="proposta-config-row-actions" data-label="Ações">
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="abrirEditorCategoriaConfigOrcamento" data-arg="${idSeguro}" title="Editar categoria">
+                        <i class="bi bi-pencil"></i><span>Editar</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:up" title="Subir categoria">
+                        <i class="bi bi-arrow-up"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:down" title="Descer categoria">
+                        <i class="bi bi-arrow-down"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm ${ativa ? 'btn-warning' : 'btn-success'} table-action-btn" data-action="alternarCategoriaConfigOrcamento" data-arg="${idSeguro}" title="${ativa ? 'Desativar categoria' : 'Reativar categoria'}" ${fixa ? 'disabled' : ''}>
+                        <i class="bi ${ativa ? 'bi-eye-slash' : 'bi-eye'}"></i><span>${ativa ? 'Desativar' : 'Ativar'}</span>
+                    </button>
                 </div>
             </div>
         `;
@@ -837,20 +885,229 @@
             <div class="proposta-config-categories-toolbar">
                 <div>
                     <strong>Categorias da composição</strong>
-                    <small>Edite nomes, ordem e regras. Categorias inativas não aparecem para novos itens.</small>
+                    <small>Organize a lista usada nos itens do orçamento.</small>
                 </div>
                 <button type="button" class="btn btn-sm btn-primary" data-action="adicionarCategoriaConfigOrcamento">
                     <i class="bi bi-plus-lg"></i> Nova categoria
                 </button>
             </div>
+            <div id="propOrcCategoriaEditor" class="proposta-config-category-editor-host" hidden></div>
+            <div class="proposta-config-rules-note">
+                <strong>Regras de cálculo por categoria</strong>
+                <span>Resumo rápido. Use Editar para alterar percentuais, tipos de cálculo e status.</span>
+            </div>
             <div class="proposta-config-matrix-head" aria-hidden="true">
+                <span>Ordem</span>
                 <span>Categoria</span>
+                <span>Status</span>
                 <span>Honorários</span>
                 <span>Encargos</span>
                 <span>INSS</span>
+                <span>Ações</span>
             </div>
-            ${categorias.map((categoria) => montarLinhaConfigCategoriaOrcamento(categoria, globais)).join('')}
+            <div class="proposta-config-category-list">
+                ${categorias.map((categoria) => montarLinhaConfigCategoriaOrcamento(categoria, globais)).join('')}
+            </div>
         `;
+    }
+
+    function montarEditorCategoriaConfigOrcamento(categoria, opcoes = {}) {
+        const globais = opcoes.globais || obterPadroesOrcamento().globais || criarGlobaisPadraoOrcamento();
+        const normalizada = normalizarCategoriaConfigOrcamento(categoria, numeroNaoNegativo(categoria?.ordem, 1), globais);
+        const fixa = normalizada.id === CATEGORIA_ITEM_PROPOSTA_PADRAO || normalizada.fixa;
+        const ativa = fixa || normalizada.ativa !== false;
+        const nova = opcoes.nova === true;
+        const tipoEncargos = normalizarTipoCalculoTributo(normalizada.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao);
+        const tipoINSS = normalizarTipoCalculoTributo(normalizada.tipoCalculoINSS, globais.tipoCalculoINSSPadrao);
+        const aplicarHonorarios = normalizada.aplicarHonorarios !== false;
+        const aplicarEncargos = normalizada.aplicarEncargos !== false;
+        const aplicarINSS = normalizada.aplicarINSS === true;
+
+        return `
+            <div class="proposta-config-category-editor-panel" data-editor-categoria-id="${sanitizar(normalizada.id)}" data-editor-nova="${nova ? '1' : '0'}">
+                <div class="proposta-config-category-editor-head">
+                    <div>
+                        <strong>${nova ? 'Nova categoria' : 'Editar categoria'}</strong>
+                        <small>${nova ? 'Crie uma categoria com as regras padrão do orçamento.' : 'Ajuste nome, status e regras desta categoria.'}</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="fecharEditorCategoriaConfigOrcamento" title="Fechar editor">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="proposta-config-category-editor-grid">
+                    <div class="form-group">
+                        <label>Nome da categoria</label>
+                        <input type="text" class="prop-orc-editor-nome" value="${sanitizar(normalizada.nome)}" ${fixa ? 'readonly' : ''}>
+                    </div>
+                    <div class="form-group">
+                        <label>Cor</label>
+                        <input type="color" class="prop-orc-editor-cor" value="${sanitizar(normalizada.cor || criarCorCategoriaOrcamento(normalizada.ordem))}">
+                    </div>
+                    <div class="form-group">
+                        <label>Ícone</label>
+                        <input type="text" class="prop-orc-editor-icone" value="${sanitizar(normalizada.icone || 'bi-tag')}" placeholder="bi-tag">
+                    </div>
+                    <label class="proposta-config-editor-switch">
+                        <input type="checkbox" class="prop-orc-editor-ativa" ${ativa ? 'checked' : ''} ${fixa ? 'disabled' : ''}>
+                        <span>${fixa ? 'Categoria de segurança sempre ativa' : 'Categoria ativa'}</span>
+                    </label>
+                </div>
+                <div class="proposta-config-editor-rules">
+                    <div class="proposta-config-editor-rule${aplicarHonorarios ? '' : ' is-disabled'}" data-editor-rule="honorarios">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-editor-honorarios-check" data-change="atualizarCamposEditorCategoriaConfig" ${aplicarHonorarios ? 'checked' : ''}>
+                            Honorários
+                        </label>
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-editor-honorarios-percent" min="0" step="0.01" value="${Number(normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}" ${aplicarHonorarios ? '' : 'disabled'}>
+                            <span>%</span>
+                        </div>
+                    </div>
+                    <div class="proposta-config-editor-rule${aplicarEncargos ? '' : ' is-disabled'}" data-editor-rule="encargos">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-editor-encargos-check" data-change="atualizarCamposEditorCategoriaConfig" ${aplicarEncargos ? 'checked' : ''}>
+                            Encargos
+                        </label>
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-editor-encargos-percent" min="0" step="0.01" value="${Number(normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}" ${aplicarEncargos ? '' : 'disabled'}>
+                            <span>%</span>
+                        </div>
+                        <select class="prop-orc-editor-encargos-tipo proposta-config-type-select" ${aplicarEncargos ? '' : 'disabled'}>
+                            <option value="simples"${tipoEncargos === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoEncargos === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
+                    </div>
+                    <div class="proposta-config-editor-rule${aplicarINSS ? '' : ' is-disabled'}" data-editor-rule="inss">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-editor-inss-check" data-change="atualizarCamposEditorCategoriaConfig" ${aplicarINSS ? 'checked' : ''}>
+                            INSS
+                        </label>
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-editor-inss-percent" min="0" step="0.01" value="${Number(normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}" ${aplicarINSS ? '' : 'disabled'}>
+                            <span>%</span>
+                        </div>
+                        <select class="prop-orc-editor-inss-tipo proposta-config-type-select" ${aplicarINSS ? '' : 'disabled'}>
+                            <option value="simples"${tipoINSS === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoINSS === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="proposta-config-category-editor-actions">
+                    <button type="button" class="btn btn-secondary" data-action="fecharEditorCategoriaConfigOrcamento">Cancelar</button>
+                    <button type="button" class="btn btn-primary" data-action="salvarEditorCategoriaConfigOrcamento">
+                        <i class="bi bi-check2"></i> Salvar categoria
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderizarEditorCategoriaConfigOrcamento(categoria, opcoes = {}) {
+        const host = document.getElementById('propOrcCategoriaEditor');
+        if (!host) return;
+        host.hidden = false;
+        host.innerHTML = montarEditorCategoriaConfigOrcamento(categoria, opcoes);
+        atualizarCamposEditorCategoriaConfig();
+        setTimeout(() => {
+            const primeiroCampo = host.querySelector('.prop-orc-editor-nome:not([readonly]), .prop-orc-editor-cor, button');
+            primeiroCampo?.focus?.();
+            if (primeiroCampo?.select) primeiroCampo.select();
+        }, 50);
+    }
+
+    function fecharEditorCategoriaConfigOrcamento() {
+        const host = document.getElementById('propOrcCategoriaEditor');
+        if (!host) return;
+        host.innerHTML = '';
+        host.hidden = true;
+    }
+
+    function atualizarCamposEditorCategoriaConfig() {
+        const painel = document.querySelector('#propOrcCategoriaEditor .proposta-config-category-editor-panel');
+        if (!painel) return;
+
+        [
+            ['honorarios', '.prop-orc-editor-honorarios-check', ['.prop-orc-editor-honorarios-percent']],
+            ['encargos', '.prop-orc-editor-encargos-check', ['.prop-orc-editor-encargos-percent', '.prop-orc-editor-encargos-tipo']],
+            ['inss', '.prop-orc-editor-inss-check', ['.prop-orc-editor-inss-percent', '.prop-orc-editor-inss-tipo']]
+        ].forEach(([nome, seletorCheck, seletoresCampos]) => {
+            const ativo = painel.querySelector(seletorCheck)?.checked === true;
+            const regra = painel.querySelector(`[data-editor-rule="${nome}"]`);
+            regra?.classList.toggle('is-disabled', !ativo);
+            seletoresCampos.forEach((seletor) => {
+                const campo = painel.querySelector(seletor);
+                if (campo) campo.disabled = !ativo;
+            });
+        });
+    }
+
+    function obterCategoriaConfigDoEditor(globais = criarGlobaisPadraoOrcamento()) {
+        const painel = document.querySelector('#propOrcCategoriaEditor .proposta-config-category-editor-panel');
+        if (!painel) return null;
+        const idOriginal = painel.getAttribute('data-editor-categoria-id') || '';
+        const nova = painel.getAttribute('data-editor-nova') === '1';
+        const nome = textoSeguro(painel.querySelector('.prop-orc-editor-nome')?.value, CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME);
+        const id = nova ? (idOriginal || gerarIdCategoriaLivreConfig(nome)) : idOriginal;
+        const fixa = id === CATEGORIA_ITEM_PROPOSTA_PADRAO;
+        const linhaAtual = obterLinhasCategoriasConfigOrcamento()
+            .find((row) => row.getAttribute('data-prop-orc-categoria') === id);
+
+        return normalizarCategoriaConfigOrcamento({
+            id,
+            nome,
+            ativa: fixa ? true : painel.querySelector('.prop-orc-editor-ativa')?.checked === true,
+            ordem: nova
+                ? obterLinhasCategoriasConfigOrcamento().length + 1
+                : inteiroNaoNegativo(linhaAtual?.querySelector('.prop-orc-cat-ordem')?.value, 1),
+            cor: textoSeguro(painel.querySelector('.prop-orc-editor-cor')?.value, criarCorCategoriaOrcamento(1)),
+            icone: textoSeguro(painel.querySelector('.prop-orc-editor-icone')?.value, 'bi-tag'),
+            aplicarHonorarios: painel.querySelector('.prop-orc-editor-honorarios-check')?.checked === true,
+            percentualHonorarios: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+            aplicarEncargos: painel.querySelector('.prop-orc-editor-encargos-check')?.checked === true,
+            percentualEncargos: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-encargos-percent')?.value, globais.percentualEncargosPadrao),
+            tipoCalculoEncargos: normalizarTipoCalculoTributo(painel.querySelector('.prop-orc-editor-encargos-tipo')?.value, globais.tipoCalculoEncargosPadrao),
+            aplicarINSS: painel.querySelector('.prop-orc-editor-inss-check')?.checked === true,
+            percentualINSS: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-inss-percent')?.value, globais.percentualINSSPadrao),
+            tipoCalculoINSS: normalizarTipoCalculoTributo(painel.querySelector('.prop-orc-editor-inss-tipo')?.value, globais.tipoCalculoINSSPadrao),
+            fixa
+        }, 0, globais);
+    }
+
+    function abrirEditorCategoriaConfigOrcamento(idCategoria) {
+        const globais = obterPadroesOrcamento().globais || criarGlobaisPadraoOrcamento();
+        const linha = obterLinhasCategoriasConfigOrcamento()
+            .find((row) => row.getAttribute('data-prop-orc-categoria') === String(idCategoria || ''));
+        const indice = obterLinhasCategoriasConfigOrcamento().indexOf(linha);
+        const categoria = lerCategoriaConfigDaLinha(linha, indice >= 0 ? indice : 0, globais);
+        if (!categoria) return;
+        renderizarEditorCategoriaConfigOrcamento(categoria, { globais, nova: false });
+    }
+
+    function salvarEditorCategoriaConfigOrcamento() {
+        const globais = obterPadroesOrcamento().globais || criarGlobaisPadraoOrcamento();
+        const painel = document.querySelector('#propOrcCategoriaEditor .proposta-config-category-editor-panel');
+        if (!painel) return;
+        const nova = painel.getAttribute('data-editor-nova') === '1';
+        const categoria = obterCategoriaConfigDoEditor(globais);
+        if (!categoria) return;
+        if (!textoSeguro(categoria.nome)) {
+            mostrarToast('Informe o nome da categoria.', 'erro');
+            painel.querySelector('.prop-orc-editor-nome')?.focus();
+            return;
+        }
+
+        const lista = obterListaCategoriasConfigOrcamento();
+        const existente = obterLinhasCategoriasConfigOrcamento()
+            .find((row) => row.getAttribute('data-prop-orc-categoria') === categoria.id);
+        const html = montarLinhaConfigCategoriaOrcamento(categoria, globais);
+        if (existente && !nova) {
+            existente.outerHTML = html;
+        } else {
+            lista?.insertAdjacentHTML('beforeend', html);
+        }
+        renumerarOrdemCategoriasConfig();
+        fecharEditorCategoriaConfigOrcamento();
+        mostrarToast(nova ? 'Categoria criada.' : 'Categoria atualizada.', 'info');
     }
 
     function coletarConfigOrcamentoProposta() {
@@ -1017,7 +1274,7 @@
     }
 
     function gerarIdCategoriaLivreConfig(nomeBase = 'Nova categoria') {
-        const ids = new Set(Array.from(document.querySelectorAll('#propOrcConfigCategorias [data-prop-orc-categoria]'))
+        const ids = new Set(obterLinhasCategoriasConfigOrcamento()
             .map((linha) => linha.getAttribute('data-prop-orc-categoria'))
             .filter(Boolean));
         const base = normalizarIdCategoriaOrcamento(nomeBase, 'nova-categoria');
@@ -1031,17 +1288,17 @@
     }
 
     function renumerarOrdemCategoriasConfig() {
-        document.querySelectorAll('#propOrcConfigCategorias .proposta-config-matrix-row').forEach((linha, indice) => {
+        obterLinhasCategoriasConfigOrcamento().forEach((linha, indice) => {
             const ordem = linha.querySelector('.prop-orc-cat-ordem');
             if (ordem) ordem.value = String(indice + 1);
+            const badge = linha.querySelector('.proposta-config-order-badge');
+            if (badge) badge.textContent = String(indice + 1);
         });
     }
 
     function adicionarCategoriaConfigOrcamento() {
-        const container = document.getElementById('propOrcConfigCategorias');
-        if (!container) return;
-        const linhas = container.querySelectorAll('.proposta-config-matrix-row');
-        const ordem = linhas.length + 1;
+        const globais = obterPadroesOrcamento().globais || criarGlobaisPadraoOrcamento();
+        const ordem = obterLinhasCategoriasConfigOrcamento().length + 1;
         const id = gerarIdCategoriaLivreConfig('Nova categoria');
         const categoria = normalizarCategoriaConfigOrcamento({
             id,
@@ -1049,31 +1306,48 @@
             ativa: true,
             ordem,
             cor: criarCorCategoriaOrcamento(ordem),
-            icone: 'bi-tag'
-        }, ordem);
-        container.insertAdjacentHTML('beforeend', montarLinhaConfigCategoriaOrcamento(categoria));
-        renumerarOrdemCategoriasConfig();
-        const novaLinha = container.querySelector(`[data-prop-orc-categoria="${id}"]`);
-        setTimeout(() => {
-            const nome = novaLinha?.querySelector('.prop-orc-cat-nome');
-            nome?.focus();
-            nome?.select?.();
-        }, 50);
+            icone: 'bi-tag',
+            aplicarHonorarios: true,
+            percentualHonorarios: globais.percentualHonorariosPadrao || 0,
+            aplicarEncargos: true,
+            percentualEncargos: globais.percentualEncargosPadrao || 0,
+            tipoCalculoEncargos: globais.tipoCalculoEncargosPadrao || 'simples',
+            aplicarINSS: false,
+            percentualINSS: globais.percentualINSSPadrao || 0,
+            tipoCalculoINSS: globais.tipoCalculoINSSPadrao || 'simples'
+        }, ordem, globais);
+        renderizarEditorCategoriaConfigOrcamento(categoria, { globais, nova: true });
     }
 
     function moverCategoriaConfigOrcamento(arg) {
         const [id, direcao] = String(arg || '').split(':');
-        const container = document.getElementById('propOrcConfigCategorias');
-        const linha = Array.from(container?.querySelectorAll('.proposta-config-matrix-row') || [])
+        const lista = obterListaCategoriasConfigOrcamento();
+        const linha = obterLinhasCategoriasConfigOrcamento()
             .find((row) => row.getAttribute('data-prop-orc-categoria') === id);
-        if (!container || !linha) return;
-        const linhas = Array.from(container.querySelectorAll('.proposta-config-matrix-row'));
+        if (!lista || !linha) return;
+        const linhas = obterLinhasCategoriasConfigOrcamento();
         const indice = linhas.indexOf(linha);
         if (direcao === 'up' && indice > 0) {
-            container.insertBefore(linha, linhas[indice - 1]);
+            lista.insertBefore(linha, linhas[indice - 1]);
         } else if (direcao === 'down' && indice >= 0 && indice < linhas.length - 1) {
-            container.insertBefore(linhas[indice + 1], linha);
+            lista.insertBefore(linhas[indice + 1], linha);
         }
+        renumerarOrdemCategoriasConfig();
+    }
+
+    function alternarCategoriaConfigOrcamento(idCategoria) {
+        const globais = obterPadroesOrcamento().globais || criarGlobaisPadraoOrcamento();
+        const linhas = obterLinhasCategoriasConfigOrcamento();
+        const linha = linhas.find((row) => row.getAttribute('data-prop-orc-categoria') === String(idCategoria || ''));
+        if (!linha) return;
+        const categoria = lerCategoriaConfigDaLinha(linha, linhas.indexOf(linha), globais);
+        if (!categoria) return;
+        if (categoria.id === CATEGORIA_ITEM_PROPOSTA_PADRAO || categoria.fixa) {
+            mostrarToast('A categoria Outros precisa ficar ativa como segurança.', 'info');
+            return;
+        }
+        categoria.ativa = categoria.ativa === false;
+        linha.outerHTML = montarLinhaConfigCategoriaOrcamento(categoria, globais);
         renumerarOrdemCategoriasConfig();
     }
 
@@ -3445,6 +3719,11 @@
     window.aplicarConfigOrcamentoProposta = aplicarConfigOrcamentoProposta;
     window.restaurarPadroesConfigOrcamentoProposta = restaurarPadroesConfigOrcamentoProposta;
     window.adicionarCategoriaConfigOrcamento = adicionarCategoriaConfigOrcamento;
+    window.abrirEditorCategoriaConfigOrcamento = abrirEditorCategoriaConfigOrcamento;
+    window.salvarEditorCategoriaConfigOrcamento = salvarEditorCategoriaConfigOrcamento;
+    window.fecharEditorCategoriaConfigOrcamento = fecharEditorCategoriaConfigOrcamento;
+    window.atualizarCamposEditorCategoriaConfig = atualizarCamposEditorCategoriaConfig;
+    window.alternarCategoriaConfigOrcamento = alternarCategoriaConfigOrcamento;
     window.moverCategoriaConfigOrcamento = moverCategoriaConfigOrcamento;
     window.renderConfigOrcamentoProposta = renderConfigOrcamentoProposta;
     window.obterCategoriasOrcamento = obterCategoriasOrcamento;
