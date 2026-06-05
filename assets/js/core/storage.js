@@ -61,7 +61,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     const origemCarga = opcoes.origem || 'desconhecida';
     const baseConfig = manterConfigAtual
         ? (config || {})
-        : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '', valorKmFretePadrao: 0, padroesOrcamento: null };
+        : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '', valorKmFretePadrao: 0, padroesOrcamento: null, categoriasOrcamento: null };
 
     const resultadoMigracao = typeof migrarDadosParaV12 === 'function'
         ? migrarDadosParaV12(dados, { origem: origemCarga })

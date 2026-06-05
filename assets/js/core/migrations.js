@@ -1,5 +1,5 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.2';
+const SCHEMA_VERSION_V12 = '12.3';
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
 const STATUS_FLUXO_LOCACAO_V12 = new Set([
@@ -24,16 +24,17 @@ const STATUS_PROPOSTA_V12 = new Set([
     'recusada',
     'convertida'
 ]);
-const CATEGORIAS_PROPOSTA_V12 = [
-    'Estrutura',
-    'Mobiliário',
-    'Elétrica',
-    'Comunicação / Impressão',
-    'Alimentação',
-    'Mão de Obra',
-    'Logística',
-    'Outros'
+const CATEGORIAS_ORCAMENTO_PADRAO_V12 = [
+    { id: 'estrutura', nome: 'Estrutura', cor: '#3b82f6', icone: 'bi-columns-gap' },
+    { id: 'mobiliario', nome: 'Mobiliário', cor: '#10b981', icone: 'bi-lamp' },
+    { id: 'eletrica', nome: 'Elétrica', cor: '#f59e0b', icone: 'bi-lightning-charge' },
+    { id: 'comunicacao-impressao', nome: 'Comunicação / Impressão', cor: '#8b5cf6', icone: 'bi-printer' },
+    { id: 'alimentacao', nome: 'Alimentação', cor: '#ef4444', icone: 'bi-cup-straw' },
+    { id: 'mao-de-obra', nome: 'Mão de Obra', cor: '#06b6d4', icone: 'bi-person-workspace' },
+    { id: 'logistica', nome: 'Logística', cor: '#0ea5e9', icone: 'bi-truck' },
+    { id: 'outros', nome: 'Outros', cor: '#64748b', icone: 'bi-box-seam' }
 ];
+const CATEGORIAS_PROPOSTA_V12 = CATEGORIAS_ORCAMENTO_PADRAO_V12.map((categoria) => categoria.nome);
 
 function clonarObjetoSeguro(valor, fallback = {}) {
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...fallback };
@@ -78,9 +79,30 @@ function normalizarTextoBuscaMigracao(valor) {
         .trim();
 }
 
+function normalizarIdCategoriaOrcamentoV12(valor, fallback = '') {
+    const base = textoSeguro(valor, fallback)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return base || fallback || '';
+}
+
+function obterCategoriaPadraoOrcamentoV12(valor) {
+    const alvoTexto = normalizarTextoBuscaMigracao(valor);
+    const alvoId = normalizarIdCategoriaOrcamentoV12(valor);
+    return CATEGORIAS_ORCAMENTO_PADRAO_V12.find((categoria) => (
+        categoria.id === alvoId ||
+        normalizarTextoBuscaMigracao(categoria.nome) === alvoTexto ||
+        normalizarIdCategoriaOrcamentoV12(categoria.nome) === alvoId
+    ));
+}
+
 function normalizarCategoriaPropostaV12(valor) {
-    const alvo = normalizarTextoBuscaMigracao(valor);
-    return CATEGORIAS_PROPOSTA_V12.find((categoria) => normalizarTextoBuscaMigracao(categoria) === alvo) || 'Outros';
+    const texto = textoSeguro(valor, '').trim();
+    if (!texto) return 'outros';
+    return obterCategoriaPadraoOrcamentoV12(texto)?.id || texto;
 }
 
 function normalizarTipoTributoPropostaV12(valor, fallback = 'simples') {
@@ -95,6 +117,71 @@ function normalizarBooleanoPropostaV12(valor, fallback = false) {
     if (['true', '1', 'sim', 's', 'yes'].includes(texto)) return true;
     if (['false', '0', 'nao', 'não', 'n', 'no'].includes(texto)) return false;
     return !!fallback;
+}
+
+function criarCategoriaOrcamentoV12(origem = {}, indice = 0, globais = {}, regrasLegadas = {}) {
+    const entrada = typeof origem === 'string' ? { nome: origem } : (origem && typeof origem === 'object' ? origem : {});
+    const def = obterCategoriaPadraoOrcamentoV12(entrada.id || entrada.nome || entrada.categoria || entrada.label);
+    const nomeBase = textoSeguro(entrada.nome ?? entrada.label ?? entrada.categoria ?? def?.nome ?? entrada.id, 'Outros');
+    const ehOutros = normalizarTextoBuscaMigracao(nomeBase) === normalizarTextoBuscaMigracao('Outros')
+        || normalizarIdCategoriaOrcamentoV12(entrada.id || nomeBase) === 'outros';
+    const id = ehOutros ? 'outros' : normalizarIdCategoriaOrcamentoV12(entrada.id || def?.id || nomeBase, `categoria-${indice + 1}`);
+    const nome = ehOutros ? 'Outros' : nomeBase;
+    const regraLegada = regrasLegadas[id] || regrasLegadas[nome] || regrasLegadas[def?.nome] || {};
+    const regra = { ...regraLegada, ...entrada };
+    const ehMaoObra = id === 'mao-de-obra' || normalizarTextoBuscaMigracao(nome) === normalizarTextoBuscaMigracao('Mão de Obra');
+
+    return {
+        id,
+        nome,
+        ativa: ehOutros ? true : normalizarBooleanoPropostaV12(regra.ativa, true),
+        ordem: inteiroNaoNegativo(regra.ordem, def ? CATEGORIAS_ORCAMENTO_PADRAO_V12.findIndex((categoria) => categoria.id === def.id) + 1 : indice + 1),
+        cor: textoSeguro(regra.cor ?? def?.cor, '#64748b'),
+        icone: textoSeguro(regra.icone ?? def?.icone, 'bi-tag'),
+        fixa: ehOutros,
+        aplicarHonorarios: normalizarBooleanoPropostaV12(regra.aplicarHonorarios, true),
+        percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
+        aplicarEncargos: normalizarBooleanoPropostaV12(regra.aplicarEncargos, true),
+        percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globais.percentualEncargosPadrao || 0),
+        tipoCalculoEncargos: normalizarTipoTributoPropostaV12(regra.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao || 'simples'),
+        aplicarINSS: normalizarBooleanoPropostaV12(regra.aplicarINSS, ehMaoObra),
+        percentualINSS: numeroNaoNegativo(regra.percentualINSS, globais.percentualINSSPadrao || 0),
+        tipoCalculoINSS: normalizarTipoTributoPropostaV12(regra.tipoCalculoINSS, globais.tipoCalculoINSSPadrao || 'simples')
+    };
+}
+
+function criarCategoriasOrcamentoV12(valor = null, regrasLegadas = {}, globais = {}) {
+    const mapa = new Map();
+    const adicionar = (origem, indice = mapa.size) => {
+        const categoria = criarCategoriaOrcamentoV12(origem, indice, globais, regrasLegadas);
+        const atual = mapa.get(categoria.id);
+        mapa.set(categoria.id, atual ? { ...atual, ...categoria, fixa: atual.fixa || categoria.fixa } : categoria);
+    };
+
+    CATEGORIAS_ORCAMENTO_PADRAO_V12.forEach((categoria, indice) => adicionar({ ...categoria, ordem: indice + 1 }, indice));
+
+    if (Array.isArray(valor)) {
+        valor.forEach((categoria, indice) => adicionar(categoria, indice));
+    }
+
+    Object.entries(regrasLegadas || {}).forEach(([chave, regra], indice) => {
+        if (!chave) return;
+        const def = obterCategoriaPadraoOrcamentoV12(chave);
+        const id = def?.id || normalizarIdCategoriaOrcamentoV12(chave);
+        if (mapa.has(id)) return;
+        adicionar({
+            id,
+            nome: def?.nome || chave,
+            ordem: 100 + indice,
+            ...(regra && typeof regra === 'object' ? regra : {})
+        }, 100 + indice);
+    });
+
+    if (!mapa.has('outros')) adicionar({ id: 'outros', nome: 'Outros', ordem: 999 }, 999);
+    mapa.set('outros', { ...mapa.get('outros'), id: 'outros', nome: 'Outros', ativa: true, fixa: true });
+
+    return Array.from(mapa.values())
+        .sort((a, b) => (numeroNaoNegativo(a.ordem, 999) - numeroNaoNegativo(b.ordem, 999)) || a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
 function criarPadroesOrcamentoV12(valor = {}) {
@@ -113,25 +200,27 @@ function criarPadroesOrcamentoV12(valor = {}) {
         aplicarINSSAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarINSSAutomaticamente, true)
     };
     const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
+    const categoriasOrcamento = criarCategoriasOrcamentoV12(origem.categoriasOrcamento, origemCategorias, globais);
     const categorias = {};
-    CATEGORIAS_PROPOSTA_V12.forEach((categoria) => {
-        const regra = origemCategorias[categoria] && typeof origemCategorias[categoria] === 'object'
-            ? origemCategorias[categoria]
-            : {};
-        const ehMaoObra = categoria === 'Mão de Obra';
-        categorias[categoria] = {
-            ativa: normalizarBooleanoPropostaV12(regra.ativa, true),
-            aplicarHonorarios: normalizarBooleanoPropostaV12(regra.aplicarHonorarios, true),
-            percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globais.percentualHonorariosPadrao),
-            aplicarEncargos: normalizarBooleanoPropostaV12(regra.aplicarEncargos, true),
-            percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globais.percentualEncargosPadrao),
-            tipoCalculoEncargos: normalizarTipoTributoPropostaV12(regra.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao),
-            aplicarINSS: normalizarBooleanoPropostaV12(regra.aplicarINSS, ehMaoObra),
-            percentualINSS: numeroNaoNegativo(regra.percentualINSS, globais.percentualINSSPadrao),
-            tipoCalculoINSS: normalizarTipoTributoPropostaV12(regra.tipoCalculoINSS, globais.tipoCalculoINSSPadrao)
+    categoriasOrcamento.forEach((categoria) => {
+        categorias[categoria.id] = {
+            id: categoria.id,
+            nome: categoria.nome,
+            ativa: categoria.ativa,
+            ordem: categoria.ordem,
+            cor: categoria.cor,
+            icone: categoria.icone,
+            aplicarHonorarios: categoria.aplicarHonorarios,
+            percentualHonorarios: categoria.percentualHonorarios,
+            aplicarEncargos: categoria.aplicarEncargos,
+            percentualEncargos: categoria.percentualEncargos,
+            tipoCalculoEncargos: categoria.tipoCalculoEncargos,
+            aplicarINSS: categoria.aplicarINSS,
+            percentualINSS: categoria.percentualINSS,
+            tipoCalculoINSS: categoria.tipoCalculoINSS
         };
     });
-    return { globais, categorias };
+    return { globais, categorias, categoriasOrcamento };
 }
 
 function criarPermissoesPadraoV12(perfil) {
@@ -712,7 +801,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
             emailsPermitidos: '',
             adminEmails: '',
             valorKmFretePadrao: 0,
-            padroesOrcamento: null
+            padroesOrcamento: null,
+            categoriasOrcamento: null
         }),
         versao: SCHEMA_VERSION_V12
     };
@@ -733,13 +823,26 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.houveMudanca = true;
     }
 
+    if (!dadosBase.config || !('categoriasOrcamento' in dadosBase.config)) {
+        contexto.houveMudanca = true;
+    }
+
     if (versaoAnterior !== SCHEMA_VERSION_V12) {
         contexto.houveMudanca = true;
     }
 
     dadosMigrados.config.schemaVersion = SCHEMA_VERSION_V12;
     dadosMigrados.config.valorKmFretePadrao = numeroNaoNegativo(dadosMigrados.config.valorKmFretePadrao, 0);
-    dadosMigrados.config.padroesOrcamento = criarPadroesOrcamentoV12(dadosMigrados.config.padroesOrcamento);
+    dadosMigrados.config.padroesOrcamento = criarPadroesOrcamentoV12({
+        ...(dadosMigrados.config.padroesOrcamento && typeof dadosMigrados.config.padroesOrcamento === 'object' ? dadosMigrados.config.padroesOrcamento : {}),
+        categoriasOrcamento: dadosMigrados.config.categoriasOrcamento || dadosMigrados.config.padroesOrcamento?.categoriasOrcamento
+    });
+    dadosMigrados.config.categoriasOrcamento = criarCategoriasOrcamentoV12(
+        dadosMigrados.config.categoriasOrcamento || dadosMigrados.config.padroesOrcamento.categoriasOrcamento,
+        dadosMigrados.config.padroesOrcamento.categorias,
+        dadosMigrados.config.padroesOrcamento.globais
+    );
+    dadosMigrados.config.padroesOrcamento.categoriasOrcamento = dadosMigrados.config.categoriasOrcamento;
 
     if (contexto.houveMudanca) {
         contexto.logs.push(

@@ -38,7 +38,8 @@ function obterPadroesOrcamentoConfig() {
             aplicarEncargosAutomaticamente: true,
             aplicarINSSAutomaticamente: true
         },
-        categorias: {}
+        categorias: {},
+        categoriasOrcamento: []
     };
 }
 
@@ -47,9 +48,35 @@ function preencherCampoConfig(id, valor, prop = 'value') {
     if (el) el[prop] = valor;
 }
 
+function obterCategoriasOrcamentoConfig(padroes) {
+    if (typeof normalizarCategoriasOrcamentoConfig === 'function') {
+        return normalizarCategoriasOrcamentoConfig(
+            config?.categoriasOrcamento || padroes?.categoriasOrcamento,
+            padroes?.categorias || {},
+            padroes?.globais || {}
+        );
+    }
+
+    const nomes = ['Estrutura', 'Mobiliário', 'Elétrica', 'Comunicação / Impressão', 'Alimentação', 'Mão de Obra', 'Logística', 'Outros'];
+    return nomes.map((nome, indice) => ({
+        id: nome,
+        nome,
+        ativa: true,
+        ordem: indice + 1,
+        cor: '',
+        icone: '',
+        ...(padroes?.categorias?.[nome] || {})
+    }));
+}
+
 function renderConfigPadroesOrcamento() {
     const padroes = obterPadroesOrcamentoConfig();
-    if (config && typeof config === 'object') config.padroesOrcamento = padroes;
+    if (config && typeof config === 'object') {
+        config.padroesOrcamento = padroes;
+        if (Array.isArray(padroes.categoriasOrcamento)) {
+            config.categoriasOrcamento = padroes.categoriasOrcamento;
+        }
+    }
 
     const globais = padroes.globais || {};
     preencherCampoConfig('confOrcHonorariosPadrao', globais.percentualHonorariosPadrao || '');
@@ -63,9 +90,7 @@ function renderConfigPadroesOrcamento() {
     preencherCampoConfig('confOrcAplicarEncargos', globais.aplicarEncargosAutomaticamente !== false, 'checked');
     preencherCampoConfig('confOrcAplicarINSS', globais.aplicarINSSAutomaticamente !== false, 'checked');
 
-    const categorias = Array.isArray(window.CATEGORIAS_ITEM_PROPOSTA)
-        ? window.CATEGORIAS_ITEM_PROPOSTA
-        : ['Estrutura', 'Mobiliário', 'Elétrica', 'Comunicação / Impressão', 'Alimentação', 'Mão de Obra', 'Logística', 'Outros'];
+    const categorias = obterCategoriasOrcamentoConfig(padroes);
     const container = document.getElementById('confOrcCategorias');
     if (!container) return;
 
@@ -77,14 +102,17 @@ function renderConfigPadroesOrcamento() {
             <span>INSS</span>
         </div>
         ${categorias.map((categoria) => {
-            const regra = padroes.categorias?.[categoria] || {};
+            const id = categoria.id || categoria.nome || '';
+            const regra = padroes.categorias?.[id] || padroes.categorias?.[categoria.nome] || categoria || {};
             const tipoEncargos = regra.tipoCalculoEncargos === 'por_dentro' ? 'por_dentro' : 'simples';
             const tipoINSS = regra.tipoCalculoINSS === 'por_dentro' ? 'por_dentro' : 'simples';
+            const fixa = id === 'outros' || categoria.nome === 'Outros';
             return `
-                <div class="config-budget-category-row" data-orc-categoria="${sanitizarConfigTexto(categoria)}">
+                <div class="config-budget-category-row" data-orc-categoria="${sanitizarConfigTexto(id)}" data-orc-categoria-nome="${sanitizarConfigTexto(categoria.nome || id)}">
                     <label class="config-budget-category-name">
-                        <input type="checkbox" class="conf-orc-cat-ativa" ${regra.ativa !== false ? 'checked' : ''}>
-                        ${sanitizarConfigTexto(categoria)}
+                        <input type="checkbox" class="conf-orc-cat-ativa" ${regra.ativa !== false ? 'checked' : ''} ${fixa ? 'disabled' : ''}>
+                        ${sanitizarConfigTexto(categoria.nome || id)}
+                        ${regra.ativa === false ? '<small>inativa</small>' : ''}
                     </label>
                     <div class="config-budget-rule">
                         <label><input type="checkbox" class="conf-orc-cat-honorarios-check" ${regra.aplicarHonorarios !== false ? 'checked' : ''}> aplicar</label>
@@ -127,10 +155,16 @@ function coletarConfigPadroesOrcamento() {
     };
 
     const categorias = {};
-    document.querySelectorAll('#confOrcCategorias [data-orc-categoria]').forEach((linha) => {
+    const categoriasOrcamento = [];
+    document.querySelectorAll('#confOrcCategorias [data-orc-categoria]').forEach((linha, indice) => {
         const categoria = linha.getAttribute('data-orc-categoria') || '';
-        categorias[categoria] = {
-            ativa: linha.querySelector('.conf-orc-cat-ativa')?.checked !== false,
+        const nome = linha.getAttribute('data-orc-categoria-nome') || categoria;
+        const fixa = categoria === 'outros' || nome === 'Outros';
+        const regra = {
+            id: categoria,
+            nome,
+            ativa: fixa ? true : linha.querySelector('.conf-orc-cat-ativa')?.checked !== false,
+            ordem: indice + 1,
             aplicarHonorarios: linha.querySelector('.conf-orc-cat-honorarios-check')?.checked === true,
             percentualHonorarios: normalizarNumeroConfig(linha.querySelector('.conf-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
             aplicarEncargos: linha.querySelector('.conf-orc-cat-encargos-check')?.checked === true,
@@ -140,9 +174,11 @@ function coletarConfigPadroesOrcamento() {
             percentualINSS: normalizarNumeroConfig(linha.querySelector('.conf-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
             tipoCalculoINSS: linha.querySelector('.conf-orc-cat-inss-tipo')?.value === 'por_dentro' ? 'por_dentro' : 'simples'
         };
+        categorias[categoria] = regra;
+        categoriasOrcamento.push(regra);
     });
 
-    const padroes = { globais, categorias };
+    const padroes = { globais, categorias, categoriasOrcamento };
     return typeof normalizarPadroesOrcamento === 'function' ? normalizarPadroesOrcamento(padroes) : padroes;
 }
 
@@ -173,7 +209,11 @@ function salvarConfig() {
         config.adminEmails = normalizarEmailsPermitidos(elAdminEmails.value);
         elAdminEmails.value = config.adminEmails;
     }
-    config.padroesOrcamento = coletarConfigPadroesOrcamento();
+    const padroesOrcamento = coletarConfigPadroesOrcamento();
+    config.padroesOrcamento = padroesOrcamento;
+    if (Array.isArray(padroesOrcamento.categoriasOrcamento)) {
+        config.categoriasOrcamento = padroesOrcamento.categoriasOrcamento;
+    }
 
     salvarLocal();
     sincronizar('salvar');

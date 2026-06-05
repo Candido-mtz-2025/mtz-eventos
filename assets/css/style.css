@@ -5141,6 +5141,16 @@ textarea::placeholder {
     font-weight: 800;
 }
 
+#tab-config .config-budget-category-name small {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+    font-size: 0.64rem;
+    font-weight: 950;
+    text-transform: uppercase;
+}
+
 #tab-config .config-budget-rule input[type="number"] {
     width: 82px;
 }
@@ -7927,6 +7937,34 @@ header {
     gap: 8px;
 }
 
+#tab-propostas .proposta-config-categories-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-config-categories-toolbar div {
+    display: grid;
+    gap: 3px;
+}
+
+#tab-propostas .proposta-config-categories-toolbar strong {
+    color: var(--text);
+    font-size: 0.92rem;
+}
+
+#tab-propostas .proposta-config-categories-toolbar small {
+    color: var(--text-light);
+    font-size: 0.74rem;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
 #tab-propostas .proposta-config-matrix-head {
     display: grid;
     grid-template-columns: 1.05fr repeat(3, minmax(118px, 1fr));
@@ -7954,6 +7992,76 @@ header {
     display: flex;
     align-items: center;
     min-width: 0;
+}
+
+#tab-propostas .proposta-config-category-editor {
+    width: 100%;
+    display: grid;
+    gap: 7px;
+}
+
+#tab-propostas .proposta-config-category-main {
+    display: grid;
+    grid-template-columns: 54px 42px minmax(88px, 1fr);
+    gap: 6px;
+}
+
+#tab-propostas .prop-orc-cat-ordem,
+#tab-propostas .prop-orc-cat-cor,
+#tab-propostas .prop-orc-cat-icone,
+#tab-propostas .prop-orc-cat-nome {
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    font-size: 0.82rem;
+}
+
+#tab-propostas .prop-orc-cat-cor {
+    min-width: 42px;
+    padding: 3px;
+}
+
+#tab-propostas .prop-orc-cat-nome {
+    width: 100%;
+    font-weight: 900;
+}
+
+#tab-propostas .prop-orc-cat-nome[readonly] {
+    background: color-mix(in srgb, var(--surface-soft) 88%, var(--border));
+    color: var(--text-light);
+}
+
+#tab-propostas .proposta-config-category-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+#tab-propostas .proposta-config-active-toggle {
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-light);
+    font-size: 0.74rem;
+    font-weight: 900;
+}
+
+#tab-propostas .proposta-config-active-toggle input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+#tab-propostas .proposta-config-category-editor > small {
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 750;
 }
 
 #tab-propostas .proposta-config-matrix-category strong {
@@ -8614,15 +8722,33 @@ header {
     gap: 4px;
     min-height: 58px;
     padding: 10px;
-    border: 1px solid var(--border);
+    border: 1px solid color-mix(in srgb, var(--category-color, var(--primary)) 34%, var(--border));
+    border-left: 4px solid var(--category-color, var(--primary));
     border-radius: 10px;
     background: var(--surface-soft);
 }
 
 #tab-propostas .proposta-category-chip span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     color: var(--text-light);
     font-size: 0.78rem;
     font-weight: 800;
+}
+
+#tab-propostas .proposta-category-chip span i {
+    color: var(--category-color, var(--primary));
+}
+
+#tab-propostas .proposta-category-chip span em {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+    font-size: 0.64rem;
+    font-style: normal;
+    font-weight: 950;
 }
 
 #tab-propostas .proposta-category-chip strong {
@@ -8638,8 +8764,7 @@ header {
 }
 
 #tab-propostas .proposta-category-chip.has-value {
-    border-color: rgba(37, 99, 235, 0.35);
-    background: rgba(37, 99, 235, 0.065);
+    background: color-mix(in srgb, var(--category-color, var(--primary)) 8%, var(--surface));
 }
 
 #tab-propostas .proposta-closing-grid {
@@ -8896,6 +9021,15 @@ header {
 }
 
 @media (max-width: 560px) {
+    #tab-propostas .proposta-config-categories-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #tab-propostas .proposta-config-category-main {
+        grid-template-columns: 52px 42px minmax(0, 1fr);
+    }
+
     #tab-propostas .proposta-config-tax-cell {
         grid-template-columns: 1fr;
     }

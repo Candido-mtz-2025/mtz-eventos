@@ -9,7 +9,7 @@ let checklistConferencia = {};
 let checklistEtapasMontagem = [];
 
     let logsAuditoria = []; // NOVO: Sistema de auditoria
-    let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "", emailsPermitidos: "", adminEmails: "", valorKmFretePadrao: 0, padroesOrcamento: null };
+    let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "", emailsPermitidos: "", adminEmails: "", valorKmFretePadrao: 0, padroesOrcamento: null, categoriasOrcamento: null };
     let tokenClient, filtroAtual = 'todos';
     let paginaAtual = {
     locadores: 1,
