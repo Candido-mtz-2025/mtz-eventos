@@ -426,7 +426,6 @@ function gerarPDF() {
 
     html2canvas(elemento, opcoesCanvas)
         .then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const margem = 6;
             const alturaCabecalho = 8;
@@ -437,19 +436,36 @@ function gerarPDF() {
             const topoConteudo = margem + alturaCabecalho;
             const alturaUtil = alturaPagina - (margem * 2) - alturaCabecalho - alturaRodape;
             const imgLargura = larguraUtil;
-            const imgAltura = (canvas.height * imgLargura) / canvas.width;
+            const pxPorMm = canvas.width / imgLargura;
+            const alturaFatiaPx = Math.max(1, Math.floor(alturaUtil * pxPorMm));
+            let origemY = 0;
+            let paginaCriada = false;
 
-            let alturaRestante = imgAltura;
-            let posicaoY = topoConteudo;
+            while (origemY < canvas.height) {
+                const alturaAtualPx = Math.min(alturaFatiaPx, canvas.height - origemY);
+                const canvasPagina = document.createElement('canvas');
+                canvasPagina.width = canvas.width;
+                canvasPagina.height = alturaAtualPx;
+                const contexto = canvasPagina.getContext('2d');
+                contexto.drawImage(
+                    canvas,
+                    0,
+                    origemY,
+                    canvas.width,
+                    alturaAtualPx,
+                    0,
+                    0,
+                    canvas.width,
+                    alturaAtualPx
+                );
 
-            pdf.addImage(imgData, 'PNG', margem, posicaoY, imgLargura, imgAltura, undefined, 'FAST');
-            alturaRestante -= alturaUtil;
+                if (paginaCriada) pdf.addPage();
+                const imgData = canvasPagina.toDataURL('image/png');
+                const imgAltura = (alturaAtualPx * imgLargura) / canvas.width;
+                pdf.addImage(imgData, 'PNG', margem, topoConteudo, imgLargura, imgAltura, undefined, 'FAST');
 
-            while (alturaRestante > 0.01) {
-                pdf.addPage();
-                posicaoY = topoConteudo - (imgAltura - alturaRestante);
-                pdf.addImage(imgData, 'PNG', margem, posicaoY, imgLargura, imgAltura, undefined, 'FAST');
-                alturaRestante -= alturaUtil;
+                paginaCriada = true;
+                origemY += alturaAtualPx;
             }
 
             const totalPaginas = pdf.getNumberOfPages();

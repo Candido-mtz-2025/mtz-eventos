@@ -9434,3 +9434,99 @@ html {
         grid-template-columns: 1fr;
     }
 }
+
+/* === V20.1 | PDF DE ORCAMENTO SEM CORTES === */
+#printArea .orcamento-pdf {
+    box-sizing: border-box;
+    max-width: 180mm;
+    margin: 0 auto;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#printArea .orcamento-pdf,
+#printArea .orcamento-pdf * {
+    overflow-wrap: anywhere;
+}
+
+#printArea .orcamento-pdf .pdf-section,
+#printArea .orcamento-pdf .pdf-card,
+#printArea .orcamento-pdf .pdf-financial-section,
+#printArea .orcamento-pdf .pdf-scope-section,
+#printArea .orcamento-pdf .pdf-signatures,
+#printArea .orcamento-pdf .pdf-summary-table,
+#printArea .orcamento-pdf .pdf-internal-summary {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+#printArea .orcamento-pdf .pdf-items-table {
+    page-break-inside: auto;
+}
+
+#printArea .orcamento-pdf .pdf-items-table thead {
+    display: table-header-group;
+}
+
+#printArea .orcamento-pdf .pdf-items-table tfoot {
+    display: table-footer-group;
+}
+
+#printArea .orcamento-pdf .pdf-items-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    page-break-after: auto;
+}
+
+#printArea .orcamento-pdf .pdf-category-head,
+#printArea .orcamento-pdf .pdf-category-subtotal,
+#printArea .orcamento-pdf .pdf-summary-row-highlight {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+@media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
+    #printArea {
+        width: 210mm !important;
+        min-height: auto !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        display: block !important;
+    }
+
+    #printArea .print-page,
+    #printArea .pdf-page,
+    #printArea .orcamento-pdf,
+    #printArea .resumo-financeiro,
+    #printArea .pdf-section,
+    #printArea .assinaturas {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    #printArea .orcamento-pdf .pdf-items-section {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    #printArea table {
+        page-break-inside: auto;
+    }
+
+    #printArea tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    #printArea thead {
+        display: table-header-group;
+    }
+
+    #printArea tfoot {
+        display: table-footer-group;
+    }
+}

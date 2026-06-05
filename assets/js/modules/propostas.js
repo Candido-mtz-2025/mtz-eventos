@@ -69,10 +69,52 @@
         return String(valor).trim();
     }
 
-    function numeroSeguro(valor, fallback = 0) {
-        const numero = Number(valor);
+    function converterTextoMoedaParaNumero(valor, fallback = 0) {
+        if (typeof valor === 'number') {
+            return Number.isFinite(valor) ? valor : (Number(fallback) || 0);
+        }
+        if (valor == null) return Number(fallback) || 0;
+
+        let texto = String(valor)
+            .trim()
+            .replace(/\s+/g, '')
+            .replace(/[^\d,.\-]/g, '');
+
+        if (!texto || texto === '-' || texto === ',' || texto === '.') return Number(fallback) || 0;
+
+        const negativo = texto.startsWith('-');
+        texto = texto.replace(/-/g, '');
+
+        const temVirgula = texto.includes(',');
+        const temPonto = texto.includes('.');
+
+        if (temVirgula && temPonto) {
+            const ultimaVirgula = texto.lastIndexOf(',');
+            const ultimoPonto = texto.lastIndexOf('.');
+            if (ultimaVirgula > ultimoPonto) {
+                texto = texto.replace(/\./g, '').replace(',', '.');
+            } else {
+                texto = texto.replace(/,/g, '');
+            }
+        } else if (temVirgula) {
+            texto = texto.replace(/\./g, '').replace(',', '.');
+        } else if (temPonto) {
+            const partes = texto.split('.');
+            const ultimaParte = partes[partes.length - 1] || '';
+            const primeiraParte = partes[0] || '';
+            const pareceMilhar = partes.length > 1 && ultimaParte.length === 3 && primeiraParte.length <= 3;
+            if (partes.length > 2 || pareceMilhar) {
+                texto = partes.join('');
+            }
+        }
+
+        const numero = Number(`${negativo ? '-' : ''}${texto}`);
         if (!Number.isFinite(numero)) return Number(fallback) || 0;
         return numero;
+    }
+
+    function numeroSeguro(valor, fallback = 0) {
+        return converterTextoMoedaParaNumero(valor, fallback);
     }
 
     function numeroNaoNegativo(valor, fallback = 0) {
@@ -92,7 +134,7 @@
     }
 
     function formatarMoeda(valor) {
-        return (Number(valor) || 0).toLocaleString('pt-BR', {
+        return converterTextoMoedaParaNumero(valor, 0).toLocaleString('pt-BR', {
             style: 'currency',
             currency: 'BRL'
         });
@@ -1143,6 +1185,17 @@
         return numeroNaoNegativo(document.getElementById(id)?.value, 0);
     }
 
+    function formatarValorMonetarioEditavel(campo) {
+        if (!campo || campo.readOnly || campo.disabled) return;
+        const valorBruto = textoSeguro(campo.value);
+        if (!valorBruto) return;
+        campo.value = formatarMoeda(valorBruto);
+    }
+
+    function valorInputMonetario(valor) {
+        return formatarMoeda(valor);
+    }
+
     function obterValorKmFretePadrao() {
         return numeroNaoNegativo(window.config?.valorKmFretePadrao ?? config?.valorKmFretePadrao, 0);
     }
@@ -1155,7 +1208,7 @@
 
         const valorPadrao = obterValorKmFretePadrao();
         if (valorPadrao <= 0) return;
-        campoValorKm.value = String(valorPadrao);
+        campoValorKm.value = valorInputMonetario(valorPadrao);
         recalcularResumoProposta();
     }
 
@@ -1210,7 +1263,7 @@
         if (freteEl) {
             freteEl.readOnly = resultado.calculoAtivo;
             if (resultado.calculoAtivo) {
-                freteEl.value = resultado.freteCalculado.toFixed(2);
+                freteEl.value = valorInputMonetario(resultado.freteCalculado);
                 freteEl.title = 'Frete calculado automaticamente por distância x valor por km.';
             } else {
                 freteEl.removeAttribute('title');
@@ -1412,7 +1465,7 @@
                 <td data-label="Medida"><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
                 <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
                 <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
-                <td data-label="Custo unitário"><input type="number" class="prop-item-unitario" value="${itemCalculado.custoUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
+                <td data-label="Custo unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></td>
                 <td data-label="Custo total"><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
                 <td data-label="Valor final"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
                 <td class="col-actions" data-label="Ações">
@@ -1747,37 +1800,37 @@
         controleInterno = {}
     } = {}) {
         const itensCalculados = (Array.isArray(itens) ? itens : []).map((item) => calcularItemProposta(item || {}));
-        const subtotalItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0);
-        const subtotalCustoItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.custoTotal, 0), 0);
-        const subtotalHonorariosItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorHonorarios, 0), 0);
-        const subtotalEncargosItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorEncargos, 0), 0);
-        const subtotalINSSItens = itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorINSS, 0), 0);
+        const subtotalItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0));
+        const subtotalCustoItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.custoTotal, 0), 0));
+        const subtotalHonorariosItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorHonorarios, 0), 0));
+        const subtotalEncargosItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorEncargos, 0), 0));
+        const subtotalINSSItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorINSS, 0), 0));
 
-        const totalCustosAdicionais = CHAVES_CUSTOS_ADICIONAIS.reduce((acc, chave) => {
+        const totalCustosAdicionais = arredondarMoeda(CHAVES_CUSTOS_ADICIONAIS.reduce((acc, chave) => {
             return acc + numeroNaoNegativo(custos?.[chave], 0);
-        }, 0);
+        }, 0));
 
-        const descontoNormalizado = numeroNaoNegativo(desconto, 0);
-        const acrescimoNormalizado = numeroNaoNegativo(acrescimo, 0);
-        const valorBase = Math.max(subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado, 0);
+        const descontoNormalizado = arredondarMoeda(numeroNaoNegativo(desconto, 0));
+        const acrescimoNormalizado = arredondarMoeda(numeroNaoNegativo(acrescimo, 0));
+        const valorBase = arredondarMoeda(Math.max(subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado, 0));
         const percentualNFNormalizado = numeroNaoNegativo(percentualNF, 0);
         const tipoNF = normalizarTipoCalculoNF(tipoCalculoNF, 'descontar');
-        const valorNF = (valorBase * percentualNFNormalizado) / 100;
+        const valorNF = arredondarMoeda((valorBase * percentualNFNormalizado) / 100);
         const valorFinal = valorBase;
-        const valorFinalComNF = tipoNF === 'acrescentar' ? valorBase + valorNF : valorBase;
-        const valorLiquidoPrevisto = tipoNF === 'descontar' ? (valorBase - valorNF) : valorBase;
+        const valorFinalComNF = arredondarMoeda(tipoNF === 'acrescentar' ? valorBase + valorNF : valorBase);
+        const valorLiquidoPrevisto = arredondarMoeda(tipoNF === 'descontar' ? (valorBase - valorNF) : valorBase);
         const valorFinalComercial = tipoNF === 'acrescentar' ? valorFinalComNF : valorFinal;
 
         const percentualEntradaNormalizado = clampPercentual(percentualEntrada);
-        const valorEntrada = (valorFinalComercial * percentualEntradaNormalizado) / 100;
+        const valorEntrada = arredondarMoeda((valorFinalComercial * percentualEntradaNormalizado) / 100);
         const percentualSaldo = Math.max(0, 100 - percentualEntradaNormalizado);
-        const valorSaldo = Math.max(valorFinalComercial - valorEntrada, 0);
+        const valorSaldo = arredondarMoeda(Math.max(valorFinalComercial - valorEntrada, 0));
 
-        const custoInternoTotal = numeroNaoNegativo(controleInterno?.custoInternoTotal, 0);
-        const custoTerceirizadoTotal = numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0);
-        const outrosCustosInternos = numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0);
-        const custoTotalProposta = custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos;
-        const lucroPrevisto = valorLiquidoPrevisto - custoTotalProposta;
+        const custoInternoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoInternoTotal, 0));
+        const custoTerceirizadoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0));
+        const outrosCustosInternos = arredondarMoeda(numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0));
+        const custoTotalProposta = arredondarMoeda(custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos);
+        const lucroPrevisto = arredondarMoeda(valorLiquidoPrevisto - custoTotalProposta);
         const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
 
         return {
@@ -2244,16 +2297,16 @@
             propEventoObs: p.evento.observacoesGerais,
             propFreteTrechos: p.custos.freteTrechos,
             propFreteDistanciaKm: p.custos.freteDistanciaKm,
-            propFreteValorKm: p.custos.freteValorKm,
-            propCustoFrete: p.custos.frete,
-            propCustoMaoObra: p.custos.maoObra,
-            propCustoOperador: p.custos.operador,
-            propCustoEletrica: p.custos.eletrica,
-            propCustoGerador: p.custos.gerador,
-            propCustoTerceirizados: p.custos.terceirizados,
-            propCustoOutros: p.custos.outros,
-            propDesconto: p.financeiro.desconto,
-            propAcrescimo: p.financeiro.acrescimo,
+            propFreteValorKm: valorInputMonetario(p.custos.freteValorKm),
+            propCustoFrete: valorInputMonetario(p.custos.frete),
+            propCustoMaoObra: valorInputMonetario(p.custos.maoObra),
+            propCustoOperador: valorInputMonetario(p.custos.operador),
+            propCustoEletrica: valorInputMonetario(p.custos.eletrica),
+            propCustoGerador: valorInputMonetario(p.custos.gerador),
+            propCustoTerceirizados: valorInputMonetario(p.custos.terceirizados),
+            propCustoOutros: valorInputMonetario(p.custos.outros),
+            propDesconto: valorInputMonetario(p.financeiro.desconto),
+            propAcrescimo: valorInputMonetario(p.financeiro.acrescimo),
             propPercentualNF: p.financeiro.percentualNF,
             propTipoCalculoNF: p.financeiro.tipoCalculoNF,
             propPercentualEntrada: p.financeiro.percentualEntrada,
@@ -2262,9 +2315,9 @@
             propFormaPagamento: p.financeiro.formaPagamento,
             propCondicaoPagamento: p.financeiro.condicaoPagamento,
             propObsPagamento: p.financeiro.observacaoPagamento,
-            propCustoInternoTotal: p.controleInterno.custoInternoTotal,
-            propCustoTerceirizadoTotal: p.controleInterno.custoTerceirizadoTotal,
-            propOutrosCustosInternos: p.controleInterno.outrosCustosInternos,
+            propCustoInternoTotal: valorInputMonetario(p.controleInterno.custoInternoTotal),
+            propCustoTerceirizadoTotal: valorInputMonetario(p.controleInterno.custoTerceirizadoTotal),
+            propOutrosCustosInternos: valorInputMonetario(p.controleInterno.outrosCustosInternos),
             propIncluso: p.escopo.inclusoProposta,
             propNaoIncluso: p.escopo.naoInclusoProposta,
             propObsComerciais: p.escopo.observacoesComerciais,
@@ -2326,7 +2379,7 @@
         if (freteTrechosEl) freteTrechosEl.value = '1';
         const freteValorKmEl = document.getElementById('propFreteValorKm');
         const valorKmPadrao = obterValorKmFretePadrao();
-        if (freteValorKmEl && valorKmPadrao > 0) freteValorKmEl.value = String(valorKmPadrao);
+        if (freteValorKmEl && valorKmPadrao > 0) freteValorKmEl.value = valorInputMonetario(valorKmPadrao);
         const freteEl = document.getElementById('propCustoFrete');
         if (freteEl) {
             freteEl.readOnly = false;
@@ -2826,7 +2879,7 @@
 
     function linhaResumoPdf(rotulo, valor, destaque = false) {
         return `
-            <tr>
+            <tr class="pdf-summary-row${destaque ? ' pdf-summary-row-highlight' : ''}">
                 <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; ${destaque ? 'font-weight:700;' : ''}">${rotulo}</td>
                 <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right; ${destaque ? 'font-weight:700;' : ''}">${valor}</td>
             </tr>
@@ -2846,7 +2899,7 @@
             const linhas = grupo.itens.map((item, indiceItem) => {
                 if (exibirInterno) {
                     return `
-                        <tr style="border-bottom:1px solid #e5e7eb;">
+                        <tr class="pdf-item-row" style="border-bottom:1px solid #e5e7eb;">
                             <td style="padding:8px; font-size:10.5px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
                             <td style="padding:8px; text-align:center; font-size:10.5px;">${sanitizar(item.medida || '-')}</td>
                             <td style="padding:8px; text-align:center; font-size:10.5px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
@@ -2866,7 +2919,7 @@
                     : item.valorTotal;
 
                 return `
-                    <tr style="border-bottom:1px solid #e5e7eb;">
+                    <tr class="pdf-item-row" style="border-bottom:1px solid #e5e7eb;">
                         <td style="padding:8px; font-size:11px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
                         <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
                         <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
@@ -2880,7 +2933,7 @@
 
             const subtotalGrupo = exibirInterno
                 ? `
-                    <tr>
+                    <tr class="pdf-category-subtotal">
                         <td colspan="4" style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(nomeCategoria)}</td>
                         <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.custoTotal)}</td>
                         <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.honorarios)}</td>
@@ -2890,7 +2943,7 @@
                     </tr>
                 `
                 : `
-                    <tr>
+                    <tr class="pdf-category-subtotal">
                         <td colspan="5" style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(nomeCategoria)}</td>
                         <td style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.totalFinal)}</td>
                         <td style="padding:8px; border-bottom:1px solid #cbd5e1;"></td>
@@ -2898,7 +2951,7 @@
                 `;
 
             return `
-                <tr>
+                <tr class="pdf-category-head">
                     <td colspan="${totalColunas}" style="padding:9px 8px; background:#eaf2ff; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; color:#0f172a; font-weight:800; font-size:11px;">
                         ${numeroGrupo}. ${sanitizar(nomeCategoria)}
                     </td>
@@ -2941,20 +2994,22 @@
                 </tr>
             `;
 
+        const freteResumo = numeroNaoNegativo(p.custos.frete, 0);
         const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
+        const custosAdicionaisSemFrete = arredondarMoeda(Math.max(custosAdicionaisResumo - freteResumo, 0));
         const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
 
         const blocoResumoFinanceiro = `
-            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+            <table class="pdf-summary-table" style="width:100%; border-collapse:collapse; font-size:11px;">
                 <tbody>
                     ${linhaResumoPdf('Subtotal', formatarMoeda(p.financeiro.subtotal))}
-                    ${(numeroNaoNegativo(p.custos.freteDistanciaKm, 0) > 0 && numeroNaoNegativo(p.custos.freteValorKm, 0) > 0)
+                    ${freteResumo > 0 && (numeroNaoNegativo(p.custos.freteDistanciaKm, 0) > 0 && numeroNaoNegativo(p.custos.freteValorKm, 0) > 0)
                         ? linhaResumoPdf(
                             `Frete (${numeroNaoNegativo(p.custos.freteTrechos, 1)} x ${numeroNaoNegativo(p.custos.freteDistanciaKm, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km x ${formatarMoeda(p.custos.freteValorKm)}/km)`,
                             formatarMoeda(p.custos.frete)
                         )
-                        : ''}
-                    ${(custosAdicionaisResumo > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais', formatarMoeda(custosAdicionaisResumo)) : ''}
+                        : (freteResumo > 0 ? linhaResumoPdf('Frete', formatarMoeda(freteResumo)) : '')}
+                    ${(custosAdicionaisSemFrete > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais (sem frete)', formatarMoeda(custosAdicionaisSemFrete)) : ''}
                     ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
                     ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}
                     ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf(`Percentual NF (${formatarPercentual(p.financeiro.percentualNF)})`, formatarMoeda(p.financeiro.valorNF)) : ''}
@@ -2965,7 +3020,7 @@
         `;
 
         const blocoResumoInterno = exibirInterno ? `
-            <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px; margin-top:10px;">
+            <div class="pdf-section pdf-internal-summary" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px; margin-top:10px;">
                 <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo interno</strong>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tbody>
@@ -2984,9 +3039,9 @@
         const footer = typeof getFooterMTZ === 'function' ? getFooterMTZ() : '';
 
         return `
-            <div style="background:#fff; min-height:100%; width:100%; color:#000;">
+            <div class="orcamento-pdf pdf-page" style="background:#fff; min-height:100%; width:100%; color:#000;">
                 ${header}
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; border-bottom:2px solid #111827; padding-bottom:10px;">
+                <div class="pdf-section pdf-document-title" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; border-bottom:2px solid #111827; padding-bottom:10px;">
                     <div>
                         <h2 style="margin:0; font-size:22px;">PROPOSTA COMERCIAL</h2>
                         <div style="margin-top:6px; font-size:12px;">${sanitizar(p.codigo)} • ${statusRotulo(p.status)}</div>
@@ -2997,8 +3052,8 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
+                <div class="pdf-section pdf-two-columns" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
                         <strong style="display:block; margin-bottom:8px; font-size:12px;">Dados do cliente</strong>
                         <div style="font-size:11px; line-height:1.45;">
                             <div><b>Nome/empresa:</b> ${sanitizar(p.cliente.nome || '-')}</div>
@@ -3008,7 +3063,7 @@
                             <div><b>Endereco:</b> ${sanitizar(p.cliente.endereco || '-')}</div>
                         </div>
                     </div>
-                    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
+                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
                         <strong style="display:block; margin-bottom:8px; font-size:12px;">Dados do evento</strong>
                         <div style="font-size:11px; line-height:1.45;">
                             <div><b>Evento:</b> ${sanitizar(p.evento.nome || '-')}</div>
@@ -3022,9 +3077,9 @@
                     </div>
                 </div>
 
-                <div style="margin-bottom:14px;">
+                <div class="pdf-section pdf-items-section" style="margin-bottom:14px;">
                     <strong style="display:block; margin-bottom:6px; font-size:12px;">Itens da proposta</strong>
-                    <table style="width:100%; border-collapse:collapse;">
+                    <table class="pdf-items-table" style="width:100%; border-collapse:collapse;">
                         <thead style="background:#0f172a; color:#fff;">
                             ${cabecalhoItens}
                         </thead>
@@ -3032,7 +3087,7 @@
                     </table>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr; gap:16px;">
+                <div class="pdf-section pdf-financial-section" style="display:grid; grid-template-columns:1fr; gap:16px;">
                     <div style="border:1px solid #111827; border-radius:10px; padding:10px;">
                         <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo financeiro</strong>
                         ${blocoResumoFinanceiro}
@@ -3049,14 +3104,14 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; font-size:11px;">
-                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                <div class="pdf-section pdf-scope-section" style="display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; font-size:11px;">
+                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
                         <b>Incluso na proposta</b><br>${sanitizar(p.escopo.inclusoProposta || '-')}
                     </div>
-                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
                         <b>Nao incluso na proposta</b><br>${sanitizar(p.escopo.naoInclusoProposta || '-')}
                     </div>
-                    <div style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
+                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
                         <b>Observacoes comerciais</b><br>${sanitizar(p.escopo.observacoesComerciais || '-')}
                     </div>
                 </div>
@@ -3065,7 +3120,7 @@
                     <b>Responsavel:</b> ${sanitizar(p.responsavelProposta || '-')}
                 </div>
 
-                <div style="display:flex; justify-content:space-between; margin-top:42px;">
+                <div class="pdf-section assinaturas pdf-signatures" style="display:flex; justify-content:space-between; margin-top:42px;">
                     <div style="width:42%; text-align:center; border-top:1px solid #111827; padding-top:8px; font-size:10px;">MTZ EVENTOS</div>
                     <div style="width:42%; text-align:center; border-top:1px solid #111827; padding-top:8px; font-size:10px;">CLIENTE</div>
                 </div>
@@ -3320,6 +3375,13 @@
             campoStatus.addEventListener('change', () => recalcularResumoProposta());
         }
 
+        document.addEventListener('focusout', (event) => {
+            const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
+            if (!campoMoeda || campoMoeda !== event.target) return;
+            formatarValorMonetarioEditavel(campoMoeda);
+            recalcularResumoProposta();
+        });
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') fecharConfigOrcamentoProposta();
         });
@@ -3344,6 +3406,8 @@
 
     inicializarPropostas();
 
+    window.converterTextoMoedaParaNumero = converterTextoMoedaParaNumero;
+    window.formatarMoedaProposta = formatarMoeda;
     window.calcularResumoProposta = calcularResumoProposta;
     window.normalizarPadroesOrcamento = normalizarPadroesOrcamento;
     window.CATEGORIAS_ITEM_PROPOSTA = CATEGORIAS_ITEM_PROPOSTA;

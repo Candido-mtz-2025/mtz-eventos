@@ -1079,22 +1079,22 @@
                             <div class="form-row">
                                 <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
                                 <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Valor por km (R$)</label><input type="number" id="propFreteValorKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Valor por km (R$)</label><input type="text" id="propFreteValorKm" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label>Frete (R$)</label><input type="number" id="propCustoFrete" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Mão de obra</label><input type="number" id="propCustoMaoObra" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Frete (R$)</label><input type="text" id="propCustoFrete" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Mão de obra</label><input type="text" id="propCustoMaoObra" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label>Operador</label><input type="number" id="propCustoOperador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Elétrica</label><input type="number" id="propCustoEletrica" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Operador</label><input type="text" id="propCustoOperador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Elétrica</label><input type="text" id="propCustoEletrica" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label>Gerador</label><input type="number" id="propCustoGerador" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Terceirizados</label><input type="number" id="propCustoTerceirizados" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Gerador</label><input type="text" id="propCustoGerador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Terceirizados</label><input type="text" id="propCustoTerceirizados" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label>Outros custos</label><input type="number" id="propCustoOutros" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Outros custos</label><input type="text" id="propCustoOutros" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                             </div>
                         </div>
 
@@ -1107,13 +1107,13 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Desconto</label>
-                                    <input type="number" id="propDesconto" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                    <input type="text" id="propDesconto" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Acréscimo</label>
-                                    <input type="number" id="propAcrescimo" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                    <input type="text" id="propAcrescimo" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
                                 </div>
                                 <div class="form-group">
                                     <label>Valor final</label>
@@ -1221,17 +1221,17 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Custo interno total</label>
-                                <input type="number" id="propCustoInternoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Custo terceirizado total</label>
-                                <input type="number" id="propCustoTerceirizadoTotal" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Outros custos internos</label>
-                                <input type="number" id="propOutrosCustosInternos" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" id="propOutrosCustosInternos" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Custo total da proposta</label>
