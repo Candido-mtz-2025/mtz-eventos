@@ -62,6 +62,7 @@
     let listenersRegistrados = false;
     let bloqueioSincronizacaoValidade = false;
     let categoriasOrcamentoTemporarias = null;
+    let mostrarCategoriasVaziasProposta = false;
 
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
@@ -641,23 +642,40 @@
 
         const grupos = montarResumoCategoriasProposta(itens);
         const total = grupos.reduce((acc, grupo) => acc + grupo.subtotal, 0);
+        const gruposVisiveis = mostrarCategoriasVaziasProposta
+            ? grupos
+            : grupos.filter((grupo) => grupo.quantidade > 0 || grupo.subtotal > 0);
 
         container.innerHTML = `
             <div class="proposta-category-summary-head">
-                <strong>Resumo por categoria</strong>
-                <span>${formatarMoeda(total)}</span>
+                <div>
+                    <strong>Resumo por categoria</strong>
+                    <small>${gruposVisiveis.length} de ${grupos.length} categorias visiveis</small>
+                </div>
+                <div class="proposta-category-summary-actions">
+                    <span>${formatarMoeda(total)}</span>
+                    <button type="button" class="btn btn-sm btn-secondary proposta-summary-toggle-btn" data-action="alternarCategoriasVaziasResumoProposta">
+                        ${mostrarCategoriasVaziasProposta ? 'Ocultar vazias' : 'Mostrar vazias'}
+                    </button>
+                </div>
             </div>
-            <div class="proposta-category-summary-grid">
-                ${grupos.filter((grupo) => grupo.quantidade > 0 || grupo.categoria === CATEGORIA_ITEM_PROPOSTA_PADRAO).map((grupo) => `
-                    <div class="proposta-category-chip${grupo.quantidade > 0 ? ' has-value' : ''}" style="--category-color: ${sanitizar(grupo.cor || '#64748b')}">
-                        <span><i class="bi ${sanitizar(grupo.icone || 'bi-tag')}"></i> ${sanitizar(grupo.nome || rotuloCategoriaOrcamento(grupo.categoria))}${grupo.ativa === false ? ' <em>inativa</em>' : ''}</span>
-                        <strong>${formatarMoeda(grupo.subtotal)}</strong>
-                        <small>${grupo.quantidade} ${grupo.quantidade === 1 ? 'item' : 'itens'}</small>
-                        <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
-                        <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
-                    </div>
-                `).join('')}
-            </div>
+            ${gruposVisiveis.length ? `
+                <div class="proposta-category-summary-grid">
+                    ${gruposVisiveis.map((grupo) => `
+                        <div class="proposta-category-chip${grupo.quantidade > 0 || grupo.subtotal > 0 ? ' has-value' : ''}" style="--category-color: ${sanitizar(grupo.cor || '#64748b')}">
+                            <span><i class="bi ${sanitizar(grupo.icone || 'bi-tag')}"></i> ${sanitizar(grupo.nome || rotuloCategoriaOrcamento(grupo.categoria))}${grupo.ativa === false ? ' <em>inativa</em>' : ''}</span>
+                            <strong>${formatarMoeda(grupo.subtotal)}</strong>
+                            <small>${grupo.quantidade} ${grupo.quantidade === 1 ? 'item' : 'itens'}</small>
+                            <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
+                            <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `
+                <div class="proposta-category-summary-empty">
+                    Adicione itens para montar o resumo por categoria.
+                </div>
+            `}
         `;
     }
 
@@ -912,6 +930,11 @@
             linha.dataset.categoriaAtual = categoria;
         });
         recalcularResumoProposta();
+    }
+
+    function aplicarPadroesItensProposta() {
+        aplicarPadroesOrcamentoNaPropostaAtual();
+        mostrarToast('Padrões aplicados aos itens da proposta.', 'info');
     }
 
     function aplicarConfigOrcamentoProposta() {
@@ -1380,23 +1403,26 @@
 
         return `
             <tr class="proposta-item-row" data-categoria-atual="${sanitizar(itemCalculado.categoria)}">
-                <td>
+                <td data-label="Categoria">
                     <select class="prop-item-categoria" data-change="recalcularResumoProposta">
                         ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
-                <td><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
-                <td><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
-                <td><input type="number" class="prop-item-unitario" value="${itemCalculado.custoUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
-                <td><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
-                <td><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
-                <td class="col-actions">
+                <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
+                <td data-label="Medida"><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
+                <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
+                <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
+                <td data-label="Custo unitário"><input type="number" class="prop-item-unitario" value="${itemCalculado.custoUnitario}" min="0" step="0.01" data-input="recalcularResumoProposta"></td>
+                <td data-label="Custo total"><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
+                <td data-label="Valor final"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
+                <td class="col-actions" data-label="Ações">
                     <div class="actions-cell">
                         <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
                             <i class="bi bi-chevron-down"></i>
-                            <span>Ajustes</span>
+                            <span>Mostrar cálculos avançados</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="aplicarPadraoLinhaItemProposta" data-arg="__this__" title="Aplicar padrão do item">
+                            <i class="bi bi-arrow-repeat"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-info table-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item">
                             <i class="bi bi-files"></i>
@@ -1563,6 +1589,7 @@
         const lista = Array.isArray(itens) && itens.length ? itens : [{}];
         tbody.innerHTML = lista.map((item) => criarLinhaItemProposta(item)).join('');
         recalcularResumoProposta();
+        atualizarBotaoExpandirTodosItensProposta(false);
     }
 
     function adicionarLinhaItemProposta() {
@@ -1606,6 +1633,41 @@
         setTimeout(() => novaLinha?.querySelector('.prop-item-descricao')?.focus(), 60);
     }
 
+    function aplicarPadraoLinhaItemProposta(botao) {
+        const linha = botao?.closest('.proposta-item-row');
+        if (!linha) return;
+        const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
+        preencherLinhaComRegraCategoria(linha, categoria);
+        linha.dataset.categoriaAtual = categoria;
+        recalcularResumoProposta();
+        mostrarToast('Padrão aplicado ao item.', 'info');
+    }
+
+    function atualizarBotaoDetalhesItemProposta(botao, aberto) {
+        if (!botao) return;
+        botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+        const icon = botao.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-chevron-down', !aberto);
+            icon.classList.toggle('bi-chevron-up', aberto);
+        }
+        const texto = botao.querySelector('span');
+        if (texto) texto.textContent = aberto ? 'Ocultar cálculos avançados' : 'Mostrar cálculos avançados';
+    }
+
+    function atualizarBotaoExpandirTodosItensProposta(aberto) {
+        const botao = document.getElementById('propBtnExpandirCalculosItens');
+        const texto = document.getElementById('propBtnExpandirCalculosTexto');
+        if (!botao) return;
+        botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+        const icon = botao.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-chevron-down', !aberto);
+            icon.classList.toggle('bi-chevron-up', aberto);
+        }
+        if (texto) texto.textContent = aberto ? 'Recolher cálculos' : 'Expandir cálculos';
+    }
+
     function alternarDetalhesCalculoItemProposta(botao) {
         const linha = botao?.closest('.proposta-item-row');
         const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
@@ -1614,12 +1676,31 @@
         if (!detalhes) return;
         const aberto = detalhes.hidden;
         detalhes.hidden = !aberto;
-        botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-        const icon = botao.querySelector('i');
-        if (icon) {
-            icon.classList.toggle('bi-chevron-down', !aberto);
-            icon.classList.toggle('bi-chevron-up', aberto);
-        }
+        atualizarBotaoDetalhesItemProposta(botao, aberto);
+        const todosAbertos = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-details-row')).every((detalhe) => !detalhe.hidden);
+        atualizarBotaoExpandirTodosItensProposta(todosAbertos);
+    }
+
+    function alternarTodosDetalhesItensProposta() {
+        const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+        if (!linhas.length) return;
+        const deveAbrir = linhas.some((linha) => {
+            const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
+            return detalhes?.hidden;
+        });
+
+        linhas.forEach((linha) => {
+            const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
+            if (!detalhes) return;
+            detalhes.hidden = !deveAbrir;
+            atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), deveAbrir);
+        });
+        atualizarBotaoExpandirTodosItensProposta(deveAbrir);
+    }
+
+    function alternarCategoriasVaziasResumoProposta() {
+        mostrarCategoriasVaziasProposta = !mostrarCategoriasVaziasProposta;
+        recalcularResumoProposta();
     }
 
     function coletarItensFormulario() {
@@ -3271,7 +3352,11 @@
     window.adicionarLinhaItemProposta = adicionarLinhaItemProposta;
     window.removerLinhaItemProposta = removerLinhaItemProposta;
     window.duplicarLinhaItemProposta = duplicarLinhaItemProposta;
+    window.aplicarPadroesItensProposta = aplicarPadroesItensProposta;
+    window.aplicarPadraoLinhaItemProposta = aplicarPadraoLinhaItemProposta;
     window.alternarDetalhesCalculoItemProposta = alternarDetalhesCalculoItemProposta;
+    window.alternarTodosDetalhesItensProposta = alternarTodosDetalhesItensProposta;
+    window.alternarCategoriasVaziasResumoProposta = alternarCategoriasVaziasResumoProposta;
     window.salvarProposta = salvarProposta;
     window.limparFormularioProposta = limparFormularioProposta;
     window.editarProposta = editarProposta;

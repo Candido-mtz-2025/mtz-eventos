@@ -1035,12 +1035,20 @@
                     <div id="propostaSecaoItens" class="proposta-form-section proposta-items-section" role="tabpanel" aria-labelledby="propostaFormTabItens" data-proposta-form-section="itens" hidden>
                         <div class="proposta-items-header">
                             <div>
-                                <h4>2. Itens e composição</h4>
-                                <p>Organize os itens por categoria para deixar o orçamento mais claro.</p>
+                                <h4>Itens e composição</h4>
+                                <p>Organize produtos e serviços por categoria para deixar o orçamento mais claro.</p>
                             </div>
-                            <button class="btn btn-primary proposta-add-item-btn" data-action="adicionarLinhaItemProposta">
-                                <i class="bi bi-plus-circle"></i> + Adicionar item à proposta
-                            </button>
+                            <div class="proposta-items-actions">
+                                <button class="btn btn-primary proposta-add-item-btn" data-action="adicionarLinhaItemProposta">
+                                    <i class="bi bi-plus-circle"></i> + Adicionar item
+                                </button>
+                                <button class="btn btn-secondary proposta-items-action-btn" data-action="aplicarPadroesItensProposta">
+                                    <i class="bi bi-magic"></i> Aplicar padrões
+                                </button>
+                                <button class="btn btn-secondary proposta-items-action-btn" id="propBtnExpandirCalculosItens" data-action="alternarTodosDetalhesItensProposta">
+                                    <i class="bi bi-chevron-down"></i> <span id="propBtnExpandirCalculosTexto">Expandir cálculos</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="table-responsive proposta-items-table-wrap">
                             <table class="table proposta-items-table">
