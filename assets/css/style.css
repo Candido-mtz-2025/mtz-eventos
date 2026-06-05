@@ -5198,6 +5198,10 @@ textarea::placeholder {
 [data-theme="dark"] #tab-propostas .proposta-config-section,
 [data-theme="dark"] #tab-propostas .proposta-config-category-card,
 [data-theme="dark"] #tab-propostas .proposta-config-check,
+[data-theme="dark"] #tab-propostas .proposta-config-matrix-row,
+[data-theme="dark"] #tab-propostas .proposta-config-tax-cell,
+[data-theme="dark"] #tab-propostas .proposta-config-mode-option,
+[data-theme="dark"] #tab-propostas .proposta-data-card,
 [data-theme="dark"] #tab-propostas .proposta-sticky-summary,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics span,
 [data-theme="dark"] #tab-propostas .proposta-closing-block,
@@ -5216,6 +5220,10 @@ textarea::placeholder {
 [data-theme="dark"] #tab-propostas .proposta-config-head h3,
 [data-theme="dark"] #tab-propostas .proposta-config-section h4,
 [data-theme="dark"] #tab-propostas .proposta-config-category-title strong,
+[data-theme="dark"] #tab-propostas .proposta-config-matrix-category strong,
+[data-theme="dark"] #tab-propostas .proposta-config-tax-toggle,
+[data-theme="dark"] #tab-propostas .proposta-config-mode-option strong,
+[data-theme="dark"] #tab-propostas .proposta-data-card-head h4,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics strong,
 [data-theme="dark"] #tab-propostas .proposta-closing-block h5,
 [data-theme="dark"] #tab-propostas .proposta-closing-section > h5,
@@ -7842,7 +7850,7 @@ header {
     top: 16px;
     right: 16px;
     bottom: 16px;
-    width: min(520px, calc(100vw - 32px));
+    width: min(640px, calc(100vw - 32px));
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -7893,7 +7901,7 @@ header {
 }
 
 #tab-propostas .proposta-config-section {
-    padding: 14px;
+    padding: 12px;
     border: 1px solid var(--border);
     border-radius: 16px;
     background: var(--surface-soft);
@@ -7916,7 +7924,127 @@ header {
 
 #tab-propostas .proposta-config-categories {
     display: grid;
-    gap: 12px;
+    gap: 8px;
+}
+
+#tab-propostas .proposta-config-matrix-head {
+    display: grid;
+    grid-template-columns: 1.05fr repeat(3, minmax(118px, 1fr));
+    gap: 8px;
+    padding: 0 8px 6px;
+    color: var(--text-light);
+    font-size: 0.68rem;
+    font-weight: 950;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+#tab-propostas .proposta-config-matrix-row {
+    display: grid;
+    grid-template-columns: 1.05fr repeat(3, minmax(118px, 1fr));
+    gap: 8px;
+    align-items: stretch;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-config-matrix-category {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+#tab-propostas .proposta-config-matrix-category strong {
+    color: var(--text);
+    font-size: 0.88rem;
+    line-height: 1.2;
+}
+
+#tab-propostas .proposta-config-tax-cell {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 12px;
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-config-tax-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-size: 0.76rem;
+    font-weight: 900;
+}
+
+#tab-propostas .proposta-config-tax-toggle input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+}
+
+#tab-propostas .proposta-config-percent-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+}
+
+#tab-propostas .proposta-config-percent-field input,
+#tab-propostas .proposta-config-type-select {
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    font-size: 0.82rem;
+}
+
+#tab-propostas .proposta-config-percent-field span {
+    color: var(--text-light);
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+#tab-propostas .proposta-config-type-select {
+    color: var(--text-light);
+}
+
+#tab-propostas .proposta-config-apply-mode {
+    display: grid;
+    gap: 10px;
+}
+
+#tab-propostas .proposta-config-mode-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    cursor: pointer;
+}
+
+#tab-propostas .proposta-config-mode-option input {
+    margin-top: 4px;
+}
+
+#tab-propostas .proposta-config-mode-option span {
+    display: grid;
+    gap: 3px;
+}
+
+#tab-propostas .proposta-config-mode-option strong {
+    color: var(--text);
+}
+
+#tab-propostas .proposta-config-mode-option small {
+    color: var(--text-light);
+    font-weight: 700;
+    line-height: 1.35;
 }
 
 #tab-propostas .proposta-config-category-card {
@@ -8097,7 +8225,7 @@ header {
     gap: 12px;
     align-items: center;
     margin: 0 0 18px;
-    padding: 10px;
+    padding: 12px;
     border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
     border-radius: 14px;
     background: color-mix(in srgb, var(--surface) 88%, #eef5ff);
@@ -8113,10 +8241,39 @@ header {
 
 #tab-propostas .proposta-sticky-metrics span {
     min-width: 0;
-    padding: 8px 9px;
+    padding: 9px 10px;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.72);
+}
+
+#tab-propostas .proposta-sticky-metrics .proposta-sticky-final {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(14, 165, 233, 0.08));
+}
+
+#tab-propostas .proposta-sticky-metrics .proposta-sticky-final strong {
+    color: var(--primary);
+    font-size: 1.08rem;
+}
+
+#tab-propostas .proposta-sticky-metrics .proposta-sticky-profit {
+    border-color: rgba(16, 185, 129, 0.28);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+#tab-propostas .proposta-sticky-metrics .proposta-sticky-margin {
+    border-color: rgba(245, 158, 11, 0.26);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+#tab-propostas .proposta-sticky-status strong.badge {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 4px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
 }
 
 #tab-propostas .proposta-sticky-metrics small {
@@ -8147,6 +8304,63 @@ header {
 #tab-propostas .proposta-form-section {
     min-height: 220px;
     scroll-margin-top: calc(var(--app-sticky-total-height, 154px) + 112px);
+}
+
+#tab-propostas .proposta-data-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+#tab-propostas .proposta-data-card {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-data-card-wide {
+    grid-column: 1 / -1;
+}
+
+#tab-propostas .proposta-data-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+#tab-propostas .proposta-data-card-head > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    color: var(--primary);
+}
+
+#tab-propostas .proposta-data-card-head h4,
+#tab-propostas .proposta-data-card-head p {
+    margin: 0;
+}
+
+#tab-propostas .proposta-data-card-head h4 {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+#tab-propostas .proposta-data-card-head p {
+    margin-top: 3px;
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .form-group-compact {
+    max-width: 140px;
 }
 
 #tab-propostas .proposta-form-section[hidden] {
@@ -8223,9 +8437,9 @@ header {
     margin: 20px 0;
     padding: 16px;
     border: 1px solid var(--border);
-    border-top: 3px solid var(--primary);
+    border-top: 4px solid var(--primary);
     border-radius: 14px;
-    background: linear-gradient(180deg, rgba(37, 99, 235, 0.055), rgba(255, 255, 255, 0.72));
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.075), rgba(255, 255, 255, 0.76));
 }
 
 #tab-propostas .proposta-items-header {
@@ -8665,6 +8879,28 @@ header {
     }
 }
 
+@media (max-width: 860px) {
+    #tab-propostas .proposta-config-matrix-head {
+        display: none;
+    }
+
+    #tab-propostas .proposta-config-matrix-row,
+    #tab-propostas .proposta-data-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-config-tax-cell {
+        grid-template-columns: minmax(92px, auto) minmax(0, 1fr) minmax(118px, auto);
+        align-items: center;
+    }
+}
+
+@media (max-width: 560px) {
+    #tab-propostas .proposta-config-tax-cell {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* === V17.0 | MENU PRINCIPAL AGRUPADO === */
 .app-main-nav {
     align-items: center;
@@ -8864,9 +9100,24 @@ html {
 }
 
 #tab-propostas .proposta-items-table .col-actions {
-    min-width: 148px;
-    width: 148px;
+    min-width: 182px;
+    width: 182px;
     text-align: right;
+}
+
+#tab-propostas .proposta-items-table .actions-cell {
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+#tab-propostas .proposta-items-table .table-action-btn {
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 10px;
+}
+
+#tab-propostas .proposta-items-table .prop-details-toggle-btn {
+    min-width: 88px;
 }
 
 @media (max-width: 860px) {

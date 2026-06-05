@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=20.9">
+    <link rel="stylesheet" href="./assets/css/style.css?v=21.0">
 </head>
 <body>
 
@@ -772,6 +772,24 @@
                             <div id="propOrcConfigCategorias" class="proposta-config-categories" aria-live="polite"></div>
                         </div>
 
+                        <div class="proposta-config-section proposta-config-apply-mode">
+                            <h4>Aplicação</h4>
+                            <label class="proposta-config-mode-option">
+                                <input type="radio" name="propOrcConfigModoAplicacao" value="atual" checked>
+                                <span>
+                                    <strong>Aplicar somente nesta proposta</strong>
+                                    <small>Atualiza os itens e campos atuais sem alterar os próximos orçamentos.</small>
+                                </span>
+                            </label>
+                            <label class="proposta-config-mode-option">
+                                <input type="radio" name="propOrcConfigModoAplicacao" value="padrao">
+                                <span>
+                                    <strong>Salvar como padrão para próximos orçamentos</strong>
+                                    <small>Salva em configurações globais e aplica também nesta proposta.</small>
+                                </span>
+                            </label>
+                        </div>
+
                         <div class="proposta-config-actions">
                             <button type="button" class="btn btn-secondary" data-action="restaurarPadroesConfigOrcamentoProposta">
                                 <i class="bi bi-arrow-counterclockwise"></i> Restaurar padrões
@@ -786,7 +804,7 @@
                 <section id="propostasPainelFormulario" class="propostas-subpanel is-active" role="tabpanel" aria-labelledby="propostasSubtabFormulario">
                 <div class="card" id="propostasFormularioCard">
                     <div class="section-toolbar">
-                        <h3>Orçamentos</h3>
+                        <h3>Dados da proposta</h3>
                         <div class="inline-chip-row">
                             <span id="propostaModoLabel" class="badge badge-info">Nova proposta</span>
                             <button class="btn btn-secondary btn-sm" data-action="limparFormularioProposta">
@@ -820,10 +838,10 @@
                             <span><small>Subtotal</small><strong id="propStickySubtotal">R$ 0,00</strong></span>
                             <span><small>Custos</small><strong id="propStickyCustos">R$ 0,00</strong></span>
                             <span><small>Desconto</small><strong id="propStickyDesconto">R$ 0,00</strong></span>
-                            <span><small>Final</small><strong id="propStickyFinal">R$ 0,00</strong></span>
-                            <span><small>Lucro</small><strong id="propStickyLucro">R$ 0,00</strong></span>
-                            <span><small>Margem</small><strong id="propStickyMargem">0%</strong></span>
-                            <span><small>Status</small><strong id="propStickyStatus">Rascunho</strong></span>
+                            <span class="proposta-sticky-final"><small>Final</small><strong id="propStickyFinal">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-profit"><small>Lucro</small><strong id="propStickyLucro">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-margin"><small>Margem</small><strong id="propStickyMargem">0%</strong></span>
+                            <span class="proposta-sticky-status"><small>Status</small><strong id="propStickyStatus">Rascunho</strong></span>
                         </div>
                         <div class="proposta-sticky-actions">
                             <button class="btn btn-primary btn-sm" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar</button>
@@ -833,141 +851,184 @@
                     </div>
 
                     <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabDados" data-proposta-form-section="dados">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Código da proposta</label>
-                            <input type="text" id="propCodigo" placeholder="Gerado automaticamente" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select id="propStatus" data-change="recalcularResumoProposta">
-                                <option value="rascunho">Rascunho</option>
-                                <option value="enviada">Enviada</option>
-                                <option value="em_negociacao">Em negociação</option>
-                                <option value="aprovada">Aprovada</option>
-                                <option value="cancelada">Cancelada</option>
-                                <option value="recusada">Recusada</option>
-                                <option value="convertida">Convertida</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Responsável pela proposta</label>
-                            <input type="text" id="propResponsavel" placeholder="Nome do responsável">
-                        </div>
-                        <div class="form-group">
-                            <label>Validade (dias)</label>
-                            <input type="number" id="propValidadeDias" min="0" step="1" value="7">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Data de validade</label>
-                            <input type="date" id="propValidadeData">
-                        </div>
-                    </div>
+                    <div class="proposta-data-grid">
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-file-earmark-text"></i></span>
+                                <div>
+                                    <h4>Dados da proposta</h4>
+                                    <p>Controle comercial e validade.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Código da proposta</label>
+                                    <input type="text" id="propCodigo" placeholder="Gerado automaticamente" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select id="propStatus" data-change="recalcularResumoProposta">
+                                        <option value="rascunho">Rascunho</option>
+                                        <option value="enviada">Enviada</option>
+                                        <option value="em_negociacao">Em negociação</option>
+                                        <option value="aprovada">Aprovada</option>
+                                        <option value="cancelada">Cancelada</option>
+                                        <option value="recusada">Recusada</option>
+                                        <option value="convertida">Convertida</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Responsável pela proposta</label>
+                                    <input type="text" id="propResponsavel" placeholder="Nome do responsável">
+                                </div>
+                                <div class="form-group">
+                                    <label>Validade (dias)</label>
+                                    <input type="number" id="propValidadeDias" min="0" step="1" value="7">
+                                </div>
+                                <div class="form-group">
+                                    <label>Data de validade</label>
+                                    <input type="date" id="propValidadeData">
+                                </div>
+                            </div>
+                        </section>
 
-                    <h4>1. Dados do cliente</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Nome/empresa</label>
-                            <input type="text" id="propClienteNome" placeholder="Nome do cliente ou empresa">
-                        </div>
-                        <div class="form-group">
-                            <label>CPF/CNPJ</label>
-                            <input type="text" id="propClienteDocumento" placeholder="Documento">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Telefone</label>
-                            <input type="text" id="propClienteTelefone" placeholder="Telefone">
-                        </div>
-                        <div class="form-group">
-                            <label>E-mail</label>
-                            <input type="email" id="propClienteEmail" placeholder="E-mail">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Endereço</label>
-                            <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
-                        </div>
-                    </div>
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-person-vcard"></i></span>
+                                <div>
+                                    <h4>Dados do cliente</h4>
+                                    <p>Contato e identificação para proposta.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nome/empresa</label>
+                                    <input type="text" id="propClienteNome" placeholder="Nome do cliente ou empresa">
+                                </div>
+                                <div class="form-group">
+                                    <label>CPF/CNPJ</label>
+                                    <input type="text" id="propClienteDocumento" placeholder="Documento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Telefone</label>
+                                    <input type="text" id="propClienteTelefone" placeholder="Telefone">
+                                </div>
+                                <div class="form-group">
+                                    <label>E-mail</label>
+                                    <input type="email" id="propClienteEmail" placeholder="E-mail">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Endereço</label>
+                                    <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
+                                </div>
+                            </div>
+                        </section>
 
-                    <h4>2. Dados do evento</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Nome do evento</label>
-                            <input type="text" id="propEventoNome" placeholder="Nome do evento">
-                        </div>
-                        <div class="form-group">
-                            <label>Local</label>
-                            <input type="text" id="propEventoLocal" placeholder="Local do evento">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Cidade</label>
-                            <input type="text" id="propEventoCidade" placeholder="Cidade">
-                        </div>
-                        <div class="form-group">
-                            <label>UF</label>
-                            <input type="text" id="propEventoUF" maxlength="2" placeholder="UF">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Endereço completo do evento</label>
-                            <input type="text" id="propEventoEnderecoCompleto" placeholder="Rua, número, bairro, complemento">
-                        </div>
-                        <div class="form-group">
-                            <label>Referência de acesso / observação logística</label>
-                            <input type="text" id="propEventoReferenciaAcesso" placeholder="Ponto de referência, acesso de caminhão, portaria...">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Data de montagem</label>
-                            <input type="date" id="propDataMontagem">
-                        </div>
-                        <div class="form-group">
-                            <label>Horário de montagem</label>
-                            <input type="time" id="propHoraMontagem">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Data do evento</label>
-                            <input type="date" id="propDataEvento">
-                        </div>
-                        <div class="form-group">
-                            <label>Horário de início do evento</label>
-                            <input type="time" id="propHoraInicioEvento">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Horário de término do evento</label>
-                            <input type="time" id="propHoraFimEvento">
-                        </div>
-                        <div class="form-group">
-                            <label>Data de desmontagem</label>
-                            <input type="date" id="propDataDesmontagem">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Horário de desmontagem</label>
-                            <input type="time" id="propHoraDesmontagem">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Observações gerais</label>
-                            <textarea id="propEventoObs" rows="2" placeholder="Observações da proposta"></textarea>
-                        </div>
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-geo-alt"></i></span>
+                                <div>
+                                    <h4>Dados do evento</h4>
+                                    <p>Local, cidade e acesso operacional.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nome do evento</label>
+                                    <input type="text" id="propEventoNome" placeholder="Nome do evento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Local</label>
+                                    <input type="text" id="propEventoLocal" placeholder="Local do evento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Cidade</label>
+                                    <input type="text" id="propEventoCidade" placeholder="Cidade">
+                                </div>
+                                <div class="form-group form-group-compact">
+                                    <label>UF</label>
+                                    <input type="text" id="propEventoUF" maxlength="2" placeholder="UF">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Endereço completo do evento</label>
+                                    <input type="text" id="propEventoEnderecoCompleto" placeholder="Rua, número, bairro, complemento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Referência de acesso / observação logística</label>
+                                    <input type="text" id="propEventoReferenciaAcesso" placeholder="Ponto de referência, acesso de caminhão, portaria...">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-calendar2-week"></i></span>
+                                <div>
+                                    <h4>Montagem e desmontagem</h4>
+                                    <p>Cronograma para operação e equipe.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data de montagem</label>
+                                    <input type="date" id="propDataMontagem">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de montagem</label>
+                                    <input type="time" id="propHoraMontagem">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data do evento</label>
+                                    <input type="date" id="propDataEvento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de início do evento</label>
+                                    <input type="time" id="propHoraInicioEvento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de término do evento</label>
+                                    <input type="time" id="propHoraFimEvento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data de desmontagem</label>
+                                    <input type="date" id="propDataDesmontagem">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de desmontagem</label>
+                                    <input type="time" id="propHoraDesmontagem">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card proposta-data-card-wide">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-chat-left-text"></i></span>
+                                <div>
+                                    <h4>Observações</h4>
+                                    <p>Notas importantes que acompanham a proposta.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Observações gerais</label>
+                                    <textarea id="propEventoObs" rows="2" placeholder="Observações da proposta"></textarea>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                     </div>
 
@@ -2080,7 +2141,7 @@
     <script src="./assets/js/core/storage.js?v=12.3"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=2.9"></script>
+    <script src="./assets/js/modules/propostas.js?v=3.0"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

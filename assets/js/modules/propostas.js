@@ -478,55 +478,61 @@
         const container = document.getElementById('propOrcConfigCategorias');
         if (!container) return;
 
-        container.innerHTML = CATEGORIAS_ITEM_PROPOSTA.map((categoria) => {
+        container.innerHTML = `
+            <div class="proposta-config-matrix-head" aria-hidden="true">
+                <span>Categoria</span>
+                <span>Honorários</span>
+                <span>Encargos</span>
+                <span>INSS</span>
+            </div>
+            ${CATEGORIAS_ITEM_PROPOSTA.map((categoria) => {
             const regra = padroes.categorias?.[categoria] || normalizarRegraCategoriaOrcamento(categoria, {}, globais);
+            const tipoEncargos = normalizarTipoCalculoTributo(regra.tipoCalculoEncargos);
+            const tipoINSS = normalizarTipoCalculoTributo(regra.tipoCalculoINSS);
             return `
-                <div class="proposta-config-category-card" data-prop-orc-categoria="${sanitizar(categoria)}">
-                    <div class="proposta-config-category-title">
+                <div class="proposta-config-matrix-row" data-prop-orc-categoria="${sanitizar(categoria)}">
+                    <div class="proposta-config-matrix-category">
                         <strong>${sanitizar(categoria)}</strong>
-                        <span>${regra.aplicarINSS ? 'Com INSS' : 'Sem INSS padrão'}</span>
                     </div>
-                    <div class="proposta-config-rule-grid">
-                        <label class="proposta-config-check">
-                            <input type="checkbox" class="prop-orc-cat-honorarios-check" ${regra.aplicarHonorarios !== false ? 'checked' : ''}>
-                            Honorários
+                    <div class="proposta-config-tax-cell">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-cat-honorarios-check" ${regra.aplicarHonorarios !== false ? 'checked' : ''}> Honorários
                         </label>
-                        <div class="form-group">
-                            <label>% Honorários</label>
-                            <input type="number" class="prop-orc-cat-honorarios-percent" min="0" step="0.01" value="${Number(regra.percentualHonorarios || 0)}">
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-cat-honorarios-percent" min="0" step="0.01" value="${Number(regra.percentualHonorarios || 0)}" aria-label="Percentual de honorários em ${sanitizar(categoria)}">
+                            <span>%</span>
                         </div>
-                        <label class="proposta-config-check">
-                            <input type="checkbox" class="prop-orc-cat-encargos-check" ${regra.aplicarEncargos !== false ? 'checked' : ''}>
-                            Encargos
+                    </div>
+                    <div class="proposta-config-tax-cell">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-cat-encargos-check" ${regra.aplicarEncargos !== false ? 'checked' : ''}> Encargos
                         </label>
-                        <div class="form-group">
-                            <label>% Encargos</label>
-                            <input type="number" class="prop-orc-cat-encargos-percent" min="0" step="0.01" value="${Number(regra.percentualEncargos || 0)}">
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-cat-encargos-percent" min="0" step="0.01" value="${Number(regra.percentualEncargos || 0)}" aria-label="Percentual de encargos em ${sanitizar(categoria)}">
+                            <span>%</span>
                         </div>
-                        <div class="form-group">
-                            <label>Tipo encargos</label>
-                            <select class="prop-orc-cat-encargos-tipo">
-                                ${montarOptionsTipoCalculoTributo(regra.tipoCalculoEncargos)}
-                            </select>
-                        </div>
-                        <label class="proposta-config-check">
-                            <input type="checkbox" class="prop-orc-cat-inss-check" ${regra.aplicarINSS === true ? 'checked' : ''}>
-                            INSS
+                        <select class="prop-orc-cat-encargos-tipo proposta-config-type-select" aria-label="Tipo de cálculo dos encargos em ${sanitizar(categoria)}">
+                            <option value="simples"${tipoEncargos === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoEncargos === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
+                    </div>
+                    <div class="proposta-config-tax-cell">
+                        <label class="proposta-config-tax-toggle">
+                            <input type="checkbox" class="prop-orc-cat-inss-check" ${regra.aplicarINSS === true ? 'checked' : ''}> INSS
                         </label>
-                        <div class="form-group">
-                            <label>% INSS</label>
-                            <input type="number" class="prop-orc-cat-inss-percent" min="0" step="0.01" value="${Number(regra.percentualINSS || 0)}">
+                        <div class="proposta-config-percent-field">
+                            <input type="number" class="prop-orc-cat-inss-percent" min="0" step="0.01" value="${Number(regra.percentualINSS || 0)}" aria-label="Percentual de INSS em ${sanitizar(categoria)}">
+                            <span>%</span>
                         </div>
-                        <div class="form-group">
-                            <label>Tipo INSS</label>
-                            <select class="prop-orc-cat-inss-tipo">
-                                ${montarOptionsTipoCalculoTributo(regra.tipoCalculoINSS)}
-                            </select>
-                        </div>
+                        <select class="prop-orc-cat-inss-tipo proposta-config-type-select" aria-label="Tipo de cálculo do INSS em ${sanitizar(categoria)}">
+                            <option value="simples"${tipoINSS === 'simples' ? ' selected' : ''}>Simples</option>
+                            <option value="por_dentro"${tipoINSS === 'por_dentro' ? ' selected' : ''}>Por dentro</option>
+                        </select>
                     </div>
                 </div>
             `;
-        }).join('');
+        }).join('')}
+        `;
     }
 
     function coletarConfigOrcamentoProposta() {
@@ -590,29 +596,42 @@
         });
     }
 
-    function aplicarPadroesOrcamentoNaPropostaAtual() {
-        const padroes = obterPadroesOrcamento();
+    function aplicarPadroesOrcamentoNaPropostaAtual(padroesOverride = null, valorKmOverride = null) {
+        const padroes = normalizarPadroesOrcamento(padroesOverride || obterPadroesOrcamento());
         const entradaEl = document.getElementById('propPercentualEntrada');
         if (entradaEl) entradaEl.value = String(padroes.globais.percentualEntradaPadrao ?? 50);
 
-        const valorKm = obterValorKmFretePadrao();
+        const valorKm = valorKmOverride == null
+            ? obterValorKmFretePadrao()
+            : numeroNaoNegativo(valorKmOverride, 0);
         const valorKmEl = document.getElementById('propFreteValorKm');
         if (valorKmEl && valorKm > 0) valorKmEl.value = String(valorKm);
 
         document.querySelectorAll('#propostaItensBody .proposta-item-row').forEach((linha) => {
             const categoria = normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value);
-            preencherLinhaComRegraCategoria(linha, categoria);
+            const regra = padroes.categorias[categoria] || normalizarRegraCategoriaOrcamento(categoria, {}, padroes.globais);
+            preencherLinhaComRegraCategoria(linha, categoria, regra, padroes.globais);
             linha.dataset.categoriaAtual = categoria;
         });
         recalcularResumoProposta();
     }
 
     function aplicarConfigOrcamentoProposta() {
-        if (typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode alterar configurações de orçamento.')) {
+        const { padroes, valorKmFretePadrao } = coletarConfigOrcamentoProposta();
+        const modoAplicacao = document.querySelector('input[name="propOrcConfigModoAplicacao"]:checked')?.value || 'atual';
+
+        if (modoAplicacao === 'padrao' && typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode salvar padrões de orçamento.')) {
             return;
         }
 
-        const { padroes, valorKmFretePadrao } = coletarConfigOrcamentoProposta();
+        aplicarPadroesOrcamentoNaPropostaAtual(padroes, valorKmFretePadrao);
+
+        if (modoAplicacao !== 'padrao') {
+            fecharConfigOrcamentoProposta();
+            mostrarToast('Configurações aplicadas somente nesta proposta.', 'info');
+            return;
+        }
+
         if (config && typeof config === 'object') {
             config.padroesOrcamento = padroes;
             config.valorKmFretePadrao = valorKmFretePadrao;
@@ -620,11 +639,10 @@
 
         salvarLocal();
         sincronizar('salvar');
-        aplicarPadroesOrcamentoNaPropostaAtual();
         if (typeof renderConfigPadroesOrcamento === 'function') renderConfigPadroesOrcamento();
         if (typeof registrarLog === 'function') registrarLog('config', 'Atualizar', 'Padrões de orçamento atualizados pela aba Orçamentos.');
         fecharConfigOrcamentoProposta();
-        mostrarToast('Configurações aplicadas ao orçamento.');
+        mostrarToast('Configurações salvas como padrão e aplicadas ao orçamento.');
     }
 
     function restaurarPadroesConfigOrcamentoProposta() {
@@ -1016,7 +1034,10 @@
                     <div class="actions-cell">
                         <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
                             <i class="bi bi-chevron-down"></i>
-                            <span>Detalhes</span>
+                            <span>Ajustes</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-info table-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item">
+                            <i class="bi bi-files"></i>
                         </button>
                         <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
                             <i class="bi bi-trash"></i>
@@ -1091,8 +1112,17 @@
         `;
     }
 
-    function preencherLinhaComRegraCategoria(linha, categoria) {
-        const regra = obterRegraCategoriaParaItem(categoria);
+    function preencherLinhaComRegraCategoria(linha, categoria, regraOverride = null, globaisOverride = null) {
+        const regraBase = regraOverride || obterRegraCategoriaParaItem(categoria);
+        const globais = globaisOverride || obterPadroesOrcamento().globais || {};
+        const regra = regraOverride
+            ? {
+                ...regraBase,
+                aplicarHonorarios: globais.aplicarHonorariosAutomaticamente !== false && regraBase.aplicarHonorarios,
+                aplicarEncargos: globais.aplicarEncargosAutomaticamente !== false && regraBase.aplicarEncargos,
+                aplicarINSS: globais.aplicarINSSAutomaticamente !== false && regraBase.aplicarINSS
+            }
+            : regraBase;
         const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
             ? linha.nextElementSibling
             : null;
@@ -1199,6 +1229,19 @@
         detalhes?.remove();
         linha.remove();
         recalcularResumoProposta();
+    }
+
+    function duplicarLinhaItemProposta(botao) {
+        const linha = botao?.closest('.proposta-item-row');
+        if (!linha) return;
+        const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : linha;
+        const item = coletarItemDaLinhaProposta(linha);
+        detalhes.insertAdjacentHTML('afterend', criarLinhaItemProposta(item));
+        recalcularResumoProposta();
+        const novaLinha = detalhes.nextElementSibling;
+        setTimeout(() => novaLinha?.querySelector('.prop-item-descricao')?.focus(), 60);
     }
 
     function alternarDetalhesCalculoItemProposta(botao) {
@@ -1340,6 +1383,11 @@
             const el = document.getElementById(id);
             if (el) el.textContent = valor;
         });
+
+        const statusEl = document.getElementById('propStickyStatus');
+        if (statusEl) {
+            statusEl.className = `badge ${statusBadge(statusAtual)}`;
+        }
     }
 
     function recalcularResumoProposta() {
@@ -2858,6 +2906,7 @@
     window.recalcularResumoProposta = recalcularResumoProposta;
     window.adicionarLinhaItemProposta = adicionarLinhaItemProposta;
     window.removerLinhaItemProposta = removerLinhaItemProposta;
+    window.duplicarLinhaItemProposta = duplicarLinhaItemProposta;
     window.alternarDetalhesCalculoItemProposta = alternarDetalhesCalculoItemProposta;
     window.salvarProposta = salvarProposta;
     window.limparFormularioProposta = limparFormularioProposta;
