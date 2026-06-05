@@ -9800,13 +9800,20 @@ html {
     overflow-wrap: anywhere;
 }
 
+.input-percent-invalid {
+    border-color: #ef4444 !important;
+    background: #fff1f2 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
 #printArea .orcamento-pdf .pdf-section,
 #printArea .orcamento-pdf .pdf-card,
 #printArea .orcamento-pdf .pdf-financial-section,
 #printArea .orcamento-pdf .pdf-scope-section,
 #printArea .orcamento-pdf .pdf-signatures,
 #printArea .orcamento-pdf .pdf-summary-table,
-#printArea .orcamento-pdf .pdf-internal-summary {
+#printArea .orcamento-pdf .pdf-internal-summary,
+#printArea .orcamento-pdf .footer-bar {
     break-inside: avoid;
     page-break-inside: avoid;
 }
@@ -9831,6 +9838,7 @@ html {
 
 #printArea .orcamento-pdf .pdf-category-head,
 #printArea .orcamento-pdf .pdf-category-subtotal,
+#printArea .orcamento-pdf .pdf-summary-row,
 #printArea .orcamento-pdf .pdf-summary-row-highlight {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -9856,6 +9864,12 @@ html {
     #printArea .resumo-financeiro,
     #printArea .pdf-section,
     #printArea .assinaturas {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    #printArea .footer-bar {
+        position: relative !important;
         break-inside: avoid;
         page-break-inside: avoid;
     }

@@ -392,6 +392,44 @@ function aplicarCabecalhoRodapePDF(pdf, paginaAtual, totalPaginas, tituloDoc, da
     pdf.text(textoPagina, larguraPagina - margem, alturaPagina - margem - 2.2, { align: 'right' });
 }
 
+function obterPontosDeCorteSeguroPDF(elemento, canvas) {
+    const rectBase = elemento.getBoundingClientRect();
+    if (!rectBase.height || !canvas.height) return [];
+    const escalaY = canvas.height / rectBase.height;
+    const seletores = [
+        '.pdf-section',
+        '.pdf-card',
+        '.pdf-financial-section',
+        '.pdf-scope-section',
+        '.pdf-signatures',
+        '.pdf-category-head',
+        '.pdf-category-subtotal',
+        '.pdf-summary-row-highlight',
+        'thead',
+        'tr'
+    ].join(',');
+
+    return Array.from(elemento.querySelectorAll(seletores))
+        .map((node) => {
+            const rect = node.getBoundingClientRect();
+            return Math.round((rect.top - rectBase.top) * escalaY);
+        })
+        .filter((ponto) => Number.isFinite(ponto) && ponto > 0 && ponto < canvas.height)
+        .sort((a, b) => a - b);
+}
+
+function ajustarCorteSeguroPDF(origemY, alturaPadraoPx, alturaTotalPx, pontosCorteSeguro) {
+    const limitePadrao = Math.min(origemY + alturaPadraoPx, alturaTotalPx);
+    if (limitePadrao >= alturaTotalPx) return alturaTotalPx - origemY;
+
+    const margemMinima = Math.max(120, alturaPadraoPx * 0.35);
+    const candidato = [...pontosCorteSeguro]
+        .reverse()
+        .find((ponto) => ponto > origemY + margemMinima && ponto < limitePadrao - 24);
+
+    return candidato ? candidato - origemY : limitePadrao - origemY;
+}
+
 function gerarPDF() {
     if (!window.jspdf || !window.html2canvas) {
         mostrarToast('Aguarde o carregamento das bibliotecas...', 'erro');
@@ -438,11 +476,12 @@ function gerarPDF() {
             const imgLargura = larguraUtil;
             const pxPorMm = canvas.width / imgLargura;
             const alturaFatiaPx = Math.max(1, Math.floor(alturaUtil * pxPorMm));
+            const pontosCorteSeguro = obterPontosDeCorteSeguroPDF(elemento, canvas);
             let origemY = 0;
             let paginaCriada = false;
 
             while (origemY < canvas.height) {
-                const alturaAtualPx = Math.min(alturaFatiaPx, canvas.height - origemY);
+                const alturaAtualPx = ajustarCorteSeguroPDF(origemY, alturaFatiaPx, canvas.height, pontosCorteSeguro);
                 const canvasPagina = document.createElement('canvas');
                 canvasPagina.width = canvas.width;
                 canvasPagina.height = alturaAtualPx;

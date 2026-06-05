@@ -63,6 +63,8 @@
     let bloqueioSincronizacaoValidade = false;
     let categoriasOrcamentoTemporarias = null;
     let mostrarCategoriasVaziasProposta = false;
+    let ultimoAvisoPercentualInvalido = 0;
+    const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
@@ -121,6 +123,69 @@
         return Math.max(0, numeroSeguro(valor, fallback));
     }
 
+    function textoPercentualBruto(valor) {
+        if (valor == null) return '';
+        return String(valor).trim().replace(/\s+/g, '');
+    }
+
+    function converterTextoPercentualBrutoParaNumero(valor, fallback = 0) {
+        if (typeof valor === 'number') {
+            return Number.isFinite(valor) ? valor : (Number(fallback) || 0);
+        }
+
+        let texto = textoPercentualBruto(valor).replace(/[^\d,.\-]/g, '');
+        if (!texto || texto === '-' || texto === ',' || texto === '.') return Number(fallback) || 0;
+
+        const negativo = texto.startsWith('-');
+        texto = texto.replace(/-/g, '');
+        if (texto.includes(',') && texto.includes('.')) {
+            texto = texto.lastIndexOf(',') > texto.lastIndexOf('.')
+                ? texto.replace(/\./g, '').replace(',', '.')
+                : texto.replace(/,/g, '');
+        } else {
+            texto = texto.replace(',', '.');
+        }
+
+        const numero = Number(`${negativo ? '-' : ''}${texto}`);
+        return Number.isFinite(numero) ? numero : (Number(fallback) || 0);
+    }
+
+    function percentualPareceDivisorInvalido(valor) {
+        const bruto = textoPercentualBruto(valor);
+        if (!bruto) return false;
+        const numero = converterTextoPercentualBrutoParaNumero(bruto, 0);
+        const temDecimal = /[,.]/.test(bruto);
+        return Number.isFinite(numero) && numero > 0 && numero < 1 && temDecimal;
+    }
+
+    function avisarPercentualRealProposta() {
+        const agora = Date.now();
+        if (agora - ultimoAvisoPercentualInvalido < 5000) return;
+        ultimoAvisoPercentualInvalido = agora;
+        if (typeof mostrarToast === 'function') {
+            mostrarToast(MENSAGEM_PERCENTUAL_REAL_PROPOSTA, 'erro');
+        }
+    }
+
+    function converterTextoPercentualParaNumero(valor, fallback = 0, opcoes = {}) {
+        const maximo = Number.isFinite(opcoes.maximo) ? opcoes.maximo : 99.99;
+        const avisar = opcoes.avisar !== false;
+        if (percentualPareceDivisorInvalido(valor)) {
+            if (avisar) avisarPercentualRealProposta();
+            return Math.min(maximo, numeroNaoNegativo(fallback, 0));
+        }
+        return Math.min(maximo, Math.max(0, converterTextoPercentualBrutoParaNumero(valor, fallback)));
+    }
+
+    function lerPercentualCampo(campo, fallback = 0, maximo = 99.99) {
+        const invalido = percentualPareceDivisorInvalido(campo?.value);
+        campo?.classList?.toggle('input-percent-invalid', invalido);
+        return converterTextoPercentualParaNumero(campo?.value, fallback, {
+            maximo,
+            avisar: true
+        });
+    }
+
     function inteiroNaoNegativo(valor, fallback = 0) {
         return Math.max(0, Math.trunc(numeroNaoNegativo(valor, fallback)));
     }
@@ -141,7 +206,7 @@
     }
 
     function formatarPercentual(valor) {
-        const numero = Number(valor) || 0;
+        const numero = converterTextoPercentualParaNumero(valor, 0, { maximo: 100, avisar: false });
         return `${numero.toLocaleString('pt-BR', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2
@@ -261,12 +326,12 @@
             fixa: ehOutros,
             arquivada: normalizarBooleanoProposta(regra.arquivada, false),
             aplicarHonorarios: normalizarBooleanoProposta(regra.aplicarHonorarios, true),
-            percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
+            percentualHonorarios: converterTextoPercentualParaNumero(regra.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
             aplicarEncargos: normalizarBooleanoProposta(regra.aplicarEncargos, true),
-            percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globais.percentualEncargosPadrao || 0),
+            percentualEncargos: converterTextoPercentualParaNumero(regra.percentualEncargos, globais.percentualEncargosPadrao || 0),
             tipoCalculoEncargos: normalizarTipoCalculoTributo(regra.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao || 'simples'),
             aplicarINSS: normalizarBooleanoProposta(regra.aplicarINSS, ehMaoObra),
-            percentualINSS: numeroNaoNegativo(regra.percentualINSS, globais.percentualINSSPadrao || 0),
+            percentualINSS: converterTextoPercentualParaNumero(regra.percentualINSS, globais.percentualINSSPadrao || 0),
             tipoCalculoINSS: normalizarTipoCalculoTributo(regra.tipoCalculoINSS, globais.tipoCalculoINSSPadrao || 'simples')
         };
     }
@@ -404,12 +469,12 @@
             cor: textoSeguro(origem.cor ?? categoriaInfo?.cor, '#64748b'),
             icone: textoSeguro(origem.icone ?? categoriaInfo?.icone, 'bi-tag'),
             aplicarHonorarios: normalizarBooleanoProposta(origem.aplicarHonorarios ?? categoriaInfo?.aplicarHonorarios, true),
-            percentualHonorarios: numeroNaoNegativo(origem.percentualHonorarios ?? categoriaInfo?.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
+            percentualHonorarios: converterTextoPercentualParaNumero(origem.percentualHonorarios ?? categoriaInfo?.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
             aplicarEncargos: normalizarBooleanoProposta(origem.aplicarEncargos ?? categoriaInfo?.aplicarEncargos, true),
-            percentualEncargos: numeroNaoNegativo(origem.percentualEncargos ?? categoriaInfo?.percentualEncargos, globais.percentualEncargosPadrao || 0),
+            percentualEncargos: converterTextoPercentualParaNumero(origem.percentualEncargos ?? categoriaInfo?.percentualEncargos, globais.percentualEncargosPadrao || 0),
             tipoCalculoEncargos: normalizarTipoCalculoTributo(origem.tipoCalculoEncargos ?? categoriaInfo?.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao || 'simples'),
             aplicarINSS: normalizarBooleanoProposta(origem.aplicarINSS ?? categoriaInfo?.aplicarINSS, ehMaoObra),
-            percentualINSS: numeroNaoNegativo(origem.percentualINSS ?? categoriaInfo?.percentualINSS, globais.percentualINSSPadrao || 0),
+            percentualINSS: converterTextoPercentualParaNumero(origem.percentualINSS ?? categoriaInfo?.percentualINSS, globais.percentualINSSPadrao || 0),
             tipoCalculoINSS: normalizarTipoCalculoTributo(origem.tipoCalculoINSS ?? categoriaInfo?.tipoCalculoINSS, globais.tipoCalculoINSSPadrao || 'simples')
         };
     }
@@ -420,9 +485,9 @@
         const origemGlobais = origem.globais && typeof origem.globais === 'object' ? origem.globais : origem;
 
         const globais = {
-            percentualHonorariosPadrao: numeroNaoNegativo(origemGlobais.percentualHonorariosPadrao ?? origemGlobais.honorariosPadrao, padrao.globais.percentualHonorariosPadrao),
-            percentualEncargosPadrao: numeroNaoNegativo(origemGlobais.percentualEncargosPadrao ?? origemGlobais.encargosPadrao, padrao.globais.percentualEncargosPadrao),
-            percentualINSSPadrao: numeroNaoNegativo(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, padrao.globais.percentualINSSPadrao),
+            percentualHonorariosPadrao: converterTextoPercentualParaNumero(origemGlobais.percentualHonorariosPadrao ?? origemGlobais.honorariosPadrao, padrao.globais.percentualHonorariosPadrao),
+            percentualEncargosPadrao: converterTextoPercentualParaNumero(origemGlobais.percentualEncargosPadrao ?? origemGlobais.encargosPadrao, padrao.globais.percentualEncargosPadrao),
+            percentualINSSPadrao: converterTextoPercentualParaNumero(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, padrao.globais.percentualINSSPadrao),
             percentualEntradaPadrao: clampPercentual(origemGlobais.percentualEntradaPadrao ?? origemGlobais.entradaPadrao ?? padrao.globais.percentualEntradaPadrao),
             percentualDescontoPadrao: clampPercentual(origemGlobais.percentualDescontoPadrao ?? origemGlobais.descontoPadrao ?? padrao.globais.percentualDescontoPadrao),
             tipoCalculoEncargosPadrao: normalizarTipoCalculoTributo(origemGlobais.tipoCalculoEncargosPadrao, padrao.globais.tipoCalculoEncargosPadrao),
@@ -469,7 +534,7 @@
 
     function calcularValorPercentualTributo(base, percentual, tipoCalculo = 'simples') {
         const baseNormalizada = numeroNaoNegativo(base, 0);
-        const percentualNormalizado = Math.min(99.99, numeroNaoNegativo(percentual, 0));
+        const percentualNormalizado = converterTextoPercentualParaNumero(percentual, 0, { maximo: 99.99 });
         if (baseNormalizada <= 0 || percentualNormalizado <= 0) return 0;
         if (normalizarTipoCalculoTributo(tipoCalculo) === 'por_dentro') {
             return arredondarMoeda((baseNormalizada / (1 - (percentualNormalizado / 100))) - baseNormalizada);
@@ -501,7 +566,7 @@
             ? normalizarBooleanoProposta(item.aplicarHonorarios, regra.aplicarHonorarios)
             : regra.aplicarHonorarios;
         const percentualHonorarios = temCalculoSalvo
-            ? numeroNaoNegativo(item.percentualHonorarios, regra.percentualHonorarios)
+            ? converterTextoPercentualParaNumero(item.percentualHonorarios, regra.percentualHonorarios)
             : regra.percentualHonorarios;
         const valorHonorarios = aplicarHonorarios
             ? calcularValorPercentualTributo(custoTotal, percentualHonorarios, 'simples')
@@ -511,7 +576,7 @@
             ? normalizarBooleanoProposta(item.aplicarEncargos, regra.aplicarEncargos)
             : regra.aplicarEncargos;
         const percentualEncargos = temCalculoSalvo
-            ? numeroNaoNegativo(item.percentualEncargos, regra.percentualEncargos)
+            ? converterTextoPercentualParaNumero(item.percentualEncargos, regra.percentualEncargos)
             : regra.percentualEncargos;
         const tipoCalculoEncargos = temCalculoSalvo
             ? normalizarTipoCalculoTributo(item.tipoCalculoEncargos, regra.tipoCalculoEncargos)
@@ -524,7 +589,7 @@
             ? normalizarBooleanoProposta(item.aplicarINSS, regra.aplicarINSS)
             : regra.aplicarINSS;
         const percentualINSS = temCalculoSalvo
-            ? numeroNaoNegativo(item.percentualINSS, regra.percentualINSS)
+            ? converterTextoPercentualParaNumero(item.percentualINSS, regra.percentualINSS)
             : regra.percentualINSS;
         const tipoCalculoINSS = temCalculoSalvo
             ? normalizarTipoCalculoTributo(item.tipoCalculoINSS, regra.tipoCalculoINSS)
@@ -722,7 +787,10 @@
     }
 
     function valorNumeroConfigOrcamento(id, fallback = 0, max = Infinity) {
-        const valor = numeroNaoNegativo(document.getElementById(id)?.value, fallback);
+        const valor = converterTextoPercentualParaNumero(document.getElementById(id)?.value, fallback, {
+            maximo: max,
+            avisar: true
+        });
         return Math.min(max, valor);
     }
 
@@ -763,12 +831,12 @@
             cor: textoSeguro(linha.querySelector('.prop-orc-cat-cor')?.value, criarCorCategoriaOrcamento(indice)),
             icone: textoSeguro(linha.querySelector('.prop-orc-cat-icone')?.value, 'bi-tag'),
             aplicarHonorarios: linha.querySelector('.prop-orc-cat-honorarios-check')?.checked === true,
-            percentualHonorarios: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+            percentualHonorarios: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
             aplicarEncargos: linha.querySelector('.prop-orc-cat-encargos-check')?.checked === true,
-            percentualEncargos: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
+            percentualEncargos: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
             tipoCalculoEncargos: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-encargos-tipo')?.value, globais.tipoCalculoEncargosPadrao),
             aplicarINSS: linha.querySelector('.prop-orc-cat-inss-check')?.checked === true,
-            percentualINSS: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
+            percentualINSS: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
             tipoCalculoINSS: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-inss-tipo')?.value, globais.tipoCalculoINSSPadrao),
             fixa
         }, indice, globais);
@@ -959,7 +1027,7 @@
                             Honorários
                         </label>
                         <div class="proposta-config-percent-field">
-                            <input type="number" class="prop-orc-editor-honorarios-percent" min="0" step="0.01" value="${Number(normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}" ${aplicarHonorarios ? '' : 'disabled'}>
+                            <input type="text" class="prop-orc-editor-honorarios-percent" inputmode="decimal" value="${Number(normalizada.percentualHonorarios || globais.percentualHonorariosPadrao || 0)}" ${aplicarHonorarios ? '' : 'disabled'}>
                             <span>%</span>
                         </div>
                     </div>
@@ -969,7 +1037,7 @@
                             Encargos
                         </label>
                         <div class="proposta-config-percent-field">
-                            <input type="number" class="prop-orc-editor-encargos-percent" min="0" step="0.01" value="${Number(normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}" ${aplicarEncargos ? '' : 'disabled'}>
+                            <input type="text" class="prop-orc-editor-encargos-percent" inputmode="decimal" value="${Number(normalizada.percentualEncargos || globais.percentualEncargosPadrao || 0)}" ${aplicarEncargos ? '' : 'disabled'}>
                             <span>%</span>
                         </div>
                         <select class="prop-orc-editor-encargos-tipo proposta-config-type-select" ${aplicarEncargos ? '' : 'disabled'}>
@@ -983,7 +1051,7 @@
                             INSS
                         </label>
                         <div class="proposta-config-percent-field">
-                            <input type="number" class="prop-orc-editor-inss-percent" min="0" step="0.01" value="${Number(normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}" ${aplicarINSS ? '' : 'disabled'}>
+                            <input type="text" class="prop-orc-editor-inss-percent" inputmode="decimal" value="${Number(normalizada.percentualINSS || globais.percentualINSSPadrao || 0)}" ${aplicarINSS ? '' : 'disabled'}>
                             <span>%</span>
                         </div>
                         <select class="prop-orc-editor-inss-tipo proposta-config-type-select" ${aplicarINSS ? '' : 'disabled'}>
@@ -1062,12 +1130,12 @@
             cor: textoSeguro(painel.querySelector('.prop-orc-editor-cor')?.value, criarCorCategoriaOrcamento(1)),
             icone: textoSeguro(painel.querySelector('.prop-orc-editor-icone')?.value, 'bi-tag'),
             aplicarHonorarios: painel.querySelector('.prop-orc-editor-honorarios-check')?.checked === true,
-            percentualHonorarios: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+            percentualHonorarios: lerPercentualCampo(painel.querySelector('.prop-orc-editor-honorarios-percent'), globais.percentualHonorariosPadrao),
             aplicarEncargos: painel.querySelector('.prop-orc-editor-encargos-check')?.checked === true,
-            percentualEncargos: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-encargos-percent')?.value, globais.percentualEncargosPadrao),
+            percentualEncargos: lerPercentualCampo(painel.querySelector('.prop-orc-editor-encargos-percent'), globais.percentualEncargosPadrao),
             tipoCalculoEncargos: normalizarTipoCalculoTributo(painel.querySelector('.prop-orc-editor-encargos-tipo')?.value, globais.tipoCalculoEncargosPadrao),
             aplicarINSS: painel.querySelector('.prop-orc-editor-inss-check')?.checked === true,
-            percentualINSS: numeroNaoNegativo(painel.querySelector('.prop-orc-editor-inss-percent')?.value, globais.percentualINSSPadrao),
+            percentualINSS: lerPercentualCampo(painel.querySelector('.prop-orc-editor-inss-percent'), globais.percentualINSSPadrao),
             tipoCalculoINSS: normalizarTipoCalculoTributo(painel.querySelector('.prop-orc-editor-inss-tipo')?.value, globais.tipoCalculoINSSPadrao),
             fixa
         }, 0, globais);
@@ -1147,12 +1215,12 @@
                 cor: textoSeguro(linha.querySelector('.prop-orc-cat-cor')?.value, regraAtual.cor || criarCorCategoriaOrcamento(indice)),
                 icone: textoSeguro(linha.querySelector('.prop-orc-cat-icone')?.value, regraAtual.icone || 'bi-tag'),
                 aplicarHonorarios: linha.querySelector('.prop-orc-cat-honorarios-check')?.checked === true,
-                percentualHonorarios: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
+                percentualHonorarios: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-honorarios-percent')?.value, globais.percentualHonorariosPadrao),
                 aplicarEncargos: linha.querySelector('.prop-orc-cat-encargos-check')?.checked === true,
-                percentualEncargos: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
+                percentualEncargos: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-encargos-percent')?.value, globais.percentualEncargosPadrao),
                 tipoCalculoEncargos: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-encargos-tipo')?.value),
                 aplicarINSS: linha.querySelector('.prop-orc-cat-inss-check')?.checked === true,
-                percentualINSS: numeroNaoNegativo(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
+                percentualINSS: converterTextoPercentualParaNumero(linha.querySelector('.prop-orc-cat-inss-percent')?.value, globais.percentualINSSPadrao),
                 tipoCalculoINSS: normalizarTipoCalculoTributo(linha.querySelector('.prop-orc-cat-inss-tipo')?.value)
             }, indice, globais, atuais.categorias);
             categoriasOrcamento.push(categoriaConfig);
@@ -1459,6 +1527,10 @@
         return numeroNaoNegativo(document.getElementById(id)?.value, 0);
     }
 
+    function parsePercentualInput(id, fallback = 0, maximo = 99.99) {
+        return lerPercentualCampo(document.getElementById(id), fallback, maximo);
+    }
+
     function formatarValorMonetarioEditavel(campo) {
         if (!campo || campo.readOnly || campo.disabled) return;
         const valorBruto = textoSeguro(campo.value);
@@ -1548,7 +1620,7 @@
     }
 
     function clampPercentual(valor) {
-        const numero = numeroNaoNegativo(valor, 0);
+        const numero = converterTextoPercentualParaNumero(valor, 0, { maximo: 100 });
         return Math.min(100, numero);
     }
 
@@ -1774,7 +1846,7 @@
                             </label>
                             <div class="form-group">
                                 <label>% Honorarios</label>
-                                <input type="number" class="prop-item-percentual-honorarios" value="${itemCalculado.percentualHonorarios}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" class="prop-item-percentual-honorarios" inputmode="decimal" value="${itemCalculado.percentualHonorarios}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Valor honorarios</label>
@@ -1786,7 +1858,7 @@
                             </label>
                             <div class="form-group">
                                 <label>% Encargos</label>
-                                <input type="number" class="prop-item-percentual-encargos" value="${itemCalculado.percentualEncargos}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" class="prop-item-percentual-encargos" inputmode="decimal" value="${itemCalculado.percentualEncargos}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Tipo encargos</label>
@@ -1804,7 +1876,7 @@
                             </label>
                             <div class="form-group">
                                 <label>% INSS</label>
-                                <input type="number" class="prop-item-percentual-inss" value="${itemCalculado.percentualINSS}" min="0" step="0.01" data-input="recalcularResumoProposta">
+                                <input type="text" class="prop-item-percentual-inss" inputmode="decimal" value="${itemCalculado.percentualINSS}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Tipo INSS</label>
@@ -1873,12 +1945,12 @@
             custoUnitario: numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0),
             observacoes: textoSeguro(detalhes?.querySelector('.prop-item-obs')?.value),
             aplicarHonorarios: detalhes?.querySelector('.prop-item-aplicar-honorarios')?.checked === true,
-            percentualHonorarios: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-honorarios')?.value, 0),
+            percentualHonorarios: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-honorarios'), 0),
             aplicarEncargos: detalhes?.querySelector('.prop-item-aplicar-encargos')?.checked === true,
-            percentualEncargos: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-encargos')?.value, 0),
+            percentualEncargos: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-encargos'), 0),
             tipoCalculoEncargos: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-encargos')?.value),
             aplicarINSS: detalhes?.querySelector('.prop-item-aplicar-inss')?.checked === true,
-            percentualINSS: numeroNaoNegativo(detalhes?.querySelector('.prop-item-percentual-inss')?.value, 0),
+            percentualINSS: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-inss'), 0),
             tipoCalculoINSS: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-inss')?.value)
         };
         return calcularItemProposta(item);
@@ -2087,7 +2159,7 @@
         const descontoNormalizado = arredondarMoeda(numeroNaoNegativo(desconto, 0));
         const acrescimoNormalizado = arredondarMoeda(numeroNaoNegativo(acrescimo, 0));
         const valorBase = arredondarMoeda(Math.max(subtotalItens + totalCustosAdicionais + acrescimoNormalizado - descontoNormalizado, 0));
-        const percentualNFNormalizado = numeroNaoNegativo(percentualNF, 0);
+        const percentualNFNormalizado = converterTextoPercentualParaNumero(percentualNF, 0, { maximo: 99.99 });
         const tipoNF = normalizarTipoCalculoNF(tipoCalculoNF, 'descontar');
         const valorNF = arredondarMoeda((valorBase * percentualNFNormalizado) / 100);
         const valorFinal = valorBase;
@@ -2169,9 +2241,9 @@
         const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
-        const percentualNF = parseNumeroInput('propPercentualNF');
+        const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
         const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
-        const percentualEntrada = parseNumeroInput('propPercentualEntrada');
+        const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
 
         const resumo = calcularResumoProposta({
             itens,
@@ -2240,7 +2312,7 @@
             desconto: numeroNaoNegativo(financeiroOrig.desconto, resumoBase.desconto || 0),
             acrescimo: numeroNaoNegativo(financeiroOrig.acrescimo, resumoBase.acrescimo || 0),
             valorBase: numeroNaoNegativo(financeiroOrig.valorBase, resumoBase.valorBase || 0),
-            percentualNF: numeroNaoNegativo(financeiroOrig.percentualNF, resumoBase.percentualNF || 0),
+            percentualNF: converterTextoPercentualParaNumero(financeiroOrig.percentualNF, resumoBase.percentualNF || 0),
             tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, resumoBase.tipoCalculoNF || 'descontar'),
             valorNF: numeroNaoNegativo(financeiroOrig.valorNF, resumoBase.valorNF || 0),
             valorFinal: numeroNaoNegativo(financeiroOrig.valorFinal, resumoBase.valorFinal || 0),
@@ -2248,7 +2320,7 @@
             valorLiquidoPrevisto: numeroSeguro(financeiroOrig.valorLiquidoPrevisto, resumoBase.valorLiquidoPrevisto || 0),
             percentualEntrada,
             valorEntrada: numeroNaoNegativo(financeiroOrig.valorEntrada, resumoBase.valorEntrada || 0),
-            percentualSaldo: numeroNaoNegativo(financeiroOrig.percentualSaldo, resumoBase.percentualSaldo || (100 - percentualEntrada)),
+            percentualSaldo: converterTextoPercentualParaNumero(financeiroOrig.percentualSaldo, resumoBase.percentualSaldo || (100 - percentualEntrada), { maximo: 100 }),
             valorSaldo: numeroNaoNegativo(financeiroOrig.valorSaldo, resumoBase.valorSaldo || 0),
             vencimentoEntrada: textoSeguro(financeiroOrig.vencimentoEntrada, ''),
             vencimentoSaldo: textoSeguro(financeiroOrig.vencimentoSaldo, ''),
@@ -2309,9 +2381,9 @@
             custos,
             desconto: numeroNaoNegativo(financeiroOrig.desconto, 0),
             acrescimo: numeroNaoNegativo(financeiroOrig.acrescimo, 0),
-            percentualNF: numeroNaoNegativo(financeiroOrig.percentualNF, 0),
+            percentualNF: converterTextoPercentualParaNumero(financeiroOrig.percentualNF, 0),
             tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, 'descontar'),
-            percentualEntrada: numeroNaoNegativo(financeiroOrig.percentualEntrada, 50),
+            percentualEntrada: converterTextoPercentualParaNumero(financeiroOrig.percentualEntrada, 50, { maximo: 100 }),
             controleInterno
         });
 
@@ -2412,9 +2484,9 @@
         const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');
         const acrescimo = parseNumeroInput('propAcrescimo');
-        const percentualNF = parseNumeroInput('propPercentualNF');
+        const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
         const tipoCalculoNF = normalizarTipoCalculoNF(document.getElementById('propTipoCalculoNF')?.value, 'descontar');
-        const percentualEntrada = parseNumeroInput('propPercentualEntrada');
+        const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
 
         const resumo = calcularResumoProposta({
             itens,
@@ -3035,8 +3107,8 @@
                 comprovante: '',
                 condicaoPagamento: proposta.financeiro.condicaoPagamento || '',
                 observacaoPagamento: proposta.financeiro.observacaoPagamento || '',
-                percentualEntrada: numeroNaoNegativo(proposta.financeiro.percentualEntrada, 50),
-                percentualSaldo: numeroNaoNegativo(proposta.financeiro.percentualSaldo, 50)
+                percentualEntrada: converterTextoPercentualParaNumero(proposta.financeiro.percentualEntrada, 50, { maximo: 100 }),
+                percentualSaldo: converterTextoPercentualParaNumero(proposta.financeiro.percentualSaldo, 50, { maximo: 100 })
             },
             checklist: {
                 idChecklist: null,
