@@ -1534,8 +1534,30 @@
     function formatarValorMonetarioEditavel(campo) {
         if (!campo || campo.readOnly || campo.disabled) return;
         const valorBruto = textoSeguro(campo.value);
-        if (!valorBruto) return;
+        if (!valorBruto) {
+            campo.value = formatarMoeda(0);
+            return;
+        }
         campo.value = formatarMoeda(valorBruto);
+    }
+
+    function formatarMoedaParaEdicao(valor) {
+        const numero = converterTextoMoedaParaNumero(valor, 0);
+        if (numero <= 0) return '';
+        const temCentavos = Math.abs(numero % 1) > 0;
+        return numero.toLocaleString('pt-BR', {
+            useGrouping: false,
+            minimumFractionDigits: temCentavos ? 2 : 0,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function limparTextoCampoMoedaProposta(valor) {
+        let texto = String(valor || '').replace(/[^\d,.-]/g, '');
+        const negativo = texto.trim().startsWith('-');
+        texto = texto.replace(/-/g, '');
+        texto = texto.replace(/^0+(?=\d)/, '');
+        return `${negativo ? '-' : ''}${texto}`;
     }
 
     function valorInputMonetario(valor) {
@@ -3720,6 +3742,20 @@
         if (campoStatus) {
             campoStatus.addEventListener('change', () => recalcularResumoProposta());
         }
+
+        document.addEventListener('focusin', (event) => {
+            const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
+            if (!campoMoeda || campoMoeda !== event.target) return;
+            campoMoeda.value = formatarMoedaParaEdicao(campoMoeda.value);
+            if (campoMoeda.value && typeof campoMoeda.select === 'function') campoMoeda.select();
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
+            if (!campoMoeda || campoMoeda !== event.target) return;
+            campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
+            recalcularResumoProposta();
+        });
 
         document.addEventListener('focusout', (event) => {
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
