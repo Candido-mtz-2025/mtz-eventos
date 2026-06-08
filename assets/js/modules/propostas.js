@@ -1809,6 +1809,126 @@
         badge.textContent = texto || 'Nova proposta';
     }
 
+    function montarDiferencasRevisaoProposta(atual, origem) {
+        if (!atual || !origem) return [];
+        const diferencas = [];
+        const valorAtual = obterValorFinalComercial(atual);
+        const valorOrigem = obterValorFinalComercial(origem);
+        const deltaValor = valorAtual - valorOrigem;
+        if (Math.abs(deltaValor) >= 0.01) {
+            diferencas.push(`${deltaValor > 0 ? '+' : ''}${formatarMoeda(deltaValor)} no valor final`);
+        }
+        const qtdAtual = Array.isArray(atual.itens) ? atual.itens.length : 0;
+        const qtdOrigem = Array.isArray(origem.itens) ? origem.itens.length : 0;
+        const deltaItens = qtdAtual - qtdOrigem;
+        if (deltaItens !== 0) {
+            diferencas.push(`${deltaItens > 0 ? '+' : ''}${deltaItens} item(ns)`);
+        }
+        if (textoSeguro(atual.evento?.dataEvento) !== textoSeguro(origem.evento?.dataEvento)) {
+            diferencas.push('data do evento alterada');
+        }
+        if (normalizarStatusProposta(atual.status) !== normalizarStatusProposta(origem.status)) {
+            diferencas.push(`status ${statusRotulo(origem.status)} -> ${statusRotulo(atual.status)}`);
+        }
+        return diferencas;
+    }
+
+    function localizarOrigemRevisaoProposta(proposta) {
+        const atual = normalizarProposta(proposta);
+        const lista = obterPropostasBase();
+        const origemId = textoSeguro(atual.propostaOrigemId);
+        if (origemId) {
+            const direta = lista.find((item) => String(item.id) === origemId);
+            if (direta) return normalizarProposta(direta);
+        }
+        const codigoBase = obterCodigoBaseProposta(atual);
+        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 1);
+        const anterior = lista
+            .map((item) => normalizarProposta(item))
+            .filter((item) => String(item.id) !== String(atual.id))
+            .filter((item) => obterCodigoBaseProposta(item) === codigoBase)
+            .filter((item) => normalizarNumeroRevisaoProposta(item.revisao, 1) < revisaoAtual)
+            .sort((a, b) => normalizarNumeroRevisaoProposta(b.revisao, 1) - normalizarNumeroRevisaoProposta(a.revisao, 1))[0];
+        return anterior || null;
+    }
+
+    function obterLinhaTempoRevisoesProposta(proposta) {
+        const atual = normalizarProposta(proposta);
+        const codigoBase = obterCodigoBaseProposta(atual);
+        const porCodigo = obterPropostasBase()
+            .map((item) => normalizarProposta(item))
+            .filter((item) => obterCodigoBaseProposta(item) === codigoBase)
+            .map((item) => ({
+                id: item.id,
+                codigo: formatarCodigoRevisaoProposta(item),
+                revisao: normalizarNumeroRevisaoProposta(item.revisao, 1),
+                status: item.status,
+                data: item.dataCriacao || item.criadoEm || '',
+                atual: String(item.id) === String(atual.id)
+            }));
+        const historico = (Array.isArray(atual.historicoRevisoes) ? atual.historicoRevisoes : [])
+            .map((item) => ({
+                id: item.id,
+                codigo: textoSeguro(item.codigo, `Rev. ${normalizarNumeroRevisaoProposta(item.revisao, 1)}`),
+                revisao: normalizarNumeroRevisaoProposta(item.revisao, 1),
+                status: normalizarStatusProposta(item.status),
+                data: item.data || '',
+                atual: false
+            }));
+        const mapa = new Map();
+        [...historico, ...porCodigo].forEach((item) => {
+            const chave = `${item.id || ''}-${item.revisao}`;
+            if (!mapa.has(chave)) mapa.set(chave, item);
+        });
+        return Array.from(mapa.values()).sort((a, b) => a.revisao - b.revisao);
+    }
+
+    function atualizarPainelRevisaoProposta(proposta = null) {
+        const painel = document.getElementById('propRevisionPanel');
+        if (!painel) return;
+        const idAtual = proposta?.id || obterIdPropostaEmEdicao();
+        if (!idAtual && !proposta) {
+            painel.innerHTML = `
+                <div class="proposta-revision-empty">
+                    <i class="bi bi-layers"></i>
+                    <span>Revisões aparecerão aqui depois que a proposta for salva.</span>
+                </div>
+            `;
+            return;
+        }
+        const atual = normalizarProposta(proposta || localizarProposta(idAtual));
+        const origem = localizarOrigemRevisaoProposta(atual);
+        const diferencas = montarDiferencasRevisaoProposta(atual, origem);
+        const linhaTempo = obterLinhaTempoRevisoesProposta(atual);
+        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 1);
+        painel.innerHTML = `
+            <div class="proposta-revision-card">
+                <div class="proposta-revision-main">
+                    <span class="proposta-revision-badge">Rev. ${revisaoAtual}</span>
+                    <div>
+                        <strong>${sanitizar(formatarCodigoRevisaoProposta(atual))}</strong>
+                        <small>Base ${sanitizar(obterCodigoBaseProposta(atual) || atual.codigo || '-')}</small>
+                    </div>
+                </div>
+                <div class="proposta-revision-meta">
+                    <span><i class="bi bi-clock-history"></i> ${linhaTempo.length} revisão(ões)</span>
+                    <span><i class="bi bi-diagram-2"></i> ${origem ? `Origem: ${sanitizar(formatarCodigoRevisaoProposta(origem))}` : 'Primeira versão'}</span>
+                </div>
+                <div class="proposta-revision-diff">
+                    ${diferencas.length ? diferencas.map((item) => `<span>${sanitizar(item)}</span>`).join('') : '<span>Sem diferenças relevantes contra a revisão anterior.</span>'}
+                </div>
+                <div class="proposta-revision-timeline">
+                    ${linhaTempo.map((item) => `
+                        <button type="button" class="proposta-revision-step ${item.atual ? 'is-current' : ''}" data-action="editarProposta" data-arg="${item.id || atual.id}" title="Abrir ${sanitizar(item.codigo)}">
+                            <strong>Rev. ${item.revisao}</strong>
+                            <small>${item.atual ? 'Atual' : statusRotulo(item.status)}</small>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     function sincronizarValidadePorDias() {
         if (bloqueioSincronizacaoValidade) return;
         const campoDias = document.getElementById('propValidadeDias');
@@ -2825,6 +2945,7 @@
         renderLinhasItensProposta(p.itens);
         sincronizarValidadePorData();
         atualizarModoFormulario(`Editando ${formatarCodigoRevisaoProposta(p)}`);
+        atualizarPainelRevisaoProposta(p);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
     }
 
@@ -2890,6 +3011,7 @@
         renderLinhasItensProposta([{}]);
         sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
+        atualizarPainelRevisaoProposta(null);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         document.getElementById('propClienteNome')?.focus();
@@ -3881,9 +4003,17 @@
 
         tbody.innerHTML = filtradas.map((proposta) => {
             const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
+            const revisao = normalizarNumeroRevisaoProposta(proposta.revisao, 1);
+            const origem = localizarOrigemRevisaoProposta(proposta);
             return `
                 <tr data-proposta-id="${proposta.id}">
-                    <td>${sanitizar(formatarCodigoRevisaoProposta(proposta))}</td>
+                    <td>
+                        <div class="proposta-list-code">
+                            <strong>${sanitizar(formatarCodigoRevisaoProposta(proposta))}</strong>
+                            <span class="proposta-revision-mini-badge">Rev. ${revisao}</span>
+                            ${origem ? `<small>Origem ${sanitizar(formatarCodigoRevisaoProposta(origem))}</small>` : ''}
+                        </div>
+                    </td>
                     <td>${sanitizar(proposta.cliente.nome || '-')}</td>
                     <td>${sanitizar(proposta.evento.nome || '-')}</td>
                     <td>${formatarData(proposta.evento.dataEvento)}</td>

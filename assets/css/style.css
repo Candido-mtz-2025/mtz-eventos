@@ -5217,6 +5217,9 @@ textarea::placeholder {
 [data-theme="dark"] #tab-propostas .proposta-config-tax-cell,
 [data-theme="dark"] #tab-propostas .proposta-config-mode-option,
 [data-theme="dark"] #tab-propostas .proposta-data-card,
+[data-theme="dark"] #tab-propostas .proposta-revision-card,
+[data-theme="dark"] #tab-propostas .proposta-revision-empty,
+[data-theme="dark"] #tab-propostas .proposta-revision-step,
 [data-theme="dark"] #tab-propostas .proposta-sticky-summary,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics span,
 [data-theme="dark"] #tab-propostas .proposta-closing-block,
@@ -5241,6 +5244,8 @@ textarea::placeholder {
 [data-theme="dark"] #tab-propostas .proposta-config-tax-toggle,
 [data-theme="dark"] #tab-propostas .proposta-config-mode-option strong,
 [data-theme="dark"] #tab-propostas .proposta-data-card-head h4,
+[data-theme="dark"] #tab-propostas .proposta-revision-card strong,
+[data-theme="dark"] #tab-propostas .proposta-revision-step strong,
 [data-theme="dark"] #tab-propostas .proposta-sticky-metrics strong,
 [data-theme="dark"] #tab-propostas .proposta-closing-block h5,
 [data-theme="dark"] #tab-propostas .proposta-closing-section > h5,
@@ -8767,6 +8772,143 @@ header {
 
 #tab-propostas .proposta-form-section > h4:first-child {
     margin-top: 0;
+}
+
+#tab-propostas .proposta-revision-panel {
+    margin: 4px 0 14px;
+}
+
+#tab-propostas .proposta-revision-empty,
+#tab-propostas .proposta-revision-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.055), rgba(255, 255, 255, 0.82));
+}
+
+#tab-propostas .proposta-revision-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 12px;
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .proposta-revision-card {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+}
+
+#tab-propostas .proposta-revision-main,
+#tab-propostas .proposta-revision-meta,
+#tab-propostas .proposta-revision-diff,
+#tab-propostas .proposta-revision-timeline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#tab-propostas .proposta-revision-main {
+    justify-content: space-between;
+}
+
+#tab-propostas .proposta-revision-main > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+#tab-propostas .proposta-revision-main strong {
+    color: var(--text);
+    font-size: 0.98rem;
+}
+
+#tab-propostas .proposta-revision-main small,
+#tab-propostas .proposta-revision-meta,
+#tab-propostas .proposta-list-code small {
+    color: var(--text-light);
+    font-weight: 700;
+}
+
+#tab-propostas .proposta-revision-badge,
+#tab-propostas .proposta-revision-mini-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-weight: 900;
+}
+
+#tab-propostas .proposta-revision-badge {
+    min-height: 32px;
+    padding: 6px 12px;
+}
+
+#tab-propostas .proposta-revision-mini-badge {
+    min-height: 22px;
+    padding: 3px 8px;
+    font-size: 0.74rem;
+}
+
+#tab-propostas .proposta-revision-meta span,
+#tab-propostas .proposta-revision-diff span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.32);
+    color: var(--text-light);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+#tab-propostas .proposta-revision-diff span {
+    background: rgba(14, 165, 233, 0.08);
+    color: #075985;
+}
+
+#tab-propostas .proposta-revision-step {
+    display: inline-grid;
+    gap: 1px;
+    min-width: 72px;
+    min-height: 42px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+
+#tab-propostas .proposta-revision-step.is-current {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
+}
+
+#tab-propostas .proposta-revision-step small {
+    color: var(--text-light);
+    font-weight: 800;
+}
+
+#tab-propostas .proposta-list-code {
+    display: grid;
+    gap: 4px;
+    min-width: 140px;
+}
+
+#tab-propostas .proposta-list-code strong {
+    color: var(--text);
 }
 
 #tab-propostas #propostasFormularioCard,
