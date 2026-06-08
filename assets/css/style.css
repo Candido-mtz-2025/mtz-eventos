@@ -10780,3 +10780,293 @@ html {
         border-radius: 16px !important;
     }
 }
+
+/* === V21.5 | ROLLBACK HEADER CLEAN === */
+:root {
+    --app-header-height: 94px;
+}
+
+#appArea > header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1500 !important;
+    background: var(--bg) !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: none !important;
+}
+
+#appArea > header::after {
+    display: none !important;
+    content: none !important;
+}
+
+#appArea > header .container {
+    min-height: auto !important;
+    padding: 14px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+}
+
+#appArea > header .logo {
+    display: block !important;
+    min-width: 0 !important;
+    text-align: left !important;
+    color: var(--text) !important;
+}
+
+#appArea > header .logo h1 {
+    margin: 0 !important;
+    color: var(--text) !important;
+    font-size: 1.95rem !important;
+    line-height: 1.05 !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+}
+
+#appArea > header .logo-subtitle {
+    display: block !important;
+    margin: 6px 0 0 !important;
+    color: var(--text-muted) !important;
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+}
+
+#appArea > header .header-actions {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+}
+
+#appArea > header .header-user {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+    max-width: 330px !important;
+    min-height: 44px !important;
+    padding: 5px 12px 5px 5px !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--border) !important;
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .header-user[style*="display:none"],
+#appArea > header .header-user[style*="display: none"] {
+    display: none !important;
+}
+
+#appArea > header .header-user img {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    background: #4f35b5 !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
+
+#appArea > header .header-user > div {
+    min-width: 0 !important;
+}
+
+#appArea > header .header-user strong {
+    display: block !important;
+    color: var(--text) !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#appArea > header .header-user span {
+    display: block !important;
+    max-width: 190px !important;
+    margin-top: 1px !important;
+    color: var(--text-muted) !important;
+    font-size: 0.73rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#appArea > header .header-role-badge {
+    display: inline-flex !important;
+    width: fit-content !important;
+    margin-top: 4px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    font-size: 0.62rem !important;
+    font-weight: 850 !important;
+}
+
+#appArea > header .sync-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    min-width: 94px !important;
+    min-height: 40px !important;
+    padding: 7px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--border) !important;
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    font-size: 0.74rem !important;
+    font-weight: 850 !important;
+    box-shadow: none !important;
+    text-transform: uppercase !important;
+}
+
+#appArea > header .sync-badge span {
+    color: inherit !important;
+}
+
+#appArea > header .sync-badge i {
+    filter: none !important;
+}
+
+#appArea > header .sync-badge:not(.sync-offline) {
+    background: #dcfce7 !important;
+    border-color: rgba(34, 197, 94, 0.24) !important;
+    color: #166534 !important;
+}
+
+#appArea > header .header-controls {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 2px !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--border) !important;
+    background: var(--surface) !important;
+}
+
+#appArea > header .header-controls .btn {
+    min-width: 34px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .header-controls .btn:hover,
+#appArea > header .sync-badge:hover,
+#appArea > header .header-user:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .header-controls .btn-danger {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+#appArea > header .header-controls .btn-danger::after {
+    content: "" !important;
+}
+
+#appArea > header .header-controls .btn-danger i {
+    margin-right: 0 !important;
+}
+
+#appArea .tabs .tab-btn.active,
+#appArea .tabs .nav-menu-trigger.active,
+#appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22) !important;
+}
+
+#appArea .tabs .tab-btn:hover:not(.active),
+#appArea .tabs .nav-menu-trigger:hover:not(.active) {
+    border-color: var(--border) !important;
+    color: var(--primary) !important;
+}
+
+#appArea .container > .tabs-container {
+    top: calc(var(--app-header-height, 94px) + var(--app-tabs-sticky-gap, 10px)) !important;
+}
+
+[data-theme="dark"] #appArea > header {
+    background: var(--bg) !important;
+    border-bottom-color: var(--border) !important;
+}
+
+[data-theme="dark"] #appArea > header .header-user,
+[data-theme="dark"] #appArea > header .sync-badge,
+[data-theme="dark"] #appArea > header .header-controls {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+
+[data-theme="dark"] #appArea > header .header-user strong,
+[data-theme="dark"] #appArea > header .header-user span,
+[data-theme="dark"] #appArea > header .logo h1,
+[data-theme="dark"] #appArea > header .logo-subtitle,
+[data-theme="dark"] #appArea > header .header-controls .btn {
+    color: var(--text) !important;
+}
+
+@media (max-width: 900px) {
+    :root {
+        --app-header-height: 142px;
+    }
+
+    #appArea > header .container {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        padding: 10px 12px !important;
+    }
+
+    #appArea > header .logo,
+    #appArea > header .logo-subtitle {
+        text-align: center !important;
+    }
+
+    #appArea > header .header-actions {
+        width: 100% !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+    }
+
+    #appArea > header .header-user {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --app-header-height: 156px;
+    }
+
+    #appArea > header .logo h1 {
+        font-size: 1.48rem !important;
+    }
+
+    #appArea > header .header-user {
+        width: 100% !important;
+        justify-content: center !important;
+        border-radius: 16px !important;
+    }
+}
