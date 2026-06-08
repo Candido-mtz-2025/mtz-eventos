@@ -243,6 +243,38 @@
             : 'rascunho';
     }
 
+    function normalizarNumeroRevisaoProposta(valor, fallback = 1) {
+        const numero = Math.trunc(numeroNaoNegativo(valor, fallback));
+        return Math.max(1, numero || Math.trunc(numeroNaoNegativo(fallback, 1)) || 1);
+    }
+
+    function extrairRevisaoDoCodigo(codigo) {
+        const match = textoSeguro(codigo).match(/\brev\.?\s*(\d+)$/i);
+        return match ? normalizarNumeroRevisaoProposta(match[1], 1) : 1;
+    }
+
+    function obterCodigoBaseProposta(propostaOuCodigo) {
+        const codigo = typeof propostaOuCodigo === 'object'
+            ? textoSeguro(propostaOuCodigo?.codigoBase || propostaOuCodigo?.codigo)
+            : textoSeguro(propostaOuCodigo);
+        return codigo.replace(/\s+rev\.?\s*\d+$/i, '').trim();
+    }
+
+    function formatarCodigoRevisaoProposta(proposta) {
+        const codigoBase = obterCodigoBaseProposta(proposta) || textoSeguro(proposta?.codigo, '');
+        const revisao = normalizarNumeroRevisaoProposta(proposta?.revisao ?? proposta?.numeroRevisao ?? extrairRevisaoDoCodigo(proposta?.codigo), 1);
+        return `${codigoBase || 'PROP'} Rev. ${revisao}`;
+    }
+
+    function obterProximaRevisaoProposta(codigoBase) {
+        const base = obterCodigoBaseProposta(codigoBase);
+        const maior = obterPropostasBase().reduce((acc, proposta) => {
+            if (obterCodigoBaseProposta(proposta) !== base) return acc;
+            return Math.max(acc, normalizarNumeroRevisaoProposta(proposta.revisao, 1));
+        }, 0);
+        return Math.max(2, maior + 1);
+    }
+
     function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
         const valor = normalizarTextoBusca(tipo || fallback);
         return valor === 'acrescentar' ? 'acrescentar' : 'descontar';
@@ -2433,6 +2465,8 @@
         const evento = montarEventoNormalizado(proposta.evento || {});
         const id = proposta.id || Date.now();
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
+        const codigoBase = obterCodigoBaseProposta(proposta.codigoBase || codigo) || codigo;
+        const revisao = normalizarNumeroRevisaoProposta(proposta.revisao ?? proposta.numeroRevisao ?? extrairRevisaoDoCodigo(codigo), 1);
         const status = normalizarStatusProposta(proposta.status || 'rascunho');
         const usuarioAtual = obterUsuarioAtualNomeOuEmail();
         const agoraIso = obterAgoraIso();
@@ -2446,6 +2480,10 @@
         return {
             id,
             codigo,
+            codigoBase,
+            revisao,
+            numeroRevisao: revisao,
+            codigoExibicao: formatarCodigoRevisaoProposta({ codigoBase, revisao }),
             cliente: {
                 nome: textoSeguro(proposta?.cliente?.nome, ''),
                 documento: textoSeguro(proposta?.cliente?.documento, ''),
@@ -2476,6 +2514,9 @@
             dataAprovacao: textoSeguro(proposta.dataAprovacao, ''),
             dataCancelamento: textoSeguro(proposta.dataCancelamento, ''),
             dataConversaoLocacao,
+            propostaOrigemId: textoSeguro(proposta.propostaOrigemId, ''),
+            historicoRevisoes: Array.isArray(proposta.historicoRevisoes) ? proposta.historicoRevisoes.slice() : [],
+            motivoRevisao: textoSeguro(proposta.motivoRevisao, ''),
             // compatibilidade legado
             criadoEm: dataCriacao,
             atualizadoEm: dataUltimaAlteracao
@@ -2603,6 +2644,9 @@
         const proposta = {
             id: idAtual || Date.now(),
             codigo: textoSeguro(document.getElementById('propCodigo')?.value, ''),
+            codigoBase: textoSeguro(propostaAtual?.codigoBase || propostaAtual?.codigo, ''),
+            revisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
+            numeroRevisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
             cliente: {
                 nome: textoSeguro(document.getElementById('propClienteNome')?.value),
                 documento: textoSeguro(document.getElementById('propClienteDocumento')?.value),
@@ -2678,10 +2722,14 @@
             dataEnvio: textoSeguro(propostaAtual?.dataEnvio, ''),
             dataAprovacao: textoSeguro(propostaAtual?.dataAprovacao, ''),
             dataCancelamento: textoSeguro(propostaAtual?.dataCancelamento, ''),
-            dataConversaoLocacao: textoSeguro(propostaAtual?.dataConversaoLocacao, '')
+            dataConversaoLocacao: textoSeguro(propostaAtual?.dataConversaoLocacao, ''),
+            propostaOrigemId: textoSeguro(propostaAtual?.propostaOrigemId, ''),
+            historicoRevisoes: Array.isArray(propostaAtual?.historicoRevisoes) ? propostaAtual.historicoRevisoes.slice() : [],
+            motivoRevisao: textoSeguro(propostaAtual?.motivoRevisao, '')
         };
 
         if (!proposta.codigo) proposta.codigo = gerarCodigoProposta();
+        proposta.codigoBase = obterCodigoBaseProposta(proposta.codigoBase || proposta.codigo);
 
         if (validar) {
             if (!proposta.cliente.nome) {
@@ -2776,7 +2824,7 @@
 
         renderLinhasItensProposta(p.itens);
         sincronizarValidadePorData();
-        atualizarModoFormulario(`Editando ${p.codigo}`);
+        atualizarModoFormulario(`Editando ${formatarCodigoRevisaoProposta(p)}`);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
     }
 
@@ -2950,10 +2998,14 @@
 
         const agoraIso = obterAgoraIso();
         const novaId = Date.now() + Math.floor(Math.random() * 500);
+        const novoCodigo = gerarCodigoProposta();
         const copia = normalizarProposta({
             ...base,
             id: novaId,
-            codigo: gerarCodigoProposta(),
+            codigo: novoCodigo,
+            codigoBase: novoCodigo,
+            revisao: 1,
+            numeroRevisao: 1,
             status: 'rascunho',
             locacaoVinculadaId: '',
             locacaoId: '',
@@ -2965,6 +3017,9 @@
             dataAprovacao: '',
             dataCancelamento: '',
             dataConversaoLocacao: '',
+            propostaOrigemId: '',
+            historicoRevisoes: [],
+            motivoRevisao: '',
             evento: {
                 ...base.evento,
                 nome: `${base.evento.nome || 'Evento'} (copia)`
@@ -2986,6 +3041,66 @@
         }
     }
 
+    function criarNovaRevisaoProposta(id) {
+        const base = localizarProposta(id);
+        if (!base) {
+            mostrarToast('Proposta nao encontrada para revisar.', 'erro');
+            return;
+        }
+
+        const agoraIso = obterAgoraIso();
+        const codigoBase = obterCodigoBaseProposta(base) || base.codigo || gerarCodigoProposta();
+        const novaRevisao = obterProximaRevisaoProposta(codigoBase);
+        const novaId = Date.now() + Math.floor(Math.random() * 500);
+        const historicoBase = Array.isArray(base.historicoRevisoes) ? base.historicoRevisoes.slice() : [];
+        const registroBase = {
+            id: base.id,
+            codigo: formatarCodigoRevisaoProposta(base),
+            revisao: normalizarNumeroRevisaoProposta(base.revisao, 1),
+            status: base.status,
+            data: agoraIso,
+            usuario: obterUsuarioAtualNomeOuEmail()
+        };
+        const historicoRevisoes = historicoBase.some((item) => String(item.id) === String(base.id))
+            ? historicoBase
+            : [...historicoBase, registroBase];
+
+        const revisao = normalizarProposta({
+            ...base,
+            id: novaId,
+            codigo: codigoBase,
+            codigoBase,
+            revisao: novaRevisao,
+            numeroRevisao: novaRevisao,
+            status: 'rascunho',
+            locacaoVinculadaId: '',
+            locacaoId: '',
+            dataCriacao: agoraIso,
+            dataUltimaAlteracao: agoraIso,
+            criadoPor: obterUsuarioAtualNomeOuEmail(),
+            alteradoPor: obterUsuarioAtualNomeOuEmail(),
+            dataEnvio: '',
+            dataAprovacao: '',
+            dataCancelamento: '',
+            dataConversaoLocacao: '',
+            propostaOrigemId: String(base.id),
+            historicoRevisoes,
+            motivoRevisao: `Revisao criada a partir de ${formatarCodigoRevisaoProposta(base)}`
+        });
+
+        propostas = [...obterPropostasBase(), revisao];
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+        if (typeof registrarLog === 'function') {
+            registrarLog('proposta', 'revisao', `Nova revisao criada: ${formatarCodigoRevisaoProposta(revisao)} a partir de ${formatarCodigoRevisaoProposta(base)}.`);
+        }
+        mostrarToast(`${formatarCodigoRevisaoProposta(revisao)} criada para revisão.`);
+        preencherFormularioComProposta(revisao);
+        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
+        mostrarSecaoFormularioProposta('itens', { semRolagem: false, foco: false });
+    }
+
     function duplicarPropostaAtual() {
         const id = obterIdPropostaEmEdicao();
         if (!id) {
@@ -2993,6 +3108,15 @@
             return;
         }
         duplicarProposta(id);
+    }
+
+    function criarNovaRevisaoPropostaAtual() {
+        const id = obterIdPropostaEmEdicao();
+        if (!id) {
+            mostrarToast('Abra uma proposta para criar uma nova revisão.', 'info');
+            return;
+        }
+        criarNovaRevisaoProposta(id);
     }
 
     function excluirProposta(id) {
@@ -3486,7 +3610,7 @@
                 <div class="pdf-section pdf-document-title" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; border-bottom:2px solid #111827; padding-bottom:10px;">
                     <div>
                         <h2 style="margin:0; font-size:22px;">PROPOSTA COMERCIAL</h2>
-                        <div style="margin-top:6px; font-size:12px;">${sanitizar(p.codigo)} • ${statusRotulo(p.status)}</div>
+                        <div style="margin-top:6px; font-size:12px;">${sanitizar(formatarCodigoRevisaoProposta(p))} • ${statusRotulo(p.status)}</div>
                     </div>
                     <div style="text-align:right; font-size:11px;">
                         <div><strong>Criacao:</strong> ${formatarData(p.dataCriacao)}</div>
@@ -3715,6 +3839,8 @@
             if (!termo) return true;
             const alvo = normalizarTextoBusca([
                 proposta.codigo,
+                proposta.codigoExibicao,
+                formatarCodigoRevisaoProposta(proposta),
                 proposta.cliente?.nome,
                 proposta.cliente?.documento,
                 proposta.evento?.nome,
@@ -3757,7 +3883,7 @@
             const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
             return `
                 <tr data-proposta-id="${proposta.id}">
-                    <td>${sanitizar(proposta.codigo)}</td>
+                    <td>${sanitizar(formatarCodigoRevisaoProposta(proposta))}</td>
                     <td>${sanitizar(proposta.cliente.nome || '-')}</td>
                     <td>${sanitizar(proposta.evento.nome || '-')}</td>
                     <td>${formatarData(proposta.evento.dataEvento)}</td>
@@ -3772,6 +3898,9 @@
                             </button>
                             <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar">
                                 <i class="bi bi-files"></i>
+                            </button>
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="criarNovaRevisaoProposta" data-arg="${proposta.id}" title="Nova revisao">
+                                <i class="bi bi-layers"></i>
                             </button>
                             <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF">
                                 <i class="bi bi-printer"></i>
@@ -3891,6 +4020,8 @@
     window.editarPropostaAtual = editarPropostaAtual;
     window.duplicarProposta = duplicarProposta;
     window.duplicarPropostaAtual = duplicarPropostaAtual;
+    window.criarNovaRevisaoProposta = criarNovaRevisaoProposta;
+    window.criarNovaRevisaoPropostaAtual = criarNovaRevisaoPropostaAtual;
     window.excluirProposta = excluirProposta;
     window.excluirPropostaAtual = excluirPropostaAtual;
     window.gerarPDFProposta = gerarPDFProposta;

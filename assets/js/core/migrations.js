@@ -680,10 +680,27 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const statusNormalizado = aliasesStatus[statusRaw] || statusRaw;
 
     const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
+    const codigoOriginal = textoSeguro(proposta.codigo, '');
+    const codigoComRevisao = textoSeguro(proposta.codigoExibicao || proposta.codigo, '');
+    const codigoBaseRaw = textoSeguro(proposta.codigoBase || codigoOriginal, '');
+    const codigoBase = codigoBaseRaw.replace(/\s+rev\.?\s*\d+$/i, '').trim() || codigoOriginal;
+    const revisaoEncontrada = codigoComRevisao.match(/\brev\.?\s*(\d+)$/i);
+    const revisao = inteiroNaoNegativo(
+        proposta.revisao ?? proposta.numeroRevisao ?? (revisaoEncontrada ? revisaoEncontrada[1] : 1),
+        1
+    ) || 1;
+    const codigoExibicao = codigoBase ? `${codigoBase} Rev. ${revisao}` : codigoOriginal;
 
     const propostaMigrada = {
         id: proposta.id || Date.now(),
-        codigo: textoSeguro(proposta.codigo, ''),
+        codigo: codigoOriginal,
+        codigoBase,
+        revisao,
+        numeroRevisao: revisao,
+        codigoExibicao,
+        propostaOrigemId: textoSeguro(proposta.propostaOrigemId, ''),
+        historicoRevisoes: clonarArraySeguro(proposta.historicoRevisoes),
+        motivoRevisao: textoSeguro(proposta.motivoRevisao, ''),
         cliente: clonarObjetoSeguro(proposta.cliente, {
             nome: '',
             documento: '',
@@ -727,6 +744,10 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('controleInterno' in proposta)
         || !('escopo' in proposta)
         || !('responsavelProposta' in proposta)
+        || !('codigoBase' in proposta)
+        || !('revisao' in proposta)
+        || !('codigoExibicao' in proposta)
+        || !('historicoRevisoes' in proposta)
         || !('validadePropostaDias' in financeiroOriginal)
         || !('percentualEntrada' in financeiroOriginal)
         || !('tipoCalculoNF' in financeiroOriginal)
