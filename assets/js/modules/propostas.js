@@ -2495,6 +2495,78 @@
         return textoSeguro(document.getElementById('propostaIdAtual')?.value);
     }
 
+    function focarPendenciaProposta(pendencia) {
+        if (!pendencia?.secao) return;
+        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
+        mostrarSecaoFormularioProposta(pendencia.secao, { semRolagem: true, foco: false });
+
+        setTimeout(() => {
+            const campo = pendencia.campo ? document.getElementById(pendencia.campo) : null;
+            const alvo = campo || document.getElementById(`propostaSecao${pendencia.secao[0]?.toUpperCase() || ''}${pendencia.secao.slice(1)}`);
+            alvo?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+            campo?.focus?.();
+            campo?.select?.();
+        }, 120);
+    }
+
+    function obterPendenciasPropostaPronta(proposta, opcoes = {}) {
+        const p = normalizarProposta(proposta);
+        const pendencias = [];
+        const modo = opcoes.modo || 'pdf';
+        const itensValidos = (Array.isArray(p.itens) ? p.itens : []).filter((item) => {
+            const calculado = calcularItemProposta(item || {});
+            return textoSeguro(calculado.descricao)
+                && numeroNaoNegativo(calculado.quantidade, 0) > 0
+                && numeroNaoNegativo(calculado.valorTotal, 0) > 0;
+        });
+        const valorFinalComercial = obterValorFinalComercial(p);
+
+        if (!textoSeguro(p.cliente?.nome)) {
+            pendencias.push({ secao: 'dados', campo: 'propClienteNome', mensagem: 'Informe o nome/empresa do cliente antes de gerar a proposta.' });
+        }
+        if (!textoSeguro(p.cliente?.telefone) && !textoSeguro(p.cliente?.email)) {
+            pendencias.push({ secao: 'dados', campo: 'propClienteTelefone', mensagem: 'Informe telefone ou e-mail do cliente para contato comercial.' });
+        }
+        if (!textoSeguro(p.evento?.nome)) {
+            pendencias.push({ secao: 'dados', campo: 'propEventoNome', mensagem: 'Informe o nome do evento antes de finalizar a proposta.' });
+        }
+        if (!textoSeguro(p.evento?.dataEvento)) {
+            pendencias.push({ secao: 'dados', campo: 'propDataEvento', mensagem: 'Informe a data do evento antes de gerar PDF ou converter.' });
+        }
+        if (modo === 'conversao' && !textoSeguro(p.evento?.dataMontagem)) {
+            pendencias.push({ secao: 'dados', campo: 'propDataMontagem', mensagem: 'Informe a data de montagem antes de converter em locação.' });
+        }
+        if (modo === 'conversao' && !textoSeguro(p.evento?.dataDesmontagem)) {
+            pendencias.push({ secao: 'dados', campo: 'propDataDesmontagem', mensagem: 'Informe a data de desmontagem antes de converter em locação.' });
+        }
+        if (!parseDataIso(p.financeiro?.validadePropostaData)) {
+            pendencias.push({ secao: 'dados', campo: 'propValidadeData', mensagem: 'Informe uma validade para a proposta.' });
+        }
+        if (!itensValidos.length) {
+            pendencias.push({ secao: 'itens', campo: null, mensagem: 'Adicione pelo menos um item com descrição, quantidade e valor maior que zero.' });
+        }
+        if (valorFinalComercial <= 0) {
+            pendencias.push({ secao: 'itens', campo: null, mensagem: 'O valor final da proposta precisa ser maior que zero.' });
+        }
+        if (!textoSeguro(p.financeiro?.condicaoPagamento)) {
+            pendencias.push({ secao: 'fechamento', campo: 'propCondicaoPagamento', mensagem: 'Informe a condição de pagamento antes de enviar a proposta.' });
+        }
+
+        return pendencias;
+    }
+
+    function validarPropostaProntaParaUso(proposta, opcoes = {}) {
+        const pendencias = obterPendenciasPropostaPronta(proposta, opcoes);
+        if (!pendencias.length) return true;
+
+        const primeira = pendencias[0];
+        mostrarToast(primeira.mensagem, 'erro');
+        if (opcoes.focar !== false) {
+            focarPendenciaProposta(primeira);
+        }
+        return false;
+    }
+
     function coletarDadosFormulario(validar = true) {
         const idAtual = obterIdPropostaEmEdicao();
         const propostaAtual = idAtual ? localizarProposta(idAtual) : null;
@@ -3208,8 +3280,10 @@
             mostrarToast('Proposta nao encontrada para conversao.', 'erro');
             return;
         }
-        if (!Array.isArray(proposta.itens) || proposta.itens.length === 0) {
-            mostrarToast('A proposta nao possui itens para converter.', 'erro');
+        if (!validarPropostaProntaParaUso(proposta, {
+            modo: 'conversao',
+            focar: String(obterIdPropostaEmEdicao()) === String(id)
+        })) {
             return;
         }
 
@@ -3503,6 +3577,12 @@
             mostrarToast('Proposta nao encontrada para PDF.', 'erro');
             return;
         }
+        if (!validarPropostaProntaParaUso(proposta, {
+            modo: 'pdf',
+            focar: String(obterIdPropostaEmEdicao()) === String(id)
+        })) {
+            return;
+        }
 
         const printArea = document.getElementById('printArea');
         const modal = document.getElementById('modalRelatorio');
@@ -3541,8 +3621,7 @@
 
     function gerarPDFPropostaAtualComTipo(exibirInterno = false) {
         const propostaTemp = coletarDadosFormulario(false);
-        if (!propostaTemp || propostaTemp.itens.length === 0) {
-            mostrarToast('Preencha os itens da proposta antes de gerar PDF.', 'info');
+        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
             return;
         }
         abrirPreviewPDFProposta(propostaTemp, exibirInterno);
@@ -3559,12 +3638,15 @@
     function gerarPDFPropostaAtual() {
         const id = obterIdPropostaEmEdicao();
         if (id) {
-            gerarPDFProposta(id);
+            const propostaTemp = coletarDadosFormulario(false);
+            if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
+                return;
+            }
+            abrirPreviewPDFProposta(propostaTemp, propostaTemp.financeiro.exibirInformacoesInternasPDF === true);
             return;
         }
         const propostaTemp = coletarDadosFormulario(false);
-        if (!propostaTemp || propostaTemp.itens.length === 0) {
-            mostrarToast('Preencha e salve a proposta antes de gerar PDF.', 'info');
+        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
             return;
         }
         const printArea = document.getElementById('printArea');
