@@ -10503,3 +10503,280 @@ html {
         display: table-footer-group;
     }
 }
+
+/* === V21.4 | HEADER MTZ CLEAN PREMIUM === */
+:root {
+    --app-header-height: 92px;
+    --mtz-clean-red: #ef233c;
+    --mtz-clean-blue: #2563eb;
+    --mtz-clean-ink: #0f172a;
+    --mtz-clean-muted: #64748b;
+    --mtz-clean-line: rgba(148, 163, 184, 0.26);
+}
+
+#appArea > header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1500 !important;
+    background:
+        linear-gradient(180deg, rgba(226, 232, 240, 0.96), rgba(226, 232, 240, 0.86)) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08) !important;
+}
+
+#appArea > header::after {
+    left: max(22px, calc((100vw - 1260px) / 2 + 22px)) !important;
+    bottom: 0 !important;
+    width: 180px !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, var(--mtz-clean-red), rgba(239, 35, 60, 0)) !important;
+    opacity: 0.85 !important;
+}
+
+#appArea > header .header-premium {
+    min-height: var(--app-header-height) !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    gap: 18px !important;
+}
+
+#appArea > header .logo-premium {
+    min-width: 0 !important;
+    gap: 14px !important;
+    color: var(--mtz-clean-ink) !important;
+}
+
+#appArea > header .header-logo-img {
+    width: 62px !important;
+    max-height: 50px !important;
+    padding: 7px !important;
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    border: 1px solid var(--mtz-clean-line) !important;
+    filter: none !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+}
+
+#appArea > header .header-brand-text {
+    padding-left: 14px !important;
+    border-left: 1px solid var(--mtz-clean-line) !important;
+}
+
+#appArea > header .logo-premium h1 {
+    color: var(--mtz-clean-ink) !important;
+    font-size: clamp(1.55rem, 2.3vw, 2rem) !important;
+    font-weight: 850 !important;
+}
+
+#appArea > header .logo-premium .logo-subtitle {
+    margin-top: 4px !important;
+    color: var(--mtz-clean-muted) !important;
+    font-size: 0.88rem !important;
+}
+
+#appArea > header .header-actions-premium {
+    gap: 10px !important;
+}
+
+#appArea > header .header-user {
+    min-width: 244px !important;
+    max-width: 330px !important;
+    min-height: 52px !important;
+    padding: 7px 12px !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--mtz-clean-line) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--mtz-clean-ink) !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+}
+
+#appArea > header .header-user[style*="display:none"],
+#appArea > header .header-user[style*="display: none"] {
+    display: none !important;
+}
+
+#appArea > header .header-user img {
+    width: 38px !important;
+    height: 38px !important;
+    flex-basis: 38px !important;
+    border: 0 !important;
+    background: #4f35b5 !important;
+}
+
+#appArea > header .header-user strong {
+    color: var(--mtz-clean-ink) !important;
+    font-size: 0.83rem !important;
+}
+
+#appArea > header .header-user span {
+    max-width: 184px !important;
+    color: var(--mtz-clean-muted) !important;
+    font-size: 0.72rem !important;
+}
+
+#appArea > header .header-role-badge {
+    margin-top: 4px !important;
+    padding: 2px 8px !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    font-size: 0.61rem !important;
+}
+
+#appArea > header .sync-badge {
+    min-width: 106px !important;
+    min-height: 46px !important;
+    padding: 8px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(34, 197, 94, 0.22) !important;
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    font-size: 0.78rem !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .sync-badge span {
+    color: #166534 !important;
+}
+
+#appArea > header .sync-badge.sync-offline {
+    border-color: rgba(100, 116, 139, 0.24) !important;
+    background: #f8fafc !important;
+    color: #475569 !important;
+}
+
+#appArea > header .sync-badge.sync-offline span {
+    color: #475569 !important;
+}
+
+#appArea > header .sync-badge.sync-saving,
+#appArea > header .sync-badge.sync-pending {
+    border-color: rgba(249, 115, 22, 0.24) !important;
+    background: #fff7ed !important;
+    color: #9a3412 !important;
+}
+
+#appArea > header .sync-badge.sync-saving span,
+#appArea > header .sync-badge.sync-pending span {
+    color: #9a3412 !important;
+}
+
+#appArea > header .header-controls {
+    gap: 8px !important;
+    background: transparent !important;
+}
+
+#appArea > header .header-controls .btn {
+    min-width: 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--mtz-clean-line) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--mtz-clean-ink) !important;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
+}
+
+#appArea > header .header-controls .btn:hover,
+#appArea > header .sync-badge:hover,
+#appArea > header .header-user:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1) !important;
+}
+
+#appArea > header .header-controls .btn-danger {
+    width: 46px !important;
+    min-width: 46px !important;
+    background: #ef4444 !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    color: #ffffff !important;
+}
+
+#appArea > header .header-controls .btn-danger::after {
+    content: "" !important;
+}
+
+#appArea > header .header-controls .btn-danger i {
+    margin-right: 0 !important;
+}
+
+#appArea .tabs .tab-btn.active,
+#appArea .tabs .nav-menu-trigger.active,
+#appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger {
+    background: var(--mtz-clean-blue) !important;
+    border-color: var(--mtz-clean-blue) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18) !important;
+}
+
+#appArea .tabs .tab-btn:hover:not(.active),
+#appArea .tabs .nav-menu-trigger:hover:not(.active) {
+    border-color: rgba(37, 99, 235, 0.24) !important;
+    color: #1d4ed8 !important;
+}
+
+#appArea .tabs {
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08) !important;
+}
+
+#appArea .container > .tabs-container {
+    top: calc(var(--app-header-height, 92px) + var(--app-tabs-sticky-gap, 10px)) !important;
+}
+
+@media (max-width: 920px) {
+    :root {
+        --app-header-height: 138px;
+    }
+
+    #appArea > header .header-premium {
+        flex-wrap: wrap !important;
+        padding: 10px 12px !important;
+    }
+
+    #appArea > header .header-actions-premium {
+        width: 100% !important;
+        justify-content: space-between !important;
+        flex-wrap: wrap !important;
+    }
+
+    #appArea > header .header-user {
+        min-width: 0 !important;
+        flex: 1 1 220px !important;
+        max-width: none !important;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --app-header-height: 170px;
+    }
+
+    #appArea > header .header-logo-img {
+        width: 52px !important;
+        max-height: 44px !important;
+    }
+
+    #appArea > header .header-brand-text {
+        padding-left: 10px !important;
+    }
+
+    #appArea > header .logo-premium h1 {
+        font-size: 1.18rem !important;
+    }
+
+    #appArea > header .logo-premium .logo-subtitle {
+        font-size: 0.74rem !important;
+    }
+
+    #appArea > header .sync-badge {
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+
+    #appArea > header .header-user {
+        order: 3 !important;
+        flex-basis: 100% !important;
+        border-radius: 16px !important;
+    }
+}
