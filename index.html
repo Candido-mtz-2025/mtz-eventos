@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=21.5">
+    <link rel="stylesheet" href="./assets/css/style.css?v=21.6">
 </head>
 <body>
 
@@ -100,7 +100,25 @@
                     </div>
                     <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
                     <div class="header-controls">
-                        <button class="btn btn-secondary btn-sm" data-action="toggleTheme"><i class="bi bi-moon"></i></button>
+                        <div class="theme-menu-wrap">
+                            <button class="btn btn-secondary btn-sm" data-action="toggleTheme" aria-expanded="false" aria-controls="themeMenu" title="Escolher tema">
+                                <i class="bi bi-moon"></i>
+                            </button>
+                            <div id="themeMenu" class="theme-menu" role="menu" aria-label="Escolher tema" hidden>
+                                <button type="button" role="menuitem" data-theme-option="light" data-action="selecionarTema" data-arg="light">
+                                    <i class="bi bi-sun"></i><span>Claro</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="dark" data-action="selecionarTema" data-arg="dark">
+                                    <i class="bi bi-moon"></i><span>Escuro</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="mtz-premium" data-action="selecionarTema" data-arg="mtz-premium">
+                                    <i class="bi bi-palette"></i><span>MTZ Premium</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="auto" data-action="selecionarTema" data-arg="auto">
+                                    <i class="bi bi-circle-half"></i><span>Automático</span>
+                                </button>
+                            </div>
+                        </div>
                         <button class="btn btn-danger btn-sm" data-action="sair"><i class="bi bi-box-arrow-right"></i></button>
                     </div>
                 </div>
@@ -2175,7 +2193,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.3"></script>
-    <script src="./assets/js/core/app.js?v=22.8"></script>
+    <script src="./assets/js/core/app.js?v=22.9"></script>
         
 </body>
 </html>

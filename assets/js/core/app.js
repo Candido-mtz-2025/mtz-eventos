@@ -2635,7 +2635,7 @@ function executarAtalhoRapido(atalhoId) {
     `;
     document.head.appendChild(style);
     
-    if(localStorage.getItem('theme') === 'dark') document.body.setAttribute('data-theme', 'dark');
+    inicializarTemaSistema();
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
     inicializarNavegacaoPrincipal();
     atualizarMedidasTopoApp();
@@ -2657,12 +2657,154 @@ function executarAtalhoRapido(atalhoId) {
     setInterval(salvarLocal, 60000);
     console.log('✅ Sistema de backup ativado');
 };
-    function toggleTheme() { 
-        const body = document.body;
-        const isDark = body.getAttribute('data-theme') === 'dark'; 
-        body.setAttribute('data-theme', isDark ? 'light' : 'dark'); 
-        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    const CHAVE_TEMA_SISTEMA = 'theme';
+    const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'auto'];
+
+    function normalizarTemaSistema(tema) {
+        const valor = String(tema || '').trim().toLowerCase();
+        return TEMAS_SISTEMA.includes(valor) ? valor : 'light';
     }
+
+    function obterTemaAutomaticoSistema() {
+        try {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } catch (erro) {
+            return 'light';
+        }
+    }
+
+    function obterTemaEfetivoSistema(preferencia) {
+        const tema = normalizarTemaSistema(preferencia);
+        return tema === 'auto' ? obterTemaAutomaticoSistema() : tema;
+    }
+
+    function atualizarMetaCorTema(temaEfetivo) {
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) return;
+        const cores = {
+            light: '#e2e8f0',
+            dark: '#0f172a',
+            'mtz-premium': '#0b1220'
+        };
+        meta.setAttribute('content', cores[temaEfetivo] || cores.light);
+    }
+
+    function atualizarControleTema(preferencia, temaEfetivo) {
+        const botao = document.querySelector('[data-action="toggleTheme"]');
+        const menu = document.getElementById('themeMenu');
+        const tema = normalizarTemaSistema(preferencia);
+        const icones = {
+            light: 'bi-sun',
+            dark: 'bi-moon',
+            'mtz-premium': 'bi-palette',
+            auto: 'bi-circle-half'
+        };
+        const rotulos = {
+            light: 'Tema claro',
+            dark: 'Tema escuro',
+            'mtz-premium': 'Tema MTZ Premium',
+            auto: `Tema automatico (${temaEfetivo === 'dark' ? 'escuro' : 'claro'})`
+        };
+
+        if (botao) {
+            const icon = botao.querySelector('i');
+            if (icon) {
+                icon.className = `bi ${icones[tema] || icones.light}`;
+            }
+            botao.setAttribute('title', rotulos[tema] || rotulos.light);
+            botao.setAttribute('aria-label', `${rotulos[tema] || rotulos.light}. Abrir opcoes de tema.`);
+        }
+
+        if (menu) {
+            menu.querySelectorAll('[data-theme-option]').forEach((item) => {
+                const ativo = item.dataset.themeOption === tema;
+                item.classList.toggle('is-active', ativo);
+                item.setAttribute('aria-current', ativo ? 'true' : 'false');
+            });
+        }
+    }
+
+    function aplicarTemaSistema(preferencia, opcoes = {}) {
+        const tema = normalizarTemaSistema(preferencia);
+        const temaEfetivo = obterTemaEfetivoSistema(tema);
+        document.body.setAttribute('data-theme', temaEfetivo);
+        document.body.dataset.themePreference = tema;
+
+        if (opcoes.persistir !== false) {
+            localStorage.setItem(CHAVE_TEMA_SISTEMA, tema);
+        }
+
+        atualizarMetaCorTema(temaEfetivo);
+        atualizarControleTema(tema, temaEfetivo);
+    }
+
+    function fecharMenuTema() {
+        const menu = document.getElementById('themeMenu');
+        const botao = document.querySelector('[data-action="toggleTheme"]');
+        if (menu) menu.hidden = true;
+        if (botao) botao.setAttribute('aria-expanded', 'false');
+    }
+
+    function abrirMenuTema() {
+        const menu = document.getElementById('themeMenu');
+        const botao = document.querySelector('[data-action="toggleTheme"]');
+        if (!menu) return;
+        const deveAbrir = menu.hidden;
+        menu.hidden = !deveAbrir;
+        if (botao) botao.setAttribute('aria-expanded', deveAbrir ? 'true' : 'false');
+        if (deveAbrir) {
+            setTimeout(() => menu.querySelector('[data-theme-option].is-active, [data-theme-option]')?.focus(), 30);
+        }
+    }
+
+    function selecionarTema(tema) {
+        aplicarTemaSistema(tema);
+        fecharMenuTema();
+        if (typeof mostrarToast === 'function') {
+            const rotulos = {
+                light: 'Tema claro aplicado.',
+                dark: 'Tema escuro aplicado.',
+                'mtz-premium': 'Tema MTZ Premium aplicado.',
+                auto: 'Tema automatico aplicado.'
+            };
+            mostrarToast(rotulos[normalizarTemaSistema(tema)] || 'Tema atualizado.');
+        }
+    }
+
+    function toggleTheme() {
+        abrirMenuTema();
+    }
+
+    function inicializarTemaSistema() {
+        aplicarTemaSistema(localStorage.getItem(CHAVE_TEMA_SISTEMA) || 'light', { persistir: false });
+
+        try {
+            const media = window.matchMedia('(prefers-color-scheme: dark)');
+            const atualizarAuto = () => {
+                if (normalizarTemaSistema(localStorage.getItem(CHAVE_TEMA_SISTEMA)) === 'auto') {
+                    aplicarTemaSistema('auto', { persistir: false });
+                }
+            };
+            if (typeof media.addEventListener === 'function') media.addEventListener('change', atualizarAuto);
+            else if (typeof media.addListener === 'function') media.addListener(atualizarAuto);
+        } catch (erro) {
+            // Preferencia automatica indisponivel; mantem o tema salvo.
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const alvo = event.target;
+        if (alvo instanceof HTMLElement && alvo.closest('.theme-menu-wrap')) return;
+        fecharMenuTema();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') fecharMenuTema();
+    });
+
+    window.aplicarTemaSistema = aplicarTemaSistema;
+    window.selecionarTema = selecionarTema;
+    window.toggleTheme = toggleTheme;
 
     function abrirTab(id, opcoes = {}) {
         id = String(id || '').trim() === 'orcamentos' ? 'propostas' : id;

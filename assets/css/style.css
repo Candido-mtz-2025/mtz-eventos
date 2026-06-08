@@ -11070,3 +11070,179 @@ html {
         border-radius: 16px !important;
     }
 }
+
+/* === V21.6 | SELETOR DE TEMAS === */
+.theme-menu-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.theme-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 1800;
+    width: 210px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16);
+}
+
+.theme-menu[hidden] {
+    display: none !important;
+}
+
+.theme-menu::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    right: 18px;
+    width: 10px;
+    height: 10px;
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    transform: rotate(45deg);
+}
+
+.theme-menu button {
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 750;
+    text-align: left;
+    cursor: pointer;
+}
+
+.theme-menu button:hover,
+.theme-menu button:focus-visible {
+    background: var(--surface-soft, #f8fafc);
+    outline: none;
+}
+
+.theme-menu button.is-active {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--primary);
+}
+
+.theme-menu button.is-active::after {
+    content: "\F26E";
+    margin-left: auto;
+    font-family: "bootstrap-icons";
+    font-size: 0.95rem;
+}
+
+[data-theme="dark"] .theme-menu button:hover,
+[data-theme="dark"] .theme-menu button:focus-visible,
+[data-theme="mtz-premium"] .theme-menu button:hover,
+[data-theme="mtz-premium"] .theme-menu button:focus-visible {
+    background: rgba(148, 163, 184, 0.14);
+}
+
+[data-theme="mtz-premium"] {
+    --primary: #ef4444;
+    --primary-hover: #dc2626;
+    --bg: #0f172a;
+    --surface: #172236;
+    --surface-hover: #223149;
+    --surface-soft: #111c2f;
+    --surface-muted: #0b1220;
+    --text: #f8fafc;
+    --text-light: #a8b5c7;
+    --text-muted: #a8b5c7;
+    --border: #314159;
+    --border-strong: #475569;
+    --input-bg: #0b1220;
+    --shadow: none;
+    --shadow-card-pro: none;
+    --pro-border-soft: #314159;
+    --pro-shadow-soft: none;
+}
+
+[data-theme="mtz-premium"] body,
+body[data-theme="mtz-premium"] {
+    background:
+        radial-gradient(circle at top right, rgba(239, 68, 68, 0.09), transparent 28%),
+        var(--bg);
+}
+
+[data-theme="mtz-premium"] #appArea > header {
+    background: #0f172a !important;
+    border-bottom-color: #314159 !important;
+}
+
+[data-theme="mtz-premium"] #appArea > header .logo h1,
+[data-theme="mtz-premium"] #appArea > header .logo-subtitle,
+[data-theme="mtz-premium"] #appArea > header .header-user strong,
+[data-theme="mtz-premium"] #appArea > header .header-user span,
+[data-theme="mtz-premium"] #appArea > header .header-controls .btn {
+    color: var(--text) !important;
+}
+
+[data-theme="mtz-premium"] #appArea > header .header-user,
+[data-theme="mtz-premium"] #appArea > header .header-controls,
+[data-theme="mtz-premium"] #appArea > header .sync-badge,
+[data-theme="mtz-premium"] .theme-menu {
+    background: #172236 !important;
+    border-color: #314159 !important;
+}
+
+[data-theme="mtz-premium"] #appArea > header .header-role-badge {
+    background: rgba(239, 68, 68, 0.16) !important;
+    color: #fecaca !important;
+}
+
+[data-theme="mtz-premium"] #appArea .tabs .tab-btn.active,
+[data-theme="mtz-premium"] #appArea .tabs .nav-menu-trigger.active,
+[data-theme="mtz-premium"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.18) !important;
+}
+
+[data-theme="mtz-premium"] .card,
+[data-theme="mtz-premium"] .dash-section,
+[data-theme="mtz-premium"] .panel-block,
+[data-theme="mtz-premium"] .modal-content:not(.modal-relatorio-content),
+[data-theme="mtz-premium"] .table-responsive,
+[data-theme="mtz-premium"] #tab-dashboard .finance-kpi,
+[data-theme="mtz-premium"] #tab-dashboard .stat-card,
+[data-theme="mtz-premium"] #tab-propostas .proposta-data-card,
+[data-theme="mtz-premium"] #tab-propostas .proposta-form-section,
+[data-theme="mtz-premium"] #tab-propostas .proposta-config-panel {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+[data-theme="mtz-premium"] input,
+[data-theme="mtz-premium"] select,
+[data-theme="mtz-premium"] textarea {
+    background: var(--input-bg) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+[data-theme="mtz-premium"] input::placeholder,
+[data-theme="mtz-premium"] textarea::placeholder {
+    color: #73849c !important;
+}
+
+@media (max-width: 640px) {
+    .theme-menu {
+        right: -54px;
+        width: min(230px, calc(100vw - 28px));
+    }
+}
