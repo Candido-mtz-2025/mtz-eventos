@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=21.1">
+    <link rel="stylesheet" href="./assets/css/style.css?v=21.2">
 </head>
 <body>
 
@@ -1278,6 +1278,9 @@
                     </div>
                     <div class="proposta-action-panel">
                         <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
+                        <button class="btn btn-info" data-action="alterarStatusPropostaAtual" data-arg="enviada"><i class="bi bi-send"></i> Marcar enviado</button>
+                        <button class="btn btn-success" data-action="alterarStatusPropostaAtual" data-arg="aprovada"><i class="bi bi-hand-thumbs-up"></i> Aprovar</button>
+                        <button class="btn btn-warning" data-action="alterarStatusPropostaAtual" data-arg="recusada"><i class="bi bi-hand-thumbs-down"></i> Recusar</button>
                         <button class="btn btn-warning" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF cliente</button>
                         <button class="btn btn-info" data-action="gerarPDFPropostaAtualInterno"><i class="bi bi-file-earmark-lock"></i> Gerar PDF interno</button>
                         <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar orçamento</button>
@@ -2146,12 +2149,12 @@
     <script src="./assets/js/core/audit.js"></script>
     <script src="./assets/js/core/sync.js?v=1.1"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.5"></script>
+    <script src="./assets/js/core/migrations.js?v=12.6"></script>
     <script src="./assets/js/core/domain-services.js?v=12.1"></script>
     <script src="./assets/js/core/storage.js?v=12.3"></script>
     <script src="./assets/js/ui/pwa.js"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=3.2"></script>
+    <script src="./assets/js/modules/propostas.js?v=3.3"></script>
     <script src="./assets/js/modules/clientes.js?v=2.0"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.3"></script>

@@ -731,8 +731,12 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         alteradoPor: textoSeguro(proposta.alteradoPor, ''),
         dataEnvio: textoSeguro(proposta.dataEnvio, ''),
         dataAprovacao: textoSeguro(proposta.dataAprovacao, ''),
+        dataRecusa: textoSeguro(proposta.dataRecusa, ''),
         dataCancelamento: textoSeguro(proposta.dataCancelamento, ''),
         dataConversaoLocacao: textoSeguro(proposta.dataConversaoLocacao, ''),
+        motivoStatus: textoSeguro(proposta.motivoStatus, ''),
+        motivoRecusa: textoSeguro(proposta.motivoRecusa, ''),
+        motivoCancelamento: textoSeguro(proposta.motivoCancelamento, ''),
         criadoEm: dataCriacao,
         atualizadoEm: textoSeguro(proposta.dataUltimaAlteracao || proposta.atualizadoEm, dataCriacao)
     };
@@ -748,6 +752,10 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         || !('revisao' in proposta)
         || !('codigoExibicao' in proposta)
         || !('historicoRevisoes' in proposta)
+        || !('dataRecusa' in proposta)
+        || !('motivoStatus' in proposta)
+        || !('motivoRecusa' in proposta)
+        || !('motivoCancelamento' in proposta)
         || !('validadePropostaDias' in financeiroOriginal)
         || !('percentualEntrada' in financeiroOriginal)
         || !('tipoCalculoNF' in financeiroOriginal)

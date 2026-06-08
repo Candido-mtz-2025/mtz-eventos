@@ -1799,6 +1799,23 @@
         return STATUS_LABELS[normalizarStatusProposta(status)] || STATUS_LABELS.rascunho;
     }
 
+    function obterDataStatusProposta(proposta) {
+        const status = normalizarStatusProposta(proposta?.status || 'rascunho');
+        if (status === 'enviada' || status === 'em_negociacao') return textoSeguro(proposta?.dataEnvio, '');
+        if (status === 'aprovada') return textoSeguro(proposta?.dataAprovacao, '');
+        if (status === 'recusada') return textoSeguro(proposta?.dataRecusa || proposta?.dataCancelamento, '');
+        if (status === 'cancelada') return textoSeguro(proposta?.dataCancelamento, '');
+        if (status === 'convertida') return textoSeguro(proposta?.dataConversaoLocacao || proposta?.dataAprovacao, '');
+        return '';
+    }
+
+    function obterMotivoStatusProposta(proposta) {
+        const status = normalizarStatusProposta(proposta?.status || 'rascunho');
+        if (status === 'recusada') return textoSeguro(proposta?.motivoRecusa || proposta?.motivoStatus, '');
+        if (status === 'cancelada') return textoSeguro(proposta?.motivoCancelamento || proposta?.motivoStatus, '');
+        return textoSeguro(proposta?.motivoStatus, '');
+    }
+
     function obterStatusSelecionado() {
         return normalizarStatusProposta(document.getElementById('propStatus')?.value || 'rascunho');
     }
@@ -2632,8 +2649,12 @@
             alteradoPor,
             dataEnvio: textoSeguro(proposta.dataEnvio, ''),
             dataAprovacao: textoSeguro(proposta.dataAprovacao, ''),
+            dataRecusa: textoSeguro(proposta.dataRecusa, ''),
             dataCancelamento: textoSeguro(proposta.dataCancelamento, ''),
             dataConversaoLocacao,
+            motivoStatus: textoSeguro(proposta.motivoStatus, ''),
+            motivoRecusa: textoSeguro(proposta.motivoRecusa, ''),
+            motivoCancelamento: textoSeguro(proposta.motivoCancelamento, ''),
             propostaOrigemId: textoSeguro(proposta.propostaOrigemId, ''),
             historicoRevisoes: Array.isArray(proposta.historicoRevisoes) ? proposta.historicoRevisoes.slice() : [],
             motivoRevisao: textoSeguro(proposta.motivoRevisao, ''),
@@ -2841,8 +2862,12 @@
             alteradoPor: usuarioAtual,
             dataEnvio: textoSeguro(propostaAtual?.dataEnvio, ''),
             dataAprovacao: textoSeguro(propostaAtual?.dataAprovacao, ''),
+            dataRecusa: textoSeguro(propostaAtual?.dataRecusa, ''),
             dataCancelamento: textoSeguro(propostaAtual?.dataCancelamento, ''),
             dataConversaoLocacao: textoSeguro(propostaAtual?.dataConversaoLocacao, ''),
+            motivoStatus: textoSeguro(propostaAtual?.motivoStatus, ''),
+            motivoRecusa: textoSeguro(propostaAtual?.motivoRecusa, ''),
+            motivoCancelamento: textoSeguro(propostaAtual?.motivoCancelamento, ''),
             propostaOrigemId: textoSeguro(propostaAtual?.propostaOrigemId, ''),
             historicoRevisoes: Array.isArray(propostaAtual?.historicoRevisoes) ? propostaAtual.historicoRevisoes.slice() : [],
             motivoRevisao: textoSeguro(propostaAtual?.motivoRevisao, '')
@@ -3023,12 +3048,17 @@
 
         propostaNova.dataEnvio = textoSeguro(propostaAnterior?.dataEnvio, propostaNova.dataEnvio || '');
         propostaNova.dataAprovacao = textoSeguro(propostaAnterior?.dataAprovacao, propostaNova.dataAprovacao || '');
+        propostaNova.dataRecusa = textoSeguro(propostaAnterior?.dataRecusa, propostaNova.dataRecusa || '');
         propostaNova.dataCancelamento = textoSeguro(propostaAnterior?.dataCancelamento, propostaNova.dataCancelamento || '');
         propostaNova.dataConversaoLocacao = textoSeguro(propostaAnterior?.dataConversaoLocacao, propostaNova.dataConversaoLocacao || '');
+        propostaNova.motivoStatus = textoSeguro(propostaNova.motivoStatus || propostaAnterior?.motivoStatus, '');
+        propostaNova.motivoRecusa = textoSeguro(propostaNova.motivoRecusa || propostaAnterior?.motivoRecusa, '');
+        propostaNova.motivoCancelamento = textoSeguro(propostaNova.motivoCancelamento || propostaAnterior?.motivoCancelamento, '');
 
         if (atual === 'enviada' && !propostaNova.dataEnvio) propostaNova.dataEnvio = agoraIso;
         if (atual === 'aprovada' && !propostaNova.dataAprovacao) propostaNova.dataAprovacao = agoraIso;
-        if ((atual === 'cancelada' || atual === 'recusada') && !propostaNova.dataCancelamento) propostaNova.dataCancelamento = agoraIso;
+        if (atual === 'recusada' && !propostaNova.dataRecusa) propostaNova.dataRecusa = agoraIso;
+        if (atual === 'cancelada' && !propostaNova.dataCancelamento) propostaNova.dataCancelamento = agoraIso;
         if (atual === 'convertida' && !propostaNova.dataConversaoLocacao) propostaNova.dataConversaoLocacao = agoraIso;
 
         if (anterior !== atual && typeof registrarLog === 'function') {
@@ -3109,6 +3139,96 @@
             return;
         }
         editarProposta(id);
+    }
+
+    function solicitarMotivoStatusProposta(proposta, novoStatus) {
+        if (novoStatus !== 'recusada' && novoStatus !== 'cancelada') return '';
+        const rotulo = novoStatus === 'recusada' ? 'recusa' : 'cancelamento';
+        const motivoAtual = obterMotivoStatusProposta(proposta);
+        const motivo = prompt(`Informe o motivo da ${rotulo} da proposta:`, motivoAtual);
+        if (motivo === null) return null;
+        return textoSeguro(motivo, motivoAtual);
+    }
+
+    function atualizarStatusProposta(id, novoStatus, opcoes = {}) {
+        const status = normalizarStatusProposta(novoStatus);
+        if (status === 'convertida') {
+            converterPropostaEmLocacaoFechada(id);
+            return;
+        }
+        const lista = obterPropostasBase();
+        const indice = lista.findIndex((item) => String(item.id) === String(id));
+        if (indice < 0) {
+            mostrarToast('Proposta nao encontrada para atualizar status.', 'erro');
+            return;
+        }
+
+        const anterior = lista[indice];
+        if ((status === 'enviada' || status === 'aprovada') && !validarPropostaProntaParaUso(anterior, {
+            modo: 'status',
+            focar: String(obterIdPropostaEmEdicao()) === String(id)
+        })) {
+            return;
+        }
+        const motivo = solicitarMotivoStatusProposta(anterior, status);
+        if (motivo === null) return;
+
+        const agoraIso = obterAgoraIso();
+        const atualizada = {
+            ...anterior,
+            status,
+            dataUltimaAlteracao: agoraIso,
+            alteradoPor: obterUsuarioAtualNomeOuEmail()
+        };
+
+        if (status === 'recusada') {
+            atualizada.motivoRecusa = motivo;
+            atualizada.motivoStatus = motivo;
+        }
+        if (status === 'cancelada') {
+            atualizada.motivoCancelamento = motivo;
+            atualizada.motivoStatus = motivo;
+        }
+
+        aplicarDatasAutomaticasStatus(atualizada, anterior, agoraIso);
+        atualizada.atualizadoEm = atualizada.dataUltimaAlteracao;
+        lista[indice] = normalizarProposta(atualizada);
+        propostas = lista;
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+
+        if (typeof registrarLog === 'function') {
+            registrarLog('proposta', 'status', `Proposta ${anterior.codigo} marcada como ${statusRotulo(status)}.`);
+        }
+        mostrarToast(`Proposta marcada como ${statusRotulo(status)}.`);
+
+        const idEmEdicao = obterIdPropostaEmEdicao();
+        if (String(idEmEdicao) === String(id)) {
+            preencherFormularioComProposta(lista[indice]);
+        }
+
+        if (opcoes.voltarLista !== false) {
+            mostrarSubAbaPropostas('lista', { semRolagem: true, foco: false });
+        }
+    }
+
+    function alterarStatusPropostaRapido(arg) {
+        const [id, status] = textoSeguro(arg).split(':');
+        if (!id || !status) {
+            mostrarToast('Acao de status invalida.', 'erro');
+            return;
+        }
+        atualizarStatusProposta(id, status);
+    }
+
+    function alterarStatusPropostaAtual(status) {
+        const id = obterIdPropostaEmEdicao();
+        if (!id) {
+            mostrarToast('Abra uma proposta para alterar o status.', 'info');
+            return;
+        }
+        atualizarStatusProposta(id, status, { voltarLista: false });
     }
 
     function duplicarProposta(id) {
@@ -4005,6 +4125,12 @@
             const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
             const revisao = normalizarNumeroRevisaoProposta(proposta.revisao, 1);
             const origem = localizarOrigemRevisaoProposta(proposta);
+            const dataStatus = obterDataStatusProposta(proposta);
+            const motivoStatus = obterMotivoStatusProposta(proposta);
+            const statusAtual = normalizarStatusProposta(proposta.status);
+            const podeEnviar = statusAtual === 'rascunho' || statusAtual === 'em_negociacao';
+            const podeAprovar = !['aprovada', 'convertida', 'cancelada', 'recusada'].includes(statusAtual);
+            const podeRecusar = !['convertida', 'cancelada', 'recusada'].includes(statusAtual);
             return `
                 <tr data-proposta-id="${proposta.id}">
                     <td>
@@ -4018,7 +4144,24 @@
                     <td>${sanitizar(proposta.evento.nome || '-')}</td>
                     <td>${formatarData(proposta.evento.dataEvento)}</td>
                     <td>${formatarMoeda(obterValorFinalComercial(proposta))}</td>
-                    <td><span class="badge ${statusBadge(proposta.status)}">${statusRotulo(proposta.status)}</span></td>
+                    <td>
+                        <div class="proposta-status-cell">
+                            <span class="badge ${statusBadge(proposta.status)}">${statusRotulo(proposta.status)}</span>
+                            ${dataStatus ? `<small>${formatarData(dataStatus)}</small>` : ''}
+                            ${motivoStatus ? `<em title="${sanitizar(motivoStatus)}">${sanitizar(motivoStatus)}</em>` : ''}
+                            <div class="proposta-status-actions">
+                                <button class="btn btn-sm btn-info table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:enviada" title="Marcar como enviada" ${podeEnviar ? '' : 'disabled'}>
+                                    <i class="bi bi-send"></i>
+                                </button>
+                                <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:aprovada" title="Marcar como aprovada" ${podeAprovar ? '' : 'disabled'}>
+                                    <i class="bi bi-hand-thumbs-up"></i>
+                                </button>
+                                <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:recusada" title="Marcar como recusada" ${podeRecusar ? '' : 'disabled'}>
+                                    <i class="bi bi-hand-thumbs-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
                     <td>${sanitizar(proposta.responsavelProposta || '-')}</td>
                     <td>${locacaoId ? `#${sanitizar(String(locacaoId).slice(-6))}` : '-'}</td>
                     <td class="col-actions">
@@ -4148,6 +4291,8 @@
     window.limparFormularioProposta = limparFormularioProposta;
     window.editarProposta = editarProposta;
     window.editarPropostaAtual = editarPropostaAtual;
+    window.alterarStatusPropostaRapido = alterarStatusPropostaRapido;
+    window.alterarStatusPropostaAtual = alterarStatusPropostaAtual;
     window.duplicarProposta = duplicarProposta;
     window.duplicarPropostaAtual = duplicarPropostaAtual;
     window.criarNovaRevisaoProposta = criarNovaRevisaoProposta;

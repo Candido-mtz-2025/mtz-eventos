@@ -8911,6 +8911,43 @@ header {
     color: var(--text);
 }
 
+#tab-propostas .proposta-status-cell {
+    display: grid;
+    gap: 6px;
+    min-width: 150px;
+}
+
+#tab-propostas .proposta-status-cell small,
+#tab-propostas .proposta-status-cell em {
+    color: var(--text-light);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+#tab-propostas .proposta-status-cell em {
+    display: block;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-style: normal;
+}
+
+#tab-propostas .proposta-status-actions {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+}
+
+#tab-propostas .proposta-status-actions .table-action-btn {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+    padding: 0;
+}
+
 #tab-propostas #propostasFormularioCard,
 #tab-propostas #propostasListaCard {
     min-height: 0;
