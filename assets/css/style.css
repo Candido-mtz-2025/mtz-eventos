@@ -11820,3 +11820,270 @@ body[data-theme="mtz-premium"] #toast {
     border-color: rgba(225, 29, 46, 0.30) !important;
     color: #ffffff !important;
 }
+
+/* === V21.9 | COBERTURA PREMIUM POR ABA === */
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(
+    .card,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .panel-block,
+    .ui-state-panel,
+    .table-responsive,
+    .quick-actions-bar,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .config-card,
+    .config-actions-card,
+    .config-budget-category-item,
+    .config-budget-rule,
+    .propostas-hero-card,
+    .propostas-subnav,
+    .proposta-form-nav,
+    .proposta-sticky-summary,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-category-summary,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-revision-panel,
+    .pagamento-modal-kpi,
+    .modelo-checklist-list,
+    .box-carrinho
+) {
+    background: linear-gradient(180deg, #101826 0%, #0b1322 100%) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(
+    .card,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .panel-block,
+    .ui-state-panel,
+    .table-responsive,
+    .quick-actions-bar,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .config-card,
+    .config-actions-card,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-category-summary,
+    .proposta-action-panel,
+    .proposta-closing-block
+) :is(h2, h3, h4, h5, label, strong, th, td, span) {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(p, small, .field-hint, .table-cell-sub, .muted, .empty-state-text) {
+    color: #c3cede !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(input, select, textarea, .search-input) {
+    background: #090f1a !important;
+    border-color: rgba(148, 163, 184, 0.30) !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) input::placeholder,
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) textarea::placeholder {
+    color: #8796ad !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(.table, table) {
+    background: #0b1322 !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(.table thead th, table thead th) {
+    background: #121d30 !important;
+    color: #dbeafe !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(.table tbody td, table tbody td) {
+    background: #0b1322 !important;
+    color: #f8fafc !important;
+    border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    #tab-locadores,
+    #tab-tipos,
+    #tab-estoque,
+    #tab-locacoes,
+    #tab-propostas,
+    #tab-financeiro,
+    #tab-agenda,
+    #tab-transporte,
+    #tab-checklist,
+    #tab-devolucoes,
+    #tab-config,
+    #tab-auditoria
+) :is(.table tbody tr:nth-child(even) td, table tbody tr:nth-child(even) td) {
+    background: #08111f !important;
+}
+
+body[data-theme="mtz-premium"] :is(.search-meta, .module-topbar-meta, .stat-tag, .badge, .status-badge, .stock-pill, .proposta-status-badge) {
+    background: rgba(8, 13, 22, 0.92) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+    color: #dbeafe !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header :is(.header-logo-img, .header-user, .sync-badge, .header-controls .btn) {
+    background: rgba(12, 20, 34, 0.94) !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header .sync-badge:not(.sync-offline) {
+    background: rgba(22, 101, 52, 0.26) !important;
+    border-color: rgba(34, 197, 94, 0.34) !important;
+    color: #bbf7d0 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header .header-controls .btn-danger {
+    background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+    color: #ffffff !important;
+}
