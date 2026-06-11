@@ -12087,3 +12087,156 @@ body[data-theme="mtz-premium"] #appArea > header .header-controls .btn-danger {
     background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
     color: #ffffff !important;
 }
+
+/* === V22.0 | PADRÃO DE ÍCONES E FECHAMENTOS NO PREMIUM === */
+body[data-theme="mtz-premium"] .btn i,
+body[data-theme="mtz-premium"] .tab-btn i,
+body[data-theme="mtz-premium"] .nav-menu-trigger i,
+body[data-theme="mtz-premium"] .tab-menu-item i,
+body[data-theme="mtz-premium"] .table-action-btn i,
+body[data-theme="mtz-premium"] .btn-close-modal i,
+body[data-theme="mtz-premium"] .proposta-config-close i,
+body[data-theme="mtz-premium"] .search-clear-inline i {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 1em !important;
+    height: 1em !important;
+    line-height: 1 !important;
+    font-size: 1rem !important;
+    vertical-align: middle !important;
+}
+
+body[data-theme="mtz-premium"] .actions-cell {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+}
+
+body[data-theme="mtz-premium"] .actions-cell .table-action-btn,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-status-actions .table-action-btn,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-config-row-actions .table-action-btn,
+body[data-theme="mtz-premium"] #tab-transporte .actions-cell .table-action-btn,
+body[data-theme="mtz-premium"] #tab-auditoria .actions-cell .table-action-btn {
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 12px !important;
+    line-height: 1 !important;
+}
+
+body[data-theme="mtz-premium"] .actions-cell .table-action-btn span,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-status-actions .table-action-btn span,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn span,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-config-row-actions .table-action-btn span {
+    display: none !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .prop-details-toggle-btn {
+    width: auto !important;
+    min-width: 168px !important;
+    padding: 0 12px !important;
+    justify-content: center !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .prop-details-toggle-btn span {
+    display: inline !important;
+}
+
+body[data-theme="mtz-premium"] .btn-close-modal,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-config-close {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+    border: 1px solid rgba(248, 113, 113, 0.26) !important;
+    border-radius: 12px !important;
+    background: rgba(225, 29, 46, 0.11) !important;
+    color: #fecaca !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+}
+
+body[data-theme="mtz-premium"] .btn-close-modal:hover,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-config-close:hover {
+    background: linear-gradient(135deg, #e11d2e, #991b1b) !important;
+    border-color: rgba(248, 113, 113, 0.42) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 12px 22px rgba(225, 29, 46, 0.18) !important;
+}
+
+body[data-theme="mtz-premium"] .btn-close-modal:focus-visible,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-config-close:focus-visible,
+body[data-theme="mtz-premium"] .table-action-btn:focus-visible,
+body[data-theme="mtz-premium"] .search-clear-inline:focus-visible {
+    outline: 0 !important;
+    box-shadow: 0 0 0 3px rgba(225, 29, 46, 0.22) !important;
+}
+
+body[data-theme="mtz-premium"] .modal-content:not(.modal-relatorio-content) > .modal-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    background: #101826 !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18) !important;
+}
+
+body[data-theme="mtz-premium"] .modal-content:not(.modal-relatorio-content) > .modal-header h3 {
+    margin: 0 !important;
+    color: #ffffff !important;
+    font-weight: 850 !important;
+}
+
+body[data-theme="mtz-premium"] .search-input-shell {
+    position: relative !important;
+}
+
+body[data-theme="mtz-premium"] .search-clear-inline {
+    position: absolute !important;
+    top: 50% !important;
+    right: 8px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    color: #cbd5e1 !important;
+    transform: translateY(-50%) !important;
+}
+
+body[data-theme="mtz-premium"] .search-input-shell .search-input {
+    padding-right: 48px !important;
+}
+
+body[data-theme="mtz-premium"] .search-clear-inline:hover {
+    background: rgba(225, 29, 46, 0.16) !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header .header-controls .btn,
+body[data-theme="mtz-premium"] .theme-menu-wrap > .btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
