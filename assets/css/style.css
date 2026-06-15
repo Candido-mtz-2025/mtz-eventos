@@ -12240,3 +12240,163 @@ body[data-theme="mtz-premium"] .theme-menu-wrap > .btn {
     align-items: center !important;
     justify-content: center !important;
 }
+
+/* === V22.1 | REFINO PREMIUM DE CONTRASTE E COMPONENTES === */
+body[data-theme="mtz-premium"] :is(
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .dashboard-panel,
+    .dash-card,
+    .dash-status-item,
+    .dash-action-item,
+    .alert-item,
+    .ui-state,
+    .ui-state-panel,
+    .table-empty-row td,
+    .dropdown-sugestoes,
+    .modal-confirmacao,
+    #tab-propostas .proposta-item-row,
+    #tab-propostas .prop-item-details-panel,
+    #tab-propostas .proposta-config-category-row,
+    #tab-propostas .proposta-config-rule-summary,
+    #tab-propostas .proposta-config-rules-note,
+    #tab-propostas .proposta-config-category-editor-panel,
+    #tab-propostas .proposta-config-editor-rule,
+    #tab-propostas .proposta-config-mode-option,
+    #tab-propostas .proposta-config-matrix-head,
+    #tab-propostas .proposta-revision-empty
+) {
+    background: linear-gradient(180deg, #101826 0%, #0b1322 100%) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .dashboard-panel,
+    .dash-card,
+    .dash-status-item,
+    .dash-action-item,
+    .alert-item,
+    .ui-state,
+    .ui-state-panel,
+    .modal-confirmacao,
+    #tab-propostas .proposta-item-row,
+    #tab-propostas .prop-item-details-panel,
+    #tab-propostas .proposta-config-category-row,
+    #tab-propostas .proposta-config-rule-summary,
+    #tab-propostas .proposta-config-category-editor-panel,
+    #tab-propostas .proposta-config-editor-rule,
+    #tab-propostas .proposta-config-mode-option,
+    #tab-propostas .proposta-revision-empty
+) :is(h2, h3, h4, h5, label, strong, span, td, th, summary) {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] :is(
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .dashboard-panel,
+    .dash-card,
+    .dash-status-item,
+    .dash-action-item,
+    .alert-item,
+    .ui-state,
+    .ui-state-panel,
+    .modal-confirmacao,
+    #tab-propostas .proposta-item-row,
+    #tab-propostas .prop-item-details-panel,
+    #tab-propostas .proposta-config-category-row,
+    #tab-propostas .proposta-config-rule-summary,
+    #tab-propostas .proposta-config-rules-note,
+    #tab-propostas .proposta-config-category-editor-panel,
+    #tab-propostas .proposta-config-editor-rule,
+    #tab-propostas .proposta-config-mode-option,
+    #tab-propostas .proposta-revision-empty
+) :is(p, small, .field-hint, .table-cell-sub, .muted, .confirmacao-texto, .empty-state-text) {
+    color: #cbd5e1 !important;
+}
+
+body[data-theme="mtz-premium"] details,
+body[data-theme="mtz-premium"] summary,
+body[data-theme="mtz-premium"] #tab-propostas details,
+body[data-theme="mtz-premium"] #tab-propostas summary {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] summary {
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.20) !important;
+    border-radius: 12px !important;
+    padding: 10px 12px !important;
+}
+
+body[data-theme="mtz-premium"] .dropdown-sugestoes {
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.32) !important;
+}
+
+body[data-theme="mtz-premium"] .dropdown-sugestoes * {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] .dropdown-sugestoes :is(li, div, button):hover {
+    background: rgba(225, 29, 46, 0.14) !important;
+}
+
+body[data-theme="mtz-premium"] input[type="file"]::file-selector-button,
+body[data-theme="mtz-premium"] input[type="file"]::-webkit-file-upload-button {
+    background: #101826 !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    color: #f8fafc !important;
+    border-radius: 10px !important;
+    font-weight: 800 !important;
+}
+
+body[data-theme="mtz-premium"] .modal-confirmacao {
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.52) !important;
+}
+
+body[data-theme="mtz-premium"] .confirmacao-acoes .btn {
+    min-height: 40px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+body[data-theme="mtz-premium"] :is(.badge-success, .status-success, .status-online) {
+    background: rgba(22, 163, 74, 0.18) !important;
+    border-color: rgba(34, 197, 94, 0.32) !important;
+    color: #bbf7d0 !important;
+}
+
+body[data-theme="mtz-premium"] :is(.badge-warning, .status-warning) {
+    background: rgba(217, 119, 6, 0.16) !important;
+    border-color: rgba(245, 158, 11, 0.34) !important;
+    color: #fde68a !important;
+}
+
+body[data-theme="mtz-premium"] :is(.badge-danger, .status-danger) {
+    background: rgba(225, 29, 46, 0.18) !important;
+    border-color: rgba(248, 113, 113, 0.34) !important;
+    color: #fecaca !important;
+}
+
+body[data-theme="mtz-premium"] :is(.badge-info, .status-info) {
+    background: rgba(37, 99, 235, 0.18) !important;
+    border-color: rgba(96, 165, 250, 0.34) !important;
+    color: #bfdbfe !important;
+}
+
+body[data-theme="mtz-premium"] :is(.empty-icon, .stat-icon, .kpi-icon, .ui-state-icon) {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.20) !important;
+    color: #93c5fd !important;
+}
