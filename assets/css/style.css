@@ -12400,3 +12400,118 @@ body[data-theme="mtz-premium"] :is(.empty-icon, .stat-icon, .kpi-icon, .ui-state
     border: 1px solid rgba(148, 163, 184, 0.20) !important;
     color: #93c5fd !important;
 }
+
+/* === V22.2 | CONFIG ORCAMENTO PREMIUM LEGIVEL === */
+body[data-theme="mtz-premium"] #tab-config .config-budget-box {
+    background: linear-gradient(180deg, #101826 0%, #0b1322 100%) !important;
+    border-color: rgba(20, 184, 166, 0.40) !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box .section-toolbar {
+    background: rgba(8, 13, 22, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box h4,
+body[data-theme="mtz-premium"] #tab-config .config-budget-box label,
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-head span,
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-name,
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule,
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule label {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box .field-hint,
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-name small {
+    color: #cbd5e1 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-categories {
+    gap: 10px !important;
+    padding: 6px 2px 8px !important;
+    scrollbar-color: rgba(225, 29, 46, 0.55) rgba(15, 23, 42, 0.8) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-head {
+    min-width: 900px !important;
+    padding: 0 10px !important;
+    color: #cbd5e1 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+    background: rgba(8, 13, 22, 0.94) !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    box-shadow: inset 3px 0 0 rgba(225, 29, 46, 0.56) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-name {
+    min-height: 42px !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule {
+    min-height: 42px !important;
+    padding: 8px !important;
+    border-radius: 10px !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="number"],
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule select {
+    height: 34px !important;
+    min-height: 34px !important;
+    background: #070d18 !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="number"] {
+    width: 78px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule select {
+    min-width: 112px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box input[type="checkbox"] {
+    width: 18px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    accent-color: #e11d2e !important;
+    flex: 0 0 auto !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-toggles {
+    align-items: stretch !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-toggles .prop-interno-toggle {
+    min-height: 40px !important;
+    padding: 9px 12px !important;
+    border-radius: 12px !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule:has(input[type="checkbox"]:not(:checked)) {
+    opacity: 0.72 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule:has(input[type="checkbox"]:not(:checked)) input[type="number"],
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule:has(input[type="checkbox"]:not(:checked)) select {
+    color: #94a3b8 !important;
+    border-color: rgba(148, 163, 184, 0.16) !important;
+    background: rgba(7, 13, 24, 0.58) !important;
+}
