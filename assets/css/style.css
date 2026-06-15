@@ -12581,3 +12581,40 @@ body[data-theme="mtz-premium"] #tab-config .config-budget-toggles .prop-interno-
     align-items: center !important;
     line-height: 1.25 !important;
 }
+
+/* === V22.4 | CONFIG ORCAMENTO COM CONTROLES SEM ESCAPAR === */
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-head,
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+    grid-template-columns: minmax(250px, 0.95fr) repeat(3, minmax(310px, 1fr)) !important;
+    min-width: 1210px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule {
+    display: grid !important;
+    grid-template-columns: minmax(78px, 0.7fr) minmax(86px, 0.7fr) minmax(104px, 1fr) !important;
+    gap: 8px !important;
+    align-items: center !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule label {
+    min-width: 0 !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="number"],
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule select {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="checkbox"] {
+    width: 17px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    min-height: 17px !important;
+}
