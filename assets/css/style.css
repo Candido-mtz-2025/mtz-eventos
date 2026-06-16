@@ -14092,3 +14092,238 @@ body[data-theme="mtz-premium"] #appArea :is(.badge-info, .status-info) {
     display: none !important;
     content: none !important;
 }
+
+/* === V23.12 | VARREDURA VISUAL FINAL DOS TEMAS ESCUROS === */
+body[data-theme="dark"] #appArea :is(
+    .card,
+    .content-card,
+    .dashboard-card,
+    .dash-section,
+    .metric-card,
+    .stat-card,
+    .form-section,
+    .list-section,
+    .table-responsive,
+    .table-shell,
+    .table-card,
+    .quick-actions-bar,
+    .config-card,
+    .config-actions-card,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-category-summary,
+    .proposta-category-card,
+    .summary-card,
+    .empty-state,
+    .search-results-panel,
+    .module-topbar
+),
+body[data-theme="mtz-premium"] #appArea :is(
+    .card,
+    .content-card,
+    .dashboard-card,
+    .dash-section,
+    .metric-card,
+    .stat-card,
+    .form-section,
+    .list-section,
+    .table-responsive,
+    .table-shell,
+    .table-card,
+    .quick-actions-bar,
+    .config-card,
+    .config-actions-card,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-category-summary,
+    .proposta-category-card,
+    .summary-card,
+    .empty-state,
+    .search-results-panel,
+    .module-topbar
+) {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(7, 11, 20, 0.98)) !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    color: #f8fafc !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .card,
+    .content-card,
+    .dashboard-card,
+    .dash-section,
+    .metric-card,
+    .stat-card,
+    .form-section,
+    .list-section,
+    .table-responsive,
+    .table-shell,
+    .table-card,
+    .quick-actions-bar,
+    .config-card,
+    .config-actions-card,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-category-summary,
+    .proposta-category-card,
+    .summary-card,
+    .empty-state,
+    .search-results-panel,
+    .module-topbar
+) {
+    background: linear-gradient(180deg, rgba(24, 20, 12, 0.98), rgba(9, 8, 5, 0.98)) !important;
+    border-color: rgba(216, 173, 82, 0.28) !important;
+    color: #fff7e6 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(h1, h2, h3, h4, h5, h6, label, th, strong, .card-title, .section-title),
+body[data-theme="mtz-premium"] #appArea :is(h1, h2, h3, h4, h5, h6, label, th, strong, .card-title, .section-title) {
+    color: #ffffff !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(h1, h2, h3, h4, h5, h6, label, th, strong, .card-title, .section-title) {
+    color: #fff8e7 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .logo-subtitle),
+body[data-theme="mtz-premium"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .logo-subtitle) {
+    color: #cbd5e1 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .logo-subtitle) {
+    color: #dfcfaa !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(input, select, textarea),
+body[data-theme="mtz-premium"] #appArea :is(input, select, textarea) {
+    background: rgba(5, 10, 20, 0.96) !important;
+    border-color: rgba(148, 163, 184, 0.30) !important;
+    color: #f8fafc !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(input, select, textarea) {
+    background: rgba(7, 6, 4, 0.96) !important;
+    border-color: rgba(216, 173, 82, 0.32) !important;
+    color: #fff7e6 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(input, textarea)::placeholder,
+body[data-theme="mtz-premium"] #appArea :is(input, textarea)::placeholder {
+    color: #94a3b8 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(input, textarea)::placeholder {
+    color: #b8a67e !important;
+}
+
+body[data-theme="dark"] #appArea :is(
+    #moduleTopbarMeta,
+    .module-topbar-meta,
+    .propostas-hero-badge,
+    .search-meta,
+    .dash-section-meta,
+    .table-pagination-meta,
+    .proposta-config-order-badge,
+    .proposta-config-rule-badge,
+    .proposta-revision-badge,
+    .proposta-revision-mini-badge,
+    .badge,
+    .status-badge,
+    .proposta-status-badge,
+    .stock-pill,
+    .stat-tag
+) {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(6, 10, 18, 0.98)) !important;
+    border: 1px solid rgba(96, 165, 250, 0.28) !important;
+    color: #dbeafe !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(.badge-success, .status-success, .stock-pill.stock-ok),
+body[data-theme="mtz-premium"] #appArea :is(.badge-success, .status-success, .stock-pill.stock-ok),
+body[data-theme="mtz-gold"] #appArea :is(.badge-success, .status-success, .stock-pill.stock-ok) {
+    background: rgba(22, 101, 52, 0.24) !important;
+    border-color: rgba(34, 197, 94, 0.38) !important;
+    color: #bbf7d0 !important;
+}
+
+body[data-theme="dark"] #appArea :is(.badge-warning, .status-warning, .stock-pill.stock-warning),
+body[data-theme="mtz-premium"] #appArea :is(.badge-warning, .status-warning, .stock-pill.stock-warning),
+body[data-theme="mtz-gold"] #appArea :is(.badge-warning, .status-warning, .stock-pill.stock-warning) {
+    background: rgba(146, 64, 14, 0.26) !important;
+    border-color: rgba(245, 158, 11, 0.42) !important;
+    color: #fde68a !important;
+}
+
+body[data-theme="dark"] #appArea :is(.badge-danger, .status-danger, .stock-pill.stock-critical),
+body[data-theme="mtz-premium"] #appArea :is(.badge-danger, .status-danger, .stock-pill.stock-critical),
+body[data-theme="mtz-gold"] #appArea :is(.badge-danger, .status-danger, .stock-pill.stock-critical) {
+    background: rgba(127, 29, 29, 0.30) !important;
+    border-color: rgba(248, 113, 113, 0.44) !important;
+    color: #fecaca !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline),
+body[data-theme="mtz-premium"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline),
+body[data-theme="mtz-gold"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) i,
+body[data-theme="mtz-premium"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) i,
+body[data-theme="mtz-gold"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) i {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 1em !important;
+    height: 1em !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    transform: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) span,
+body[data-theme="mtz-premium"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) span,
+body[data-theme="mtz-gold"] #appArea :is(.table-action-btn, .btn-close-modal, .proposta-config-close, .search-clear-inline) span {
+    display: none !important;
+}
