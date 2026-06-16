@@ -12818,3 +12818,74 @@ body[data-theme="mtz-premium"] #tab-config .config-actions-card .btn {
         max-height: 440px !important;
     }
 }
+
+/* === V22.7 | PREMIUM COM TEXTO MAIS NITIDO E MENOS LAVADO === */
+body[data-theme="mtz-premium"] {
+    --text: #eef4ff;
+    --text-light: #b7c5d9;
+    --text-muted: #7f8fa7;
+}
+
+body[data-theme="mtz-premium"] :is(h1, h2, h3, h4, h5, strong, label, th) {
+    color: #f8fbff !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] :is(p, small, .field-hint, .muted, .table-cell-sub, .module-topbar p) {
+    color: #b7c5d9 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] :is(input, select, textarea, .search-input) {
+    color: #eef4ff !important;
+}
+
+body[data-theme="mtz-premium"] :is(input::placeholder, textarea::placeholder) {
+    color: #8596ad !important;
+    opacity: 1 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-summary {
+    background: rgba(7, 13, 24, 0.98) !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42) !important;
+    backdrop-filter: none !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics span {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: rgba(148, 163, 184, 0.20) !important;
+    color: #b7c5d9 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics small {
+    color: #9fb0c6 !important;
+    opacity: 1 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
+    color: #f8fbff !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics .proposta-sticky-final {
+    background: linear-gradient(135deg, rgba(225, 29, 46, 0.18), rgba(15, 23, 42, 0.98)) !important;
+    border-color: rgba(225, 29, 46, 0.48) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics .proposta-sticky-final strong {
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics .proposta-sticky-profit {
+    background: linear-gradient(135deg, rgba(20, 184, 166, 0.14), rgba(15, 23, 42, 0.98)) !important;
+    border-color: rgba(20, 184, 166, 0.42) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics .proposta-sticky-margin {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.13), rgba(15, 23, 42, 0.98)) !important;
+    border-color: rgba(245, 158, 11, 0.38) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-status strong.badge {
+    color: #f8fbff !important;
+}
