@@ -2658,7 +2658,7 @@ function executarAtalhoRapido(atalhoId) {
     console.log('✅ Sistema de backup ativado');
 };
     const CHAVE_TEMA_SISTEMA = 'theme';
-    const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'auto'];
+    const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'mtz-executivo', 'auto'];
 
     function normalizarTemaSistema(tema) {
         const valor = String(tema || '').trim().toLowerCase();
@@ -2684,7 +2684,8 @@ function executarAtalhoRapido(atalhoId) {
         const cores = {
             light: '#e2e8f0',
             dark: '#0f172a',
-            'mtz-premium': '#0b1220'
+            'mtz-premium': '#0b1220',
+            'mtz-executivo': '#dbe5f1'
         };
         meta.setAttribute('content', cores[temaEfetivo] || cores.light);
     }
@@ -2697,12 +2698,14 @@ function executarAtalhoRapido(atalhoId) {
             light: 'bi-sun',
             dark: 'bi-moon',
             'mtz-premium': 'bi-palette',
+            'mtz-executivo': 'bi-briefcase',
             auto: 'bi-circle-half'
         };
         const rotulos = {
             light: 'Tema claro',
             dark: 'Tema escuro',
             'mtz-premium': 'Tema MTZ Premium',
+            'mtz-executivo': 'Tema MTZ Executivo',
             auto: `Tema automatico (${temaEfetivo === 'dark' ? 'escuro' : 'claro'})`
         };
 
@@ -2765,6 +2768,7 @@ function executarAtalhoRapido(atalhoId) {
                 light: 'Tema claro aplicado.',
                 dark: 'Tema escuro aplicado.',
                 'mtz-premium': 'Tema MTZ Premium aplicado.',
+                'mtz-executivo': 'Tema MTZ Executivo aplicado.',
                 auto: 'Tema automatico aplicado.'
             };
             mostrarToast(rotulos[normalizarTemaSistema(tema)] || 'Tema atualizado.');

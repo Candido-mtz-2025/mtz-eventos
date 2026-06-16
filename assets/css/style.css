@@ -13033,3 +13033,151 @@ body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
 #tab-propostas .proposta-form-section {
     scroll-margin-top: calc(var(--app-sticky-total-height, 154px) + 24px) !important;
 }
+
+/* === V23.1 | TEMA MTZ EXECUTIVO === */
+body[data-theme="mtz-executivo"] {
+    --primary: #1d4ed8;
+    --primary-hover: #1e40af;
+    --bg: #dbe5f1;
+    --surface: #ffffff;
+    --surface-hover: #f4f7fb;
+    --text: #0b1628;
+    --text-light: #52657c;
+    --text-muted: #728196;
+    --border: #b9c7d8;
+    --input-bg: #f8fafc;
+    --shadow: 0 18px 42px rgba(30, 64, 120, 0.12);
+    --radius: 12px;
+    background:
+        radial-gradient(900px 420px at 18% 0%, rgba(29, 78, 216, 0.10), transparent 58%),
+        linear-gradient(180deg, #e9eff7 0%, #dbe5f1 46%, #d4deea 100%) !important;
+    color: var(--text);
+}
+
+body[data-theme="mtz-executivo"] #appArea > header {
+    background: rgba(233, 239, 247, 0.92) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.30) !important;
+    box-shadow: 0 14px 34px rgba(30, 41, 59, 0.10) !important;
+    backdrop-filter: blur(14px);
+}
+
+body[data-theme="mtz-executivo"] .logo h1,
+body[data-theme="mtz-executivo"] h1,
+body[data-theme="mtz-executivo"] h2,
+body[data-theme="mtz-executivo"] h3,
+body[data-theme="mtz-executivo"] h4 {
+    color: #0b1628 !important;
+}
+
+body[data-theme="mtz-executivo"] .logo p,
+body[data-theme="mtz-executivo"] .module-topbar p,
+body[data-theme="mtz-executivo"] .field-hint,
+body[data-theme="mtz-executivo"] small {
+    color: #52657c !important;
+}
+
+body[data-theme="mtz-executivo"] .header-user,
+body[data-theme="mtz-executivo"] .sync-badge,
+body[data-theme="mtz-executivo"] .header-controls .btn,
+body[data-theme="mtz-executivo"] .theme-menu {
+    background: rgba(255, 255, 255, 0.82) !important;
+    border: 1px solid rgba(148, 163, 184, 0.42) !important;
+    box-shadow: 0 12px 28px rgba(30, 64, 120, 0.10) !important;
+}
+
+body[data-theme="mtz-executivo"] .header-role-badge {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+}
+
+body[data-theme="mtz-executivo"] .sync-online {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #166534 !important;
+}
+
+body[data-theme="mtz-executivo"] #appArea .container > .tabs-container {
+    background: rgba(255, 255, 255, 0.90) !important;
+    border: 1px solid rgba(148, 163, 184, 0.38) !important;
+    box-shadow: 0 16px 34px rgba(30, 64, 120, 0.10) !important;
+}
+
+body[data-theme="mtz-executivo"] .tab-btn,
+body[data-theme="mtz-executivo"] .nav-menu-trigger {
+    color: #334155 !important;
+}
+
+body[data-theme="mtz-executivo"] .tab-btn:hover:not(.active),
+body[data-theme="mtz-executivo"] .nav-menu-trigger:hover {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+}
+
+body[data-theme="mtz-executivo"] .tab-btn.active,
+body[data-theme="mtz-executivo"] .nav-menu-group.is-active > .nav-menu-trigger {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.26) !important;
+}
+
+body[data-theme="mtz-executivo"] .module-topbar,
+body[data-theme="mtz-executivo"] .card,
+body[data-theme="mtz-executivo"] .dash-section,
+body[data-theme="mtz-executivo"] .table-responsive,
+body[data-theme="mtz-executivo"] .panel-block,
+body[data-theme="mtz-executivo"] .locacao-step-panel,
+body[data-theme="mtz-executivo"] .config-card,
+body[data-theme="mtz-executivo"] .config-actions-card,
+body[data-theme="mtz-executivo"] .propostas-hero-card,
+body[data-theme="mtz-executivo"] .proposta-data-card,
+body[data-theme="mtz-executivo"] .proposta-form-section,
+body[data-theme="mtz-executivo"] .proposta-config-panel,
+body[data-theme="mtz-executivo"] .proposta-sticky-summary {
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.38) !important;
+    box-shadow: 0 16px 34px rgba(30, 64, 120, 0.11) !important;
+    color: #0b1628 !important;
+}
+
+body[data-theme="mtz-executivo"] .module-topbar {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.92)) !important;
+}
+
+body[data-theme="mtz-executivo"] input,
+body[data-theme="mtz-executivo"] select,
+body[data-theme="mtz-executivo"] textarea,
+body[data-theme="mtz-executivo"] .search-input {
+    background: #f8fafc !important;
+    border-color: #b9c7d8 !important;
+    color: #0b1628 !important;
+}
+
+body[data-theme="mtz-executivo"] input::placeholder,
+body[data-theme="mtz-executivo"] textarea::placeholder {
+    color: #7c8ca2 !important;
+}
+
+body[data-theme="mtz-executivo"] .table thead th,
+body[data-theme="mtz-executivo"] table thead th {
+    background: #eef4fb !important;
+    color: #465a72 !important;
+}
+
+body[data-theme="mtz-executivo"] .table tbody td,
+body[data-theme="mtz-executivo"] table tbody td {
+    background: #ffffff !important;
+    color: #0b1628 !important;
+}
+
+body[data-theme="mtz-executivo"] .btn-primary,
+body[data-theme="mtz-executivo"] .btn:not(.btn-danger):not(.btn-secondary):not(.btn-warning):not(.btn-success) {
+    background: #2563eb !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-executivo"] .btn-danger {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+}
