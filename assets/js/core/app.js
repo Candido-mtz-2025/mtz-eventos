@@ -252,7 +252,7 @@ function atualizarTopbarModulo(tabId) {
 
     if (!topbar || !titleEl || !descEl || !metaEl) return;
 
-    if (tabId === 'dashboard') {
+    if (tabId === 'dashboard' || tabId === 'propostas') {
         topbar.style.display = 'none';
         return;
     }
