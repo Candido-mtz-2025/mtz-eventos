@@ -12889,3 +12889,68 @@ body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics .proposta
 body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-status strong.badge {
     color: #f8fbff !important;
 }
+
+/* === V22.8 | TIPOGRAFIA PREMIUM MAIS NITIDA === */
+body[data-theme="mtz-premium"] {
+    font-family: "Inter", "Segoe UI Variable", "Segoe UI", Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+}
+
+body[data-theme="mtz-premium"] :is(h1, h2, h3, h4, h5) {
+    color: #f4f8ff !important;
+    font-weight: 760 !important;
+    line-height: 1.16 !important;
+}
+
+body[data-theme="mtz-premium"] :is(strong, label, .btn, .tab-btn, .nav-menu-trigger, .tab-menu-item) {
+    font-weight: 700 !important;
+}
+
+body[data-theme="mtz-premium"] :is(p, small, .field-hint, .muted, .table-cell-sub, .module-topbar p) {
+    color: #adbed4 !important;
+    font-weight: 560 !important;
+    line-height: 1.42 !important;
+}
+
+body[data-theme="mtz-premium"] :is(.table th, table thead th) {
+    color: #c4d2e4 !important;
+    font-weight: 680 !important;
+}
+
+body[data-theme="mtz-premium"] :is(.table td, table tbody td) {
+    font-weight: 610 !important;
+}
+
+body[data-theme="mtz-premium"] :is(input, select, textarea, .search-input) {
+    font-weight: 520 !important;
+    letter-spacing: 0 !important;
+}
+
+body[data-theme="mtz-premium"] :is(.badge, .status-badge, .proposta-status-badge, .stock-pill, .module-topbar-meta, .stat-tag) {
+    font-weight: 700 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .propostas-hero-card h2,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-form-section h3,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-data-card-head h4 {
+    font-weight: 760 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .propostas-hero-card p,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-form-section p,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-data-card-head p {
+    color: #b5c6da !important;
+    font-weight: 570 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics small {
+    color: #9fb0c6 !important;
+    font-weight: 680 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
+    color: #f6faff !important;
+    font-weight: 780 !important;
+}
