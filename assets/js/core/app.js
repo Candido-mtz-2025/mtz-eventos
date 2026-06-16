@@ -2685,7 +2685,7 @@ function executarAtalhoRapido(atalhoId) {
             light: '#e2e8f0',
             dark: '#0f172a',
             'mtz-premium': '#0b1220',
-            'mtz-executivo': '#dbe5f1'
+            'mtz-executivo': '#111c2e'
         };
         meta.setAttribute('content', cores[temaEfetivo] || cores.light);
     }
