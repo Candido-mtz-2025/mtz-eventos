@@ -13898,3 +13898,52 @@ body[data-theme="mtz-gold"] #tab-dashboard .dashboard-topbar {
         0 18px 42px rgba(0, 0, 0, 0.30),
         0 0 0 1px rgba(214, 168, 71, 0.10) !important;
 }
+
+/* === V23.8 | VARREDURA FINAL DA PALETA MTZ GOLD === */
+body[data-theme="mtz-gold"] {
+    --primary: #d8ad52;
+    --primary-hover: #bf8f31;
+    --text: #f7ead0;
+    --text-light: #d7c59b;
+    --text-muted: #a99770;
+    --border: rgba(216, 173, 82, 0.26);
+    background:
+        radial-gradient(900px 460px at 8% 0%, rgba(216, 173, 82, 0.16), transparent 56%),
+        radial-gradient(760px 420px at 94% 3%, rgba(139, 92, 23, 0.13), transparent 58%),
+        linear-gradient(180deg, #050505 0%, #090806 48%, #050505 100%) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(h1, h2, h3, h4, h5, strong, label) {
+    color: #f7ead0 !important;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(p, small, .field-hint, .muted, .table-cell-sub, .locacao-period-meta) {
+    color: #d7c59b !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.badge, .status-badge, .stock-pill, .stat-tag, .module-topbar-meta) {
+    background: rgba(216, 173, 82, 0.13) !important;
+    border-color: rgba(216, 173, 82, 0.30) !important;
+    color: #f3d991 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.btn-primary, .tab-btn.active, .nav-menu-trigger.active),
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger {
+    background: linear-gradient(135deg, #f2d27a 0%, #d8ad52 44%, #9d6f21 100%) !important;
+    border-color: rgba(255, 236, 179, 0.56) !important;
+    color: #110d06 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.btn-primary, .tab-btn.active, .nav-menu-trigger.active) i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger .nav-caret {
+    color: #110d06 !important;
+}
+
+body[data-theme="mtz-gold"] #tab-dashboard .dashboard-topbar {
+    background:
+        radial-gradient(560px 160px at 16% 0%, rgba(255, 236, 179, 0.28), transparent 64%),
+        linear-gradient(112deg, #130e06 0%, #4d320b 39%, #c89b3d 68%, #171006 100%) !important;
+    border-color: rgba(242, 210, 122, 0.46) !important;
+}
