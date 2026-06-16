@@ -13756,3 +13756,87 @@ body[data-theme="mtz-gold"] #appArea :is(input[type="file"]) {
 body[data-theme="mtz-gold"] #appArea :is(.badge, .status-badge, .stock-pill, .stat-tag, .module-topbar-meta) {
     border-color: rgba(214, 168, 71, 0.24) !important;
 }
+
+/* === V23.5 | MTZ GOLD MENU E PAINEL PADRONIZADOS === */
+body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
+    background:
+        linear-gradient(180deg, rgba(18, 16, 13, 0.98), rgba(8, 8, 7, 0.99)) !important;
+    border: 1px solid rgba(214, 168, 71, 0.30) !important;
+    box-shadow: 0 22px 54px rgba(0, 0, 0, 0.42) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .container > .tabs-container::after {
+    background: linear-gradient(90deg, transparent, rgba(214, 168, 71, 0.55), transparent) !important;
+    opacity: 0.42 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs,
+body[data-theme="mtz-gold"] #appArea .tabs.app-main-nav {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs .tab-btn,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-trigger {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: #dfcfaa !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs .tab-btn i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-trigger i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-caret {
+    color: #c8ad70 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs .tab-btn:hover:not(.active),
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-trigger:hover:not(.active) {
+    background: rgba(214, 168, 71, 0.10) !important;
+    border-color: rgba(214, 168, 71, 0.24) !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs .tab-btn.active,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-trigger.active,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger {
+    background: linear-gradient(135deg, #d6a847, #9b7224) !important;
+    border-color: rgba(255, 232, 163, 0.50) !important;
+    color: #17120a !important;
+    box-shadow: 0 14px 30px rgba(214, 168, 71, 0.24) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .tabs .tab-btn.active i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-trigger.active i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger i,
+body[data-theme="mtz-gold"] #appArea .tabs .nav-menu-group.is-active > .nav-menu-trigger .nav-caret {
+    color: #17120a !important;
+}
+
+body[data-theme="mtz-gold"] .nav-dropdown {
+    background: linear-gradient(180deg, rgba(18, 16, 13, 0.99), rgba(8, 8, 7, 0.99)) !important;
+    border-color: rgba(214, 168, 71, 0.30) !important;
+}
+
+body[data-theme="mtz-gold"] .nav-dropdown button {
+    background: transparent !important;
+    color: #dfcfaa !important;
+}
+
+body[data-theme="mtz-gold"] .nav-dropdown button:hover {
+    background: rgba(214, 168, 71, 0.12) !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #tab-dashboard .dashboard-topbar {
+    background:
+        linear-gradient(135deg, rgba(214, 168, 71, 0.18), transparent 38%),
+        linear-gradient(135deg, #17130d, #0c0a08) !important;
+    border: 1px solid rgba(214, 168, 71, 0.30) !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #tab-dashboard .dashboard-topbar :is(h2, p, small, strong) {
+    color: #fff7e6 !important;
+}
