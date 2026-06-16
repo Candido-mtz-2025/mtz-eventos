@@ -13021,3 +13021,15 @@ body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
     font-size: 0.96rem !important;
     font-weight: 820 !important;
 }
+
+/* === V23.0 | RESUMO DA PROPOSTA SEM SOBREPOR A ROLAGEM === */
+#tab-propostas .proposta-sticky-summary {
+    position: static !important;
+    top: auto !important;
+    z-index: 1 !important;
+    backdrop-filter: none !important;
+}
+
+#tab-propostas .proposta-form-section {
+    scroll-margin-top: calc(var(--app-sticky-total-height, 154px) + 24px) !important;
+}
