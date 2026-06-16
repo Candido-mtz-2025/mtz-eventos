@@ -12954,3 +12954,70 @@ body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
     color: #f6faff !important;
     font-weight: 780 !important;
 }
+
+/* === V22.9 | PREMIUM COM LEITURA MAIS CONFORTAVEL === */
+body[data-theme="mtz-premium"] {
+    --text: #ffffff;
+    --text-light: #d7e3f2;
+    --text-muted: #a8b8cc;
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", Arial, sans-serif !important;
+    font-size: 15.5px !important;
+}
+
+body[data-theme="mtz-premium"] :is(h1, h2, h3, h4, h5) {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    line-height: 1.18 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] :is(label, strong) {
+    color: #ffffff !important;
+    font-weight: 750 !important;
+}
+
+body[data-theme="mtz-premium"] :is(p, small, .field-hint, .muted, .table-cell-sub, .module-topbar p) {
+    color: #d7e3f2 !important;
+    font-weight: 620 !important;
+}
+
+body[data-theme="mtz-premium"] :is(input, select, textarea, .search-input) {
+    color: #ffffff !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+}
+
+body[data-theme="mtz-premium"] :is(input::placeholder, textarea::placeholder) {
+    color: #9fb1c7 !important;
+}
+
+body[data-theme="mtz-premium"] :is(.btn, .tab-btn, .nav-menu-trigger, .tab-menu-item, #tab-propostas .propostas-subtab) {
+    font-size: 0.93rem !important;
+    font-weight: 760 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas :is(label, .proposta-data-card-head h4, .proposta-form-section h3) {
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas :is(.proposta-data-card-head p, .proposta-form-section p, .proposta-form-tab small) {
+    color: #d7e3f2 !important;
+    font-weight: 650 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-form-tab strong {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics small {
+    color: #dbeafe !important;
+    font-size: 0.72rem !important;
+    font-weight: 760 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-propostas .proposta-sticky-metrics strong {
+    color: #ffffff !important;
+    font-size: 0.96rem !important;
+    font-weight: 820 !important;
+}
