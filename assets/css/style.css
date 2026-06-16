@@ -12618,3 +12618,59 @@ body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="check
     height: 17px !important;
     min-height: 17px !important;
 }
+
+/* === V22.5 | CONFIG ORCAMENTO PREMIUM SEM TEXTO ESPREMIDO === */
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-head,
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+    grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(286px, 1fr)) !important;
+    min-width: 1140px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+    gap: 10px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule {
+    grid-template-columns: 34px minmax(76px, 0.8fr) minmax(96px, 1fr) !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule label {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    justify-content: center !important;
+    background: rgba(15, 23, 42, 0.86) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule label input[type="checkbox"] {
+    margin: 0 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule input[type="number"],
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule select {
+    height: 34px !important;
+    min-height: 34px !important;
+    font-size: 0.86rem !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule:has(input[type="checkbox"]:not(:checked)) label {
+    background: rgba(15, 23, 42, 0.54) !important;
+}
+
+@media (max-width: 760px) {
+    body[data-theme="mtz-premium"] #tab-config .config-budget-category-head,
+    body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+        min-width: 1040px !important;
+        grid-template-columns: minmax(230px, 1fr) repeat(3, minmax(264px, 1fr)) !important;
+    }
+}
