@@ -2658,10 +2658,11 @@ function executarAtalhoRapido(atalhoId) {
     console.log('✅ Sistema de backup ativado');
 };
     const CHAVE_TEMA_SISTEMA = 'theme';
-    const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'mtz-executivo', 'auto'];
+    const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'mtz-gold', 'auto'];
 
     function normalizarTemaSistema(tema) {
         const valor = String(tema || '').trim().toLowerCase();
+        if (valor === 'mtz-executivo') return 'mtz-gold';
         return TEMAS_SISTEMA.includes(valor) ? valor : 'light';
     }
 
@@ -2685,7 +2686,7 @@ function executarAtalhoRapido(atalhoId) {
             light: '#e2e8f0',
             dark: '#0f172a',
             'mtz-premium': '#0b1220',
-            'mtz-executivo': '#111c2e'
+            'mtz-gold': '#090806'
         };
         meta.setAttribute('content', cores[temaEfetivo] || cores.light);
     }
@@ -2698,14 +2699,14 @@ function executarAtalhoRapido(atalhoId) {
             light: 'bi-sun',
             dark: 'bi-moon',
             'mtz-premium': 'bi-palette',
-            'mtz-executivo': 'bi-briefcase',
+            'mtz-gold': 'bi-gem',
             auto: 'bi-circle-half'
         };
         const rotulos = {
             light: 'Tema claro',
             dark: 'Tema escuro',
             'mtz-premium': 'Tema MTZ Premium',
-            'mtz-executivo': 'Tema MTZ Executivo',
+            'mtz-gold': 'Tema MTZ Gold',
             auto: `Tema automatico (${temaEfetivo === 'dark' ? 'escuro' : 'claro'})`
         };
 
@@ -2768,7 +2769,7 @@ function executarAtalhoRapido(atalhoId) {
                 light: 'Tema claro aplicado.',
                 dark: 'Tema escuro aplicado.',
                 'mtz-premium': 'Tema MTZ Premium aplicado.',
-                'mtz-executivo': 'Tema MTZ Executivo aplicado.',
+                'mtz-gold': 'Tema MTZ Gold aplicado.',
                 auto: 'Tema automatico aplicado.'
             };
             mostrarToast(rotulos[normalizarTemaSistema(tema)] || 'Tema atualizado.');
