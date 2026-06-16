@@ -12674,3 +12674,147 @@ body[data-theme="mtz-premium"] #tab-config .config-budget-rule:has(input[type="c
         grid-template-columns: minmax(230px, 1fr) repeat(3, minmax(264px, 1fr)) !important;
     }
 }
+
+/* === V22.6 | ACABAMENTO PREMIUM DA ABA CONFIGURACOES === */
+body[data-theme="mtz-premium"] #tab-config {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-card,
+body[data-theme="mtz-premium"] #tab-config .config-actions-card {
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.97) 0%, rgba(7, 13, 24, 0.98) 100%) !important;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32) !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-card::before,
+body[data-theme="mtz-premium"] #tab-config .config-actions-card::before {
+    background: linear-gradient(90deg, #e11d2e 0%, #14b8a6 100%) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-card h3,
+body[data-theme="mtz-premium"] #tab-config .config-actions-card h3,
+body[data-theme="mtz-premium"] #tab-config .config-budget-box h4 {
+    color: #ffffff !important;
+    letter-spacing: 0 !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config label,
+body[data-theme="mtz-premium"] #tab-config .field-hint {
+    color: #dbeafe !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .form-row {
+    gap: 12px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .form-group {
+    min-width: min(100%, 240px) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config :is(input, select, textarea) {
+    background: rgba(3, 7, 18, 0.82) !important;
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    color: #ffffff !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config :is(input, select, textarea):focus {
+    border-color: rgba(225, 29, 46, 0.82) !important;
+    box-shadow: 0 0 0 3px rgba(225, 29, 46, 0.16) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box {
+    background:
+        linear-gradient(180deg, rgba(11, 18, 32, 0.98) 0%, rgba(8, 13, 22, 0.98) 100%) !important;
+    border-color: rgba(20, 184, 166, 0.38) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-box .section-toolbar {
+    background: rgba(3, 7, 18, 0.72) !important;
+    border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-categories {
+    max-height: 520px !important;
+    overflow: auto !important;
+    padding: 8px !important;
+    border: 1px solid rgba(148, 163, 184, 0.12) !important;
+    border-radius: 14px !important;
+    background: rgba(3, 7, 18, 0.40) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-head {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(3, 7, 18, 0.96) !important;
+    border: 1px solid rgba(148, 163, 184, 0.14) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-row {
+    background: rgba(15, 23, 42, 0.78) !important;
+    border-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-name,
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule {
+    background: rgba(8, 13, 22, 0.88) !important;
+    border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-category-name {
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-rule label::after {
+    content: "Aplicar" !important;
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-budget-toggles .prop-interno-toggle {
+    display: inline-flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    color: #f8fafc !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config #previewLogo {
+    min-height: 54px !important;
+    border: 1px dashed rgba(148, 163, 184, 0.22) !important;
+    border-radius: 12px !important;
+    background: rgba(3, 7, 18, 0.34) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-actions-card .inline-chip-row {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(180px, 1fr)) !important;
+    gap: 12px !important;
+}
+
+body[data-theme="mtz-premium"] #tab-config .config-actions-card .btn {
+    min-height: 46px !important;
+    border-radius: 12px !important;
+    font-weight: 900 !important;
+}
+
+@media (max-width: 760px) {
+    body[data-theme="mtz-premium"] #tab-config .config-actions-card .inline-chip-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    body[data-theme="mtz-premium"] #tab-config .config-budget-categories {
+        max-height: 440px !important;
+    }
+}
