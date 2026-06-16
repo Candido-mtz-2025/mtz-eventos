@@ -14055,3 +14055,40 @@ body[data-theme="mtz-premium"] #appArea :is(.badge-info, .status-info) {
     border-color: rgba(96, 165, 250, 0.36) !important;
     color: #bfdbfe !important;
 }
+
+/* === V23.11 | BOTÕES REDONDOS DO CABEÇALHO CENTRALIZADOS === */
+#appArea > header .header-controls .btn,
+#appArea > header .theme-menu-wrap > .btn,
+#appArea > header button[data-action="sair"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+#appArea > header .header-controls .btn i,
+#appArea > header .theme-menu-wrap > .btn i,
+#appArea > header button[data-action="sair"] i {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 1em !important;
+    height: 1em !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    font-size: 1rem !important;
+    transform: none !important;
+}
+
+#appArea > header button[data-action="sair"]::before,
+#appArea > header button[data-action="sair"]::after {
+    display: none !important;
+    content: none !important;
+}
