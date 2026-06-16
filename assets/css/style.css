@@ -14001,3 +14001,57 @@ body[data-theme="mtz-gold"] #appArea :is(.badge-info, .status-info) {
     border-color: rgba(216, 173, 82, 0.36) !important;
     color: #f7d98b !important;
 }
+
+/* === V23.10 | MTZ PREMIUM BADGES E METAS SEM FUNDO CINZA === */
+body[data-theme="mtz-premium"] #appArea :is(
+    #moduleTopbarMeta,
+    .module-topbar-meta,
+    .propostas-hero-badge,
+    .search-meta,
+    .dash-section-meta,
+    .table-pagination-meta,
+    .proposta-config-order-badge,
+    .proposta-config-rule-badge,
+    .proposta-revision-badge,
+    .proposta-revision-mini-badge,
+    .badge,
+    .status-badge,
+    .proposta-status-badge,
+    .stock-pill,
+    .stat-tag
+) {
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(7, 10, 18, 0.98)) !important;
+    border: 1px solid rgba(248, 113, 113, 0.30) !important;
+    color: #fecaca !important;
+    text-shadow: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.search-meta.is-active, .search-meta.is-empty) {
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(7, 10, 18, 0.98)) !important;
+    border-style: solid !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.badge-success, .status-success, .stock-pill.stock-ok) {
+    background: rgba(22, 101, 52, 0.22) !important;
+    border-color: rgba(34, 197, 94, 0.34) !important;
+    color: #bbf7d0 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.badge-warning, .status-warning, .stock-pill.stock-warning) {
+    background: rgba(146, 64, 14, 0.24) !important;
+    border-color: rgba(245, 158, 11, 0.38) !important;
+    color: #fde68a !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.badge-danger, .status-danger, .stock-pill.stock-critical) {
+    background: rgba(127, 29, 29, 0.28) !important;
+    border-color: rgba(248, 113, 113, 0.42) !important;
+    color: #fecaca !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.badge-info, .status-info) {
+    background: rgba(59, 130, 246, 0.18) !important;
+    border-color: rgba(96, 165, 250, 0.36) !important;
+    color: #bfdbfe !important;
+}
