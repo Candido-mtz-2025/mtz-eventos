@@ -13604,3 +13604,155 @@ body[data-theme="mtz-gold"] .btn-danger {
     border-color: rgba(248, 113, 113, 0.44) !important;
     color: #ffffff !important;
 }
+
+/* === V23.4 | MTZ GOLD SEM FUNDOS BRANCOS SOLTOS === */
+body[data-theme="mtz-gold"] #appArea :is(
+    .card,
+    .panel-block,
+    .box-carrinho,
+    .checkout-bar,
+    .quick-actions-bar,
+    .module-topbar,
+    .table-responsive,
+    .table-shell,
+    .ui-state,
+    .empty-state,
+    .empty-row,
+    .summary-card,
+    .metric-card,
+    .stat-card,
+    .finance-kpi,
+    .dash-section,
+    .dash-status-item,
+    .dash-action-item,
+    .alert-item,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .locacao-kpi-card,
+    .locacao-step,
+    .locacao-step-panel,
+    .locacao-review-meta,
+    .locacao-review-footer,
+    .devolucao-kpi,
+    .config-card,
+    .config-actions-card,
+    .config-budget-box,
+    .config-budget-categories,
+    .config-budget-category-head,
+    .config-budget-category-row,
+    .config-budget-category-name,
+    .config-budget-rule,
+    .propostas-hero-card,
+    .propostas-subnav,
+    .proposta-form-nav,
+    .proposta-form-tab,
+    .proposta-sticky-summary,
+    .proposta-sticky-metrics span,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-config-category-card,
+    .proposta-config-category-editor-panel,
+    .proposta-config-editor-rule,
+    .proposta-config-editor-switch,
+    .proposta-config-matrix-row,
+    .proposta-config-tax-cell,
+    .proposta-config-mode-option,
+    .proposta-config-rules-note,
+    .proposta-items-section,
+    .proposta-item-card,
+    .proposta-item-details-row td,
+    .prop-item-details-panel,
+    .proposta-category-summary,
+    .proposta-closing-block,
+    .proposta-internal-details,
+    .proposta-action-panel,
+    .proposta-revision-panel,
+    .proposta-revision-card,
+    .proposta-revision-empty,
+    .proposta-revision-step,
+    .pagamento-modal-kpi,
+    .modelo-checklist-list
+) {
+    background: linear-gradient(180deg, rgba(18, 16, 13, 0.98), rgba(9, 8, 7, 0.99)) !important;
+    border-color: rgba(214, 168, 71, 0.22) !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .section-toolbar,
+    .proposta-items-header,
+    .proposta-config-head,
+    .proposta-config-category-editor-head,
+    .proposta-closing-section,
+    .proposta-category-summary-head,
+    .form-row,
+    .filters-row,
+    .inline-chip-row
+) {
+    background: transparent !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .table thead th,
+    table thead th,
+    .table tbody td,
+    table tbody td,
+    .table tbody tr:nth-child(even) td,
+    table tbody tr:nth-child(even) td
+) {
+    background: #100e0b !important;
+    color: #fff7e6 !important;
+    border-color: rgba(214, 168, 71, 0.16) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    strong,
+    label,
+    .locacao-cell-main,
+    .config-budget-category-name,
+    .proposta-config-category-title strong,
+    .proposta-config-matrix-category strong,
+    .proposta-data-card-head h4,
+    .proposta-item-title,
+    .proposta-closing-block h5
+) {
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    p,
+    small,
+    .field-hint,
+    .muted,
+    .table-cell-sub,
+    .locacao-period-meta,
+    .proposta-data-card-head p,
+    .proposta-form-section p,
+    .proposta-config-category-title small,
+    .proposta-revision-step small
+) {
+    color: #dfcfaa !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(input, select, textarea, .search-input) {
+    background: #080807 !important;
+    border-color: rgba(214, 168, 71, 0.30) !important;
+    color: #fff7e6 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(input[type="file"]) {
+    background: #100e0b !important;
+    color: #dfcfaa !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.badge, .status-badge, .stock-pill, .stat-tag, .module-topbar-meta) {
+    border-color: rgba(214, 168, 71, 0.24) !important;
+}
