@@ -8,7 +8,9 @@ const GOOGLE_SCOPES = [
 ].join(' ');
 const GOOGLE_SDK_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_SESSION_TTL_MS = 55 * 60 * 1000;
+const GOOGLE_LOCAL_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LAST_GOOGLE_USER_KEY = 'mtzLastGoogleUser';
+const GOOGLE_SESSION_REMEMBERED_AT_KEY = 'mtzGoogleSessionRememberedAt';
 const AUTH_MODE_KEY = 'mtzAuthMode';
 
 let loginEventosRegistrados = false;
@@ -99,19 +101,39 @@ function alternarBotoesLogin(desativado) {
 }
 
 function salvarSessaoGoogle(token) {
+    const agora = String(Date.now());
     localStorage.setItem('gToken', token);
-    localStorage.setItem('gTokenCreatedAt', String(Date.now()));
+    localStorage.setItem('gTokenCreatedAt', agora);
+    localStorage.setItem(GOOGLE_SESSION_REMEMBERED_AT_KEY, agora);
 }
 
-function limparSessaoGoogle() {
+function limparSessaoGoogle(opcoes = {}) {
     localStorage.removeItem('gToken');
     localStorage.removeItem('gTokenCreatedAt');
+    if (opcoes?.limparLembranca) {
+        localStorage.removeItem(GOOGLE_SESSION_REMEMBERED_AT_KEY);
+    }
 }
 
 function sessaoGoogleExpirada() {
     const criadoEm = Number(localStorage.getItem('gTokenCreatedAt') || 0);
     if (!criadoEm) return true;
     return (Date.now() - criadoEm) > GOOGLE_SESSION_TTL_MS;
+}
+
+function sessaoGoogleLembradaAtiva() {
+    const lembradaEm = Number(
+        localStorage.getItem(GOOGLE_SESSION_REMEMBERED_AT_KEY) ||
+        localStorage.getItem('gTokenCreatedAt') ||
+        0
+    );
+
+    if (!lembradaEm) return false;
+    if ((Date.now() - lembradaEm) > GOOGLE_LOCAL_SESSION_TTL_MS) return false;
+
+    const ultimo = obterUltimoUsuarioGoogle();
+    const email = ultimo?.email || localStorage.getItem('usuarioEmail') || '';
+    return !!email && emailGooglePermitido(email);
 }
 
 function loginVisivel() {
@@ -199,11 +221,12 @@ function renderUsuarioCabecalho() {
         email = ultimo?.email || emailSessao || 'Sincronização ativa';
         foto = ultimo?.foto || './logo.png';
     } else {
-        nome = 'Modo offline';
         if (ultimo?.email) {
-            email = `Último Google: ${ultimo.email}`;
+            nome = ultimo.nome || 'Modo local';
+            email = `Google desconectado: ${ultimo.email}`;
             foto = ultimo?.foto || './logo.png';
         } else {
+            nome = 'Modo offline';
             email = 'Sem sincronização ativa';
         }
     }
@@ -334,9 +357,7 @@ async function processarRespostaGoogle(resp, origem = 'login') {
 
         if (origem === 'revalidacao') {
             limparSessaoGoogle();
-            localStorage.removeItem(AUTH_MODE_KEY);
-            mostrarTelaSessaoExpirada();
-            atualizarStatusLogin('Sessão expirada. Entre novamente com Google.', 'warn');
+            continuarComSessaoLocalGoogle('Sessão Google não foi reativada. Você pode continuar usando o app em modo local.', { toast: true });
             return;
         }
 
@@ -354,7 +375,7 @@ async function processarRespostaGoogle(resp, origem = 'login') {
     const perfil = await atualizarUltimoUsuarioGoogle(resp.access_token);
 
     if (!emailGooglePermitido(perfil.email)) {
-        limparSessaoGoogle();
+        limparSessaoGoogle({ limparLembranca: true });
         localStorage.removeItem(AUTH_MODE_KEY);
         atualizarStatusLogin('Este e-mail não está liberado para login Google neste sistema.', 'error');
         mostrarToast('Acesso negado para este e-mail.', 'erro');
@@ -452,8 +473,32 @@ function entrarApp() {
     }, 80);
 }
 
+function continuarComSessaoLocalGoogle(mensagem = 'Sessão Google expirada. O app continua em modo local.', opcoes = {}) {
+    const ultimo = obterUltimoUsuarioGoogle();
+    if (ultimo?.email) localStorage.setItem('usuarioEmail', ultimo.email);
+
+    localStorage.setItem(AUTH_MODE_KEY, 'offline');
+
+    if (opcoes?.renderizar === false) {
+        ocultarTelaSessaoExpirada(false);
+        renderUsuarioCabecalho();
+        if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
+        updStatus('offline');
+    } else {
+        entrarApp();
+        updStatus('offline');
+    }
+
+    if (mensagem) atualizarStatusLogin(mensagem, 'warn');
+    if (opcoes?.toast && typeof mostrarToast === 'function') {
+        mostrarToast(mensagem, 'info');
+    }
+
+    return true;
+}
+
 function sair() {
-    limparSessaoGoogle();
+    limparSessaoGoogle({ limparLembranca: true });
     localStorage.removeItem(AUTH_MODE_KEY);
     location.reload();
 }
@@ -486,7 +531,7 @@ function tentarRevalidacaoSilenciosa() {
     const ultimo = obterUltimoUsuarioGoogle();
     const emailBase = ultimo?.email || localStorage.getItem('usuarioEmail') || '';
     if (!emailGooglePermitido(emailBase)) {
-        limparSessaoGoogle();
+        limparSessaoGoogle({ limparLembranca: true });
         localStorage.removeItem(AUTH_MODE_KEY);
         atualizarStatusLogin('Este e-mail não está liberado para login Google neste sistema.', 'error');
         return false;
@@ -500,17 +545,10 @@ function tentarRevalidacaoSilenciosa() {
     }
 
     limparSessaoGoogle();
-    localStorage.removeItem(AUTH_MODE_KEY);
-
-    if (!navigator.onLine) {
-        mostrarTelaSessaoExpirada();
-        atualizarStatusLogin('Sessão expirada. Conecte a internet ou continue offline.', 'warn');
-        return false;
-    }
-
-    mostrarTelaSessaoExpirada();
-    atualizarStatusLogin('Sessão expirada. Clique em "Reativar com Google" para continuar.', 'warn');
-    return false;
+    return continuarComSessaoLocalGoogle(
+        'Sessão Google expirada. O app foi mantido em modo local; reconecte ao Google quando quiser sincronizar.',
+        { toast: true }
+    );
 }
 
 function inicializarSessaoLogin() {
@@ -529,6 +567,14 @@ function inicializarSessaoLogin() {
 
     if (window.google?.accounts?.oauth2) gisLoaded();
 
-    if (!localStorage.getItem('gToken')) return;
+    if (!localStorage.getItem('gToken')) {
+        if (sessaoGoogleLembradaAtiva()) {
+            continuarComSessaoLocalGoogle(
+                'Acesso local restaurado. Para sincronizar com a nuvem, conecte novamente ao Google.',
+                { toast: false }
+            );
+        }
+        return;
+    }
     tentarRevalidacaoSilenciosa();
 }

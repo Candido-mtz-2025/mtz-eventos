@@ -156,14 +156,25 @@ async function fetchComTimeout(url, options = {}, timeoutMs = SYNC_TIMEOUT_MS) {
 
 function tratarSessaoInvalidaSincronizacao() {
     if (typeof limparSessaoGoogle === 'function') limparSessaoGoogle();
-    localStorage.removeItem(AUTH_MODE_KEY);
     updStatus('offline');
 
-    if (typeof mostrarTelaSessaoExpirada === 'function') {
-        mostrarTelaSessaoExpirada();
+    if (typeof continuarComSessaoLocalGoogle === 'function') {
+        continuarComSessaoLocalGoogle(
+            'Sessão Google expirada. O app continua em modo local; reconecte ao Google para sincronizar.',
+            { renderizar: false, toast: true }
+        );
+        return;
     }
-    if (typeof atualizarStatusLogin === 'function') {
-        atualizarStatusLogin('Sessão expirada. Entre novamente com Google.', 'warn');
+
+    localStorage.setItem(AUTH_MODE_KEY, 'offline');
+    if (typeof ocultarTelaSessaoExpirada === 'function') {
+        ocultarTelaSessaoExpirada(false);
+    }
+    if (typeof renderUsuarioCabecalho === 'function') {
+        renderUsuarioCabecalho();
+    }
+    if (typeof mostrarToast === 'function') {
+        mostrarToast('Sessão Google expirada. App mantido em modo local.', 'info');
     }
 }
 
