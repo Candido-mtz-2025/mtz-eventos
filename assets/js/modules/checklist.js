@@ -128,12 +128,10 @@ function limparChecklistMontagem() {
             const campo = document.getElementById(id);
             if (campo) campo.value = '';
         });
+        window.checklistLocacaoAtualId = '';
+        atualizarOrigemChecklistLocacao(null);
 
         if (typeof salvarLocal === 'function') salvarLocal();
-        if (typeof registrarLog === 'function') {
-            const clienteNome = cliente?.nome || locacao.clienteNome || 'Cliente';
-            registrarLog('checklist', 'gerar', `Checklist gerado a partir da locação de ${clienteNome} #${String(locacao.id || '').slice(-4)}.`);
-        }
         renderChecklistMontagem();
         mostrarToast('Checklist limpo.');
     }, {
@@ -146,6 +144,28 @@ function limparChecklistMontagem() {
 function preencherCampoChecklist(idCampo, valor) {
     const campo = document.getElementById(idCampo);
     if (campo) campo.value = valor || '';
+}
+
+function atualizarOrigemChecklistLocacao(locacao, clienteNome = '') {
+    const banner = document.getElementById('checklistOrigemLocacao');
+    if (!banner) return;
+
+    if (!locacao) {
+        banner.hidden = true;
+        banner.innerHTML = '';
+        return;
+    }
+
+    const codigoLocacao = `#${String(locacao.id || '').slice(-4) || '----'}`;
+    const proposta = locacao.codigoProposta ? ` • Proposta ${locacao.codigoProposta}` : '';
+    banner.hidden = false;
+    banner.innerHTML = `
+        <i class="bi bi-link-45deg" aria-hidden="true"></i>
+        <div>
+            <strong>Checklist originado da locação ${codigoLocacao}</strong>
+            <span>${escaparHTMLChecklist(clienteNome || locacao.clienteNome || 'Cliente')}${escaparHTMLChecklist(proposta)}</span>
+        </div>
+    `;
 }
 
 function obterPecaChecklistPorId(id) {
@@ -186,6 +206,7 @@ function preencherChecklistComLocacao(locacao, itens) {
         preencherCampoChecklist('checklistDesmontagemData', locacao.dataDevolucaoPrevisao || locacao.datasDesmontagem?.inicio || '');
         preencherCampoChecklist('checklistRespSaida', locacao.equipe?.responsavel || '');
         preencherCampoChecklist('checklistRespRetorno', locacao.equipe?.responsavel || '');
+        atualizarOrigemChecklistLocacao(locacao, cliente?.nome || locacao.clienteNome || '');
 
         checklistMontagem = itens.map((item) => criarItemChecklistDaLocacao(item, locacao));
         checklistConferencia = {};
@@ -202,6 +223,10 @@ function preencherChecklistComLocacao(locacao, itens) {
         };
 
         if (typeof salvarLocal === 'function') salvarLocal();
+        if (typeof registrarLog === 'function') {
+            const clienteNome = cliente?.nome || locacao.clienteNome || 'Cliente';
+            registrarLog('checklist', 'gerar', `Checklist gerado a partir da locação de ${clienteNome} #${String(locacao.id || '').slice(-4)}.`);
+        }
         renderChecklistMontagem();
 
         const alvo = document.getElementById('tab-checklist');

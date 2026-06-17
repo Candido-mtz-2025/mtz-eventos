@@ -3843,6 +3843,45 @@ input[type="file"]::-webkit-file-upload-button {
     font-weight: 800;
 }
 
+.checklist-origin-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: -2px 0 18px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+    color: var(--text);
+}
+
+.checklist-origin-banner[hidden] {
+    display: none !important;
+}
+
+.checklist-origin-banner i {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+}
+
+.checklist-origin-banner strong,
+.checklist-origin-banner span {
+    display: block;
+}
+
+.checklist-origin-banner span {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
 #tab-checklist .section-gap {
     margin-top: 18px;
     padding-top: 14px;
