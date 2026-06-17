@@ -37,6 +37,13 @@
     const CATEGORIA_ITEM_PROPOSTA_PADRAO = 'outros';
     const CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME = 'Outros';
     const CATEGORIA_MAO_OBRA_PROPOSTA = 'mao-de-obra';
+    const CATEGORIAS_SEM_RESERVA_ESTOQUE_PROPOSTA = new Set([
+        'alimentacao',
+        'comunicacao-impressao',
+        CATEGORIA_MAO_OBRA_PROPOSTA,
+        'logistica',
+        CATEGORIA_ITEM_PROPOSTA_PADRAO
+    ]);
     const CATEGORIAS_ORCAMENTO_PADRAO = Object.freeze([
         { id: 'estrutura', nome: 'Estrutura', cor: '#3b82f6', icone: 'bi-columns-gap' },
         { id: 'mobiliario', nome: 'Mobiliário', cor: '#10b981', icone: 'bi-lamp' },
@@ -3456,6 +3463,82 @@
         }) || null;
     }
 
+    function obterDisponivelPecaProposta(peca) {
+        if (!peca) return 0;
+        if (typeof obterDisponivelPecaLocacao === 'function') {
+            return obterDisponivelPecaLocacao(peca);
+        }
+        const normalizada = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(peca) : peca;
+        return Math.max(parseInt(normalizada?.disponivel, 10) || 0, 0);
+    }
+
+    function itemPropostaDispensaReservaEstoque(item) {
+        const idCategoria = normalizarIdCategoriaOrcamento(
+            item?.categoriaId || item?.categoria || item?.categoriaNome || CATEGORIA_ITEM_PROPOSTA_PADRAO
+        );
+        return CATEGORIAS_SEM_RESERVA_ESTOQUE_PROPOSTA.has(idCategoria);
+    }
+
+    function avaliarConversaoEstoqueProposta(proposta) {
+        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
+
+        const bloqueios = [];
+        const avisos = [];
+
+        (Array.isArray(proposta?.itens) ? proposta.itens : []).forEach((item) => {
+            const calculado = calcularItemProposta(item || {});
+            const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(calculado.quantidade, 1)));
+            const descricao = textoSeguro(calculado.descricao || item?.descricao, 'Item sem descrição');
+            const peca = encontrarPecaPorDescricao(calculado);
+
+            if (!peca) {
+                if (!itemPropostaDispensaReservaEstoque(item)) {
+                    avisos.push(`${descricao}: sem vínculo claro com item do estoque.`);
+                }
+                return;
+            }
+
+            const disponivel = obterDisponivelPecaProposta(peca);
+            if (quantidade > disponivel) {
+                bloqueios.push(`${descricao}: pedido ${quantidade}, disponível ${disponivel}.`);
+            }
+        });
+
+        return { bloqueios, avisos };
+    }
+
+    function confirmarConversaoComAvisosEstoque(proposta, callback) {
+        const analise = avaliarConversaoEstoqueProposta(proposta);
+
+        if (analise.bloqueios.length) {
+            mostrarToast(`Estoque insuficiente: ${analise.bloqueios[0]}`, 'erro');
+            return;
+        }
+
+        if (!analise.avisos.length) {
+            callback();
+            return;
+        }
+
+        const mensagem = [
+            'Alguns itens não foram vinculados automaticamente ao estoque:',
+            ...analise.avisos.slice(0, 5),
+            analise.avisos.length > 5 ? `+ ${analise.avisos.length - 5} item(ns)` : '',
+            'Deseja converter mesmo assim?'
+        ].filter(Boolean).join('\n');
+
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(mensagem, callback, {
+                titulo: 'Itens sem vínculo de estoque',
+                textoConfirmar: 'Converter mesmo assim',
+                classeConfirmar: 'btn-warning'
+            });
+            return;
+        }
+
+        if (confirm(mensagem)) callback();
+    }
+
     function executarConversaoPropostaLocacao(proposta) {
         const cliente = encontrarOuCriarClienteDaProposta(proposta);
         const hojeIso = obterHojeIso();
@@ -3489,17 +3572,29 @@
                 : 'pendente';
 
         const itensLocacao = proposta.itens.map((item) => {
-            const peca = encontrarPecaPorDescricao(item);
-            const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
-            const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(item.quantidade, 1)));
-            const valorUnitario = numeroNaoNegativo(item.custoUnitario ?? item.valorUnitario, 0);
+            const itemCalculado = calcularItemProposta(item || {});
+            const peca = encontrarPecaPorDescricao(itemCalculado);
+            const periodoDias = numeroNaoNegativo(itemCalculado.periodoDias ?? itemCalculado.periodo, 1) || 1;
+            const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(itemCalculado.quantidade, 1)));
+            const custoUnitario = numeroNaoNegativo(itemCalculado.custoUnitario ?? itemCalculado.valorUnitario, 0);
+            const valorTotalComercial = numeroNaoNegativo(
+                itemCalculado.valorTotal,
+                arredondarMoeda(periodoDias * quantidade * custoUnitario)
+            );
+            const valorUnitarioComercial = quantidade > 0 && periodoDias > 0
+                ? arredondarMoeda(valorTotalComercial / quantidade / periodoDias)
+                : custoUnitario;
             return {
                 pecaId: peca?.id || '',
-                nome: item.descricao,
+                nome: itemCalculado.descricao || item.descricao,
                 quantidade,
-                valor: valorUnitario,
+                valor: valorUnitarioComercial,
                 periodoDias,
-                valorTotalProposta: numeroNaoNegativo(item.valorTotal, arredondarMoeda(periodoDias * quantidade * valorUnitario))
+                categoria: itemCalculado.categoria || item.categoria || '',
+                categoriaId: itemCalculado.categoriaId || item.categoriaId || '',
+                observacoes: itemCalculado.observacoes || item.observacoes || item.obs || '',
+                custoUnitarioProposta: custoUnitario,
+                valorTotalProposta: valorTotalComercial
             };
         });
 
@@ -3655,7 +3750,7 @@
 
         const jaConvertida = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
         if (jaConvertida) {
-            const confirmarNovaConversao = () => executarConversaoPropostaLocacao(proposta);
+            const confirmarNovaConversao = () => confirmarConversaoComAvisosEstoque(proposta, () => executarConversaoPropostaLocacao(proposta));
             if (typeof confirmarAcao === 'function') {
                 confirmarAcao(
                     `A proposta ${proposta.codigo} ja esta vinculada a locacao #${String(jaConvertida).slice(-4)}. Deseja criar uma nova locacao mesmo assim?`,
@@ -3673,7 +3768,7 @@
             return;
         }
 
-        executarConversaoPropostaLocacao(proposta);
+        confirmarConversaoComAvisosEstoque(proposta, () => executarConversaoPropostaLocacao(proposta));
     }
 
     function converterPropostaAtual() {
