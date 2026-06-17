@@ -227,7 +227,7 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
     `;
 }
 
-function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje, financeiroVencido = 0, financeiroHoje = 0 }) {
+function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje, semChecklist = 0, financeiroVencido = 0, financeiroHoje = 0 }) {
     const box = document.getElementById('dashAcoesDia');
     const resumo = document.getElementById('dashResumoAcoesDia');
     if (!box) return;
@@ -299,6 +299,17 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
                     <small>Revisar checklist de saída e disponibilidade.</small>
                 </div>
                 <button class="btn btn-sm btn-secondary" data-action="irParaChecklistOperacional">Checklist</button>
+            </div>
+        `);
+    }
+    if (semChecklist > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-media" data-action="irParaLocacoesComBusca" data-arg="sem checklist" data-arg2="ativo" title="Abrir locações em aberto sem checklist">
+                <div>
+                    <strong>${semChecklist} locação(ões) sem checklist</strong>
+                    <small>Prepare a conferência antes da separação ou montagem.</small>
+                </div>
+                <button class="btn btn-sm btn-warning" data-action="irParaLocacoesComBusca" data-arg="sem checklist" data-arg2="ativo">Preparar</button>
             </div>
         `);
     }
@@ -427,7 +438,8 @@ function renderStats() {
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
     const financeiroVencido = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro < 0);
     const financeiroHoje = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro === 0);
-    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length + financeiroVencido.length + financeiroHoje.length;
+    const semChecklist = ativas.filter((locacao) => String(locacao?.checklist?.status || '').toLowerCase() !== 'gerado');
+    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length + financeiroVencido.length + financeiroHoje.length + semChecklist.length;
     const devolvidas = locacoesComValor.filter((locacao) => locacao.statusVisual === 'devolvido').length;
     const abertasSemAtraso = Math.max(ativas.length - atrasadas.length, 0);
     const iniciamHoje = locacoesComValor.filter((locacao) => {
@@ -526,6 +538,17 @@ function renderStats() {
                 </div>
             `);
         }
+        if (semChecklist.length > 0) {
+            cards.push(`
+                <div class="alert-item warning" data-action="irParaLocacoesComBusca" data-arg="sem checklist" data-arg2="ativo" title="Abrir locações em aberto sem checklist">
+                    <i class="bi bi-clipboard-check"></i>
+                    <div class="alert-item-body">
+                        <strong>${semChecklist.length} locação(ões) sem checklist</strong>
+                        <small>${resumoClientesAlerta(semChecklist, 2)}</small>
+                    </div>
+                </div>
+            `);
+        }
         if (proximas72h.length > 0) {
             cards.push(`
                 <div class="alert-item neutral" data-action="irParaLocacoes" data-arg="todos" title="Abrir lista completa de locações">
@@ -597,6 +620,7 @@ function renderStats() {
         vencemHoje: vencemHoje.length,
         pendentesFinanceiros,
         iniciamHoje,
+        semChecklist: semChecklist.length,
         financeiroVencido: financeiroVencido.length,
         financeiroHoje: financeiroHoje.length
     });
