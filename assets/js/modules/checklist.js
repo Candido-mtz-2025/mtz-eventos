@@ -139,6 +139,88 @@ function limparChecklistMontagem() {
     });
 }
 
+function preencherCampoChecklist(idCampo, valor) {
+    const campo = document.getElementById(idCampo);
+    if (campo) campo.value = valor || '';
+}
+
+function obterPecaChecklistPorId(id) {
+    if (!id || !Array.isArray(pecas)) return null;
+    return pecas.find((peca) => String(peca.id) === String(id)) || null;
+}
+
+function criarItemChecklistDaLocacao(itemLocacao, locacao) {
+    const peca = obterPecaChecklistPorId(itemLocacao?.pecaId);
+    const quantidade = Math.max(1, parseInt(itemLocacao?.quantidade, 10) || 1);
+
+    return {
+        modeloId: locacao?.origemPropostaId || '',
+        modeloNome: locacao?.codigoProposta ? `Proposta ${locacao.codigoProposta}` : `Locação #${String(locacao?.id || '').slice(-4)}`,
+        pecaId: peca?.id || itemLocacao?.pecaId || '',
+        nome: peca?.nome || itemLocacao?.nome || 'Item da locação',
+        medida: peca?.medida || itemLocacao?.medida || '',
+        grupoChecklist: peca?.grupoChecklist || itemLocacao?.grupoChecklist || itemLocacao?.categoria || 'outros',
+        familiaEstrutural: peca?.familiaEstrutural || itemLocacao?.familiaEstrutural || '',
+        subtipoEstrutural: peca?.subtipoEstrutural || itemLocacao?.subtipoEstrutural || '',
+        quantidade
+    };
+}
+
+function gerarChecklistDaLocacao(id) {
+    const locacao = Array.isArray(locacoes)
+        ? locacoes.find((item) => String(item.id) === String(id))
+        : null;
+
+    if (!locacao) {
+        mostrarToast('Locação não encontrada para gerar checklist.', 'erro');
+        return;
+    }
+
+    const itens = Array.isArray(locacao.items) ? locacao.items : [];
+    if (!itens.length) {
+        mostrarToast('Essa locação não possui itens para checklist.', 'erro');
+        return;
+    }
+
+    const cliente = Array.isArray(locadores)
+        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
+        : null;
+
+    if (typeof abrirTab === 'function') abrirTab('checklist', { semRolagem: true });
+
+    setTimeout(() => {
+        preencherCampoChecklist('checklistCliente', cliente?.nome || locacao.clienteNome || '');
+        preencherCampoChecklist('checklistLocal', locacao.eventoLocal || locacao.eventoEndereco || locacao.logistica?.endereco || '');
+        preencherCampoChecklist('checklistMontagemData', locacao.dataAluguel || locacao.datasMontagem?.inicio || '');
+        preencherCampoChecklist('checklistHorario', locacao.datasMontagem?.horarioInicio || locacao.logistica?.horarioSaida || '');
+        preencherCampoChecklist('checklistEvento', locacao.eventoNome || locacao.codigoProposta || `Locação #${String(locacao.id).slice(-4)}`);
+        preencherCampoChecklist('checklistDesmontagemData', locacao.dataDevolucaoPrevisao || locacao.datasDesmontagem?.inicio || '');
+        preencherCampoChecklist('checklistRespSaida', locacao.equipe?.responsavel || '');
+        preencherCampoChecklist('checklistRespRetorno', locacao.equipe?.responsavel || '');
+
+        checklistMontagem = itens.map((item) => criarItemChecklistDaLocacao(item, locacao));
+        checklistConferencia = {};
+        window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
+
+        locacao.checklist = {
+            ...(locacao.checklist || {}),
+            status: 'gerado',
+            origem: 'locacao',
+            ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
+        };
+
+        if (typeof salvarLocal === 'function') salvarLocal();
+        renderChecklistMontagem();
+
+        const alvo = document.getElementById('tab-checklist');
+        if (alvo && typeof alvo.scrollIntoView === 'function') {
+            alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        mostrarToast('Checklist gerado a partir da locação.');
+    }, 120);
+}
+
 function normalizarGrupoChecklist(grupo) {
     const valor = String(grupo || '').trim().toLowerCase();
     const mapa = {
@@ -779,6 +861,7 @@ window.popularChecklistModeloSelect = popularChecklistModeloSelect;
 window.adicionarModeloAoChecklist = adicionarModeloAoChecklist;
 window.removerItemChecklistMontagem = removerItemChecklistMontagem;
 window.limparChecklistMontagem = limparChecklistMontagem;
+window.gerarChecklistDaLocacao = gerarChecklistDaLocacao;
 window.atualizarConferenciaChecklist = atualizarConferenciaChecklist;
 window.renderChecklistMontagem = renderChecklistMontagem;
 window.gerarPDFChecklistMontagem = gerarPDFChecklistMontagem;

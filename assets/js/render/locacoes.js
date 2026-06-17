@@ -297,6 +297,9 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" aria-label="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                     <i class="bi bi-truck"></i>
                 </button>
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="Gerar checklist da locação" aria-label="Gerar checklist da locação" data-action="gerarChecklistDaLocacao" data-arg="${l.id}">
+                    <i class="bi bi-clipboard-check"></i>
+                </button>
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" aria-label="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>
