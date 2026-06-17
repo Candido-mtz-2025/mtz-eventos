@@ -14491,3 +14491,110 @@ body[data-theme="mtz-gold"] #appArea :is(.btn-close-modal, .proposta-config-clos
     display: none !important;
     content: none !important;
 }
+
+/* === V23.14 | BUSCA DO ESTOQUE E LIMPAR BUSCA NO PADRÃO === */
+body[data-theme="dark"] #appArea .search-clear-inline[hidden],
+body[data-theme="mtz-premium"] #appArea .search-clear-inline[hidden],
+body[data-theme="mtz-gold"] #appArea .search-clear-inline[hidden] {
+    display: none !important;
+}
+
+body[data-theme="dark"] #appArea .search-clear-inline,
+body[data-theme="mtz-premium"] #appArea .search-clear-inline,
+body[data-theme="mtz-gold"] #appArea .search-clear-inline {
+    top: 50% !important;
+    right: 8px !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    transform: translateY(-50%) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea .search-clear-inline,
+body[data-theme="mtz-premium"] #appArea .search-clear-inline {
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    color: #cbd5e1 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .search-clear-inline {
+    background: rgba(22, 18, 10, 0.92) !important;
+    border: 1px solid rgba(216, 173, 82, 0.34) !important;
+    color: #f2d27a !important;
+}
+
+body[data-theme="dark"] #appArea .search-clear-inline:hover,
+body[data-theme="mtz-premium"] #appArea .search-clear-inline:hover {
+    background: rgba(30, 41, 59, 0.98) !important;
+    border-color: rgba(248, 113, 113, 0.34) !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .search-clear-inline:hover {
+    background: rgba(216, 173, 82, 0.18) !important;
+    border-color: rgba(242, 210, 122, 0.52) !important;
+    color: #fff8e7 !important;
+}
+
+body[data-theme="dark"] #appArea .search-clear-inline i,
+body[data-theme="mtz-premium"] #appArea .search-clear-inline i,
+body[data-theme="mtz-gold"] #appArea .search-clear-inline i {
+    font-size: 0.9rem !important;
+}
+
+body[data-theme="dark"] #tab-estoque .estoque-search-toolbar,
+body[data-theme="mtz-premium"] #tab-estoque .estoque-search-toolbar {
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(6, 10, 18, 0.97)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
+    border-radius: 14px !important;
+    padding: 10px !important;
+}
+
+body[data-theme="mtz-gold"] #tab-estoque .estoque-search-toolbar {
+    background: linear-gradient(180deg, rgba(21, 17, 9, 0.97), rgba(8, 7, 4, 0.97)) !important;
+    border: 1px solid rgba(216, 173, 82, 0.30) !important;
+    border-radius: 14px !important;
+    padding: 10px !important;
+}
+
+body[data-theme="dark"] #tab-estoque .estoque-search-toolbar .search-input-shell,
+body[data-theme="mtz-premium"] #tab-estoque .estoque-search-toolbar .search-input-shell {
+    margin: 0 0 8px !important;
+    border: 1px solid rgba(148, 163, 184, 0.24) !important;
+    border-radius: 12px !important;
+    background: rgba(5, 10, 20, 0.90) !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-gold"] #tab-estoque .estoque-search-toolbar .search-input-shell {
+    margin: 0 0 8px !important;
+    border: 1px solid rgba(216, 173, 82, 0.26) !important;
+    border-radius: 12px !important;
+    background: rgba(8, 7, 4, 0.90) !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="dark"] #tab-estoque .estoque-search-toolbar .search-input,
+body[data-theme="mtz-premium"] #tab-estoque .estoque-search-toolbar .search-input,
+body[data-theme="mtz-gold"] #tab-estoque .estoque-search-toolbar .search-input {
+    height: 42px !important;
+    margin: 0 !important;
+    padding: 0 44px 0 14px !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+body[data-theme="dark"] #tab-estoque .estoque-search-toolbar .inline-chip-row,
+body[data-theme="mtz-premium"] #tab-estoque .estoque-search-toolbar .inline-chip-row,
+body[data-theme="mtz-gold"] #tab-estoque .estoque-search-toolbar .inline-chip-row {
+    margin-top: 8px !important;
+    padding-top: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+}
