@@ -252,6 +252,25 @@ function preencherChecklistComLocacao(locacao, itens) {
     }, 120);
 }
 
+function abrirChecklistAtualDaLocacao(locacao) {
+    const cliente = Array.isArray(locadores)
+        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
+        : null;
+
+    if (typeof abrirTab === 'function') abrirTab('checklist', { semRolagem: true });
+
+    setTimeout(() => {
+        atualizarOrigemChecklistLocacao(locacao, cliente?.nome || locacao.clienteNome || '');
+        renderChecklistMontagem();
+
+        const alvo = document.getElementById('tab-checklist');
+        if (alvo && typeof alvo.scrollIntoView === 'function') {
+            alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        mostrarToast('Checklist da locação aberto.');
+    }, 120);
+}
+
 function gerarChecklistDaLocacao(id) {
     const locacao = Array.isArray(locacoes)
         ? locacoes.find((item) => String(item.id) === String(id))
@@ -269,6 +288,15 @@ function gerarChecklistDaLocacao(id) {
     }
 
     const checklistAtualId = String(window.checklistLocacaoAtualId || '');
+    const checklistAtualDaLocacao = checklistAtualId === String(id)
+        && Array.isArray(checklistMontagem)
+        && checklistMontagem.length > 0;
+
+    if (checklistAtualDaLocacao) {
+        abrirChecklistAtualDaLocacao(locacao);
+        return;
+    }
+
     const temChecklistEmAndamento = Array.isArray(checklistMontagem)
         && checklistMontagem.length > 0
         && checklistAtualId !== String(id);
