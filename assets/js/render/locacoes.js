@@ -146,6 +146,8 @@ function renderLocacoes() {
         const idTexto = String(l.id || '');
         const periodoTexto = `${l.dataAluguel || ''} ${l.dataDevolucaoPrevisao || ''}`;
         const valorTexto = String((Number(l.valorTotal) || 0).toFixed(2)).replace('.', ',');
+        const checklistGerado = String(l?.checklist?.status || '').toLowerCase() === 'gerado';
+        const checklistTexto = checklistGerado ? 'checklist gerado com checklist' : 'sem checklist checklist pendente';
         const alvo = normalizar([
             l.clienteNome,
             idTexto,
@@ -154,6 +156,7 @@ function renderLocacoes() {
             periodoTexto,
             l.statusVisual,
             l.pago ? 'pago' : 'pendente',
+            checklistTexto,
             valorTexto
         ].join(' '));
 
