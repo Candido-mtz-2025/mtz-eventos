@@ -170,22 +170,7 @@ function criarItemChecklistDaLocacao(itemLocacao, locacao) {
     };
 }
 
-function gerarChecklistDaLocacao(id) {
-    const locacao = Array.isArray(locacoes)
-        ? locacoes.find((item) => String(item.id) === String(id))
-        : null;
-
-    if (!locacao) {
-        mostrarToast('Locação não encontrada para gerar checklist.', 'erro');
-        return;
-    }
-
-    const itens = Array.isArray(locacao.items) ? locacao.items : [];
-    if (!itens.length) {
-        mostrarToast('Essa locação não possui itens para checklist.', 'erro');
-        return;
-    }
-
+function preencherChecklistComLocacao(locacao, itens) {
     const cliente = Array.isArray(locadores)
         ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
         : null;
@@ -206,9 +191,11 @@ function gerarChecklistDaLocacao(id) {
         checklistConferencia = {};
         window.checklistMontagem = checklistMontagem;
         window.checklistConferencia = checklistConferencia;
+        window.checklistLocacaoAtualId = String(locacao.id || '');
 
         locacao.checklist = {
             ...(locacao.checklist || {}),
+            locacaoId: String(locacao.id || ''),
             status: 'gerado',
             origem: 'locacao',
             ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
@@ -223,6 +210,45 @@ function gerarChecklistDaLocacao(id) {
         }
         mostrarToast('Checklist gerado a partir da locação.');
     }, 120);
+}
+
+function gerarChecklistDaLocacao(id) {
+    const locacao = Array.isArray(locacoes)
+        ? locacoes.find((item) => String(item.id) === String(id))
+        : null;
+
+    if (!locacao) {
+        mostrarToast('Locação não encontrada para gerar checklist.', 'erro');
+        return;
+    }
+
+    const itens = Array.isArray(locacao.items) ? locacao.items : [];
+    if (!itens.length) {
+        mostrarToast('Essa locação não possui itens para checklist.', 'erro');
+        return;
+    }
+
+    const checklistAtualId = String(window.checklistLocacaoAtualId || '');
+    const temChecklistEmAndamento = Array.isArray(checklistMontagem)
+        && checklistMontagem.length > 0
+        && checklistAtualId !== String(id);
+
+    if (temChecklistEmAndamento && typeof confirmarAcao === 'function') {
+        confirmarAcao('Já existe um checklist montado na tela. Deseja substituir pelos itens desta locação?', () => {
+            preencherChecklistComLocacao(locacao, itens);
+        }, {
+            titulo: 'Substituir checklist atual',
+            textoConfirmar: 'Substituir',
+            classeConfirmar: 'btn-warning'
+        });
+        return;
+    }
+
+    if (temChecklistEmAndamento && !confirm('Já existe um checklist montado na tela. Deseja substituir pelos itens desta locação?')) {
+        return;
+    }
+
+    preencherChecklistComLocacao(locacao, itens);
 }
 
 function normalizarGrupoChecklist(grupo) {
