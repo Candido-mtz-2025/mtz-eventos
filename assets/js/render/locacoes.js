@@ -260,6 +260,8 @@ function renderLocacoes() {
                 : statusVisual === 'cancelado'
                     ? 'CANCELADO'
                     : 'ATIVO';
+        const checklistGerado = String(l?.checklist?.status || '').toLowerCase() === 'gerado';
+        const checklistTitulo = checklistGerado ? 'Abrir checklist da locação' : 'Gerar checklist da locação';
         
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
@@ -284,6 +286,7 @@ function renderLocacoes() {
                 <span class="badge-row">
                     <span class="badge ${badgeClass}">${statusLabel}</span>
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
+                    ${checklistGerado ? '<span class="badge badge-info">CHECKLIST</span>' : ''}
                 </span>
             </td>
             <td class="col-actions">
@@ -297,7 +300,7 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" aria-label="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                     <i class="bi bi-truck"></i>
                 </button>
-                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="Gerar checklist da locação" aria-label="Gerar checklist da locação" data-action="gerarChecklistDaLocacao" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="${checklistTitulo}" aria-label="${checklistTitulo}" data-action="gerarChecklistDaLocacao" data-arg="${l.id}">
                     <i class="bi bi-clipboard-check"></i>
                 </button>
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" aria-label="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">

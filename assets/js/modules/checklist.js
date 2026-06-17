@@ -130,6 +130,10 @@ function limparChecklistMontagem() {
         });
 
         if (typeof salvarLocal === 'function') salvarLocal();
+        if (typeof registrarLog === 'function') {
+            const clienteNome = cliente?.nome || locacao.clienteNome || 'Cliente';
+            registrarLog('checklist', 'gerar', `Checklist gerado a partir da locação de ${clienteNome} #${String(locacao.id || '').slice(-4)}.`);
+        }
         renderChecklistMontagem();
         mostrarToast('Checklist limpo.');
     }, {
