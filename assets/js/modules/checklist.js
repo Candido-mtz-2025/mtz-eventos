@@ -168,6 +168,21 @@ function atualizarOrigemChecklistLocacao(locacao, clienteNome = '') {
     `;
 }
 
+function obterOrigemChecklistAtual() {
+    const locacaoId = String(window.checklistLocacaoAtualId || '').trim();
+    if (!locacaoId || !Array.isArray(locacoes)) return null;
+
+    const locacao = locacoes.find((item) => String(item.id || '') === locacaoId);
+    if (!locacao) return null;
+
+    const codigoLocacao = `#${String(locacao.id || '').slice(-4) || '----'}`;
+    const codigoProposta = locacao.codigoProposta ? ` • Proposta ${locacao.codigoProposta}` : '';
+    return {
+        locacao,
+        texto: `Locação ${codigoLocacao}${codigoProposta}`
+    };
+}
+
 function obterPecaChecklistPorId(id) {
     if (!id || !Array.isArray(pecas)) return null;
     return pecas.find((peca) => String(peca.id) === String(id)) || null;
@@ -627,6 +642,7 @@ function gerarPDFChecklistMontagem() {
 
     const grupos = obterGruposChecklist();
     sincronizarConferenciaChecklist(grupos);
+    const origemChecklist = obterOrigemChecklistAtual();
     const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
     const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
     const totalConferidos = grupos.reduce((total, grupo) => (
@@ -722,6 +738,7 @@ function gerarPDFChecklistMontagem() {
                 ${infoCard('Resp. retorno', dados.respRetorno)}
                 ${infoCard('Itens', `${totalItens} peças • ${totalLinhas} linhas`)}
                 ${infoCard('Conferidos', `${totalConferidos}/${totalLinhas}`)}
+                ${origemChecklist ? infoCard('Origem', origemChecklist.texto) : ''}
             </div>
 
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
