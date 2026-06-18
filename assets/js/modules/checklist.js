@@ -708,7 +708,7 @@ function renderChecklistMontagem() {
     `;
 }
 
-function gerarPDFChecklistMontagem() {
+function gerarPDFChecklistMontagem(opcoes = {}) {
     if (!checklistMontagem || !checklistMontagem.length) {
         mostrarToast('Nenhum item no checklist para gerar PDF.', 'erro');
         focarCampoChecklist('checklistModeloSelect');
@@ -736,6 +736,26 @@ function gerarPDFChecklistMontagem() {
     sincronizarConferenciaChecklist(grupos);
     const origemChecklist = obterOrigemChecklistAtual();
     const resumoChecklist = calcularResumoChecklistAtual();
+
+    const temPendenciaChecklist = resumoChecklist.pendentes > 0
+        || resumoChecklist.faltando > 0
+        || resumoChecklist.avarias > 0;
+
+    if (!opcoes.ignorarPendencias && temPendenciaChecklist) {
+        const mensagem = `Este checklist ainda tem ${resumoChecklist.pendentes} pendente(s), ${resumoChecklist.faltando} faltando e ${resumoChecklist.avarias} avaria(s). Deseja gerar o PDF mesmo assim?`;
+
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(mensagem, () => gerarPDFChecklistMontagem({ ignorarPendencias: true }), {
+                titulo: 'Gerar PDF com pendências',
+                textoConfirmar: 'Gerar PDF',
+                classeConfirmar: 'btn-warning'
+            });
+            return;
+        }
+
+        if (!confirm(mensagem)) return;
+    }
+
     const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
     const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
     const totalConferidos = grupos.reduce((total, grupo) => (
