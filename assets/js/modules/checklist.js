@@ -236,6 +236,7 @@ function preencherChecklistComLocacao(locacao, itens) {
             origem: 'locacao',
             ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
         };
+        atualizarResumoChecklistLocacaoAtual();
 
         if (typeof salvarLocal === 'function') salvarLocal();
         if (typeof registrarLog === 'function') {
@@ -463,6 +464,7 @@ function atualizarConferenciaChecklist(chave, campo, valor, quantidadeSaida) {
 
     checklistConferencia[chave] = registro;
     window.checklistConferencia = checklistConferencia;
+    atualizarResumoChecklistLocacaoAtual();
     if (typeof salvarLocal === 'function') salvarLocal();
 
     if (campo !== 'observacao') {
@@ -550,6 +552,56 @@ function obterGruposChecklist() {
                 conferencia: obterConferenciaItemChecklist(item.chaveConferencia, item.quantidade)
             }))
         }));
+}
+
+function calcularResumoChecklistAtual() {
+    const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
+
+    const resumo = grupos.reduce((acc, grupo) => {
+        acc.totalItens += Number(grupo.total) || 0;
+        acc.totalLinhas += grupo.itens.length;
+
+        grupo.itens.forEach((item) => {
+            const status = item.conferencia?.status || 'pendente';
+            if (status === 'ok') acc.conferidos += 1;
+            else if (status === 'faltando') acc.faltando += 1;
+            else if (status === 'avaria') acc.avarias += 1;
+            else acc.pendentes += 1;
+        });
+
+        return acc;
+    }, {
+        totalItens: 0,
+        totalLinhas: 0,
+        conferidos: 0,
+        pendentes: 0,
+        faltando: 0,
+        avarias: 0
+    });
+
+    resumo.percentual = resumo.totalLinhas
+        ? Math.round((resumo.conferidos / resumo.totalLinhas) * 100)
+        : 0;
+    return resumo;
+}
+
+function atualizarResumoChecklistLocacaoAtual() {
+    const locacaoId = String(window.checklistLocacaoAtualId || '').trim();
+    if (!locacaoId || !Array.isArray(locacoes)) return false;
+
+    const locacao = locacoes.find((item) => String(item.id || '') === locacaoId);
+    if (!locacao || !Array.isArray(checklistMontagem) || !checklistMontagem.length) return false;
+
+    locacao.checklist = {
+        ...(locacao.checklist || {}),
+        locacaoId,
+        status: 'gerado',
+        origem: 'locacao',
+        resumo: calcularResumoChecklistAtual(),
+        ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
+    };
+    return true;
 }
 
 function renderChecklistMontagem() {

@@ -265,6 +265,12 @@ function renderLocacoes() {
                     : 'ATIVO';
         const checklistGerado = String(l?.checklist?.status || '').toLowerCase() === 'gerado';
         const checklistTitulo = checklistGerado ? 'Abrir checklist da locação' : 'Gerar checklist da locação';
+        const checklistResumo = l?.checklist?.resumo || {};
+        const checklistTotal = Number(checklistResumo.totalLinhas) || 0;
+        const checklistConferidos = Number(checklistResumo.conferidos) || 0;
+        const checklistBadgeTexto = checklistTotal > 0
+            ? `CHECKLIST ${checklistConferidos}/${checklistTotal}`
+            : 'CHECKLIST';
         
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
@@ -289,7 +295,7 @@ function renderLocacoes() {
                 <span class="badge-row">
                     <span class="badge ${badgeClass}">${statusLabel}</span>
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
-                    ${checklistGerado ? '<span class="badge badge-info">CHECKLIST</span>' : ''}
+                    ${checklistGerado ? `<span class="badge badge-info">${checklistBadgeTexto}</span>` : ''}
                 </span>
             </td>
             <td class="col-actions">
