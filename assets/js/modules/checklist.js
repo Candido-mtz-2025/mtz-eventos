@@ -619,8 +619,20 @@ function renderChecklistMontagem() {
 
     const grupos = obterGruposChecklist();
     sincronizarConferenciaChecklist(grupos);
+    const resumo = calcularResumoChecklistAtual();
 
     container.innerHTML = `
+        <div class="checklist-summary-strip">
+            <div class="checklist-summary-main">
+                <strong>${resumo.percentual}% conferido</strong>
+                <span>${resumo.conferidos}/${resumo.totalLinhas} linhas conferidas • ${resumo.totalItens} peça(s)</span>
+            </div>
+            <div class="checklist-summary-badges">
+                <span class="badge badge-info">${resumo.pendentes} pendente(s)</span>
+                <span class="badge badge-warning">${resumo.faltando} faltando</span>
+                <span class="badge badge-danger">${resumo.avarias} avaria(s)</span>
+            </div>
+        </div>
         <div class="checklist-preview-grid">
             ${grupos.map(grupo => `
                 <div class="checklist-preview-card">
