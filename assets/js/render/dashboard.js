@@ -227,7 +227,7 @@ function renderGraficoStatusLocacoes({ abertas, atrasadas, devolvidas }) {
     `;
 }
 
-function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje, semChecklist = 0, financeiroVencido = 0, financeiroHoje = 0 }) {
+function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, iniciamHoje, semChecklist = 0, checklistEmAndamento = 0, financeiroVencido = 0, financeiroHoje = 0 }) {
     const box = document.getElementById('dashAcoesDia');
     const resumo = document.getElementById('dashResumoAcoesDia');
     if (!box) return;
@@ -310,6 +310,17 @@ function renderAcoesDiaDashboard({ atrasadas, vencemHoje, pendentesFinanceiros, 
                     <small>Prepare a conferência antes da separação ou montagem.</small>
                 </div>
                 <button class="btn btn-sm btn-warning" data-action="irParaLocacoesComBusca" data-arg="sem checklist" data-arg2="ativo">Preparar</button>
+            </div>
+        `);
+    }
+    if (checklistEmAndamento > 0) {
+        acoes.push(`
+            <div class="dash-action-item prioridade-baixa" data-action="irParaLocacoesComBusca" data-arg="checklist em andamento" data-arg2="ativo" title="Abrir locações com checklist em andamento">
+                <div>
+                    <strong>${checklistEmAndamento} checklist(s) em andamento</strong>
+                    <small>Finalize conferências abertas antes da montagem ou retorno.</small>
+                </div>
+                <button class="btn btn-sm btn-secondary" data-action="irParaLocacoesComBusca" data-arg="checklist em andamento" data-arg2="ativo">Ver</button>
             </div>
         `);
     }
@@ -439,7 +450,15 @@ function renderStats() {
     const financeiroVencido = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro < 0);
     const financeiroHoje = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro === 0);
     const semChecklist = ativas.filter((locacao) => String(locacao?.checklist?.status || '').toLowerCase() !== 'gerado');
-    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length + financeiroVencido.length + financeiroHoje.length + semChecklist.length;
+    const checklistEmAndamento = ativas.filter((locacao) => {
+        const resumo = locacao?.checklist?.resumo || {};
+        const totalLinhas = Number(resumo.totalLinhas) || 0;
+        const conferidos = Number(resumo.conferidos) || 0;
+        return String(locacao?.checklist?.status || '').toLowerCase() === 'gerado'
+            && totalLinhas > 0
+            && conferidos < totalLinhas;
+    });
+    const totalAlertas = atrasadas.length + vencemHoje.length + vencemAmanha.length + proximas72h.length + financeiroVencido.length + financeiroHoje.length + semChecklist.length + checklistEmAndamento.length;
     const devolvidas = locacoesComValor.filter((locacao) => locacao.statusVisual === 'devolvido').length;
     const abertasSemAtraso = Math.max(ativas.length - atrasadas.length, 0);
     const iniciamHoje = locacoesComValor.filter((locacao) => {
@@ -549,6 +568,17 @@ function renderStats() {
                 </div>
             `);
         }
+        if (checklistEmAndamento.length > 0) {
+            cards.push(`
+                <div class="alert-item info" data-action="irParaLocacoesComBusca" data-arg="checklist em andamento" data-arg2="ativo" title="Abrir locações com checklist em andamento">
+                    <i class="bi bi-clipboard-data"></i>
+                    <div class="alert-item-body">
+                        <strong>${checklistEmAndamento.length} checklist(s) em andamento</strong>
+                        <small>${resumoClientesAlerta(checklistEmAndamento, 2)}</small>
+                    </div>
+                </div>
+            `);
+        }
         if (proximas72h.length > 0) {
             cards.push(`
                 <div class="alert-item neutral" data-action="irParaLocacoes" data-arg="todos" title="Abrir lista completa de locações">
@@ -621,6 +651,7 @@ function renderStats() {
         pendentesFinanceiros,
         iniciamHoje,
         semChecklist: semChecklist.length,
+        checklistEmAndamento: checklistEmAndamento.length,
         financeiroVencido: financeiroVencido.length,
         financeiroHoje: financeiroHoje.length
     });

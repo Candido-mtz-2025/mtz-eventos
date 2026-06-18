@@ -147,7 +147,15 @@ function renderLocacoes() {
         const periodoTexto = `${l.dataAluguel || ''} ${l.dataDevolucaoPrevisao || ''}`;
         const valorTexto = String((Number(l.valorTotal) || 0).toFixed(2)).replace('.', ',');
         const checklistGerado = String(l?.checklist?.status || '').toLowerCase() === 'gerado';
-        const checklistTexto = checklistGerado ? 'checklist gerado com checklist' : 'sem checklist checklist pendente';
+        const checklistResumo = l?.checklist?.resumo || {};
+        const checklistTotal = Number(checklistResumo.totalLinhas) || 0;
+        const checklistConferidos = Number(checklistResumo.conferidos) || 0;
+        const checklistCompleto = checklistGerado && checklistTotal > 0 && checklistConferidos >= checklistTotal;
+        const checklistTexto = !checklistGerado
+            ? 'sem checklist checklist pendente'
+            : checklistCompleto
+                ? 'checklist gerado checklist completo conferido'
+                : 'checklist gerado checklist em andamento checklist pendente';
         const alvo = normalizar([
             l.clienteNome,
             idTexto,
