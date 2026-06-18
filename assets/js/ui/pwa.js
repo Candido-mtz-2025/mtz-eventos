@@ -14,8 +14,6 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register(`./sw.js?${SW_VERSION}`, { updateViaCache: 'none' })
             .then((registration) => {
-                console.log('Service Worker Registrado!');
-
                 registration.update();
                 setInterval(() => registration.update(), 30 * 60 * 1000);
 

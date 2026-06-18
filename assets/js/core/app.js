@@ -2655,7 +2655,6 @@ function executarAtalhoRapido(atalhoId) {
         window.__mtzTopMeasureTimer = setTimeout(atualizarMedidasTopoApp, 120);
     });
     setInterval(salvarLocal, 60000);
-    console.log('✅ Sistema de backup ativado');
 };
     const CHAVE_TEMA_SISTEMA = 'theme';
     const TEMAS_SISTEMA = ['light', 'dark', 'mtz-premium', 'mtz-gold', 'auto'];

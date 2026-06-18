@@ -4,11 +4,8 @@ function recalcularDisponibilidade(forcar = false) {
         const agora = Date.now();
         
         if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
-            console.log('📦 Usando cache de disponibilidade');
             return;
         }
-        
-        console.log('🔄 Recalculando disponibilidade...');
         
         const aluguelPorPeca = new Map();
         
@@ -40,8 +37,6 @@ function recalcularDisponibilidade(forcar = false) {
         
         cacheDisponibilidade = true;
         ultimaAtualizacaoCache = agora;
-        
-        console.log('✅ Disponibilidade recalculada');
     }
 
 function obterOuCriarTipoGeral() {
@@ -432,7 +427,6 @@ function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual'
     }
 
     modelosChecklist.push(modelo);
-    console.log('MODELOS SALVOS AGORA:', modelosChecklist);
     
     salvarLocal();
     sincronizar('salvar');

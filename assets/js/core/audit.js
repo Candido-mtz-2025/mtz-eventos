@@ -16,8 +16,6 @@ function registrarLog(tipo, acao, descricao, dados = null) {
     if (logsAuditoria.length > 1000) {
         logsAuditoria = logsAuditoria.slice(0, 1000);
     }
-    
-    console.log('📝 LOG:', log.tipo, '→', log.acao, '→', log.descricao);
 }
 
 /**
@@ -35,7 +33,6 @@ function limparLogsAntigos() {
     
     const removidos = qtdAntes - logsAuditoria.length;
     if (removidos > 0) {
-        console.log(`🗑️ ${removidos} logs antigos removidos`);
         registrarLog('sistema', 'limpeza', `${removidos} logs antigos removidos`);
     }
     
