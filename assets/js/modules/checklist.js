@@ -735,6 +735,7 @@ function gerarPDFChecklistMontagem() {
     const grupos = obterGruposChecklist();
     sincronizarConferenciaChecklist(grupos);
     const origemChecklist = obterOrigemChecklistAtual();
+    const resumoChecklist = calcularResumoChecklistAtual();
     const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
     const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
     const totalConferidos = grupos.reduce((total, grupo) => (
@@ -829,7 +830,10 @@ function gerarPDFChecklistMontagem() {
                 ${infoCard('Resp. saída', dados.respSaida)}
                 ${infoCard('Resp. retorno', dados.respRetorno)}
                 ${infoCard('Itens', `${totalItens} peças • ${totalLinhas} linhas`)}
-                ${infoCard('Conferidos', `${totalConferidos}/${totalLinhas}`)}
+                ${infoCard('Conferidos', `${totalConferidos}/${totalLinhas} • ${resumoChecklist.percentual}%`)}
+                ${infoCard('Pendentes', resumoChecklist.pendentes)}
+                ${infoCard('Faltando', resumoChecklist.faltando)}
+                ${infoCard('Avarias', resumoChecklist.avarias)}
                 ${origemChecklist ? infoCard('Origem', origemChecklist.texto) : ''}
             </div>
 
