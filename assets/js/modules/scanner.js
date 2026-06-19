@@ -3,6 +3,17 @@
     let scannerHandlerAtivo = null;
     function iniciarScanner(modo) {
         const modal = document.getElementById('modalScanner');
+        const alvoScanner = document.querySelector('#interactive');
+        if (!modal || !alvoScanner) {
+            mostrarToast("Scanner indisponível nesta tela.", "erro");
+            return;
+        }
+
+        if (typeof Quagga === 'undefined') {
+            mostrarToast("Leitor de código de barras não carregou. Recarregue o app e tente novamente.", "erro");
+            return;
+        }
+
         modal.classList.add('active');
         
         if (scannerAtivo) Quagga.stop();
@@ -11,12 +22,17 @@
             inputStream: {
                 name: "Live",
                 type: "LiveStream",
-                target: document.querySelector('#interactive'),
+                target: alvoScanner,
                 constraints: { facingMode: "environment" }
             },
             decoder: { readers: ["code_128_reader", "ean_reader"] }
         }, function(err) {
-            if (err) { console.log(err); return; }
+            if (err) {
+                console.warn('Falha ao iniciar scanner:', err);
+                mostrarToast("Não foi possível acessar a câmera. Verifique a permissão do navegador.", "erro");
+                fecharScanner();
+                return;
+            }
             Quagga.start();
             scannerAtivo = true;
         });
@@ -46,12 +62,14 @@
     }
 
     function fecharScanner() {
-        document.getElementById('modalScanner').classList.remove('active');
-        if (scannerAtivo) {
+        const modal = document.getElementById('modalScanner');
+        if (modal) modal.classList.remove('active');
+
+        if (scannerAtivo && typeof Quagga !== 'undefined') {
             Quagga.stop();
             scannerAtivo = false;
         }
-        if (scannerHandlerAtivo && typeof Quagga.offDetected === 'function') {
+        if (scannerHandlerAtivo && typeof Quagga !== 'undefined' && typeof Quagga.offDetected === 'function') {
             Quagga.offDetected(scannerHandlerAtivo);
             scannerHandlerAtivo = null;
         }
