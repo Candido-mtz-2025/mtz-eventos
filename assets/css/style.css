@@ -15914,6 +15914,10 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
 }
 
 /* === Layout shell experimental: menu lateral desktop === */
+#appArea .app-sidebar-brand {
+    display: none;
+}
+
 @media (min-width: 1180px) {
     #appArea {
         --app-shell-sidebar-width: 252px;
@@ -15933,6 +15937,16 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         max-width: none !important;
         margin: 0 !important;
         padding: 12px 28px 12px calc(var(--app-shell-sidebar-width) + var(--app-shell-content-gap) + var(--app-shell-sidebar-left)) !important;
+        justify-content: flex-end !important;
+        min-height: 66px !important;
+    }
+
+    #appArea > header .logo {
+        display: none !important;
+    }
+
+    #appArea > header .header-actions {
+        margin-left: auto !important;
     }
 
     #appArea > .container {
@@ -15961,7 +15975,7 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
     }
 
     #appArea .container > .tabs-container::before {
-        content: "Menu";
+        content: "Navegação";
         display: block;
         margin: 0 0 12px;
         padding: 0 8px;
@@ -15976,8 +15990,47 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         display: none !important;
     }
 
-    #appArea .tabs.app-main-nav,
-    #appArea .tabs {
+    #appArea .app-sidebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 14px;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%);
+    }
+
+    #appArea .app-sidebar-brand img {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        object-fit: contain;
+        border-radius: 12px;
+        background: #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+    }
+
+    #appArea .app-sidebar-brand strong,
+    #appArea .app-sidebar-brand small {
+        display: block;
+        line-height: 1.15;
+    }
+
+    #appArea .app-sidebar-brand strong {
+        color: var(--text);
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    #appArea .app-sidebar-brand small {
+        margin-top: 3px;
+        color: var(--text-light);
+        font-size: 0.74rem;
+        font-weight: 800;
+    }
+
+    #appArea .container > .tabs-container .tabs.app-main-nav {
         display: flex !important;
         flex-direction: column !important;
         align-items: stretch !important;
@@ -15992,15 +16045,15 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         box-shadow: none !important;
     }
 
-    #appArea .app-main-nav > .tab-btn,
-    #appArea .app-main-nav > .nav-menu-group {
+    #appArea .container > .tabs-container .app-main-nav > .tab-btn,
+    #appArea .container > .tabs-container .app-main-nav > .nav-menu-group {
         width: 100% !important;
         min-width: 0 !important;
         margin: 0 !important;
     }
 
-    #appArea .app-main-nav .tab-btn,
-    #appArea .app-main-nav .nav-menu-trigger {
+    #appArea .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger {
         width: 100% !important;
         min-height: 43px !important;
         justify-content: flex-start !important;
@@ -16011,15 +16064,15 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         text-align: left !important;
     }
 
-    #appArea .app-main-nav .nav-menu-trigger .nav-caret {
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger .nav-caret {
         margin-left: auto !important;
     }
 
-    #appArea .nav-menu-group {
+    #appArea .container > .tabs-container .nav-menu-group {
         position: relative !important;
     }
 
-    #appArea .nav-dropdown {
+    #appArea .container > .tabs-container .nav-dropdown {
         position: static !important;
         display: none !important;
         width: 100% !important;
@@ -16036,13 +16089,13 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         transform: none !important;
     }
 
-    #appArea .nav-menu-group.is-open .nav-dropdown,
-    #appArea .nav-menu-group.is-active .nav-dropdown {
+    #appArea .container > .tabs-container .nav-menu-group.is-open .nav-dropdown,
+    #appArea .container > .tabs-container .nav-menu-group.is-active .nav-dropdown {
         display: grid !important;
         gap: 4px !important;
     }
 
-    #appArea .nav-dropdown .tab-menu-item {
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item {
         width: 100% !important;
         min-height: 36px !important;
         justify-content: flex-start !important;
@@ -16070,6 +16123,19 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         color: rgba(226, 232, 240, 0.68);
     }
 
+    body[data-theme="mtz-premium"] #appArea .app-sidebar-brand {
+        background: rgba(15, 23, 42, 0.70);
+        border-color: rgba(148, 163, 184, 0.18);
+    }
+
+    body[data-theme="mtz-premium"] #appArea .app-sidebar-brand strong {
+        color: #f8fafc;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .app-sidebar-brand small {
+        color: #94a3b8;
+    }
+
     body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
         background: linear-gradient(180deg, rgba(18, 15, 8, 0.98), rgba(8, 7, 4, 0.98)) !important;
         border-color: rgba(214, 168, 71, 0.36) !important;
@@ -16078,5 +16144,18 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
 
     body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
         color: rgba(241, 217, 141, 0.72);
+    }
+
+    body[data-theme="mtz-gold"] #appArea .app-sidebar-brand {
+        background: linear-gradient(180deg, rgba(22, 18, 10, 0.92), rgba(11, 9, 5, 0.92));
+        border-color: rgba(214, 168, 71, 0.30);
+    }
+
+    body[data-theme="mtz-gold"] #appArea .app-sidebar-brand strong {
+        color: #fff4cf;
+    }
+
+    body[data-theme="mtz-gold"] #appArea .app-sidebar-brand small {
+        color: #d6a847;
     }
 }
