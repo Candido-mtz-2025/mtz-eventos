@@ -250,11 +250,22 @@ function renderUsuarioCabecalho() {
     }
 
     nomeEl.textContent = nome;
-    emailEl.textContent = email;
+    emailEl.textContent = obterRotuloPerfilCabecalho();
+    emailEl.title = email;
+    emailEl.dataset.email = email;
     avatarEl.src = foto;
     box.dataset.initial = obterInicialUsuarioCabecalho(nome, email);
     box.style.display = 'inline-flex';
     if (typeof atualizarIndicadorPerfilCabecalho === 'function') atualizarIndicadorPerfilCabecalho();
+}
+
+function obterRotuloPerfilCabecalho() {
+    try {
+        if (typeof ehAdmin === 'function' && ehAdmin()) return 'Administrador';
+    } catch (erro) {
+        console.warn('Não foi possível identificar o perfil do usuário:', erro);
+    }
+    return 'Operação';
 }
 
 function obterInicialUsuarioCabecalho(nome = '', email = '') {

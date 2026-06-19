@@ -17337,3 +17337,247 @@ body[data-theme="mtz-gold"] #appArea > header button[data-action="sair"] {
         display: none !important;
     }
 }
+
+/* === V24.3 | Header usuario 100% referencia SaaS === */
+#appArea > header .header-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+}
+
+#appArea > header .header-user {
+    display: inline-grid !important;
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 9px !important;
+    width: 205px !important;
+    min-width: 205px !important;
+    max-width: 205px !important;
+    min-height: 46px !important;
+    padding: 6px 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid #e5edf7 !important;
+    background: #ffffff !important;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06) !important;
+}
+
+#appArea > header .header-user::before {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 50% !important;
+    background: #2563eb !important;
+    color: #ffffff !important;
+    font-size: 0.95rem !important;
+    font-weight: 850 !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .header-user::after {
+    display: none !important;
+}
+
+#appArea > header .header-user > div {
+    display: grid !important;
+    align-content: center !important;
+    gap: 0 !important;
+}
+
+#appArea > header .header-user strong {
+    color: #0f172a !important;
+    font-size: 0.75rem !important;
+    font-weight: 850 !important;
+    line-height: 1.08 !important;
+    letter-spacing: 0 !important;
+}
+
+#appArea > header .header-user span {
+    color: #64748b !important;
+    font-size: 0.69rem !important;
+    font-weight: 750 !important;
+    line-height: 1.12 !important;
+    letter-spacing: 0 !important;
+}
+
+#appArea > header .header-role-badge {
+    display: none !important;
+}
+
+#appArea > header .sync-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 118px !important;
+    min-width: 118px !important;
+    max-width: 118px !important;
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    border: 1px solid #dcfce7 !important;
+    background: #ecfdf5 !important;
+    color: #15803d !important;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.08) !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+}
+
+#appArea > header .sync-badge i:first-child {
+    color: #16a34a !important;
+    font-size: 0.55rem !important;
+}
+
+#appArea > header .sync-badge .sync-caret {
+    margin-left: auto !important;
+    color: #94a3b8 !important;
+    font-size: 0.8rem !important;
+    opacity: 1 !important;
+}
+
+#appArea > header .sync-badge.sync-offline {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #475569 !important;
+}
+
+#appArea > header .sync-badge.sync-local {
+    background: #eff6ff !important;
+    border-color: #dbeafe !important;
+    color: #1d4ed8 !important;
+}
+
+#appArea > header .sync-badge.sync-saving {
+    background: #fff7ed !important;
+    border-color: #fed7aa !important;
+    color: #c2410c !important;
+}
+
+#appArea > header .header-notification-btn {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 1px solid #e5edf7 !important;
+    background: #ffffff !important;
+    color: #64748b !important;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06) !important;
+    cursor: pointer !important;
+}
+
+#appArea > header .header-notification-btn i {
+    display: block !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+}
+
+#appArea > header .header-notification-count {
+    position: absolute !important;
+    top: -6px !important;
+    right: -3px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    font-size: 0.63rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    box-shadow: 0 0 0 3px #ffffff !important;
+}
+
+@media (min-width: 901px) {
+    #appArea > header .header-controls {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        min-width: 1px !important;
+        min-height: 1px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+}
+
+body[data-theme="dark"] #appArea > header .header-user,
+body[data-theme="dark"] #appArea > header .header-notification-btn,
+body[data-theme="mtz-premium"] #appArea > header .header-user,
+body[data-theme="mtz-premium"] #appArea > header .header-notification-btn,
+body[data-theme="mtz-gold"] #appArea > header .header-user,
+body[data-theme="mtz-gold"] #appArea > header .header-notification-btn {
+    background: #ffffff !important;
+    border-color: #e5edf7 !important;
+    color: #0f172a !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-user strong,
+body[data-theme="dark"] #appArea > header .header-user span,
+body[data-theme="mtz-premium"] #appArea > header .header-user strong,
+body[data-theme="mtz-premium"] #appArea > header .header-user span,
+body[data-theme="mtz-gold"] #appArea > header .header-user strong,
+body[data-theme="mtz-gold"] #appArea > header .header-user span {
+    color: #0f172a !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-user span,
+body[data-theme="mtz-premium"] #appArea > header .header-user span,
+body[data-theme="mtz-gold"] #appArea > header .header-user span {
+    color: #64748b !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header .header-user::before,
+body[data-theme="mtz-gold"] #appArea > header .header-user::before {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 900px) {
+    #appArea > header .header-actions {
+        justify-content: center !important;
+        gap: 8px !important;
+    }
+
+    #appArea > header .header-user {
+        width: min(205px, 100%) !important;
+        min-width: min(205px, 100%) !important;
+    }
+
+    #appArea > header .sync-badge {
+        width: 112px !important;
+        min-width: 112px !important;
+    }
+}
+
+@media (max-width: 560px) {
+    #appArea > header .header-user {
+        width: 46px !important;
+        min-width: 46px !important;
+        max-width: 46px !important;
+        grid-template-columns: 34px !important;
+        padding: 6px !important;
+    }
+
+    #appArea > header .header-user > div,
+    #appArea > header .sync-badge .sync-caret {
+        display: none !important;
+    }
+
+    #appArea > header .sync-badge {
+        width: 94px !important;
+        min-width: 94px !important;
+        font-size: 0.64rem !important;
+    }
+}
