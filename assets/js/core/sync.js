@@ -8,9 +8,11 @@ const GOOGLE_SCOPES = [
 ].join(' ');
 const GOOGLE_SDK_URL = 'https://accounts.google.com/gsi/client';
 const GOOGLE_SESSION_TTL_MS = 55 * 60 * 1000;
-const GOOGLE_LOCAL_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const GOOGLE_LOCAL_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const LAST_GOOGLE_USER_KEY = 'mtzLastGoogleUser';
 const GOOGLE_SESSION_REMEMBERED_AT_KEY = 'mtzGoogleSessionRememberedAt';
+const GOOGLE_RECONNECT_NOTICE_KEY = 'mtzGoogleReconnectNoticeAt';
+const GOOGLE_RECONNECT_NOTICE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const AUTH_MODE_KEY = 'mtzAuthMode';
 
 let loginEventosRegistrados = false;
@@ -134,6 +136,21 @@ function sessaoGoogleLembradaAtiva() {
     const ultimo = obterUltimoUsuarioGoogle();
     const email = ultimo?.email || localStorage.getItem('usuarioEmail') || '';
     return !!email && emailGooglePermitido(email);
+}
+
+function statusSessaoLocalAtual() {
+    return sessaoGoogleLembradaAtiva() ? 'local' : 'offline';
+}
+
+function mostrarAvisoReconexaoGoogleUmaVez(mensagem) {
+    if (typeof mostrarToast !== 'function') return;
+
+    const agora = Date.now();
+    const ultimoAviso = Number(localStorage.getItem(GOOGLE_RECONNECT_NOTICE_KEY) || 0);
+    if (ultimoAviso && (agora - ultimoAviso) < GOOGLE_RECONNECT_NOTICE_INTERVAL_MS) return;
+
+    localStorage.setItem(GOOGLE_RECONNECT_NOTICE_KEY, String(agora));
+    mostrarToast(mensagem, 'info');
 }
 
 function loginVisivel() {
@@ -453,7 +470,7 @@ function entrarOffline() {
     localStorage.setItem(AUTH_MODE_KEY, 'offline');
     if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     entrarApp();
-    updStatus('offline');
+    updStatus(statusSessaoLocalAtual());
     mostrarToast('Modo offline ativado.', 'info');
 }
 
@@ -483,15 +500,15 @@ function continuarComSessaoLocalGoogle(mensagem = 'Sessão Google expirada. O ap
         ocultarTelaSessaoExpirada(false);
         renderUsuarioCabecalho();
         if (typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
-        updStatus('offline');
+        updStatus(statusSessaoLocalAtual());
     } else {
         entrarApp();
-        updStatus('offline');
+        updStatus(statusSessaoLocalAtual());
     }
 
     if (mensagem) atualizarStatusLogin(mensagem, 'warn');
-    if (opcoes?.toast && typeof mostrarToast === 'function') {
-        mostrarToast(mensagem, 'info');
+    if (opcoes?.toast) {
+        mostrarAvisoReconexaoGoogleUmaVez(mensagem);
     }
 
     return true;
@@ -517,11 +534,20 @@ function updStatus(s) {
     if (s === 'saving') {
         b.className = 'sync-badge sync-saving';
         t.innerText = 'Salvando...';
+        b.title = 'Salvando dados na nuvem.';
+        return;
+    }
+
+    if (s === 'local') {
+        b.className = 'sync-badge sync-local';
+        t.innerText = 'Local';
+        b.title = 'Conta Google lembrada. Use Entrar com Google para reativar a sincronização.';
         return;
     }
 
     b.className = 'sync-badge sync-offline';
     t.innerText = 'Offline';
+    b.title = 'Sem sincronização ativa.';
 }
 
 function tentarRevalidacaoSilenciosa() {

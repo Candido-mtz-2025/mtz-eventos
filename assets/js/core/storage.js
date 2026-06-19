@@ -198,13 +198,13 @@ async function sincronizar(modo) {
     }
 
     if (!navigator.onLine) {
-        updStatus('offline');
+        updStatus(typeof statusSessaoLocalAtual === 'function' ? statusSessaoLocalAtual() : 'offline');
         return;
     }
 
     const contexto = obterContextoSyncSeguro();
     if (!contexto.tokenValido) {
-        updStatus('offline');
+        updStatus(typeof statusSessaoLocalAtual === 'function' ? statusSessaoLocalAtual() : 'offline');
         if (contexto.modoGoogle && contexto.tokenExpirado) {
             tratarSessaoInvalidaSincronizacao();
         }

@@ -1065,6 +1065,7 @@
         .modal.active { display: flex; }
         .sync-badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
         .sync-online { background: #dcfce7; color: #166534; }
+        .sync-local { background: #e0f2fe; color: #075985; }
         .sync-offline { background: #f1f5f9; color: #475569; }
         .sync-saving { background: #fff7ed; color: #9a3412; }
         
@@ -10733,6 +10734,18 @@ html {
     color: #475569 !important;
 }
 
+#appArea > header .sync-badge.sync-local {
+    border-color: rgba(14, 165, 233, 0.26) !important;
+    background: #e0f2fe !important;
+    color: #075985 !important;
+}
+
+#appArea > header .sync-badge.sync-local i,
+#appArea > header .sync-badge.sync-local span {
+    color: #075985 !important;
+    filter: none !important;
+}
+
 #appArea > header .sync-badge.sync-saving,
 #appArea > header .sync-badge.sync-pending {
     border-color: rgba(249, 115, 22, 0.24) !important;
@@ -13349,6 +13362,12 @@ body[data-theme="mtz-executivo"] .sync-online {
     color: #bbf7d0 !important;
 }
 
+body[data-theme="mtz-executivo"] .sync-local {
+    background: rgba(14, 165, 233, 0.14) !important;
+    border-color: rgba(56, 189, 248, 0.30) !important;
+    color: #bae6fd !important;
+}
+
 body[data-theme="mtz-executivo"] #appArea .container > .tabs-container {
     background: linear-gradient(180deg, rgba(17, 28, 46, 0.96), rgba(10, 18, 32, 0.98)) !important;
     border: 1px solid rgba(148, 163, 184, 0.24) !important;
@@ -13557,6 +13576,12 @@ body[data-theme="mtz-gold"] .sync-online {
     background: rgba(22, 163, 74, 0.16) !important;
     border-color: rgba(34, 197, 94, 0.32) !important;
     color: #bbf7d0 !important;
+}
+
+body[data-theme="mtz-gold"] .sync-local {
+    background: rgba(214, 168, 71, 0.14) !important;
+    border-color: rgba(214, 168, 71, 0.34) !important;
+    color: #ffe8a3 !important;
 }
 
 body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
