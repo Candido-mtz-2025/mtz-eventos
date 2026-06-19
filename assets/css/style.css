@@ -10081,6 +10081,15 @@ html {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+#appArea > header .sync-badge.sync-badge-action {
+    cursor: pointer;
+}
+
+#appArea > header .sync-badge.sync-badge-action:focus-visible {
+    outline: 3px solid rgba(59, 130, 246, 0.35);
+    outline-offset: 3px;
+}
+
 #appArea > header .sync-badge i {
     color: #22c55e;
     filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.78));

@@ -525,29 +525,46 @@ function updStatus(s) {
     const t = document.getElementById('syncText');
     if (!b || !t) return;
 
+    const configurarAtalhoReconexao = (ativo, titulo) => {
+        b.classList.toggle('sync-badge-action', !!ativo);
+        if (ativo) {
+            b.dataset.action = 'fazerLoginGoogle';
+            b.setAttribute('role', 'button');
+            b.setAttribute('tabindex', '0');
+            b.title = titulo;
+            return;
+        }
+
+        delete b.dataset.action;
+        b.removeAttribute('role');
+        b.removeAttribute('tabindex');
+        b.title = titulo || '';
+    };
+
     if (s === 'online') {
         b.className = 'sync-badge sync-online';
         t.innerText = 'Online';
+        configurarAtalhoReconexao(false, 'Sincronização ativa.');
         return;
     }
 
     if (s === 'saving') {
         b.className = 'sync-badge sync-saving';
         t.innerText = 'Salvando...';
-        b.title = 'Salvando dados na nuvem.';
+        configurarAtalhoReconexao(false, 'Salvando dados na nuvem.');
         return;
     }
 
     if (s === 'local') {
         b.className = 'sync-badge sync-local';
         t.innerText = 'Local';
-        b.title = 'Conta Google lembrada. Use Entrar com Google para reativar a sincronização.';
+        configurarAtalhoReconexao(true, 'Clique para reconectar ao Google e reativar a sincronização.');
         return;
     }
 
     b.className = 'sync-badge sync-offline';
     t.innerText = 'Offline';
-    b.title = 'Sem sincronização ativa.';
+    configurarAtalhoReconexao(true, 'Clique para entrar com Google quando houver internet.');
 }
 
 function tentarRevalidacaoSilenciosa() {
