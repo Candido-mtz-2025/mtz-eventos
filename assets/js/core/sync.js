@@ -214,6 +214,7 @@ function renderAcessoRapidoLogin() {
     nomeEl.textContent = dados.nome || 'Conta Google';
     emailEl.textContent = dados.email || 'Usuário Google';
     avatarEl.src = dados.foto || './logo.png';
+    bloco.dataset.initial = obterInicialUsuarioCabecalho(dados.nome, dados.email);
     bloco.style.display = 'block';
 }
 
@@ -251,8 +252,15 @@ function renderUsuarioCabecalho() {
     nomeEl.textContent = nome;
     emailEl.textContent = email;
     avatarEl.src = foto;
+    box.dataset.initial = obterInicialUsuarioCabecalho(nome, email);
     box.style.display = 'inline-flex';
     if (typeof atualizarIndicadorPerfilCabecalho === 'function') atualizarIndicadorPerfilCabecalho();
+}
+
+function obterInicialUsuarioCabecalho(nome = '', email = '') {
+    const texto = String(nome || email || 'A').trim();
+    const primeiroCaractere = texto.charAt(0).toUpperCase();
+    return /^[A-Z0-9]$/.test(primeiroCaractere) ? primeiroCaractere : 'A';
 }
 
 function mostrarTelaSessaoExpirada() {

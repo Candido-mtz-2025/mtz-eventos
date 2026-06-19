@@ -17043,7 +17043,297 @@ body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
     }
 
     body[data-theme="mtz-premium"] #tab-dashboard :is(.stat-info p, .finance-kpi small),
-    body[data-theme="mtz-gold"] #tab-dashboard :is(.stat-info p, .finance-kpi small) {
+body[data-theme="mtz-gold"] #tab-dashboard :is(.stat-info p, .finance-kpi small) {
         color: var(--text-muted) !important;
+    }
+}
+
+/* === V24.2 | Header usuario fiel ao SaaS de referencia === */
+#appArea > header .header-actions {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+}
+
+#appArea > header .header-user {
+    position: relative !important;
+    display: inline-grid !important;
+    grid-template-columns: 42px minmax(0, 1fr) 14px !important;
+    align-items: center !important;
+    column-gap: 12px !important;
+    min-width: 244px !important;
+    max-width: 292px !important;
+    min-height: 58px !important;
+    padding: 8px 14px 8px 8px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, 0.96) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07) !important;
+}
+
+#appArea > header .header-user[style*="display:none"],
+#appArea > header .header-user[style*="display: none"] {
+    display: none !important;
+}
+
+#appArea > header .header-user::before {
+    content: attr(data-initial);
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 42px !important;
+    height: 42px !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%) !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.92) !important;
+}
+
+#appArea > header .header-user img {
+    display: none !important;
+}
+
+#appArea > header .header-user > div {
+    grid-column: 2 !important;
+    min-width: 0 !important;
+    display: grid !important;
+    align-content: center !important;
+    gap: 1px !important;
+}
+
+#appArea > header .header-user::after {
+    content: "\F282";
+    font-family: "bootstrap-icons" !important;
+    grid-column: 3 !important;
+    color: #64748b !important;
+    font-size: 0.86rem !important;
+    line-height: 1 !important;
+}
+
+#appArea > header .header-user strong {
+    display: block !important;
+    max-width: 100% !important;
+    color: #0f172a !important;
+    font-size: 0.86rem !important;
+    font-weight: 950 !important;
+    line-height: 1.08 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#appArea > header .header-user span {
+    display: block !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    color: #64748b !important;
+    font-size: 0.74rem !important;
+    font-weight: 750 !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#appArea > header .header-role-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: fit-content !important;
+    min-height: 17px !important;
+    margin-top: 3px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
+    font-size: 0.62rem !important;
+    font-weight: 950 !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+}
+
+#appArea > header .sync-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 9px !important;
+    min-width: 128px !important;
+    min-height: 46px !important;
+    padding: 9px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(187, 247, 208, 0.82) !important;
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.10) !important;
+    font-size: 0.78rem !important;
+    font-weight: 950 !important;
+    letter-spacing: 0 !important;
+    text-transform: uppercase !important;
+}
+
+#appArea > header .sync-badge i:first-child {
+    font-size: 0.74rem !important;
+    color: #16a34a !important;
+}
+
+#appArea > header .sync-badge .sync-caret {
+    margin-left: 2px !important;
+    color: currentColor !important;
+    font-size: 0.82rem !important;
+    opacity: 0.72 !important;
+}
+
+#appArea > header .sync-badge.sync-offline {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+    box-shadow: none !important;
+}
+
+#appArea > header .sync-badge.sync-local {
+    background: #e0f2fe !important;
+    border-color: #bae6fd !important;
+    color: #0369a1 !important;
+}
+
+#appArea > header .sync-badge.sync-saving {
+    background: #ffedd5 !important;
+    border-color: #fed7aa !important;
+    color: #9a3412 !important;
+}
+
+#appArea > header .header-controls {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+#appArea > header .header-controls .btn,
+#appArea > header .theme-menu-wrap > .btn,
+#appArea > header button[data-action="sair"] {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, 0.96) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    color: #334155 !important;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06) !important;
+}
+
+#appArea > header .header-controls .btn i,
+#appArea > header .theme-menu-wrap > .btn i,
+#appArea > header button[data-action="sair"] i {
+    display: block !important;
+    margin: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+}
+
+#appArea > header .header-controls .btn-danger,
+#appArea > header button[data-action="sair"] {
+    border-color: #ef4444 !important;
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-user,
+body[data-theme="mtz-premium"] #appArea > header .header-user,
+body[data-theme="mtz-gold"] #appArea > header .header-user {
+    background: color-mix(in srgb, var(--surface) 88%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18) !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-user strong,
+body[data-theme="mtz-premium"] #appArea > header .header-user strong,
+body[data-theme="mtz-gold"] #appArea > header .header-user strong {
+    color: var(--text) !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-user span,
+body[data-theme="mtz-premium"] #appArea > header .header-user span,
+body[data-theme="mtz-gold"] #appArea > header .header-user span,
+body[data-theme="dark"] #appArea > header .header-user::after,
+body[data-theme="mtz-premium"] #appArea > header .header-user::after,
+body[data-theme="mtz-gold"] #appArea > header .header-user::after {
+    color: var(--text-muted) !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header .header-user::before {
+    background: linear-gradient(135deg, #3b2fa8 0%, #ef233c 100%) !important;
+    box-shadow: inset 0 0 0 2px rgba(239, 35, 60, 0.50) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea > header .header-user::before {
+    background: linear-gradient(135deg, #f8d36a 0%, #b8872f 100%) !important;
+    color: #120f0a !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 248, 214, 0.55) !important;
+}
+
+body[data-theme="dark"] #appArea > header .header-controls .btn,
+body[data-theme="dark"] #appArea > header .theme-menu-wrap > .btn,
+body[data-theme="mtz-premium"] #appArea > header .header-controls .btn,
+body[data-theme="mtz-premium"] #appArea > header .theme-menu-wrap > .btn,
+body[data-theme="mtz-gold"] #appArea > header .header-controls .btn,
+body[data-theme="mtz-gold"] #appArea > header .theme-menu-wrap > .btn {
+    background: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+body[data-theme="mtz-premium"] #appArea > header button[data-action="sair"],
+body[data-theme="mtz-gold"] #appArea > header button[data-action="sair"] {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+@media (max-width: 900px) {
+    #appArea > header .header-actions {
+        width: 100% !important;
+        justify-content: center !important;
+        gap: 10px !important;
+    }
+
+    #appArea > header .header-user {
+        min-width: min(100%, 270px) !important;
+        max-width: 100% !important;
+    }
+
+    #appArea > header .sync-badge {
+        min-width: 112px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    #appArea > header .header-user {
+        grid-template-columns: 38px minmax(0, 1fr) !important;
+        min-height: 54px !important;
+        padding-right: 12px !important;
+    }
+
+    #appArea > header .header-user::before {
+        width: 38px !important;
+        height: 38px !important;
+    }
+
+    #appArea > header .header-user::after {
+        display: none !important;
     }
 }
