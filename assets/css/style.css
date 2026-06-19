@@ -15531,3 +15531,89 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule select, .proposta-c
     min-width: 104px !important;
     flex: 1 1 104px !important;
 }
+
+/* === V23.19 | BUSCAS E FILTROS SEM BORDAS CLARAS NOS TEMAS PREMIUM/GOLD === */
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar),
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) {
+    background: transparent !important;
+    border: 1px solid currentColor !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) {
+    color: rgba(126, 146, 174, 0.38) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) {
+    color: rgba(214, 168, 71, 0.42) !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) :is(.filters-row.filters-segmented, .search-input-shell, .search-meta),
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) :is(.filters-row.filters-segmented, .search-input-shell, .search-meta) {
+    border-radius: 12px !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) :is(.filters-row.filters-segmented, .search-input-shell, .search-meta) {
+    background: rgba(6, 13, 24, 0.78) !important;
+    border: 1px solid rgba(126, 146, 174, 0.30) !important;
+    color: #cfd9e8 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) :is(.filters-row.filters-segmented, .search-input-shell, .search-meta) {
+    background: rgba(7, 6, 4, 0.78) !important;
+    border: 1px solid rgba(214, 168, 71, 0.34) !important;
+    color: #dbc891 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-input,
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-input {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-right: 48px !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .filters-row.filters-segmented :is(.btn, [data-filtro], .audit-filter),
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .filters-row.filters-segmented :is(.btn, [data-filtro], .audit-filter) {
+    min-height: 34px !important;
+    border-radius: 9px !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .filters-row.filters-segmented :is(.btn, [data-filtro], .audit-filter):not(.is-active):not(.active) {
+    background: rgba(11, 21, 36, 0.96) !important;
+    border-color: rgba(126, 146, 174, 0.28) !important;
+    color: #c4d0df !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .filters-row.filters-segmented :is(.btn, [data-filtro], .audit-filter):not(.is-active):not(.active) {
+    background: rgba(12, 10, 6, 0.96) !important;
+    border-color: rgba(214, 168, 71, 0.30) !important;
+    color: #cfbd82 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-clear-inline,
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-clear-inline {
+    top: 50% !important;
+    right: 7px !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0 !important;
+    border-radius: 9px !important;
+    transform: translateY(-50%) !important;
+    overflow: hidden !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-clear-inline i,
+body[data-theme="mtz-gold"] #appArea :is(.locacoes-search-toolbar, .devolucoes-search-toolbar, .cadastros-search-toolbar, .auditoria-search-toolbar) .search-clear-inline i {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 0.92rem !important;
+    line-height: 1 !important;
+}
