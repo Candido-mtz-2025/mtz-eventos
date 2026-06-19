@@ -15757,3 +15757,149 @@ body[data-theme="mtz-gold"] #appArea :is(.modal-content:not(.modal-relatorio-con
 #appArea .modal-relatorio-content .invoice-box :is(h1, h2, h3, h4, h5, h6, p, small, span, strong, td, th, label) {
     text-shadow: none !important;
 }
+
+/* === V23.21 | QA FINAL DE COMPONENTES NOS TEMAS PREMIUM/GOLD === */
+body[data-theme="mtz-premium"] #appArea :is(
+    .section-toolbar,
+    .ui-state-panel,
+    .pagamento-modal-kpi,
+    .pagamento-modal-preview,
+    .pagamento-modal-quick,
+    .proposta-revision-card,
+    .proposta-revision-panel,
+    .prop-item-details-panel,
+    .locacao-review-table-wrap,
+    .checkout-bar,
+    .checkout-actions,
+    .locacao-step-panel,
+    .table-empty-row td,
+    .table-pagination-cell
+) {
+    background: linear-gradient(180deg, rgba(13, 24, 41, 0.98), rgba(7, 13, 23, 0.98)) !important;
+    border-color: rgba(126, 146, 174, 0.28) !important;
+    color: #d8e2f0 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .section-toolbar,
+    .ui-state-panel,
+    .pagamento-modal-kpi,
+    .pagamento-modal-preview,
+    .pagamento-modal-quick,
+    .proposta-revision-card,
+    .proposta-revision-panel,
+    .prop-item-details-panel,
+    .locacao-review-table-wrap,
+    .checkout-bar,
+    .checkout-actions,
+    .locacao-step-panel,
+    .table-empty-row td,
+    .table-pagination-cell
+) {
+    background: linear-gradient(180deg, rgba(18, 15, 8, 0.98), rgba(7, 6, 4, 0.98)) !important;
+    border-color: rgba(214, 168, 71, 0.30) !important;
+    color: #dfcd98 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(
+    .table-cell-title,
+    .locacao-cell-main,
+    .locacao-period-meta,
+    .pagamento-modal-kpi strong,
+    .proposta-revision-card strong,
+    .ui-state-panel strong
+) {
+    color: #eef4fb !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .table-cell-title,
+    .locacao-cell-main,
+    .locacao-period-meta,
+    .pagamento-modal-kpi strong,
+    .proposta-revision-card strong,
+    .ui-state-panel strong
+) {
+    color: #fff0c4 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(
+    .table-cell-sub,
+    .table-cell-muted,
+    .ui-state-panel p,
+    .pagamento-modal-preview small,
+    .proposta-revision-card small
+) {
+    color: #aebdd1 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea :is(
+    .table-cell-sub,
+    .table-cell-muted,
+    .ui-state-panel p,
+    .pagamento-modal-preview small,
+    .proposta-revision-card small
+) {
+    color: #cbb987 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea input[type="file"]::file-selector-button,
+body[data-theme="mtz-premium"] #appArea input[type="file"]::-webkit-file-upload-button {
+    background: linear-gradient(180deg, rgba(13, 24, 41, 0.98), rgba(7, 13, 23, 0.98)) !important;
+    border-color: rgba(126, 146, 174, 0.34) !important;
+    color: #e8eef8 !important;
+}
+
+body[data-theme="mtz-gold"] #appArea input[type="file"]::file-selector-button,
+body[data-theme="mtz-gold"] #appArea input[type="file"]::-webkit-file-upload-button {
+    background: linear-gradient(180deg, rgba(20, 16, 8, 0.98), rgba(9, 7, 4, 0.98)) !important;
+    border-color: rgba(214, 168, 71, 0.36) !important;
+    color: #f1d98d !important;
+}
+
+body[data-theme="mtz-premium"] #appArea .input-percent-invalid,
+body[data-theme="mtz-premium"] #appArea :is(input, select, textarea).input-percent-invalid {
+    background: rgba(127, 29, 29, 0.22) !important;
+    border-color: rgba(248, 113, 113, 0.70) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(239, 35, 60, 0.16) !important;
+}
+
+body[data-theme="mtz-gold"] #appArea .input-percent-invalid,
+body[data-theme="mtz-gold"] #appArea :is(input, select, textarea).input-percent-invalid {
+    background: rgba(120, 53, 15, 0.22) !important;
+    border-color: rgba(241, 217, 141, 0.66) !important;
+    color: #fff4cf !important;
+    box-shadow: 0 0 0 3px rgba(214, 168, 71, 0.14) !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.badge-warning, .badge-danger, .badge-success, .badge-info),
+body[data-theme="mtz-gold"] #appArea :is(.badge-warning, .badge-danger, .badge-success, .badge-info) {
+    text-shadow: none !important;
+    font-weight: 900 !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.btn-danger, .btn-warning, .btn-success, .btn-info, .btn-primary),
+body[data-theme="mtz-gold"] #appArea :is(.btn-danger, .btn-warning, .btn-success, .btn-info, .btn-primary) {
+    border: 0 !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="mtz-premium"] #appArea :is(.table-responsive, .panel-block, .card, .proposta-data-card, .proposta-form-section) > :first-child,
+body[data-theme="mtz-gold"] #appArea :is(.table-responsive, .panel-block, .card, .proposta-data-card, .proposta-form-section) > :first-child {
+    margin-top: 0;
+}
+
+body[data-theme="mtz-premium"] #appArea .modal-confirmacao,
+body[data-theme="mtz-gold"] #appArea .modal-confirmacao {
+    max-width: min(92vw, 460px);
+}
+
+body[data-theme="mtz-premium"] #appArea .modal-confirmacao :is(h3, p, strong),
+body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
+    text-shadow: none !important;
+}
