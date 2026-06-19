@@ -15912,3 +15912,171 @@ body[data-theme="mtz-premium"] #appArea .modal-confirmacao :is(h3, p, strong),
 body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
     text-shadow: none !important;
 }
+
+/* === Layout shell experimental: menu lateral desktop === */
+@media (min-width: 1180px) {
+    #appArea {
+        --app-shell-sidebar-width: 252px;
+        --app-shell-sidebar-left: 22px;
+        --app-shell-header-height: 88px;
+        --app-shell-content-gap: 28px;
+    }
+
+    #appArea > header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1320 !important;
+    }
+
+    #appArea > header .container {
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 12px 28px 12px calc(var(--app-shell-sidebar-width) + var(--app-shell-content-gap) + var(--app-shell-sidebar-left)) !important;
+    }
+
+    #appArea > .container {
+        width: auto !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 24px 32px 56px calc(var(--app-shell-sidebar-width) + var(--app-shell-content-gap) + var(--app-shell-sidebar-left)) !important;
+    }
+
+    #appArea .container > .tabs-container {
+        position: fixed !important;
+        top: calc(var(--app-shell-header-height) + 14px) !important;
+        left: var(--app-shell-sidebar-left) !important;
+        bottom: 22px !important;
+        width: var(--app-shell-sidebar-width) !important;
+        z-index: 1210 !important;
+        display: block !important;
+        margin: 0 !important;
+        padding: 14px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 18px !important;
+        background: color-mix(in srgb, var(--surface) 94%, var(--bg) 6%) !important;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.13) !important;
+    }
+
+    #appArea .container > .tabs-container::before {
+        content: "Menu";
+        display: block;
+        margin: 0 0 12px;
+        padding: 0 8px;
+        color: var(--text-light);
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    #appArea .container > .tabs-container::after {
+        display: none !important;
+    }
+
+    #appArea .tabs.app-main-nav,
+    #appArea .tabs {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 7px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #appArea .app-main-nav > .tab-btn,
+    #appArea .app-main-nav > .nav-menu-group {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    #appArea .app-main-nav .tab-btn,
+    #appArea .app-main-nav .nav-menu-trigger {
+        width: 100% !important;
+        min-height: 43px !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        padding: 0 12px !important;
+        border-radius: 12px !important;
+        white-space: normal !important;
+        text-align: left !important;
+    }
+
+    #appArea .app-main-nav .nav-menu-trigger .nav-caret {
+        margin-left: auto !important;
+    }
+
+    #appArea .nav-menu-group {
+        position: relative !important;
+    }
+
+    #appArea .nav-dropdown {
+        position: static !important;
+        display: none !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 5px 0 2px !important;
+        padding: 4px 0 4px 18px !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+    }
+
+    #appArea .nav-menu-group.is-open .nav-dropdown,
+    #appArea .nav-menu-group.is-active .nav-dropdown {
+        display: grid !important;
+        gap: 4px !important;
+    }
+
+    #appArea .nav-dropdown .tab-menu-item {
+        width: 100% !important;
+        min-height: 36px !important;
+        justify-content: flex-start !important;
+        padding: 0 10px !important;
+        border-radius: 10px !important;
+        white-space: normal !important;
+    }
+
+    #appArea .module-topbar,
+    #appArea .tab-content {
+        max-width: 1280px;
+        margin-right: auto;
+        margin-left: auto;
+    }
+}
+
+@media (min-width: 1180px) {
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container {
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(7, 12, 24, 0.98)) !important;
+        border-color: rgba(148, 163, 184, 0.22) !important;
+        box-shadow: 0 22px 58px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(239, 35, 60, 0.08) inset !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container::before {
+        color: rgba(226, 232, 240, 0.68);
+    }
+
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
+        background: linear-gradient(180deg, rgba(18, 15, 8, 0.98), rgba(8, 7, 4, 0.98)) !important;
+        border-color: rgba(214, 168, 71, 0.36) !important;
+        box-shadow: 0 22px 58px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(214, 168, 71, 0.10) inset !important;
+    }
+
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
+        color: rgba(241, 217, 141, 0.72);
+    }
+}
