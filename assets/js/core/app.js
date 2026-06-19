@@ -47,6 +47,7 @@ const NAV_GRUPOS_ABAS = Object.freeze({
     logistica: ['agenda', 'transporte'],
     admin: ['auditoria', 'config']
 });
+const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';
 
 const TAB_QUICK_ACTIONS = {
     dashboard: [
@@ -272,6 +273,54 @@ function obterGrupoNavegacaoPorAba(tabId) {
     return entrada ? entrada[0] : '';
 }
 
+function layoutSidebarEhDesktop() {
+    return window.matchMedia && window.matchMedia('(min-width: 1180px)').matches;
+}
+
+function atualizarControleSidebar() {
+    const app = document.getElementById('appArea');
+    const sidebar = document.getElementById('appMainSidebar');
+    const abertaMobile = document.body.classList.contains('sidebar-mobile-open');
+    const recolhidaDesktop = !!app?.classList.contains('sidebar-collapsed');
+
+    document.querySelectorAll('[data-action="toggleSidebarMobile"]').forEach((botao) => {
+        const expandido = layoutSidebarEhDesktop() ? !recolhidaDesktop : abertaMobile;
+        botao.setAttribute('aria-expanded', expandido ? 'true' : 'false');
+        botao.setAttribute('title', expandido ? 'Recolher menu' : 'Abrir menu');
+    });
+
+    if (sidebar) {
+        sidebar.setAttribute('aria-hidden', (!layoutSidebarEhDesktop() && !abertaMobile) ? 'true' : 'false');
+    }
+}
+
+function fecharSidebarMobile() {
+    document.body.classList.remove('sidebar-mobile-open');
+    atualizarControleSidebar();
+}
+
+function toggleSidebarMobile() {
+    const app = document.getElementById('appArea');
+    if (!app) return;
+
+    if (layoutSidebarEhDesktop()) {
+        const recolhida = app.classList.toggle('sidebar-collapsed');
+        localStorage.setItem(CHAVE_SIDEBAR_RECOLHIDA, recolhida ? '1' : '0');
+    } else {
+        document.body.classList.toggle('sidebar-mobile-open');
+    }
+
+    atualizarControleSidebar();
+}
+
+function inicializarSidebarLayout() {
+    const app = document.getElementById('appArea');
+    if (!app) return;
+
+    app.classList.toggle('sidebar-collapsed', localStorage.getItem(CHAVE_SIDEBAR_RECOLHIDA) === '1');
+    atualizarControleSidebar();
+}
+
 function fecharMenusNavegacaoPrincipal(excecao = '') {
     document.querySelectorAll('[data-nav-group]').forEach((grupoEl) => {
         const grupo = String(grupoEl.dataset.navGroup || '').trim();
@@ -334,21 +383,29 @@ function inicializarNavegacaoPrincipal() {
 
         if (alvo.closest('[data-menu-item]')) {
             setTimeout(() => fecharMenusNavegacaoPrincipal(), 40);
+            if (!layoutSidebarEhDesktop()) setTimeout(() => fecharSidebarMobile(), 90);
             return;
         }
 
         if (!alvo.closest('.app-main-nav')) {
             fecharMenusNavegacaoPrincipal();
+            if (!layoutSidebarEhDesktop() && !alvo.closest('#appMainSidebar') && !alvo.closest('.sidebar-mobile-toggle')) {
+                fecharSidebarMobile();
+            }
         }
     });
 
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         const menuAberto = document.querySelector('[data-nav-group].is-open');
-        if (!menuAberto) return;
+        const sidebarAberta = document.body.classList.contains('sidebar-mobile-open');
+        if (!menuAberto && !sidebarAberta) return;
         event.preventDefault();
         fecharMenusNavegacaoPrincipal();
+        fecharSidebarMobile();
     });
+
+    window.addEventListener('resize', atualizarControleSidebar);
 }
 
 function abrirModuloPreparado(id) {
@@ -2638,6 +2695,7 @@ function executarAtalhoRapido(atalhoId) {
     
     inicializarTemaSistema();
     if(typeof inicializarSessaoLogin === 'function') inicializarSessaoLogin();
+    inicializarSidebarLayout();
     inicializarNavegacaoPrincipal();
     atualizarMedidasTopoApp();
     const btnInicial = document.querySelector('.tab-btn.active[data-tab]');
@@ -2653,7 +2711,10 @@ function executarAtalhoRapido(atalhoId) {
     iniciarBackupAutomatico();
     window.addEventListener('resize', () => {
         clearTimeout(window.__mtzTopMeasureTimer);
-        window.__mtzTopMeasureTimer = setTimeout(atualizarMedidasTopoApp, 120);
+        window.__mtzTopMeasureTimer = setTimeout(() => {
+            atualizarMedidasTopoApp();
+            atualizarControleSidebar();
+        }, 120);
     });
     setInterval(salvarLocal, 60000);
 };
@@ -2810,6 +2871,7 @@ function executarAtalhoRapido(atalhoId) {
     window.aplicarTemaSistema = aplicarTemaSistema;
     window.selecionarTema = selecionarTema;
     window.toggleTheme = toggleTheme;
+    window.toggleSidebarMobile = toggleSidebarMobile;
 
     function abrirTab(id, opcoes = {}) {
         id = String(id || '').trim() === 'orcamentos' ? 'propostas' : id;

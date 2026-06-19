@@ -16142,7 +16142,7 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
         box-shadow: 0 22px 58px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(214, 168, 71, 0.10) inset !important;
     }
 
-    body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
+body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
         color: rgba(241, 217, 141, 0.72);
     }
 
@@ -16157,5 +16157,465 @@ body[data-theme="mtz-gold"] #appArea .modal-confirmacao :is(h3, p, strong) {
 
     body[data-theme="mtz-gold"] #appArea .app-sidebar-brand small {
         color: #d6a847;
+    }
+}
+
+/* === Layout SaaS com sidebar fixa inspirado na referência === */
+#appArea .sidebar-mobile-toggle,
+#appArea .sidebar-collapse-toggle,
+#appArea .app-sidebar-footer {
+    display: none;
+}
+
+@media (min-width: 1180px) {
+    #appArea {
+        --app-shell-sidebar-width: 236px;
+        --app-shell-sidebar-collapsed-width: 86px;
+        --app-shell-header-height: 72px;
+        --app-shell-content-gap: 32px;
+        background: #f5f8fc;
+    }
+
+    #appArea > header {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: var(--app-shell-sidebar-width) !important;
+        height: var(--app-shell-header-height) !important;
+        z-index: 1250 !important;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.72) !important;
+        background: rgba(255, 255, 255, 0.88) !important;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06) !important;
+        backdrop-filter: blur(18px);
+    }
+
+    #appArea > header .container {
+        height: 100% !important;
+        min-height: 0 !important;
+        padding: 0 30px !important;
+        justify-content: flex-end !important;
+    }
+
+    #appArea > header .logo {
+        display: none !important;
+    }
+
+    #appArea > header .header-actions {
+        margin-left: auto !important;
+    }
+
+    #appArea > .container {
+        padding: calc(var(--app-shell-header-height) + 24px) 36px 64px calc(var(--app-shell-sidebar-width) + var(--app-shell-content-gap)) !important;
+    }
+
+    #appArea .container > .tabs-container {
+        position: fixed !important;
+        display: flex !important;
+        flex-direction: column !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: var(--app-shell-sidebar-width) !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 22px 18px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border-width: 0 1px 0 0 !important;
+        border-color: rgba(203, 213, 225, 0.75) !important;
+        border-radius: 0 !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        box-shadow: 18px 0 38px rgba(15, 23, 42, 0.06) !important;
+    }
+
+    #appArea .container > .tabs-container::before {
+        display: none;
+    }
+
+    #appArea .app-sidebar-brand {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) 32px;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 22px;
+        padding: 8px 0 18px;
+        border: 0;
+        border-bottom: 1px solid rgba(203, 213, 225, 0.75);
+        border-radius: 0;
+        background: transparent;
+    }
+
+    #appArea .app-sidebar-brand img {
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+    }
+
+    #appArea .app-sidebar-brand strong {
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 950;
+        letter-spacing: 0;
+    }
+
+    #appArea .app-sidebar-brand small {
+        color: #64748b;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    #appArea .sidebar-collapse-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid rgba(203, 213, 225, 0.95);
+        border-radius: 999px;
+        color: #64748b;
+        background: #ffffff;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        cursor: pointer;
+    }
+
+    #appArea .container > .tabs-container .tabs.app-main-nav {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav > .tab-btn,
+    #appArea .container > .tabs-container .app-main-nav > .nav-menu-group {
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        width: 100% !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        min-height: 48px !important;
+        padding: 0 14px !important;
+        border: 1px solid transparent !important;
+        color: #536680 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        font-size: 0.92rem !important;
+        font-weight: 850 !important;
+        text-align: left !important;
+        white-space: normal !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger .nav-caret {
+        margin-left: auto !important;
+    }
+
+    #appArea .container > .tabs-container .nav-menu-group {
+        position: relative !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger i:first-child,
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item i {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        min-width: 20px;
+        color: #64748b;
+        font-size: 1.08rem;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn.active,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger {
+        color: #ffffff !important;
+        border-color: rgba(37, 99, 235, 0.92) !important;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        box-shadow: 0 14px 26px rgba(37, 99, 235, 0.24) !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn.active i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger i {
+        color: #ffffff;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown {
+        position: static !important;
+        display: none !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 4px 0 4px 0 !important;
+        padding: 4px 0 4px 16px !important;
+        overflow: visible !important;
+        border-left: 1px solid rgba(203, 213, 225, 0.86) !important;
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+    }
+
+    #appArea .container > .tabs-container .nav-menu-group.is-open .nav-dropdown,
+    #appArea .container > .tabs-container .nav-menu-group.is-active .nav-dropdown {
+        display: grid !important;
+        gap: 4px !important;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item {
+        width: 100% !important;
+        min-height: 36px !important;
+        justify-content: flex-start !important;
+        color: #64748b !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        box-shadow: none !important;
+        font-size: 0.84rem !important;
+        font-weight: 800 !important;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item.is-active {
+        color: #1d4ed8 !important;
+        background: #eff6ff !important;
+        border-color: #bfdbfe !important;
+    }
+
+    #appArea .app-sidebar-footer {
+        display: grid;
+        gap: 18px;
+        margin-top: auto;
+        padding-top: 28px;
+    }
+
+    #appArea .sidebar-help-card {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 8px 10px;
+        align-items: center;
+        padding: 12px;
+        border-radius: 14px;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    #appArea .sidebar-help-card i {
+        grid-row: span 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        color: #2563eb;
+        background: #eff6ff;
+    }
+
+    #appArea .sidebar-help-card span {
+        color: #334155;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    #appArea .sidebar-help-card small,
+    #appArea .sidebar-copy {
+        color: #64748b;
+        font-size: 0.74rem;
+        font-weight: 750;
+    }
+
+    #appArea .module-topbar,
+    #appArea .tab-content {
+        max-width: 1320px;
+    }
+
+    #appArea.sidebar-collapsed {
+        --app-shell-sidebar-width: var(--app-shell-sidebar-collapsed-width);
+    }
+
+    #appArea.sidebar-collapsed .app-sidebar-brand {
+        grid-template-columns: 48px;
+        justify-content: center;
+    }
+
+    #appArea.sidebar-collapsed .app-sidebar-brand > div,
+    #appArea.sidebar-collapsed .sidebar-collapse-toggle,
+    #appArea.sidebar-collapsed .app-sidebar-footer,
+    #appArea.sidebar-collapsed .nav-caret,
+    #appArea.sidebar-collapsed .nav-dropdown {
+        display: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        justify-content: center !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn i,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger i:first-child {
+        font-size: 1.18rem !important;
+    }
+}
+
+@media (max-width: 1179px) {
+    #appArea .sidebar-mobile-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        margin-right: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--primary);
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+    }
+
+    #appArea .container > .tabs-container {
+        position: fixed !important;
+        inset: 0 auto 0 0 !important;
+        z-index: 1800 !important;
+        width: min(86vw, 310px) !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 18px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border-radius: 0 !important;
+        border-width: 0 1px 0 0 !important;
+        background: var(--surface) !important;
+        box-shadow: 22px 0 46px rgba(15, 23, 42, 0.22) !important;
+        transform: translateX(-104%) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: transform 0.22s ease, opacity 0.22s ease;
+    }
+
+    #appArea .container > .tabs-container .tabs.app-main-nav {
+        display: grid !important;
+        gap: 8px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #appArea .app-sidebar-brand {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 18px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    #appArea .app-sidebar-brand img {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    #appArea .app-sidebar-brand strong,
+    #appArea .app-sidebar-brand small {
+        display: block;
+    }
+
+    body.sidebar-mobile-open #appArea .container > .tabs-container {
+        transform: translateX(0) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    body.sidebar-mobile-open::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 1750;
+        background: rgba(15, 23, 42, 0.38);
+        backdrop-filter: blur(2px);
+    }
+}
+
+@media (min-width: 1180px) {
+    body[data-theme="mtz-premium"] #appArea,
+    body[data-theme="mtz-gold"] #appArea {
+        background: var(--bg);
+    }
+
+    body[data-theme="mtz-premium"] #appArea > header,
+    body[data-theme="mtz-gold"] #appArea > header {
+        background: color-mix(in srgb, var(--surface) 86%, transparent) !important;
+        border-bottom-color: var(--border) !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
+        background: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%) !important;
+        border-right-color: var(--border) !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container .app-main-nav .tab-btn,
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container .app-main-nav .tab-btn,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        color: var(--text-muted) !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container .app-main-nav .tab-btn.active,
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active,
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger {
+        color: #ffffff !important;
+        border-color: rgba(239, 35, 60, 0.80) !important;
+        background: linear-gradient(135deg, #ef233c 0%, #b91c1c 100%) !important;
+        box-shadow: 0 16px 30px rgba(239, 35, 60, 0.22) !important;
+    }
+
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container .app-main-nav .tab-btn.active,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger {
+        color: #1b1407 !important;
+        border-color: rgba(241, 217, 141, 0.72) !important;
+        background: linear-gradient(135deg, #f1d98d 0%, #d6a847 55%, #a56f1e 100%) !important;
+        box-shadow: 0 16px 30px rgba(214, 168, 71, 0.20) !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .sidebar-help-card,
+    body[data-theme="mtz-gold"] #appArea .sidebar-help-card {
+        background: color-mix(in srgb, var(--surface) 82%, var(--bg) 18%);
+        border-color: var(--border);
+    }
+
+    body[data-theme="mtz-premium"] #appArea .sidebar-help-card span,
+    body[data-theme="mtz-gold"] #appArea .sidebar-help-card span {
+        color: var(--text);
     }
 }

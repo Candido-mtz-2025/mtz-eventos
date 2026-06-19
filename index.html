@@ -85,6 +85,9 @@
     <div id="appArea" style="display: none;">
         <header>
             <div class="container">
+                <button class="sidebar-mobile-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="false" title="Abrir menu">
+                    <i class="bi bi-list"></i>
+                </button>
                 <div class="logo">
                     <h1>MTZ Eventos</h1>
                     <p class="logo-subtitle">Painel de Controle</p>
@@ -129,13 +132,16 @@
         </header>
 
         <div class="container">
-               <div class="tabs-container">
+               <div class="tabs-container" id="appMainSidebar">
     <div class="app-sidebar-brand" aria-label="MTZ Eventos">
         <img src="./logo.png" alt="MTZ Eventos">
         <div>
             <strong>MTZ Eventos</strong>
             <small>Locação e eventos</small>
         </div>
+        <button class="sidebar-collapse-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="true" title="Recolher menu">
+            <i class="bi bi-chevron-left"></i>
+        </button>
     </div>
     <nav class="tabs app-main-nav" aria-label="Menu principal">
         <button class="tab-btn active" data-tab="dashboard" data-action="abrirTab" data-arg="dashboard">
@@ -211,6 +217,14 @@
             </div>
         </div>
     </nav>
+    <div class="app-sidebar-footer">
+        <div class="sidebar-help-card">
+            <i class="bi bi-headset"></i>
+            <span>Precisa de ajuda?</span>
+            <small>Suporte da operação</small>
+        </div>
+        <small class="sidebar-copy">© 2026 MTZ Eventos</small>
+    </div>
 </div>
 
             <div id="moduleTopbar" class="module-topbar" style="display:none;">
