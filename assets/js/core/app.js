@@ -45,6 +45,7 @@ const NAV_GRUPOS_ABAS = Object.freeze({
     comercial: ['locadores', 'propostas', 'locacoes'],
     operacao: ['estoque', 'checklist', 'devolucoes', 'tipos'],
     logistica: ['agenda', 'transporte'],
+    financeiro: ['financeiro'],
     admin: ['auditoria', 'config']
 });
 const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';

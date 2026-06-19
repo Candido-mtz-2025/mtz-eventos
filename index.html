@@ -199,9 +199,16 @@
             </div>
         </div>
 
-        <button class="tab-btn" data-tab="financeiro" data-action="abrirTab" data-arg="financeiro">
-            <i class="bi bi-cash-stack"></i> Financeiro
-        </button>
+        <div class="nav-menu-group" data-nav-group="financeiro">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="financeiro" aria-expanded="false" aria-controls="menu-financeiro">
+                <i class="bi bi-cash-stack"></i> Financeiro <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-financeiro" role="menu" aria-label="Financeiro">
+                <button type="button" class="tab-menu-item" data-menu-item data-tab="financeiro" data-action="abrirTab" data-arg="financeiro">
+                    <i class="bi bi-graph-up-arrow"></i> Resumo financeiro
+                </button>
+            </div>
+        </div>
 
         <div class="nav-menu-group" data-nav-group="admin">
             <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="admin" aria-expanded="false" aria-controls="menu-admin">
@@ -221,9 +228,9 @@
         <div class="sidebar-help-card">
             <i class="bi bi-headset"></i>
             <span>Precisa de ajuda?</span>
-            <small>Suporte da operação</small>
+            <small>Fale com o suporte</small>
         </div>
-        <small class="sidebar-copy">© 2026 MTZ Eventos</small>
+        <small class="sidebar-copy">© 2026 MTZ Eventos<br>Todos os direitos reservados</small>
     </div>
 </div>
 

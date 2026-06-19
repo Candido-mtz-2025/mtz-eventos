@@ -16619,3 +16619,431 @@ body[data-theme="mtz-gold"] #appArea .container > .tabs-container::before {
         color: var(--text);
     }
 }
+
+/* === V24 | Shell SaaS fiel à referência: sidebar + dashboard === */
+@media (min-width: 1180px) {
+    #appArea {
+        --app-shell-sidebar-width: 292px;
+        --app-shell-sidebar-collapsed-width: 292px;
+        --app-shell-header-height: 74px;
+        --app-shell-content-gap: 32px;
+        background: #f4f7fb !important;
+    }
+
+    #appArea > header {
+        left: var(--app-shell-sidebar-width) !important;
+        height: var(--app-shell-header-height) !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.95) !important;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06) !important;
+    }
+
+    #appArea > header .container {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 34px !important;
+    }
+
+    #appArea > .container {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: calc(var(--app-shell-header-height) + 28px) 36px 62px calc(var(--app-shell-sidebar-width) + var(--app-shell-content-gap)) !important;
+    }
+
+    #appArea .container > .tabs-container {
+        width: var(--app-shell-sidebar-width) !important;
+        padding: 28px 22px !important;
+        background: #ffffff !important;
+        border-right: 1px solid rgba(226, 232, 240, 0.95) !important;
+        box-shadow: 18px 0 42px rgba(15, 23, 42, 0.055) !important;
+    }
+
+    #appArea .app-sidebar-brand {
+        display: grid !important;
+        grid-template-columns: 56px minmax(0, 1fr) 34px !important;
+        gap: 14px !important;
+        align-items: center !important;
+        margin: 0 0 24px !important;
+        padding: 2px 0 24px !important;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.95) !important;
+        background: transparent !important;
+    }
+
+    #appArea .app-sidebar-brand img {
+        width: 56px !important;
+        height: 56px !important;
+        padding: 6px !important;
+        border-radius: 16px !important;
+        background: #ffffff !important;
+        border: 1px solid rgba(226, 232, 240, 0.98) !important;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    #appArea .app-sidebar-brand strong {
+        color: #0f172a !important;
+        font-size: 1.02rem !important;
+        font-weight: 950 !important;
+        line-height: 1.1 !important;
+    }
+
+    #appArea .app-sidebar-brand small {
+        margin-top: 3px !important;
+        color: #5f7390 !important;
+        font-size: 0.78rem !important;
+        font-weight: 800 !important;
+    }
+
+    #appArea .sidebar-collapse-toggle {
+        width: 34px !important;
+        height: 34px !important;
+        color: #64748b !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    #appArea .container > .tabs-container .tabs.app-main-nav {
+        gap: 12px !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        min-height: 54px !important;
+        padding: 0 18px !important;
+        border-radius: 14px !important;
+        color: #536a86 !important;
+        font-size: 0.95rem !important;
+        font-weight: 900 !important;
+        letter-spacing: 0 !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger i:first-child {
+        width: 24px !important;
+        min-width: 24px !important;
+        height: 24px !important;
+        color: #637895 !important;
+        font-size: 1.22rem !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn.active,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger {
+        color: #ffffff !important;
+        border-color: rgba(37, 99, 235, 0.76) !important;
+        background: linear-gradient(135deg, #2f6df6 0%, #1855e8 100%) !important;
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24) !important;
+    }
+
+    #appArea .container > .tabs-container .app-main-nav .tab-btn.active i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-trigger.active i,
+    #appArea .container > .tabs-container .app-main-nav .nav-menu-group.is-active > .nav-menu-trigger i {
+        color: #ffffff !important;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown {
+        margin: 4px 0 0 !important;
+        padding: 4px 0 4px 24px !important;
+        border-left: 1px solid rgba(203, 213, 225, 0.82) !important;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item {
+        min-height: 38px !important;
+        color: #64748b !important;
+        font-size: 0.86rem !important;
+        border-radius: 12px !important;
+    }
+
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    #appArea .container > .tabs-container .nav-dropdown .tab-menu-item.is-active {
+        color: #1d4ed8 !important;
+        background: #eff6ff !important;
+        border-color: #bfdbfe !important;
+    }
+
+    #appArea .app-sidebar-footer {
+        gap: 20px !important;
+        padding-top: 30px !important;
+    }
+
+    #appArea .sidebar-help-card {
+        grid-template-columns: 42px minmax(0, 1fr) !important;
+        padding: 15px !important;
+        border: 0 !important;
+        border-radius: 18px !important;
+        background: linear-gradient(135deg, #f8fbff 0%, #eef5ff 100%) !important;
+        box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9) !important;
+    }
+
+    #appArea .sidebar-help-card i {
+        width: 42px !important;
+        height: 42px !important;
+        color: #2563eb !important;
+        background: #eaf2ff !important;
+    }
+
+    #appArea .sidebar-copy {
+        padding: 0 6px !important;
+    }
+
+    #appArea.sidebar-collapsed .app-sidebar-brand > div,
+    #appArea.sidebar-collapsed .sidebar-collapse-toggle,
+    #appArea.sidebar-collapsed .app-sidebar-footer,
+    #appArea.sidebar-collapsed .nav-caret,
+    #appArea.sidebar-collapsed .nav-dropdown {
+        display: initial !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        justify-content: flex-start !important;
+        padding: 0 18px !important;
+        font-size: 0.95rem !important;
+    }
+
+    #appArea .module-topbar,
+    #appArea .tab-content {
+        max-width: 1390px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    #tab-dashboard.active {
+        display: grid !important;
+        gap: 24px !important;
+    }
+
+    #tab-dashboard .dashboard-topbar {
+        min-height: 96px !important;
+        padding: 24px 30px !important;
+        border-radius: 16px !important;
+        border: 0 !important;
+        background: linear-gradient(135deg, #061a4f 0%, #0b2f83 58%, #05265f 100%) !important;
+        box-shadow: 0 18px 42px rgba(30, 64, 175, 0.22) !important;
+    }
+
+    #tab-dashboard .dashboard-topbar h2 {
+        font-size: 1.35rem !important;
+        font-weight: 950 !important;
+        color: #ffffff !important;
+    }
+
+    #tab-dashboard .dashboard-topbar p {
+        margin-top: 7px !important;
+        color: rgba(255, 255, 255, 0.88) !important;
+        font-size: 0.96rem !important;
+    }
+
+    #tab-dashboard .dashboard-topbar-meta {
+        align-items: flex-end !important;
+        gap: 5px !important;
+        color: #ffffff !important;
+    }
+
+    #tab-dashboard .dashboard-topbar-meta small {
+        color: rgba(255, 255, 255, 0.78) !important;
+        font-size: 0.78rem !important;
+    }
+
+    #tab-dashboard .dashboard-topbar-meta strong {
+        color: #ffffff !important;
+        font-size: 1rem !important;
+    }
+
+    #tab-dashboard .dashboard-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 22px !important;
+        margin-bottom: 0 !important;
+    }
+
+    #tab-dashboard .stat-card {
+        min-height: 142px !important;
+        padding: 24px 24px !important;
+        border: 1px solid rgba(226, 232, 240, 0.95) !important;
+        border-radius: 16px !important;
+        background: #ffffff !important;
+        box-shadow: 0 16px 34px rgba(15, 23, 42, 0.075) !important;
+        overflow: hidden !important;
+    }
+
+    #tab-dashboard .stat-card::before {
+        width: 4px !important;
+        border-radius: 0 !important;
+    }
+
+    #tab-dashboard .stat-info .stat-tag {
+        display: inline-flex !important;
+        width: auto !important;
+        padding: 4px 10px !important;
+        border-radius: 999px !important;
+        background: #f8fafc !important;
+        border: 1px solid #dbe7f4 !important;
+        color: #60738f !important;
+        font-size: 0.72rem !important;
+        line-height: 1 !important;
+    }
+
+    #tab-dashboard .stat-info h3 {
+        margin-top: 12px !important;
+        color: #07142f !important;
+        font-size: clamp(1.65rem, 2.4vw, 2.25rem) !important;
+        font-weight: 950 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    #tab-dashboard .stat-info p {
+        margin-top: 6px !important;
+        color: #60738f !important;
+        font-size: 0.86rem !important;
+        font-weight: 850 !important;
+        text-transform: none !important;
+    }
+
+    #tab-dashboard .stat-icon {
+        width: 54px !important;
+        height: 54px !important;
+        border-radius: 16px !important;
+        box-shadow: none !important;
+    }
+
+    #tab-dashboard .card-blue .stat-icon { background: #eef5ff !important; color: #2563eb !important; }
+    #tab-dashboard .card-orange .stat-icon { background: #fff6e8 !important; color: #f59e0b !important; }
+    #tab-dashboard .card-green .stat-icon { background: #eafbf1 !important; color: #16a34a !important; }
+    #tab-dashboard .card-purple .stat-icon { background: #f5edff !important; color: #8b5cf6 !important; }
+
+    #tab-dashboard .finance-strip {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 22px !important;
+        margin: 0 !important;
+    }
+
+    #tab-dashboard .finance-kpi,
+    #tab-dashboard .dash-section {
+        border: 1px solid rgba(226, 232, 240, 0.95) !important;
+        border-radius: 16px !important;
+        background: #ffffff !important;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.065) !important;
+    }
+
+    #tab-dashboard .finance-kpi {
+        min-height: 88px !important;
+        padding: 18px 20px !important;
+    }
+
+    #tab-dashboard .finance-kpi small {
+        color: #60738f !important;
+        font-size: 0.78rem !important;
+        font-weight: 900 !important;
+    }
+
+    #tab-dashboard .finance-kpi strong {
+        margin-top: 8px !important;
+        color: #07142f !important;
+        font-size: 1.32rem !important;
+        font-weight: 950 !important;
+    }
+
+    #tab-dashboard .dashboard-insights {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr) minmax(320px, 1fr) !important;
+        gap: 22px !important;
+    }
+
+    #tab-dashboard .dashboard-lower {
+        grid-template-columns: minmax(0, 1.5fr) minmax(360px, 1fr) !important;
+        gap: 22px !important;
+    }
+
+    #tab-dashboard .dash-section {
+        padding: 22px !important;
+        min-height: 232px !important;
+    }
+
+    #tab-dashboard .dash-section-head {
+        align-items: center !important;
+        margin-bottom: 16px !important;
+    }
+
+    #tab-dashboard .dash-section h3 {
+        color: #07142f !important;
+        font-size: 1.12rem !important;
+        font-weight: 950 !important;
+    }
+
+    #tab-dashboard .dash-section h3 i {
+        color: #2563eb !important;
+        margin-right: 8px !important;
+    }
+
+    #tab-dashboard .dash-section-meta {
+        color: #2563eb !important;
+        font-weight: 900 !important;
+    }
+
+    #tab-dashboard .dash-chart-placeholder,
+    #tab-dashboard .dash-actions-placeholder,
+    #tab-dashboard .table-responsive {
+        border-color: rgba(203, 213, 225, 0.92) !important;
+        border-radius: 14px !important;
+        background: #fbfdff !important;
+    }
+}
+
+@media (min-width: 1180px) and (max-width: 1420px) {
+    #appArea {
+        --app-shell-sidebar-width: 270px;
+        --app-shell-content-gap: 26px;
+    }
+
+    #tab-dashboard .dashboard-grid,
+    #tab-dashboard .finance-strip {
+        gap: 16px !important;
+    }
+}
+
+@media (max-width: 1179px) {
+    #tab-dashboard .dashboard-grid,
+    #tab-dashboard .finance-strip,
+    #tab-dashboard .dashboard-insights,
+    #tab-dashboard .dashboard-lower {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (min-width: 1180px) {
+    body[data-theme="mtz-premium"] #appArea,
+    body[data-theme="mtz-gold"] #appArea {
+        background: var(--bg) !important;
+    }
+
+    body[data-theme="mtz-premium"] #appArea .container > .tabs-container,
+    body[data-theme="mtz-gold"] #appArea .container > .tabs-container {
+        background: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%) !important;
+        border-right-color: var(--border) !important;
+        box-shadow: 18px 0 42px rgba(0, 0, 0, 0.22) !important;
+    }
+
+    body[data-theme="mtz-premium"] #tab-dashboard .stat-card,
+    body[data-theme="mtz-premium"] #tab-dashboard .finance-kpi,
+    body[data-theme="mtz-premium"] #tab-dashboard .dash-section,
+    body[data-theme="mtz-gold"] #tab-dashboard .stat-card,
+    body[data-theme="mtz-gold"] #tab-dashboard .finance-kpi,
+    body[data-theme="mtz-gold"] #tab-dashboard .dash-section {
+        background: color-mix(in srgb, var(--surface) 90%, var(--bg) 10%) !important;
+        border-color: var(--border) !important;
+    }
+
+    body[data-theme="mtz-premium"] #tab-dashboard :is(.stat-info h3, .finance-kpi strong, .dash-section h3),
+    body[data-theme="mtz-gold"] #tab-dashboard :is(.stat-info h3, .finance-kpi strong, .dash-section h3) {
+        color: var(--text) !important;
+    }
+
+    body[data-theme="mtz-premium"] #tab-dashboard :is(.stat-info p, .finance-kpi small),
+    body[data-theme="mtz-gold"] #tab-dashboard :is(.stat-info p, .finance-kpi small) {
+        color: var(--text-muted) !important;
+    }
+}
