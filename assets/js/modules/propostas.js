@@ -3783,15 +3783,81 @@
     function linhaResumoPdf(rotulo, valor, destaque = false) {
         return `
             <tr class="pdf-summary-row${destaque ? ' pdf-summary-row-highlight' : ''}">
-                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; ${destaque ? 'font-weight:700;' : ''}">${rotulo}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid #e5e7eb; text-align:right; ${destaque ? 'font-weight:700;' : ''}">${valor}</td>
+                <td style="padding:6px 0; border-bottom:1px solid #e5e7eb; color:#475569; ${destaque ? 'font-weight:800; color:#0f172a;' : ''}">${rotulo}</td>
+                <td style="padding:6px 0 6px 10px; border-bottom:1px solid #e5e7eb; text-align:right; white-space:nowrap; color:#0f172a; ${destaque ? 'font-weight:900; font-size:15px;' : 'font-weight:700;'}">${valor}</td>
             </tr>
+        `;
+    }
+
+    function montarDadoCompactoPdf(rotulo, valor) {
+        const texto = textoSeguro(valor, '');
+        if (!texto) return '';
+        return `
+            <div class="proposal-info-line">
+                <span>${sanitizar(rotulo)}</span>
+                <strong>${sanitizar(texto)}</strong>
+            </div>
+        `;
+    }
+
+    function montarObservacaoPdf(rotulo, valor) {
+        const texto = textoSeguro(valor, '');
+        if (!texto) return '';
+        return `
+            <div class="proposal-note-box">
+                <strong>${sanitizar(rotulo)}</strong>
+                <p>${sanitizar(texto)}</p>
+            </div>
+        `;
+    }
+
+    function montarCabecalhoPropostaPdf(p) {
+        const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
+        const rodape = textoSeguro(config?.rodape, 'MTZ Eventos e Marketing Promocional');
+        const telefone = textoSeguro(config?.tel, '');
+        const email = textoSeguro(config?.email, '');
+        const dadosContato = [telefone, email].filter(Boolean).join(' | ');
+        const validadeData = formatarData(p.financeiro.validadePropostaData);
+        const validadeLabel = validadeData !== '-'
+            ? validadeData
+            : `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`;
+
+        return `
+            <header class="proposal-pdf-header">
+                <div class="proposal-brand">
+                    <img src="${logoPdfSrc}" alt="MTZ Eventos">
+                    <div>
+                        <h1>ORCAMENTO</h1>
+                        <strong>${sanitizar(rodape)}</strong>
+                        <span>${sanitizar(dadosContato || 'Gestao e locacao para eventos')}</span>
+                    </div>
+                </div>
+                <div class="proposal-meta">
+                    <div><span>Nº</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
+                    <div><span>Data</span><strong>${formatarData(p.dataCriacao || new Date())}</strong></div>
+                    <div><span>Validade</span><strong>${validadeLabel}</strong></div>
+                </div>
+            </header>
+        `;
+    }
+
+    function montarRodapePropostaPdf() {
+        const rodape = textoSeguro(config?.rodape, 'MTZ Eventos');
+        const telefone = textoSeguro(config?.tel, '');
+        const email = textoSeguro(config?.email, '');
+        const contato = [telefone, email].filter(Boolean).join(' | ');
+
+        return `
+            <footer class="proposal-pdf-footer">
+                <span>${sanitizar([rodape, contato].filter(Boolean).join(' | '))}</span>
+                <span>Proposta sujeita a disponibilidade dos itens na data de aprovacao.</span>
+            </footer>
         `;
     }
 
     function montarLinhasItensPdfPorCategoria(itens = [], exibirInterno = false) {
         const grupos = agruparItensPropostaPorCategoria(itens);
-        const totalColunas = exibirInterno ? 9 : 7;
+        const totalColunas = exibirInterno ? 8 : 5;
         if (!grupos.length) {
             return `<tr><td colspan="${totalColunas}" style="padding:10px;">Sem itens</td></tr>`;
         }
@@ -3800,18 +3866,23 @@
             const numeroGrupo = indiceGrupo + 1;
             const nomeCategoria = grupo.nome || rotuloCategoriaOrcamento(grupo.categoria);
             const linhas = grupo.itens.map((item, indiceItem) => {
+                const descricao = [
+                    `<strong>${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao || '-')}</strong>`,
+                    item.medida ? `<small>Medida: ${sanitizar(item.medida)}</small>` : '',
+                    item.observacoes ? `<small>Obs.: ${sanitizar(item.observacoes)}</small>` : ''
+                ].filter(Boolean).join('');
+
                 if (exibirInterno) {
                     return `
-                        <tr class="pdf-item-row" style="border-bottom:1px solid #e5e7eb;">
-                            <td style="padding:8px; font-size:10.5px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
-                            <td style="padding:8px; text-align:center; font-size:10.5px;">${sanitizar(item.medida || '-')}</td>
-                            <td style="padding:8px; text-align:center; font-size:10.5px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
-                            <td style="padding:8px; text-align:center; font-size:10.5px;">${item.quantidade}</td>
-                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.custoTotal)}</td>
-                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorHonorarios)}</td>
-                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorEncargos)}</td>
-                            <td style="padding:8px; text-align:right; font-size:10.5px;">${formatarMoeda(item.valorINSS)}</td>
-                            <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800;">${formatarMoeda(item.valorTotal)}</td>
+                        <tr class="pdf-item-row">
+                            <td class="desc">${descricao}</td>
+                            <td class="center">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                            <td class="center">${item.quantidade}</td>
+                            <td class="money">${formatarMoeda(item.custoUnitario)}</td>
+                            <td class="money">${formatarMoeda(item.custoTotal)}</td>
+                            <td class="money">${formatarMoeda(item.valorHonorarios + item.valorEncargos + item.valorINSS)}</td>
+                            <td class="money total">${formatarMoeda(item.valorTotal)}</td>
+                            <td class="center">${sanitizar(item.aplicarINSS || item.aplicarEncargos ? 'Sim' : '-')}</td>
                         </tr>
                     `;
                 }
@@ -3822,14 +3893,12 @@
                     : item.valorTotal;
 
                 return `
-                    <tr class="pdf-item-row" style="border-bottom:1px solid #e5e7eb;">
-                        <td style="padding:8px; font-size:11px;">${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao)}</td>
-                        <td style="padding:8px; text-align:center; font-size:11px;">${sanitizar(item.medida || '-')}</td>
-                        <td style="padding:8px; text-align:center; font-size:11px;">${numeroNaoNegativo(item.periodoDias, 1)}</td>
-                        <td style="padding:8px; text-align:center; font-size:11px;">${item.quantidade}</td>
-                        <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(valorUnitarioComercial)}</td>
-                        <td style="padding:8px; text-align:right; font-size:11px;">${formatarMoeda(item.valorTotal)}</td>
-                        <td style="padding:8px; font-size:11px;">${sanitizar(item.observacoes || '-')}</td>
+                    <tr class="pdf-item-row">
+                        <td class="center">${item.quantidade}</td>
+                        <td class="desc">${descricao}</td>
+                        <td class="center">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                        <td class="money">${formatarMoeda(valorUnitarioComercial)}</td>
+                        <td class="money total">${formatarMoeda(item.valorTotal)}</td>
                     </tr>
                 `;
             }).join('');
@@ -3837,25 +3906,21 @@
             const subtotalGrupo = exibirInterno
                 ? `
                     <tr class="pdf-category-subtotal">
-                        <td colspan="4" style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(nomeCategoria)}</td>
-                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.custoTotal)}</td>
-                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.honorarios)}</td>
-                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.encargos)}</td>
-                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.inss)}</td>
-                        <td style="padding:8px; text-align:right; font-size:10.5px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.totalFinal)}</td>
+                        <td colspan="6">Subtotal ${sanitizar(nomeCategoria)}</td>
+                        <td class="money">${formatarMoeda(grupo.totalFinal)}</td>
+                        <td></td>
                     </tr>
                 `
                 : `
                     <tr class="pdf-category-subtotal">
-                        <td colspan="5" style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">Subtotal ${sanitizar(nomeCategoria)}</td>
-                        <td style="padding:8px; text-align:right; font-size:11px; font-weight:800; border-bottom:1px solid #cbd5e1;">${formatarMoeda(grupo.totalFinal)}</td>
-                        <td style="padding:8px; border-bottom:1px solid #cbd5e1;"></td>
+                        <td colspan="4">Subtotal ${sanitizar(nomeCategoria)}</td>
+                        <td class="money">${formatarMoeda(grupo.totalFinal)}</td>
                     </tr>
                 `;
 
             return `
                 <tr class="pdf-category-head">
-                    <td colspan="${totalColunas}" style="padding:9px 8px; background:#eaf2ff; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; color:#0f172a; font-weight:800; font-size:11px;">
+                    <td colspan="${totalColunas}">
                         ${numeroGrupo}. ${sanitizar(nomeCategoria)}
                     </td>
                 </tr>
@@ -3874,26 +3939,23 @@
         const cabecalhoItens = exibirInterno
             ? `
                 <tr>
-                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">CUSTO</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">HON.</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">ENC.</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">INSS</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
+                    <th class="desc">Descricao</th>
+                    <th>Diarias</th>
+                    <th>Qtd.</th>
+                    <th class="money">Unitario</th>
+                    <th class="money">Custo</th>
+                    <th class="money">Encargos</th>
+                    <th class="money">Total</th>
+                    <th>Fiscal</th>
                 </tr>
             `
             : `
                 <tr>
-                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">ITEM</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">MEDIDA</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">DIAS</th>
-                    <th style="padding:8px; text-align:center; font-size:10px; color:#fff;">QTD</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">UNIT.</th>
-                    <th style="padding:8px; text-align:right; font-size:10px; color:#fff;">TOTAL</th>
-                    <th style="padding:8px; text-align:left; font-size:10px; color:#fff;">OBS.</th>
+                    <th>Qtd.</th>
+                    <th class="desc">Descricao</th>
+                    <th>Diarias</th>
+                    <th class="money">Unitario</th>
+                    <th class="money">Total</th>
                 </tr>
             `;
 
@@ -3923,7 +3985,7 @@
         `;
 
         const blocoResumoInterno = exibirInterno ? `
-            <div class="pdf-section pdf-internal-summary" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px; margin-top:10px;">
+            <div class="proposal-internal-summary">
                 <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo interno</strong>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tbody>
@@ -3938,96 +4000,362 @@
             </div>
         ` : '';
 
-        const header = typeof getHeaderMTZ === 'function' ? getHeaderMTZ() : '';
-        const footer = typeof getFooterMTZ === 'function' ? getFooterMTZ() : '';
+        const nfCliente = tipoNF === 'acrescentar'
+            ? `${formatarPercentual(p.financeiro.percentualNF)} (${formatarMoeda(p.financeiro.valorNF)})`
+            : 'Nao cobrada por fora';
+        const situacaoFiscal = textoSeguro(p.financeiro.statusNotaFiscal || p.financeiro.notaFiscal || '', 'Pendente / conforme solicitacao do cliente');
+        const observacoesLocal = textoSeguro(p.evento.observacoesLocal || p.evento.observacoes || p.observacoesGerais, '');
+        const condicoesComerciais = [
+            montarDadoCompactoPdf('Forma de pagamento', rotuloFormaPagamento(p.financeiro.formaPagamento)),
+            montarDadoCompactoPdf('Condicao', p.financeiro.condicaoPagamento),
+            montarDadoCompactoPdf('Entrada', `${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})`),
+            montarDadoCompactoPdf('Saldo', `${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})`),
+            montarDadoCompactoPdf('Prazo de aprovacao', `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`),
+            montarDadoCompactoPdf('Validade da proposta', formatarData(p.financeiro.validadePropostaData)),
+            montarDadoCompactoPdf('Observacao de pagamento', p.financeiro.observacaoPagamento)
+        ].filter(Boolean).join('');
+        const controleFiscal = [
+            montarDadoCompactoPdf('Situacao NF', situacaoFiscal),
+            montarDadoCompactoPdf('Imposto/encargo', nfCliente),
+            exibirInterno ? montarDadoCompactoPdf('Calculo NF', rotuloTipoCalculoNF(tipoNF)) : '',
+            exibirInterno ? montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto)) : ''
+        ].filter(Boolean).join('');
+        const observacoesEscopo = [
+            montarObservacaoPdf('Incluso na proposta', p.escopo.inclusoProposta),
+            montarObservacaoPdf('Nao incluso na proposta', p.escopo.naoInclusoProposta),
+            montarObservacaoPdf('Observacoes comerciais', p.escopo.observacoesComerciais)
+        ].filter(Boolean).join('');
 
         return `
-            <div class="orcamento-pdf pdf-page" style="background:#fff; min-height:100%; width:100%; color:#000;">
-                ${header}
-                <div class="pdf-section pdf-document-title" style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; border-bottom:2px solid #111827; padding-bottom:10px;">
-                    <div>
-                        <h2 style="margin:0; font-size:22px;">PROPOSTA COMERCIAL</h2>
-                        <div style="margin-top:6px; font-size:12px;">${sanitizar(formatarCodigoRevisaoProposta(p))} • ${statusRotulo(p.status)}</div>
-                    </div>
-                    <div style="text-align:right; font-size:11px;">
-                        <div><strong>Criacao:</strong> ${formatarData(p.dataCriacao)}</div>
-                        <div><strong>Validade:</strong> ${formatarData(p.financeiro.validadePropostaData)}</div>
-                    </div>
-                </div>
+            <style>
+                @page { size: A4; margin: 10mm; }
+                .proposal-pdf-document {
+                    background:#ffffff;
+                    color:#0f172a;
+                    width:100%;
+                    min-height:100%;
+                    font-family: Arial, Helvetica, sans-serif;
+                    line-height:1.32;
+                }
+                .proposal-pdf-sheet {
+                    max-width: 794px;
+                    margin:0 auto;
+                    padding:18px 20px 16px;
+                    background:#ffffff;
+                }
+                .proposal-pdf-header {
+                    display:grid;
+                    grid-template-columns:1fr 170px;
+                    gap:14px;
+                    align-items:start;
+                    padding-bottom:12px;
+                    border-bottom:2px solid #1f2937;
+                    margin-bottom:12px;
+                }
+                .proposal-brand { display:flex; gap:12px; align-items:center; min-width:0; }
+                .proposal-brand img {
+                    width:96px;
+                    max-height:58px;
+                    object-fit:contain;
+                    padding:4px;
+                    border:1px solid #e5e7eb;
+                    border-radius:8px;
+                    background:#ffffff;
+                }
+                .proposal-brand h1 {
+                    margin:0 0 2px;
+                    font-size:21px;
+                    letter-spacing:.06em;
+                    color:#111827;
+                }
+                .proposal-brand strong { display:block; font-size:12px; color:#111827; }
+                .proposal-brand span { display:block; margin-top:2px; font-size:10px; color:#64748b; }
+                .proposal-meta {
+                    border:1px solid #e2e8f0;
+                    border-radius:9px;
+                    overflow:hidden;
+                    font-size:10px;
+                }
+                .proposal-meta div {
+                    display:flex;
+                    justify-content:space-between;
+                    gap:8px;
+                    padding:6px 8px;
+                    border-bottom:1px solid #e2e8f0;
+                }
+                .proposal-meta div:last-child { border-bottom:0; }
+                .proposal-meta span { color:#64748b; text-transform:uppercase; font-weight:700; }
+                .proposal-meta strong { color:#111827; text-align:right; }
+                .proposal-highlight {
+                    display:grid;
+                    grid-template-columns:1fr 1fr 160px;
+                    gap:8px;
+                    margin:10px 0 12px;
+                }
+                .proposal-highlight-card {
+                    border:1px solid #dbe3ef;
+                    border-radius:10px;
+                    padding:9px 10px;
+                    background:#f8fafc;
+                    min-height:52px;
+                }
+                .proposal-highlight-card span {
+                    display:block;
+                    font-size:9px;
+                    font-weight:800;
+                    color:#64748b;
+                    text-transform:uppercase;
+                    letter-spacing:.04em;
+                }
+                .proposal-highlight-card strong {
+                    display:block;
+                    margin-top:3px;
+                    font-size:13px;
+                    color:#0f172a;
+                }
+                .proposal-highlight-card.total {
+                    background:#111827;
+                    border-color:#111827;
+                    color:#ffffff;
+                    text-align:right;
+                }
+                .proposal-highlight-card.total span,
+                .proposal-highlight-card.total strong { color:#ffffff; }
+                .proposal-highlight-card.total strong { font-size:17px; }
+                .proposal-section-title {
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    margin:12px 0 7px;
+                    padding-bottom:5px;
+                    border-bottom:1px solid #e2e8f0;
+                    font-size:12px;
+                    font-weight:900;
+                    color:#111827;
+                    text-transform:uppercase;
+                    letter-spacing:.03em;
+                }
+                .proposal-info-grid {
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:10px;
+                }
+                .proposal-info-box {
+                    border:1px solid #dbe3ef;
+                    border-radius:10px;
+                    padding:10px;
+                    background:#ffffff;
+                }
+                .proposal-info-box h3 {
+                    margin:0 0 7px;
+                    font-size:12px;
+                    color:#111827;
+                }
+                .proposal-info-line {
+                    display:grid;
+                    grid-template-columns:112px 1fr;
+                    gap:8px;
+                    padding:4px 0;
+                    font-size:10.5px;
+                    border-bottom:1px solid #f1f5f9;
+                }
+                .proposal-info-line:last-child { border-bottom:0; }
+                .proposal-info-line span { color:#64748b; font-weight:700; }
+                .proposal-info-line strong { color:#111827; font-weight:700; overflow-wrap:anywhere; }
+                .pdf-items-table {
+                    width:100%;
+                    border-collapse:collapse;
+                    border:1px solid #dbe3ef;
+                    font-size:10px;
+                    table-layout:fixed;
+                }
+                .pdf-items-table thead { background:#111827; color:#ffffff; }
+                .pdf-items-table th {
+                    padding:7px 8px;
+                    text-align:center;
+                    color:#ffffff;
+                    font-size:9px;
+                    text-transform:uppercase;
+                    letter-spacing:.04em;
+                }
+                .pdf-items-table th.desc { text-align:left; width:46%; }
+                .pdf-items-table th.money { text-align:right; }
+                .pdf-item-row td {
+                    padding:7px 8px;
+                    border-bottom:1px solid #e5e7eb;
+                    vertical-align:top;
+                    color:#0f172a;
+                    overflow-wrap:anywhere;
+                }
+                .pdf-item-row td.center { text-align:center; width:56px; }
+                .pdf-item-row td.money { text-align:right; white-space:nowrap; }
+                .pdf-item-row td.total { font-weight:900; }
+                .pdf-item-row td.desc strong { display:block; font-size:10.5px; color:#0f172a; }
+                .pdf-item-row td.desc small { display:block; margin-top:2px; font-size:9px; color:#64748b; }
+                .pdf-category-head td {
+                    padding:6px 8px;
+                    background:#eff6ff;
+                    color:#1d4ed8;
+                    border-top:1px solid #bfdbfe;
+                    border-bottom:1px solid #bfdbfe;
+                    font-weight:900;
+                    font-size:10px;
+                    text-transform:uppercase;
+                }
+                .pdf-category-subtotal td {
+                    padding:6px 8px;
+                    text-align:right;
+                    background:#f8fafc;
+                    border-bottom:1px solid #cbd5e1;
+                    font-size:10px;
+                    font-weight:900;
+                    color:#0f172a;
+                }
+                .proposal-bottom-grid {
+                    display:grid;
+                    grid-template-columns:1.05fr .95fr;
+                    gap:12px;
+                    margin-top:12px;
+                }
+                .proposal-summary-box,
+                .proposal-terms-box,
+                .proposal-note-box,
+                .proposal-internal-summary {
+                    border:1px solid #dbe3ef;
+                    border-radius:10px;
+                    padding:10px;
+                    background:#ffffff;
+                }
+                .proposal-summary-box h3,
+                .proposal-terms-box h3 {
+                    margin:0 0 6px;
+                    font-size:12px;
+                    color:#111827;
+                }
+                .proposal-note-box { margin-top:8px; font-size:10.5px; }
+                .proposal-note-box strong { display:block; margin-bottom:4px; color:#111827; }
+                .proposal-note-box p { margin:0; color:#475569; white-space:pre-wrap; }
+                .proposal-signatures {
+                    display:flex;
+                    justify-content:space-between;
+                    gap:30px;
+                    margin-top:34px;
+                    page-break-inside:avoid;
+                }
+                .proposal-signatures div {
+                    width:44%;
+                    text-align:center;
+                    border-top:1px solid #111827;
+                    padding-top:7px;
+                    font-size:9.5px;
+                    color:#334155;
+                    font-weight:700;
+                }
+                .proposal-pdf-footer {
+                    display:flex;
+                    justify-content:space-between;
+                    gap:12px;
+                    margin-top:14px;
+                    padding-top:8px;
+                    border-top:1px solid #e2e8f0;
+                    font-size:8.8px;
+                    color:#64748b;
+                }
+                @media print {
+                    .proposal-pdf-sheet { padding:0; max-width:none; }
+                    .proposal-info-box,
+                    .proposal-summary-box,
+                    .proposal-terms-box,
+                    .proposal-note-box { page-break-inside:avoid; }
+                }
+                @media (max-width: 720px) {
+                    .proposal-pdf-header,
+                    .proposal-highlight,
+                    .proposal-info-grid,
+                    .proposal-bottom-grid { grid-template-columns:1fr; }
+                    .proposal-meta { max-width:none; }
+                }
+            </style>
+            <div class="orcamento-pdf pdf-page proposal-pdf-document">
+                <div class="proposal-pdf-sheet">
+                    ${montarCabecalhoPropostaPdf(p)}
 
-                <div class="pdf-section pdf-two-columns" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
-                        <strong style="display:block; margin-bottom:8px; font-size:12px;">Dados do cliente</strong>
-                        <div style="font-size:11px; line-height:1.45;">
-                            <div><b>Nome/empresa:</b> ${sanitizar(p.cliente.nome || '-')}</div>
-                            <div><b>CPF/CNPJ:</b> ${sanitizar(p.cliente.documento || '-')}</div>
-                            <div><b>Telefone:</b> ${sanitizar(p.cliente.telefone || '-')}</div>
-                            <div><b>E-mail:</b> ${sanitizar(p.cliente.email || '-')}</div>
-                            <div><b>Endereco:</b> ${sanitizar(p.cliente.endereco || '-')}</div>
+                    <div class="proposal-highlight">
+                        <div class="proposal-highlight-card">
+                            <span>Cliente</span>
+                            <strong>${sanitizar(p.cliente.nome || '-')}</strong>
+                        </div>
+                        <div class="proposal-highlight-card">
+                            <span>Evento</span>
+                            <strong>${sanitizar(p.evento.nome || p.evento.local || '-')}</strong>
+                        </div>
+                        <div class="proposal-highlight-card total">
+                            <span>Total geral</span>
+                            <strong>${formatarMoeda(valorFinalComercial)}</strong>
                         </div>
                     </div>
-                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
-                        <strong style="display:block; margin-bottom:8px; font-size:12px;">Dados do evento</strong>
-                        <div style="font-size:11px; line-height:1.45;">
-                            <div><b>Evento:</b> ${sanitizar(p.evento.nome || '-')}</div>
-                            <div><b>Local:</b> ${sanitizar(p.evento.local || '-')}</div>
-                            <div><b>Endereco:</b> ${sanitizar(p.evento.enderecoEvento || '-')}</div>
-                            <div><b>Cidade/UF:</b> ${sanitizar([p.evento.cidadeEvento, p.evento.ufEvento].filter(Boolean).join('/')) || '-'}</div>
-                            <div><b>Montagem:</b> ${formatarData(p.evento.dataMontagem)} ${sanitizar(p.evento.horaMontagem || '')}</div>
-                            <div><b>Evento:</b> ${formatarData(p.evento.dataEvento)} ${sanitizar(p.evento.horaInicioEvento || '')} ${p.evento.horaFimEvento ? `- ${sanitizar(p.evento.horaFimEvento)}` : ''}</div>
-                            <div><b>Desmontagem:</b> ${formatarData(p.evento.dataDesmontagem)} ${sanitizar(p.evento.horaDesmontagem || '')}</div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="pdf-section pdf-items-section" style="margin-bottom:14px;">
-                    <strong style="display:block; margin-bottom:6px; font-size:12px;">Itens da proposta</strong>
-                    <table class="pdf-items-table" style="width:100%; border-collapse:collapse;">
-                        <thead style="background:#0f172a; color:#fff;">
-                            ${cabecalhoItens}
-                        </thead>
+                    <div class="proposal-info-grid">
+                        <section class="proposal-info-box">
+                            <h3>Dados do cliente</h3>
+                            ${montarDadoCompactoPdf('Nome / empresa', p.cliente.nome || '-')}
+                            ${montarDadoCompactoPdf('CPF / CNPJ', p.cliente.documento || '-')}
+                            ${montarDadoCompactoPdf('Telefone', p.cliente.telefone || '-')}
+                            ${montarDadoCompactoPdf('E-mail', p.cliente.email || '-')}
+                            ${montarDadoCompactoPdf('Endereco', p.cliente.endereco || '-')}
+                        </section>
+                        <section class="proposal-info-box">
+                            <h3>Dados do evento</h3>
+                            ${montarDadoCompactoPdf('Nome do evento', p.evento.nome || '-')}
+                            ${montarDadoCompactoPdf('Local', p.evento.local || '-')}
+                            ${montarDadoCompactoPdf('Cidade / UF', [p.evento.cidadeEvento, p.evento.ufEvento].filter(Boolean).join('/') || '-')}
+                            ${montarDadoCompactoPdf('Data do evento', `${formatarData(p.evento.dataEvento)} ${textoSeguro(p.evento.horaInicioEvento, '')}`)}
+                            ${montarDadoCompactoPdf('Montagem', `${formatarData(p.evento.dataMontagem)} ${textoSeguro(p.evento.horaMontagem, '')}`)}
+                            ${montarDadoCompactoPdf('Desmontagem', `${formatarData(p.evento.dataDesmontagem)} ${textoSeguro(p.evento.horaDesmontagem, '')}`)}
+                            ${montarDadoCompactoPdf('Observacoes local', observacoesLocal)}
+                        </section>
+                    </div>
+
+                    <div class="proposal-section-title">
+                        <span>Itens do orcamento</span>
+                    </div>
+                    <table class="pdf-items-table">
+                        <thead>${cabecalhoItens}</thead>
                         <tbody>${linhasItens}</tbody>
                     </table>
-                </div>
 
-                <div class="pdf-section pdf-financial-section" style="display:grid; grid-template-columns:1fr; gap:16px;">
-                    <div style="border:1px solid #111827; border-radius:10px; padding:10px;">
-                        <strong style="display:block; margin-bottom:6px; font-size:12px;">Resumo financeiro</strong>
-                        ${blocoResumoFinanceiro}
-                        <div style="margin-top:8px; font-size:11px; line-height:1.5;">
-                            <div><b>Pagamento:</b> ${sanitizar(p.financeiro.condicaoPagamento || '-')}</div>
-                            <div><b>Forma:</b> ${sanitizar(rotuloFormaPagamento(p.financeiro.formaPagamento))}</div>
-                            <div><b>Entrada:</b> ${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})</div>
-                            <div><b>Saldo:</b> ${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})</div>
-                            <div><b>Venc. entrada:</b> ${formatarData(p.financeiro.vencimentoEntrada)}</div>
-                            <div><b>Venc. saldo:</b> ${formatarData(p.financeiro.vencimentoSaldo)}</div>
-                            <div><b>Obs. pagamento:</b> ${sanitizar(p.financeiro.observacaoPagamento || '-')}</div>
+                    <div class="proposal-bottom-grid">
+                        <section class="proposal-terms-box">
+                            <h3>Condicoes comerciais</h3>
+                            ${condicoesComerciais || '<div class="proposal-info-line"><span>Condicoes</span><strong>-</strong></div>'}
+                            <h3 style="margin-top:12px;">Controle fiscal</h3>
+                            ${controleFiscal || '<div class="proposal-info-line"><span>NF</span><strong>-</strong></div>'}
+                        </section>
+                        <section class="proposal-summary-box">
+                            <h3>Resumo financeiro</h3>
+                            ${blocoResumoFinanceiro}
+                            ${blocoResumoInterno}
+                        </section>
+                    </div>
+
+                    ${observacoesEscopo ? `
+                        <div class="proposal-section-title">
+                            <span>Observacoes importantes</span>
                         </div>
-                        ${blocoResumoInterno}
-                    </div>
-                </div>
+                        ${observacoesEscopo}
+                    ` : ''}
 
-                <div class="pdf-section pdf-scope-section" style="display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; font-size:11px;">
-                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
-                        <b>Incluso na proposta</b><br>${sanitizar(p.escopo.inclusoProposta || '-')}
+                    <div style="margin-top:10px; font-size:10px; color:#475569;">
+                        <b>Responsavel pela proposta:</b> ${sanitizar(p.responsavelProposta || '-')}
                     </div>
-                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
-                        <b>Nao incluso na proposta</b><br>${sanitizar(p.escopo.naoInclusoProposta || '-')}
-                    </div>
-                    <div class="pdf-card" style="border:1px solid #cbd5e1; border-radius:8px; padding:10px;">
-                        <b>Observacoes comerciais</b><br>${sanitizar(p.escopo.observacoesComerciais || '-')}
-                    </div>
-                </div>
 
-                <div style="margin-top:10px; font-size:11px;">
-                    <b>Responsavel:</b> ${sanitizar(p.responsavelProposta || '-')}
-                </div>
+                    <div class="proposal-signatures">
+                        <div>MTZ EVENTOS</div>
+                        <div>CLIENTE</div>
+                    </div>
 
-                <div class="pdf-section assinaturas pdf-signatures" style="display:flex; justify-content:space-between; margin-top:42px;">
-                    <div style="width:42%; text-align:center; border-top:1px solid #111827; padding-top:8px; font-size:10px;">MTZ EVENTOS</div>
-                    <div style="width:42%; text-align:center; border-top:1px solid #111827; padding-top:8px; font-size:10px;">CLIENTE</div>
+                    ${montarRodapePropostaPdf()}
                 </div>
-                ${footer}
             </div>
         `;
     }
