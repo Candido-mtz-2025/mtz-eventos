@@ -2600,7 +2600,8 @@ function executarAtalhoRapido(atalhoId) {
         aplicarFiltroHistoricoDevolucoes(obterFiltroDevolucoesPersistido(), false, false);
     }
         
-    const checklistData = document.getElementById('checklistData');
+    const checklistData = document.getElementById('checklistMontagemData')
+        || document.getElementById('checklistData');
     if (checklistData && !checklistData.value) {
     checklistData.value = new Date().toISOString().split('T')[0];
 }
