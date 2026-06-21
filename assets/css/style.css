@@ -17478,6 +17478,16 @@ body[data-theme="mtz-gold"] #appArea > header button[data-action="sair"] {
     line-height: 1 !important;
 }
 
+#appArea > header .header-notification-btn:hover,
+#appArea > header .header-notification-btn:focus-visible {
+    color: #2563eb !important;
+    border-color: #bfdbfe !important;
+    background: #f8fbff !important;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.14) !important;
+    outline: none !important;
+    transform: translateY(-1px) !important;
+}
+
 #appArea > header .header-notification-count {
     position: absolute !important;
     top: -6px !important;
