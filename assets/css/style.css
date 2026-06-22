@@ -18131,3 +18131,22 @@ body[data-theme="mtz-gold"] #appArea > header .account-menu button[data-action="
         box-shadow: inset 3px 0 0 #d4af37 !important;
     }
 }
+
+/* Sidebar recolhida: submenu abre apenas pelo clique, evitando sobreposicao no hover. */
+@media (min-width: 1180px) {
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:not(.is-open) > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:not(.is-open):hover > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:not(.is-open):focus-within > .nav-dropdown {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown {
+        display: grid !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+}
