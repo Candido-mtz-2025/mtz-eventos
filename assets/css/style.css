@@ -17665,3 +17665,119 @@ body[data-theme="mtz-gold"] #appArea > header .account-menu button:focus-visible
         width: auto;
     }
 }
+
+/* Ajuste final: menu da conta preso ao card do usuário e sidebar recolhível de verdade. */
+@media (min-width: 1180px) {
+    #appArea {
+        --app-shell-sidebar-collapsed-width: 92px;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container {
+        width: var(--app-shell-sidebar-collapsed-width) !important;
+        padding: 22px 14px !important;
+    }
+
+    #appArea.sidebar-collapsed > header {
+        left: var(--app-shell-sidebar-collapsed-width) !important;
+    }
+
+    #appArea.sidebar-collapsed > .container {
+        padding-left: calc(var(--app-shell-sidebar-collapsed-width) + var(--app-shell-content-gap)) !important;
+    }
+
+    #appArea.sidebar-collapsed .app-sidebar-brand {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        justify-items: center !important;
+        gap: 10px !important;
+        padding-bottom: 18px !important;
+    }
+
+    #appArea.sidebar-collapsed .app-sidebar-brand > div,
+    #appArea.sidebar-collapsed .app-sidebar-footer,
+    #appArea.sidebar-collapsed .nav-caret,
+    #appArea.sidebar-collapsed .nav-dropdown {
+        display: none !important;
+    }
+
+    #appArea.sidebar-collapsed .sidebar-collapse-toggle {
+        display: inline-flex !important;
+        transform: rotate(180deg);
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger {
+        width: 54px !important;
+        min-width: 54px !important;
+        height: 54px !important;
+        min-height: 54px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+        font-size: 0 !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn i,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger i:first-child {
+        margin: 0 !important;
+        font-size: 1.22rem !important;
+    }
+}
+
+#appArea > header .header-user {
+    overflow: visible !important;
+}
+
+#appArea > header .account-menu {
+    left: 0 !important;
+    right: auto !important;
+    top: calc(100% + 8px) !important;
+    width: 100% !important;
+    min-width: 244px !important;
+    padding: 8px !important;
+    border-radius: 18px !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.16) !important;
+}
+
+#appArea > header .account-menu button {
+    min-height: 42px !important;
+    border-radius: 12px !important;
+    color: #1e293b !important;
+    background: transparent !important;
+}
+
+#appArea > header .account-menu button[data-action="sair"] {
+    color: #dc2626 !important;
+}
+
+#appArea > header .account-menu button[data-action="sair"]:hover,
+#appArea > header .account-menu button[data-action="sair"]:focus-visible {
+    color: #ffffff !important;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+}
+
+body[data-theme="dark"] #appArea > header .account-menu,
+body[data-theme="mtz-premium"] #appArea > header .account-menu,
+body[data-theme="mtz-gold"] #appArea > header .account-menu {
+    background: rgba(10, 18, 32, 0.98) !important;
+}
+
+body[data-theme="dark"] #appArea > header .account-menu button,
+body[data-theme="mtz-premium"] #appArea > header .account-menu button,
+body[data-theme="mtz-gold"] #appArea > header .account-menu button {
+    color: #e5edf8 !important;
+}
+
+body[data-theme="dark"] #appArea > header .account-menu button[data-action="sair"],
+body[data-theme="mtz-premium"] #appArea > header .account-menu button[data-action="sair"],
+body[data-theme="mtz-gold"] #appArea > header .account-menu button[data-action="sair"] {
+    color: #fca5a5 !important;
+}
+
+@media (max-width: 760px) {
+    #appArea > header .account-menu {
+        min-width: 220px !important;
+        left: 0 !important;
+        right: auto !important;
+    }
+}
