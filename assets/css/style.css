@@ -17970,3 +17970,61 @@ body[data-theme="mtz-gold"] #appArea > header .account-menu button[data-action="
     background: rgba(212, 175, 55, 0.12) !important;
     border-color: rgba(212, 175, 55, 0.24) !important;
 }
+
+/* Ajuste seguro final: evita corte em submenus da sidebar recolhida e no menu da conta. */
+@media (min-width: 1180px) {
+    #appArea.sidebar-collapsed .container > .tabs-container {
+        overflow: visible !important;
+        z-index: 3200 !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group {
+        overflow: visible !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown {
+        display: grid !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        clip-path: none !important;
+        overflow: visible !important;
+        z-index: 3400 !important;
+    }
+}
+
+#appArea > header .header-user,
+#appArea > header .header-actions {
+    overflow: visible !important;
+}
+
+#appArea > header .account-menu {
+    overflow: visible !important;
+    z-index: 3600 !important;
+}
+
+#appArea > header .account-menu button[data-action="sair"] {
+    display: flex !important;
+    align-items: center !important;
+    min-height: 44px !important;
+    overflow: visible !important;
+}
+
+#appArea > header .account-menu button[data-action="sair"] i {
+    width: 26px !important;
+    min-width: 26px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    padding: 0 !important;
+    flex: 0 0 26px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+    font-size: 0.98rem !important;
+    line-height: 1 !important;
+}
