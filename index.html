@@ -93,7 +93,7 @@
                     <p class="logo-subtitle">Painel de Controle</p>
                 </div>
                 <div class="header-actions">
-                    <div id="headerUser" class="header-user" style="display:none;">
+                    <div id="headerUser" class="header-user" style="display:none;" data-action="abrirMenuConta" aria-haspopup="menu" aria-expanded="false">
                         <img id="headerUserAvatar" src="./logo.png" alt="Usuário">
                         <div>
                             <strong id="headerUserName">Usuário</strong>
@@ -101,8 +101,19 @@
                             <small id="headerUserRole" class="header-role-badge">Admin</small>
                         </div>
                     </div>
-                    <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span><i class="bi bi-chevron-down sync-caret" aria-hidden="true"></i></div>
-                    <button class="header-notification-btn" type="button" data-action="abrirTab" data-arg="dashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
+                    <div id="accountMenu" class="account-menu" role="menu" aria-label="Menu da conta" hidden>
+                        <button type="button" role="menuitem" data-action="abrirPerfilUsuario">
+                            <i class="bi bi-person-circle"></i><span>Perfil</span>
+                        </button>
+                        <button type="button" role="menuitem" data-action="toggleTheme">
+                            <i class="bi bi-palette"></i><span>Temas</span>
+                        </button>
+                        <button type="button" role="menuitem" data-action="sair">
+                            <i class="bi bi-box-arrow-right"></i><span>Sair</span>
+                        </button>
+                    </div>
+                    <div id="syncBadge" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span><i class="bi bi-chevron-down sync-caret" aria-hidden="true"></i></div>
+                    <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
                         <i class="bi bi-bell"></i>
                         <span class="header-notification-count">3</span>
                     </button>
@@ -148,7 +159,7 @@
         </button>
     </div>
     <nav class="tabs app-main-nav" aria-label="Menu principal">
-        <button class="tab-btn active" data-tab="dashboard" data-action="abrirTab" data-arg="dashboard">
+        <button class="tab-btn active" data-tab="dashboard" data-action="irParaDashboard">
             <i class="bi bi-grid"></i> Dashboard
         </button>
 
@@ -157,13 +168,13 @@
                 <i class="bi bi-briefcase"></i> Comercial <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-comercial" role="menu" aria-label="Comercial">
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locadores" data-action="abrirTab" data-arg="locadores">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locadores" data-action="irParaClientesLista">
                     <i class="bi bi-people"></i><span>Clientes</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="propostas" data-action="abrirTab" data-arg="propostas">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="propostas" data-action="irParaPropostasFormulario">
                     <i class="bi bi-file-earmark-ruled"></i><span>Orçamentos</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locacoes" data-action="abrirTab" data-arg="locacoes">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locacoes" data-action="irParaLocacoes" data-arg="todos">
                     <i class="bi bi-cart"></i><span>Locações</span>
                 </button>
             </div>
@@ -174,16 +185,16 @@
                 <i class="bi bi-tools"></i> Operação <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-operacao" role="menu" aria-label="Operação">
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="estoque" data-action="abrirTab" data-arg="estoque">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="estoque" data-action="irParaEstoqueBusca">
                     <i class="bi bi-box-seam"></i><span>Estoque</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="checklist" data-action="abrirTab" data-arg="checklist">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="checklist" data-action="irParaChecklistOperacional">
                     <i class="bi bi-check2-square"></i><span>Checklist</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="devolucoes" data-action="abrirTab" data-arg="devolucoes">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="devolucoes" data-action="irParaDevolucoesFormulario">
                     <i class="bi bi-arrow-return-left"></i><span>Devoluções</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="tipos" data-action="abrirTab" data-arg="tipos">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="tipos" data-action="irParaTiposLista">
                     <i class="bi bi-tags"></i><span>Tipos</span>
                 </button>
             </div>
@@ -194,10 +205,10 @@
                 <i class="bi bi-truck"></i> Logística <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-logistica" role="menu" aria-label="Logística">
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="agenda" data-action="abrirTab" data-arg="agenda">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="agenda" data-action="irParaAgendaOperacional">
                     <i class="bi bi-calendar-event"></i><span>Agenda</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="abrirTab" data-arg="transporte">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="irParaTransporteBusca">
                     <i class="bi bi-truck-front"></i><span>Transporte</span>
                 </button>
             </div>
@@ -208,7 +219,7 @@
                 <i class="bi bi-cash-stack"></i> Financeiro <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-financeiro" role="menu" aria-label="Financeiro">
-                <button type="button" class="tab-menu-item" data-menu-item data-tab="financeiro" data-action="abrirTab" data-arg="financeiro">
+                <button type="button" class="tab-menu-item" data-menu-item data-tab="financeiro" data-action="irParaFinanceiroFiltro" data-arg="todos">
                     <i class="bi bi-graph-up-arrow"></i> Resumo financeiro
                 </button>
             </div>
@@ -219,17 +230,17 @@
                 <i class="bi bi-shield-lock"></i> Admin <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-admin" role="menu" aria-label="Admin">
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="auditoria" data-action="abrirTab" data-arg="auditoria">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="auditoria" data-action="irParaAuditoriaBusca">
                     <i class="bi bi-shield-check"></i><span>Auditoria</span>
                 </button>
-                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="config" data-action="abrirTab" data-arg="config">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="config" data-action="irParaConfigGeral">
                     <i class="bi bi-gear"></i><span>Configurações</span>
                 </button>
             </div>
         </div>
     </nav>
     <div class="app-sidebar-footer">
-        <div class="sidebar-help-card">
+        <div class="sidebar-help-card" data-action="abrirSuporteSistema" title="Falar com suporte">
             <i class="bi bi-headset"></i>
             <span>Precisa de ajuda?</span>
             <small>Fale com o suporte</small>
@@ -266,7 +277,7 @@
                         </div>
                         <div class="stat-icon"><i class="bi bi-people"></i></div>
                     </div>
-                    <div class="stat-card card-orange" data-action="irParaLocacoes" data-arg="todos">
+                    <div class="stat-card card-orange" data-action="irParaLocacoes" data-arg="ativo">
                         <div class="stat-info">
                             <small id="dashTagLocacoes" class="stat-tag">Operação</small>
                             <h3 id="dashLocacoes">0</h3>
@@ -304,7 +315,7 @@
                         <small>Pendente Ativo</small>
                         <strong id="dashFinPendente">R$ 0,00</strong>
                     </div>
-                    <div class="finance-kpi" data-action="irParaFinanceiroFiltro" data-arg="todos">
+                    <div class="finance-kpi" data-action="irParaRelatorioFinanceiro" data-arg="ticket">
                         <small>Ticket Médio</small>
                         <strong id="dashFinTicket">R$ 0,00</strong>
                     </div>
@@ -313,7 +324,7 @@
                     <div class="dash-section">
                         <div class="dash-section-head">
                             <h3><i class="bi bi-bar-chart"></i> Receita Mensal</h3>
-                            <small class="dash-section-meta">Últimos 6 meses</small>
+                            <small class="dash-section-meta" data-action="irParaRelatorioFinanceiro" data-arg="receita">Últimos 6 meses</small>
                         </div>
                         <div id="dashChartReceita" class="dash-chart-placeholder">
                             <div class="ui-state-panel">
@@ -330,7 +341,7 @@
                     <div class="dash-section">
                         <div class="dash-section-head">
                             <h3><i class="bi bi-pie-chart"></i> Status das Locações</h3>
-                            <small class="dash-section-meta">Distribuição atual</small>
+                            <small class="dash-section-meta" data-action="irParaLocacoes" data-arg="todos">Distribuição atual</small>
                         </div>
                         <div id="dashChartStatus" class="dash-chart-placeholder">
                             <div class="ui-state-panel">
@@ -347,7 +358,7 @@
                     <div class="dash-section">
                         <div class="dash-section-head">
                             <h3><i class="bi bi-lightning-charge"></i> Ações do Dia</h3>
-                            <small id="dashResumoAcoesDia" class="dash-section-meta">Sem ações pendentes</small>
+                            <small id="dashResumoAcoesDia" class="dash-section-meta" data-action="irParaAgendaOperacional">Sem ações pendentes</small>
                         </div>
                         <div id="dashAcoesDia" class="dash-actions-placeholder">
                             <div class="ui-state-panel">
@@ -366,7 +377,7 @@
                     <div class="dash-section">
                         <div class="dash-section-head">
                             <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
-                            <small class="dash-section-meta">Próximos 5 registros</small>
+                            <small class="dash-section-meta" data-action="irParaDevolucoesFormulario">Próximos 5 registros</small>
                         </div>
                         <div class="table-responsive">
                             <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th class="table-head-center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
@@ -375,7 +386,7 @@
                     <div class="dash-section">
                         <div class="dash-section-head">
                             <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
-                            <small id="dashResumoAlertas" class="dash-section-meta">Sem alertas no momento</small>
+                            <small id="dashResumoAlertas" class="dash-section-meta" data-action="irParaAlertasDashboard">Sem alertas no momento</small>
                         </div>
                         <div id="listEstoqueBaixo">
                             <div class="ui-state-panel">

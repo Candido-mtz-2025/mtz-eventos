@@ -1388,6 +1388,19 @@ function executarAtalhoFiltroLocacoes(filtro) {
     rolarParaListaLocacoesComFiltro(filtro, { limparBusca: true });
 }
 
+function irParaDashboard() {
+    abrirTab('dashboard', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.querySelector('#tab-dashboard .dashboard-topbar')
+            || document.getElementById('tab-dashboard');
+        if (alvo) rolarParaElementoAtalho(alvo, 'start', { forcar: true });
+    }, 80);
+}
+
+function irParaLocacoes(filtro = 'todos') {
+    rolarParaListaLocacoesComFiltro(filtro || 'todos', { limparBusca: true });
+}
+
 function executarAtalhoFiltroDevolucoes(filtro, opcoes = {}) {
     const limparBusca = opcoes?.limparBusca !== false;
 
@@ -1514,6 +1527,32 @@ function irParaTiposCadastro() {
         ]),
         alinhamento: 'start',
         mensagemFalha: 'Formulário de tipos não encontrado.'
+    });
+}
+
+function irParaTiposLista() {
+    const abaAtual = obterAbaAtivaAtual();
+    const campoBusca = document.getElementById('buscaTipos');
+    if (abaAtual === 'tipos' && campoBusca) {
+        const alvo = campoBusca.closest('.card') || campoBusca;
+        rolarParaElementoAtalho(alvo, 'start');
+        destacarAlvoAtalho(alvo, 1100);
+        focarCampoDepoisDaRolagem('buscaTipos', true);
+        return;
+    }
+
+    navegarComFocoAtalho({
+        tabId: 'tipos',
+        resolverAlvo: () => document.getElementById('buscaTipos')
+            || document.querySelector('#tab-tipos .card:last-of-type')
+            || document.querySelector('#tab-tipos .card'),
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#buscaTipos',
+            '#tab-tipos .search-input'
+        ]),
+        selecionar: true,
+        alinhamento: 'start',
+        mensagemFalha: 'Busca de tipos não encontrada.'
     });
 }
 
@@ -1652,6 +1691,112 @@ function irParaFinanceiroFiltro(filtro = 'todos') {
         maxTentativas: 14,
         intervaloMs: 90
     });
+}
+
+function irParaRelatorioFinanceiro(foco = 'todos') {
+    const filtro = String(foco || '').toLowerCase() === 'receita' ? 'todos' : 'todos';
+    irParaFinanceiroFiltro(filtro);
+}
+
+function irParaAgendaOperacional(filtro = 'todos') {
+    const filtroNormalizado = String(filtro || 'todos').trim().toLowerCase();
+
+    return navegarComFocoAtalho({
+        tabId: 'agenda',
+        preparar: () => {
+            if (typeof aplicarFiltroAgendaRapido === 'function') {
+                aplicarFiltroAgendaRapido(filtroNormalizado);
+            } else if (typeof renderAgendaOperacional === 'function') {
+                renderAgendaOperacional();
+            }
+        },
+        resolverAlvo: () => document.getElementById('agendaListaCard')
+            || document.getElementById('buscaAgenda')
+            || document.querySelector('#tab-agenda .card'),
+        resolverFoco: () => primeiroElementoVisivelPorSeletores([
+            '#buscaAgenda',
+            '#tab-agenda .search-input'
+        ]),
+        selecionar: true,
+        alinhamento: 'start',
+        mensagemFalha: 'Agenda operacional não encontrada.'
+    });
+}
+
+function irParaAlertasDashboard() {
+    abrirTab('dashboard', { semRolagem: true });
+    setTimeout(() => {
+        const alvo = document.getElementById('listEstoqueBaixo')
+            || document.querySelector('#tab-dashboard .dashboard-lower .dash-section:last-child');
+        if (alvo) {
+            rolarParaElementoAtalho(alvo, 'start', { forcar: true });
+            destacarAlvoAtalho(alvo, 1300);
+        }
+    }, 100);
+}
+
+function abrirPainelSincronizacao() {
+    const texto = String(document.getElementById('syncText')?.textContent || 'Local').trim();
+    const modo = texto || 'Local';
+    const detalhes = modo.toLowerCase() === 'online'
+        ? 'Sincronização ativa. Seus dados podem ser salvos na nuvem.'
+        : modo.toLowerCase() === 'salvando...'
+            ? 'O sistema está salvando as alterações agora.'
+            : 'O app está funcionando localmente. Quando reconectar, você pode sincronizar novamente.';
+
+    if (typeof mostrarToast === 'function') {
+        mostrarToast(`${modo}: ${detalhes}`, modo.toLowerCase() === 'online' ? 'ok' : 'info', 5200);
+    }
+}
+
+function abrirMenuConta() {
+    const menu = document.getElementById('accountMenu');
+    const usuario = document.getElementById('headerUser');
+    if (!menu || !usuario) return false;
+
+    const abrindo = menu.hidden;
+    menu.hidden = !abrindo;
+    usuario.setAttribute('aria-expanded', abrindo ? 'true' : 'false');
+    if (abrindo) {
+        const primeiro = menu.querySelector('button');
+        setTimeout(() => primeiro?.focus?.({ preventScroll: true }), 40);
+    }
+    return true;
+}
+
+function fecharMenuConta() {
+    const menu = document.getElementById('accountMenu');
+    const usuario = document.getElementById('headerUser');
+    if (!menu) return;
+    menu.hidden = true;
+    usuario?.setAttribute('aria-expanded', 'false');
+}
+
+function abrirPerfilUsuario() {
+    const nome = String(document.getElementById('headerUserName')?.textContent || 'Usuário').trim();
+    const email = String(document.getElementById('headerUserEmail')?.textContent || 'Modo local').trim();
+    const perfil = String(document.getElementById('headerUserRole')?.textContent || 'Admin').trim();
+    fecharMenuConta();
+    if (typeof mostrarToast === 'function') {
+        mostrarToast(`${nome} • ${email} • Perfil ${perfil}`, 'info', 5200);
+    }
+}
+
+function abrirSuporteSistema() {
+    const cfg = (typeof config !== 'undefined' && config) ? config : (window.config || {});
+    const telefoneConfig = String(cfg.telefone || '').replace(/\D/g, '');
+    const telefone = telefoneConfig.length >= 10 ? `55${telefoneConfig.replace(/^55/, '')}` : '';
+    const mensagem = encodeURIComponent('Olá! Preciso de ajuda com o sistema MTZ Eventos.');
+
+    if (telefone) {
+        window.open(`https://wa.me/${telefone}?text=${mensagem}`, '_blank', 'noopener');
+        return true;
+    }
+
+    if (typeof mostrarToast === 'function') {
+        mostrarToast('Suporte preparado. Cadastre um telefone em Configurações para abrir o WhatsApp direto.', 'info', 5200);
+    }
+    return false;
 }
 
 function irParaLocacaoPorCodigo(locacaoId) {
@@ -2859,15 +3004,30 @@ function executarAtalhoRapido(atalhoId) {
         }
     }
 
-    document.addEventListener('click', (event) => {
-        const alvo = event.target;
-        if (alvo instanceof HTMLElement && alvo.closest('.theme-menu-wrap')) return;
-        fecharMenuTema();
-    });
+document.addEventListener('click', (event) => {
+    const alvo = event.target;
+    if (alvo instanceof HTMLElement && alvo.closest('.theme-menu-wrap')) return;
+    fecharMenuTema();
+});
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') fecharMenuTema();
-    });
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') fecharMenuTema();
+});
+
+document.addEventListener('click', (event) => {
+    const alvo = event.target;
+    if (!(alvo instanceof HTMLElement)) return;
+    if (alvo.closest('#accountMenu button')) {
+        setTimeout(fecharMenuConta, 0);
+        return;
+    }
+    if (alvo.closest('#headerUser') || alvo.closest('#accountMenu')) return;
+    fecharMenuConta();
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') fecharMenuConta();
+});
 
     window.aplicarTemaSistema = aplicarTemaSistema;
     window.selecionarTema = selecionarTema;

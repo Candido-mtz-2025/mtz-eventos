@@ -17591,3 +17591,77 @@ body[data-theme="mtz-gold"] #appArea > header .header-user::before {
         font-size: 0.64rem !important;
     }
 }
+/* Ligações visuais da navegação nova: indica que cards, status e usuário são interativos. */
+#appArea > header .header-user,
+#appArea > header .sync-badge,
+#appArea .sidebar-help-card,
+#tab-dashboard .stat-card,
+#tab-dashboard .finance-kpi,
+#tab-dashboard .dash-section-meta[data-action] {
+    cursor: pointer;
+}
+
+#appArea > header .account-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 96px;
+    z-index: 1500;
+    min-width: 190px;
+    padding: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+}
+
+#appArea > header .account-menu[hidden] {
+    display: none;
+}
+
+#appArea > header .account-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: transparent;
+    color: #0f172a;
+    font-weight: 800;
+    text-align: left;
+    cursor: pointer;
+}
+
+#appArea > header .account-menu button:hover,
+#appArea > header .account-menu button:focus-visible {
+    background: rgba(37, 99, 235, 0.1);
+    outline: none;
+}
+
+body[data-theme="dark"] #appArea > header .account-menu,
+body[data-theme="mtz-premium"] #appArea > header .account-menu,
+body[data-theme="mtz-gold"] #appArea > header .account-menu {
+    background: rgba(8, 15, 28, 0.98);
+    border-color: rgba(148, 163, 184, 0.24);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.42);
+}
+
+body[data-theme="dark"] #appArea > header .account-menu button,
+body[data-theme="mtz-premium"] #appArea > header .account-menu button,
+body[data-theme="mtz-gold"] #appArea > header .account-menu button {
+    color: #f8fafc;
+}
+
+body[data-theme="mtz-gold"] #appArea > header .account-menu button:hover,
+body[data-theme="mtz-gold"] #appArea > header .account-menu button:focus-visible {
+    background: rgba(212, 175, 55, 0.14);
+}
+
+@media (max-width: 760px) {
+    #appArea > header .account-menu {
+        right: 16px;
+        left: 16px;
+        width: auto;
+    }
+}

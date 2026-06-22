@@ -534,9 +534,24 @@ function continuarComSessaoLocalGoogle(mensagem = 'Sessão Google expirada. O ap
 }
 
 function sair() {
-    limparSessaoGoogle({ limparLembranca: true });
-    localStorage.removeItem(AUTH_MODE_KEY);
-    location.reload();
+    const executarSaida = () => {
+        limparSessaoGoogle({ limparLembranca: true });
+        localStorage.removeItem(AUTH_MODE_KEY);
+        location.reload();
+    };
+
+    if (typeof confirmarAcao === 'function') {
+        confirmarAcao('Deseja sair do sistema?', executarSaida, {
+            titulo: 'Confirmar saída',
+            textoConfirmar: 'Sair',
+            variante: 'danger'
+        });
+        return;
+    }
+
+    if (window.confirm('Deseja sair do sistema?')) {
+        executarSaida();
+    }
 }
 
 function updStatus(s) {
@@ -546,18 +561,10 @@ function updStatus(s) {
 
     const configurarAtalhoReconexao = (ativo, titulo) => {
         b.classList.toggle('sync-badge-action', !!ativo);
-        if (ativo) {
-            b.dataset.action = 'fazerLoginGoogle';
-            b.setAttribute('role', 'button');
-            b.setAttribute('tabindex', '0');
-            b.title = titulo;
-            return;
-        }
-
-        delete b.dataset.action;
-        b.removeAttribute('role');
-        b.removeAttribute('tabindex');
-        b.title = titulo || '';
+        b.dataset.action = 'abrirPainelSincronizacao';
+        b.setAttribute('role', 'button');
+        b.setAttribute('tabindex', '0');
+        b.title = titulo || 'Ver detalhes da sincronização.';
     };
 
     if (s === 'online') {
