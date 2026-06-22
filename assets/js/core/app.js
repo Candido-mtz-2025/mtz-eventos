@@ -2898,8 +2898,13 @@ function executarAtalhoRapido(atalhoId) {
         meta.setAttribute('content', cores[temaEfetivo] || cores.light);
     }
 
+    function obterBotaoTemaPrincipal() {
+        return document.querySelector('.theme-menu-wrap [data-action="toggleTheme"]')
+            || document.querySelector('[data-action="toggleTheme"]');
+    }
+
     function atualizarControleTema(preferencia, temaEfetivo) {
-        const botao = document.querySelector('[data-action="toggleTheme"]');
+        const botao = obterBotaoTemaPrincipal();
         const menu = document.getElementById('themeMenu');
         const tema = normalizarTemaSistema(preferencia);
         const icones = {
@@ -2951,14 +2956,14 @@ function executarAtalhoRapido(atalhoId) {
 
     function fecharMenuTema() {
         const menu = document.getElementById('themeMenu');
-        const botao = document.querySelector('[data-action="toggleTheme"]');
+        const botao = obterBotaoTemaPrincipal();
         if (menu) menu.hidden = true;
         if (botao) botao.setAttribute('aria-expanded', 'false');
     }
 
     function abrirMenuTema() {
         const menu = document.getElementById('themeMenu');
-        const botao = document.querySelector('[data-action="toggleTheme"]');
+        const botao = obterBotaoTemaPrincipal();
         if (!menu) return;
         const deveAbrir = menu.hidden;
         menu.hidden = !deveAbrir;
@@ -3006,7 +3011,10 @@ function executarAtalhoRapido(atalhoId) {
 
 document.addEventListener('click', (event) => {
     const alvo = event.target;
-    if (alvo instanceof HTMLElement && alvo.closest('.theme-menu-wrap')) return;
+    if (
+        alvo instanceof HTMLElement
+        && (alvo.closest('.theme-menu-wrap') || alvo.closest('#accountMenu [data-action="toggleTheme"]'))
+    ) return;
     fecharMenuTema();
 });
 
