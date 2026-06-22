@@ -18028,3 +18028,106 @@ body[data-theme="mtz-gold"] #appArea > header .account-menu button[data-action="
     font-size: 0.98rem !important;
     line-height: 1 !important;
 }
+
+/* Refinamento: submenu recolhido como lista lateral, sem efeito de balao. */
+@media (min-width: 1180px) {
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown {
+        left: calc(100% + 8px) !important;
+        top: -4px !important;
+        width: 184px !important;
+        min-width: 184px !important;
+        padding: 4px 0 4px 10px !important;
+        gap: 4px !important;
+        border: 0 !important;
+        border-left: 1px solid rgba(148, 163, 184, 0.34) !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown::before,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown::before,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item {
+        width: 100% !important;
+        min-height: 40px !important;
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+        border: 0 !important;
+        color: #475569 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        font-weight: 800 !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:hover,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:focus-visible {
+        color: #2563eb !important;
+        background: rgba(37, 99, 235, 0.08) !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.is-active {
+        color: #2563eb !important;
+        background: rgba(37, 99, 235, 0.1) !important;
+        box-shadow: inset 3px 0 0 #2563eb !important;
+    }
+
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown {
+        border-left-color: rgba(71, 85, 105, 0.6) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item {
+        color: #cbd5e1 !important;
+        background: transparent !important;
+    }
+
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:hover,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:focus-visible,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.is-active,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:hover,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:focus-visible,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.is-active {
+        color: #f8fafc !important;
+        background: rgba(37, 99, 235, 0.18) !important;
+        box-shadow: inset 3px 0 0 #3b82f6 !important;
+    }
+
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group.is-open > .nav-dropdown,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:hover > .nav-dropdown,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-menu-group:focus-within > .nav-dropdown {
+        border-left-color: rgba(212, 175, 55, 0.45) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item {
+        color: #d8be72 !important;
+        background: transparent !important;
+    }
+
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:hover,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item:focus-visible,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.active,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > .tabs-container .nav-dropdown .tab-menu-item.is-active {
+        color: #f7d774 !important;
+        background: rgba(212, 175, 55, 0.14) !important;
+        box-shadow: inset 3px 0 0 #d4af37 !important;
+    }
+}
