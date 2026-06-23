@@ -3605,6 +3605,20 @@
                 valorTotalProposta: valorTotalComercial
             };
         });
+        const resumoChecklistPendente = itensLocacao.reduce((acc, item) => {
+            acc.totalItens += Math.max(1, Number(item.quantidade) || 1);
+            acc.totalLinhas += 1;
+            return acc;
+        }, {
+            totalItens: 0,
+            totalLinhas: 0,
+            conferidos: 0,
+            pendentes: 0,
+            faltando: 0,
+            avarias: 0,
+            percentual: 0
+        });
+        resumoChecklistPendente.pendentes = resumoChecklistPendente.totalLinhas;
 
         const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
         const novaLocacaoBase = {
@@ -3683,9 +3697,12 @@
             },
             checklist: {
                 idChecklist: null,
-                status: 'nao_iniciado',
-                ultimaAtualizacao: '',
-                observacoes: ''
+                locacaoId: String(novaLocacaoId),
+                status: resumoChecklistPendente.totalLinhas > 0 ? 'pendente' : 'nao_iniciado',
+                origem: 'proposta_convertida',
+                resumo: resumoChecklistPendente,
+                ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString(),
+                observacoes: 'Checklist pendente gerado a partir da conversao da proposta.'
             },
             historicoAlteracoes: []
         };
