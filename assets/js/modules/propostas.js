@@ -3708,7 +3708,14 @@
 
         if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
-        if (typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento)) {
+        const deveCriarTransporte = typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento);
+        if (deveCriarTransporte) {
+            const criarRetiradaAutomatica = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);
+            const dividirFreteEntreRotas = criarRetiradaAutomatica && freteKm.calculoAtivo && freteKm.trechos > 1;
+            const trechosEntrega = dividirFreteEntreRotas ? Math.max(freteKm.trechos - 1, 1) : freteKm.trechos;
+            const custoEntrega = dividirFreteEntreRotas
+                ? arredondarMoeda(freteKm.distanciaKm * freteKm.valorKm * trechosEntrega)
+                : custoFrete;
             criarTransporteDaLocacao(novaLocacao, {
                 tipoOperacao: 'entrega',
                 dataSaida: dataMontagem,
@@ -3719,11 +3726,36 @@
                 cidade: cidadeEvento,
                 distanciaKm: freteKm.distanciaKm,
                 valorKm: freteKm.valorKm,
-                trechos: freteKm.trechos,
-                custoEstimado: custoFrete,
+                trechos: trechosEntrega,
+                custoEstimado: custoEntrega,
                 observacoes: observacoesLogistica,
                 evitarDuplicado: true
             });
+            if (criarRetiradaAutomatica) {
+                const custoRetirada = dividirFreteEntreRotas
+                    ? arredondarMoeda(freteKm.distanciaKm * freteKm.valorKm)
+                    : 0;
+                const observacoesRetirada = [
+                    'Retirada criada automaticamente pela conversao da proposta.',
+                    observacoesLogistica,
+                    custoRetirada <= 0 && custoFrete > 0 ? 'Custo de frete consolidado na entrega.' : ''
+                ].filter(Boolean).join(' ');
+                criarTransporteDaLocacao(novaLocacao, {
+                    tipoOperacao: 'retirada',
+                    dataSaida: dataDesmontagem,
+                    horaSaida: proposta.evento.horaDesmontagem || proposta.evento.horaFimEvento || '',
+                    dataChegada: dataDesmontagem,
+                    horaChegada: proposta.evento.horaDesmontagem || '',
+                    endereco: enderecoEvento,
+                    cidade: cidadeEvento,
+                    distanciaKm: freteKm.distanciaKm,
+                    valorKm: freteKm.valorKm,
+                    trechos: custoRetirada > 0 ? 1 : freteKm.trechos,
+                    custoEstimado: custoRetirada,
+                    observacoes: observacoesRetirada,
+                    evitarDuplicado: true
+                });
+            }
         }
         if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
 
