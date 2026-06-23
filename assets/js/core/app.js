@@ -2954,18 +2954,54 @@ function executarAtalhoRapido(atalhoId) {
         atualizarControleTema(tema, temaEfetivo);
     }
 
+    function restaurarMenuTemaPadrao() {
+        const menu = document.getElementById('themeMenu');
+        const wrap = document.querySelector('.theme-menu-wrap');
+        if (!menu || !wrap) return;
+        if (menu.parentElement !== wrap) wrap.appendChild(menu);
+        menu.classList.remove('theme-menu-floating');
+        menu.style.removeProperty('top');
+        menu.style.removeProperty('left');
+        menu.style.removeProperty('right');
+        menu.style.removeProperty('position');
+    }
+
+    function posicionarMenuTemaFlutuante(origem) {
+        const menu = document.getElementById('themeMenu');
+        if (!menu || !(origem instanceof HTMLElement)) return;
+
+        const rect = origem.getBoundingClientRect();
+        const largura = 230;
+        const margem = 12;
+        const esquerda = Math.min(window.innerWidth - largura - margem, Math.max(margem, rect.left));
+        const topo = Math.min(window.innerHeight - 250, Math.max(margem, rect.bottom + 8));
+
+        document.body.appendChild(menu);
+        menu.classList.add('theme-menu-floating');
+        menu.style.position = 'fixed';
+        menu.style.left = `${esquerda}px`;
+        menu.style.top = `${topo}px`;
+        menu.style.right = 'auto';
+    }
+
     function fecharMenuTema() {
         const menu = document.getElementById('themeMenu');
         const botao = obterBotaoTemaPrincipal();
         if (menu) menu.hidden = true;
         if (botao) botao.setAttribute('aria-expanded', 'false');
+        restaurarMenuTemaPadrao();
     }
 
-    function abrirMenuTema() {
+    function abrirMenuTema(origem = null) {
         const menu = document.getElementById('themeMenu');
         const botao = obterBotaoTemaPrincipal();
         if (!menu) return;
         const deveAbrir = menu.hidden;
+        if (deveAbrir && origem instanceof HTMLElement && origem.closest('#accountMenu')) {
+            posicionarMenuTemaFlutuante(origem);
+        } else {
+            restaurarMenuTemaPadrao();
+        }
         menu.hidden = !deveAbrir;
         if (botao) botao.setAttribute('aria-expanded', deveAbrir ? 'true' : 'false');
         if (deveAbrir) {
@@ -3013,10 +3049,21 @@ document.addEventListener('click', (event) => {
     const alvo = event.target;
     if (
         alvo instanceof HTMLElement
-        && (alvo.closest('.theme-menu-wrap') || alvo.closest('#accountMenu [data-action="toggleTheme"]'))
+        && (alvo.closest('.theme-menu-wrap') || alvo.closest('#themeMenu') || alvo.closest('#accountMenu [data-action="toggleTheme"]'))
     ) return;
     fecharMenuTema();
 });
+
+document.addEventListener('click', (event) => {
+    const alvo = event.target;
+    if (!(alvo instanceof HTMLElement)) return;
+    const botaoTemaConta = alvo.closest('#accountMenu [data-action="toggleTheme"]');
+    if (!botaoTemaConta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    abrirMenuTema(botaoTemaConta);
+    setTimeout(fecharMenuConta, 0);
+}, true);
 
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') fecharMenuTema();
