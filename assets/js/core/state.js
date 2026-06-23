@@ -1,14 +1,15 @@
 // Estado global do sistema
 // === SISTEMA MTZ EVENTOS (V11 FINAL CORRIGIDA) ===
-let locadores = [], pecas = [], locacoes = [], devolucoes = [], tipos = [], carrinhoLocacao = [];
+let locadores = [], pecas = [], locacoes = [], propostas = [], devolucoes = [], transportes = [], tipos = [], usuarios = [], carrinhoLocacao = [];
 
 let modelosChecklist = [];
 let checklistsGerados = [];
 let checklistMontagem = [];
+let checklistConferencia = {};
 let checklistEtapasMontagem = [];
 
     let logsAuditoria = []; // NOVO: Sistema de auditoria
-    let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "" };
+    let config = { rodape: "MTZ Eventos", tel: "", email: "", logo: "", emailsPermitidos: "", adminEmails: "", valorKmFretePadrao: 0, padroesOrcamento: null, categoriasOrcamento: null };
     let tokenClient, filtroAtual = 'todos';
     let paginaAtual = {
     locadores: 1,

@@ -10,30 +10,74 @@
     <link rel="apple-touch-icon" href="./logo.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema MTZ Eventos - V11 Final</title>
+    <title>MTZ Eventos - Sistema de Gestao</title>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.22">
 </head>
 <body>
 
     <div id="loginArea">
         <div class="login-box">
-            <h1 style="color:var(--primary); margin-bottom:5px;">MTZ Eventos</h1>
-            <p style="margin-bottom: 30px; color:var(--text-light);">Sistema de Gestão & Locação V11</p>
-            
-            <button id="btnLoginGoogle" class="btn" style="width: 100%; margin-bottom: 15px; background-color: #1e293b; color: white; justify-content: center; padding: 14px;" onclick="fazerLoginGoogle()">
+            <div class="login-brand">
+                <img src="./logo.png" alt="Logo MTZ Eventos">
+                <div>
+                    <h1>MTZ Eventos</h1>
+                    <p>Gestão e locação de eventos</p>
+                </div>
+            </div>
+
+            <div class="login-copy">
+                <h2>Acesso ao sistema</h2>
+                <p>Use sua conta Google para sincronizar dados ou continue em modo local.</p>
+            </div>
+
+            <div id="loginStatus" class="login-status info">
+                <i id="loginStatusIcon" class="bi bi-shield-check"></i>
+                <span id="loginStatusText">Pronto para entrar.</span>
+            </div>
+
+            <div id="loginLastUser" class="login-last-user" style="display:none;">
+                <div class="login-last-user-head">
+                    <img id="loginLastUserAvatar" src="./logo.png" alt="Último usuário">
+                    <div>
+                        <small>Último acesso</small>
+                        <strong id="loginLastUserName">Conta Google</strong>
+                        <span id="loginLastUserEmail">Sem e-mail salvo</span>
+                    </div>
+                </div>
+                <button id="btnAcessoRapidoGoogle" class="btn btn-login-quick" data-action="entrarComUltimoUsuarioGoogle">
+                    <i class="bi bi-lightning-charge"></i> Acesso rápido com Google
+                </button>
+            </div>
+
+            <button id="btnLoginGoogle" class="btn btn-login-google" data-action="fazerLoginGoogle">
                 <i class="bi bi-google"></i> Entrar com Google
             </button>
-            <button class="btn" style="width: 100%; background-color: var(--primary); color: white; justify-content: center; padding: 14px;" onclick="entrarOffline()">
-                <i class="bi bi-hdd"></i> Usar Offline (Local)
+            <button id="btnEntrarOffline" class="btn btn-login-offline" data-action="entrarOffline">
+                <i class="bi bi-hdd"></i> Continuar offline
+            </button>
+
+            <small class="login-hint">Você pode sincronizar com a nuvem depois, quando quiser.</small>
+        </div>
+    </div>
+
+    <div id="sessionExpiredArea" style="display: none;">
+        <div class="session-box">
+            <div class="session-icon"><i class="bi bi-shield-lock"></i></div>
+            <h2>Sessão expirada</h2>
+            <p>Por segurança, confirme sua conta Google para continuar com sincronização.</p>
+            <button id="btnSessaoGoogle" class="btn btn-login-google" data-action="fazerLoginGoogle">
+                <i class="bi bi-google"></i> Reativar com Google
+            </button>
+            <button id="btnSessaoOffline" class="btn btn-login-offline" data-action="entrarOffline">
+                <i class="bi bi-hdd"></i> Continuar offline
             </button>
         </div>
     </div>
@@ -41,62 +85,320 @@
     <div id="appArea" style="display: none;">
         <header>
             <div class="container">
+                <button class="sidebar-mobile-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="false" title="Abrir menu">
+                    <i class="bi bi-list"></i>
+                </button>
                 <div class="logo">
                     <h1>MTZ Eventos</h1>
-                    <p style="font-size:0.85rem; color:var(--text-light);">Painel de Controle</p>
+                    <p class="logo-subtitle">Painel de Controle</p>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <div id="syncBadge" class="sync-badge sync-offline"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span></div>
-                    <button id="themeToggle" class="btn btn-secondary btn-sm" type="button" onclick="toggleTheme()" aria-label="Alternar tema" title="Alternar tema"><i class="bi bi-moon"></i></button>
-                    <button class="btn btn-danger btn-sm" type="button" onclick="sair()" aria-label="Sair" title="Sair"><i class="bi bi-box-arrow-right"></i></button>
+                <div class="header-actions">
+                    <div id="headerUser" class="header-user" style="display:none;" data-action="abrirMenuConta" aria-haspopup="menu" aria-expanded="false">
+                        <img id="headerUserAvatar" src="./logo.png" alt="Usuário">
+                        <div>
+                            <strong id="headerUserName">Usuário</strong>
+                            <span id="headerUserEmail">Modo local</span>
+                            <small id="headerUserRole" class="header-role-badge">Admin</small>
+                        </div>
+                        <div id="accountMenu" class="account-menu" role="menu" aria-label="Menu da conta" hidden>
+                            <button type="button" role="menuitem" data-action="abrirPerfilUsuario">
+                                <i class="bi bi-person-circle"></i><span>Perfil</span>
+                            </button>
+                            <button type="button" role="menuitem" data-action="toggleTheme">
+                                <i class="bi bi-palette"></i><span>Temas</span>
+                            </button>
+                            <button type="button" role="menuitem" data-action="sair">
+                                <i class="bi bi-box-arrow-right"></i><span>Sair</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="syncBadge" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span><i class="bi bi-chevron-down sync-caret" aria-hidden="true"></i></div>
+                    <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
+                        <i class="bi bi-bell"></i>
+                        <span class="header-notification-count">3</span>
+                    </button>
+                    <div class="header-controls">
+                        <div class="theme-menu-wrap">
+                            <button class="btn btn-secondary btn-sm" data-action="toggleTheme" aria-expanded="false" aria-controls="themeMenu" title="Escolher tema">
+                                <i class="bi bi-moon"></i>
+                            </button>
+                            <div id="themeMenu" class="theme-menu" role="menu" aria-label="Escolher tema" hidden>
+                                <button type="button" role="menuitem" data-theme-option="light" data-action="selecionarTema" data-arg="light">
+                                    <i class="bi bi-sun"></i><span>Claro</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="dark" data-action="selecionarTema" data-arg="dark">
+                                    <i class="bi bi-moon"></i><span>Escuro</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="mtz-premium" data-action="selecionarTema" data-arg="mtz-premium">
+                                    <i class="bi bi-palette"></i><span>MTZ Premium</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="mtz-gold" data-action="selecionarTema" data-arg="mtz-gold">
+                                    <i class="bi bi-gem"></i><span>MTZ Gold</span>
+                                </button>
+                                <button type="button" role="menuitem" data-theme-option="auto" data-action="selecionarTema" data-arg="auto">
+                                    <i class="bi bi-circle-half"></i><span>Automático</span>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" data-action="sair"><i class="bi bi-box-arrow-right"></i></button>
+                    </div>
                 </div>
             </div>
         </header>
 
         <div class="container">
-            <div class="tabs-container">
-                <nav class="tabs" aria-label="Navegação principal">
-                    <button class="tab-btn active" type="button" data-tab="dashboard" aria-current="page" onclick="abrirTab('dashboard')"><i class="bi bi-grid"></i> Dashboard</button>
-                    <button class="tab-btn" type="button" data-tab="locadores" onclick="abrirTab('locadores')"><i class="bi bi-people"></i> Clientes</button>
-                    <button class="tab-btn" type="button" data-tab="tipos" onclick="abrirTab('tipos')"><i class="bi bi-tags"></i> Tipos</button>
-                    <button class="tab-btn" type="button" data-tab="estoque" onclick="abrirTab('estoque')"><i class="bi bi-box-seam"></i> Estoque</button>
-                    <button class="tab-btn" type="button" data-tab="checklist" onclick="abrirTab('checklist')"><i class="bi bi-clipboard-check"></i> Checklist</button>
-                    <button class="tab-btn" type="button" data-tab="locacoes" onclick="abrirTab('locacoes')"><i class="bi bi-cart"></i> Locações</button>
-                    <button class="tab-btn" type="button" data-tab="devolucoes" onclick="abrirTab('devolucoes')"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
-                    <button class="tab-btn" type="button" data-tab="auditoria" onclick="abrirTab('auditoria')"><i class="bi bi-shield-check"></i> Auditoria</button>
-                    <button class="tab-btn" type="button" data-tab="config" onclick="abrirTab('config')"><i class="bi bi-gear"></i> Configurações</button>
-                </nav>
+               <div class="tabs-container" id="appMainSidebar">
+    <div class="app-sidebar-brand" aria-label="MTZ Eventos">
+        <img src="./logo.png" alt="MTZ Eventos">
+        <div>
+            <strong>MTZ Eventos</strong>
+            <small>Locação e eventos</small>
+        </div>
+        <button class="sidebar-collapse-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="true" title="Recolher menu">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+    </div>
+    <nav class="tabs app-main-nav" aria-label="Menu principal">
+        <button class="tab-btn active" data-tab="dashboard" data-action="irParaDashboard">
+            <i class="bi bi-grid"></i> Dashboard
+        </button>
+
+        <div class="nav-menu-group" data-nav-group="comercial">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="comercial" aria-expanded="false" aria-controls="menu-comercial">
+                <i class="bi bi-briefcase"></i> Comercial <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-comercial" role="menu" aria-label="Comercial">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locadores" data-action="irParaClientesLista">
+                    <i class="bi bi-people"></i><span>Clientes</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="propostas" data-action="irParaPropostasFormulario">
+                    <i class="bi bi-file-earmark-ruled"></i><span>Orçamentos</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="locacoes" data-action="irParaLocacoes" data-arg="todos">
+                    <i class="bi bi-cart"></i><span>Locações</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="operacao">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="operacao" aria-expanded="false" aria-controls="menu-operacao">
+                <i class="bi bi-tools"></i> Operação <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-operacao" role="menu" aria-label="Operação">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="estoque" data-action="irParaEstoqueBusca">
+                    <i class="bi bi-box-seam"></i><span>Estoque</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="checklist" data-action="irParaChecklistOperacional">
+                    <i class="bi bi-check2-square"></i><span>Checklist</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="devolucoes" data-action="irParaDevolucoesFormulario">
+                    <i class="bi bi-arrow-return-left"></i><span>Devoluções</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="tipos" data-action="irParaTiposLista">
+                    <i class="bi bi-tags"></i><span>Tipos</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="logistica">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="logistica" aria-expanded="false" aria-controls="menu-logistica">
+                <i class="bi bi-truck"></i> Logística <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-logistica" role="menu" aria-label="Logística">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="agenda" data-action="irParaAgendaOperacional">
+                    <i class="bi bi-calendar-event"></i><span>Agenda</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="transporte" data-action="irParaTransporteBusca">
+                    <i class="bi bi-truck-front"></i><span>Transporte</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="financeiro">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="financeiro" aria-expanded="false" aria-controls="menu-financeiro">
+                <i class="bi bi-cash-stack"></i> Financeiro <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-financeiro" role="menu" aria-label="Financeiro">
+                <button type="button" class="tab-menu-item" data-menu-item data-tab="financeiro" data-action="irParaFinanceiroFiltro" data-arg="todos">
+                    <i class="bi bi-graph-up-arrow"></i> Resumo financeiro
+                </button>
+            </div>
+        </div>
+
+        <div class="nav-menu-group" data-nav-group="admin">
+            <button class="tab-btn nav-menu-trigger" type="button" data-menu-toggle="admin" aria-expanded="false" aria-controls="menu-admin">
+                <i class="bi bi-shield-lock"></i> Admin <i class="bi bi-chevron-down nav-caret"></i>
+            </button>
+            <div class="nav-dropdown" id="menu-admin" role="menu" aria-label="Admin">
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="auditoria" data-action="irParaAuditoriaBusca">
+                    <i class="bi bi-shield-check"></i><span>Auditoria</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="config" data-action="irParaConfigGeral">
+                    <i class="bi bi-gear"></i><span>Configurações</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+    <div class="app-sidebar-footer">
+        <div class="sidebar-help-card" data-action="abrirSuporteSistema" title="Falar com suporte">
+            <i class="bi bi-headset"></i>
+            <span>Precisa de ajuda?</span>
+            <small>Fale com o suporte</small>
+        </div>
+        <small class="sidebar-copy">© 2026 MTZ Eventos<br>Todos os direitos reservados</small>
+    </div>
+</div>
+
+            <div id="moduleTopbar" class="module-topbar" style="display:none;">
+                <div class="module-topbar-main">
+                    <h2 id="moduleTopbarTitle"><i class="bi bi-grid"></i> Dashboard</h2>
+                    <p id="moduleTopbarDesc">Visão geral da operação.</p>
+                </div>
+                <small id="moduleTopbarMeta">Resumo</small>
             </div>
 
             <div id="tab-dashboard" class="tab-content active">
+                <div class="dashboard-topbar">
+                    <div>
+                        <h2>Painel Executivo</h2>
+                        <p>Visão operacional e financeira em tempo real.</p>
+                    </div>
+                    <div class="dashboard-topbar-meta">
+                        <small>Atualizado em</small>
+                        <strong id="dashAtualizadoEm">--</strong>
+                    </div>
+                </div>
                 <div class="dashboard-grid">
-                    <div class="stat-card card-blue" onclick="abrirTab('locadores')">
-                        <div class="stat-info"><h3 id="dashClientes">0</h3><p>Clientes</p></div>
+                    <div class="stat-card card-blue" data-action="irParaClientesLista">
+                        <div class="stat-info">
+                            <small id="dashTagClientes" class="stat-tag">Base ativa</small>
+                            <h3 id="dashClientes">0</h3>
+                            <p>Clientes</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-people"></i></div>
                     </div>
-                    <div class="stat-card card-orange" onclick="irParaLocacoes('todos')">
-                        <div class="stat-info"><h3 id="dashLocacoes">0</h3><p>Locações Ativas</p></div>
+                    <div class="stat-card card-orange" data-action="irParaLocacoes" data-arg="ativo">
+                        <div class="stat-info">
+                            <small id="dashTagLocacoes" class="stat-tag">Operação</small>
+                            <h3 id="dashLocacoes">0</h3>
+                            <p>Locações Ativas</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-cart"></i></div>
                     </div>
-                    <div class="stat-card card-green">
-                        <div class="stat-info"><h3 id="dashFaturamento" style="font-size:1.4rem;">R$ 0,00</h3><p>Receita</p></div>
+                    <div class="stat-card card-green" data-action="irParaLocacoesCobrancas">
+                        <div class="stat-info">
+                            <small id="dashTagReceita" class="stat-tag">Recebimento</small>
+                            <h3 id="dashFaturamento" class="metric-value-compact">R$ 0,00</h3>
+                            <p>Receita</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
                     </div>
-                    <div class="stat-card card-purple" onclick="irParaLocacoes('atrasado')">
-                        <div class="stat-info"><h3 id="dashAtrasos">0</h3><p>Atrasos</p></div>
+                    <div class="stat-card card-purple" data-action="irParaLocacoes" data-arg="atrasado">
+                        <div class="stat-info">
+                            <small id="dashTagAtrasos" class="stat-tag">Risco</small>
+                            <h3 id="dashAtrasos">0</h3>
+                            <p>Atrasos</p>
+                        </div>
                         <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                    </div>
+                </div>
+                <div class="finance-strip">
+                    <div class="finance-kpi" data-action="irParaFinanceiroFiltro" data-arg="todos">
+                        <small>Receita Mês</small>
+                        <strong id="dashFinMes">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi" data-action="irParaFinanceiroFiltro" data-arg="pago">
+                        <small>Recebido Mês</small>
+                        <strong id="dashFinRecebido">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi" data-action="irParaFinanceiroFiltro" data-arg="pendente">
+                        <small>Pendente Ativo</small>
+                        <strong id="dashFinPendente">R$ 0,00</strong>
+                    </div>
+                    <div class="finance-kpi" data-action="irParaRelatorioFinanceiro" data-arg="ticket">
+                        <small>Ticket Médio</small>
+                        <strong id="dashFinTicket">R$ 0,00</strong>
+                    </div>
+                </div>
+                <div class="dashboard-insights">
+                    <div class="dash-section">
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-bar-chart"></i> Receita Mensal</h3>
+                            <small class="dash-section-meta" data-action="irParaRelatorioFinanceiro" data-arg="receita">Últimos 6 meses</small>
+                        </div>
+                        <div id="dashChartReceita" class="dash-chart-placeholder">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-bar-chart" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Sem dados de receita</strong>
+                                        <span>Cadastre locações para visualizar a evolução mensal.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dash-section">
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-pie-chart"></i> Status das Locações</h3>
+                            <small class="dash-section-meta" data-action="irParaLocacoes" data-arg="todos">Distribuição atual</small>
+                        </div>
+                        <div id="dashChartStatus" class="dash-chart-placeholder">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-pie-chart" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Sem status para comparar</strong>
+                                        <span>As locações aparecerão aqui conforme o uso.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dash-section">
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-lightning-charge"></i> Ações do Dia</h3>
+                            <small id="dashResumoAcoesDia" class="dash-section-meta" data-action="irParaAgendaOperacional">Sem ações pendentes</small>
+                        </div>
+                        <div id="dashAcoesDia" class="dash-actions-placeholder">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--success ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Rotina em dia</strong>
+                                        <span>Nenhuma ação urgente no momento.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="dashboard-lower">
                     <div class="dash-section">
-                        <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-calendar-event"></i> Próximas Devoluções</h3>
+                            <small class="dash-section-meta" data-action="irParaDevolucoesFormulario">Próximos 5 registros</small>
+                        </div>
                         <div class="table-responsive">
-                            <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th style="text-align:center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
+                            <table class="table"><thead><tr><th>Data</th><th>Cliente</th><th class="table-head-center">Status</th></tr></thead><tbody id="tblDashDevolucoes"></tbody></table>
                         </div>
                     </div>
                     <div class="dash-section">
-                        <h3><i class="bi bi-box-seam"></i> Avisos</h3>
-                        <div id="listEstoqueBaixo"><small style="color:var(--text-light)">Sistema operando normalmente.</small></div>
+                        <div class="dash-section-head">
+                            <h3><i class="bi bi-bell"></i> Alertas Automáticos</h3>
+                            <small id="dashResumoAlertas" class="dash-section-meta" data-action="irParaAlertasDashboard">Sem alertas no momento</small>
+                        </div>
+                        <div id="listEstoqueBaixo">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--success ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Operação estável</strong>
+                                        <span>Sistema operando normalmente.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -115,10 +417,16 @@
                         <div class="form-group"><label>Email</label><input type="email" id="locEmail"></div>
                         <div class="form-group"><label>Telefone</label><input type="tel" id="locTel"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="salvarLocador()"><i class="bi bi-plus-lg"></i> Cadastrar</button>
+                    <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
-                <div class="card">
-                    <input type="text" id="buscaCliente" placeholder="🔍 Buscar cliente..." onkeyup="buscarComDebounce('locadores')" style="margin-bottom: 15px;">
+                <div class="card" id="locadoresListaCard">
+                    <div class="section-toolbar section-toolbar-compact">
+                        <h3>Clientes Cadastrados</h3>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <input type="text" id="buscaCliente" class="search-input" placeholder="🔍 Buscar cliente..." data-input="buscarComDebounce" data-arg="locadores">
+                        <div id="metaBuscaLocadores" class="search-meta" aria-live="polite"></div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table">
                             <thead><tr><th>Cliente</th><th>Email</th><th>Telefone</th><th class="col-actions">Ações</th></tr></thead>
@@ -131,172 +439,303 @@
             <div id="tab-tipos" class="tab-content">
                 <div class="card">
                     <h3>Novo Tipo</h3>
+                    <div class="tipos-kpi-grid" aria-label="Resumo de tipos">
+                        <div class="tipos-kpi-card" data-tone="total">
+                            <small>Tipos</small>
+                            <strong id="tiposKpiTotal">0</strong>
+                        </div>
+                        <div class="tipos-kpi-card" data-tone="uso">
+                            <small>Com uso</small>
+                            <strong id="tiposKpiComUso">0</strong>
+                        </div>
+                        <div class="tipos-kpi-card" data-tone="sem-uso">
+                            <small>Sem uso</small>
+                            <strong id="tiposKpiSemUso">0</strong>
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group"><label>Nome</label><input type="text" id="tipoNome"></div>
                         <div class="form-group"><label>Descrição</label><input type="text" id="tipoDesc"></div>
                     </div>
-                    <button class="btn btn-primary" onclick="salvarTipo()">Salvar Tipo</button>
+                    <button class="btn btn-primary" data-action="salvarTipo">Salvar Tipo</button>
                 </div>
-                <div class="card">
+                <div class="card" id="tiposListaCard">
+                    <div class="section-toolbar section-toolbar-compact">
+                        <h3>Tipos Cadastrados</h3>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <input type="text" id="buscaTipos" class="search-input" placeholder="🔍 Buscar tipo..." data-input="buscarComDebounce" data-arg="tipos">
+                        <div id="metaBuscaTipos" class="search-meta" aria-live="polite"></div>
+                    </div>
                     <div class="table-responsive"><table class="table"><thead><tr><th>Nome</th><th>Descrição</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblTipos"></tbody></table></div>
                 </div>
             </div>
 
             <div id="tab-estoque" class="tab-content">
-                 <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0;">Estoque de Peças</h2>
-                    <button class="btn btn-success" onclick="document.getElementById('inputExcel').click()"><i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel</button>
-                </div>
-                <input type="file" id="inputExcel" accept=".xlsx, .xls" style="display:none" onchange="processarExcelInteligente(this)">
-                
                 <div class="card">
-                    <h3>Novo Item</h3>
-                    <div class="form-row">
-                        <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
-                        <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
+                    <div class="section-toolbar">
+                        <h2>Estoque de Peças</h2>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="irParaEstoqueCadastro">
+                                <i class="bi bi-bag-plus"></i> Novo item
+                            </button>
+                            <button class="btn btn-secondary btn-sm" data-action="irParaEstoqueBusca">
+                                <i class="bi bi-search"></i> Buscar item
+                            </button>
+                            <button class="btn btn-secondary btn-sm" data-acesso="admin" data-action="acionarImportacaoEstoqueViaAtalho">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> Importar Excel
+                            </button>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
-                        <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
+                    <div class="estoque-kpi-grid" aria-label="Resumo de estoque">
+                        <div class="estoque-kpi-card" data-tone="total" data-filtro-estoque="todos" data-action="aplicarFiltroEstoqueResumo" data-arg="todos">
+                            <small>Itens cadastrados</small>
+                            <strong id="estoqueKpiTotal">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="disponivel" data-filtro-estoque="disponiveis" data-action="aplicarFiltroEstoqueResumo" data-arg="disponiveis">
+                            <small>Disponíveis</small>
+                            <strong id="estoqueKpiDisponiveis">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="critico" data-filtro-estoque="criticos" data-action="aplicarFiltroEstoqueResumo" data-arg="criticos">
+                            <small>Críticos</small>
+                            <strong id="estoqueKpiCriticos">0</strong>
+                        </div>
+                        <div class="estoque-kpi-card" data-tone="valor" data-filtro-estoque="valor" data-action="aplicarFiltroEstoqueResumo" data-arg="valor">
+                            <small>Valor em estoque</small>
+                            <strong id="estoqueKpiValor">R$ 0,00</strong>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
-                        <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
-                        <div class="form-group"><label>Cód Barras</label><div style="display:flex; gap:5px;"><input type="text" id="pecaBar"><button class="btn btn-secondary" onclick="iniciarScanner('cadastro')"><i class="bi bi-qr-code"></i></button></div></div>
-                    </div>
-                    
-<div class="form-row">
-    <div class="form-group">
-        <label>Grupo Checklist</label>
-        <select id="pecaGrupoChecklist">
-            <option value="estrutura">Estrutura</option>
-            <option value="moveis">Móveis</option>
-            <option value="eletrica">Elétrica</option>
-            <option value="cobertura">Cobertura</option>
-            <option value="acabamento">Acabamento</option>
-            <option value="outros">Outros</option>
-        </select>
-    </div>
 
-    <div class="form-group">
-        <label>Família Estrutural</label>
-        <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
-    </div>
-</div>
+                    <div class="estoque-search-toolbar">
+                        <input type="text" id="buscaEstoque" class="search-input" placeholder="🔍 Buscar item..." data-input="buscarComDebounce" data-arg="estoque">
+                        <div id="metaBuscaEstoque" class="search-meta" aria-live="polite"></div>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="excluirSelecionadosEstoque">
+                                <i class="bi bi-trash"></i> Excluir selecionados
+                            </button>
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Subtipo Estrutural</label>
-        <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
-    </div>
+                    <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 
-    <div class="form-group">
-        <label>Pode compor estrutura?</label>
-        <select id="pecaPodeCompor">
-            <option value="sim">Sim</option>
-            <option value="nao">Não</option>
-        </select>
-    </div>
-</div>
-                    
-<button class="btn btn-primary" onclick="salvarPeca()">Salvar Item</button>
-                    <br><br>
-<button class="btn btn-secondary" onclick="abrirModalModeloChecklist()">Criar Modelo de Estrutura</button>
+                    <div class="panel-block">
+                        <h3>Novo Item</h3>
+                        <div class="form-row">
+                            <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
+                            <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
+                            <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
+                            <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
+                            <div class="form-group">
+                                <label>Cód Barras</label>
+                                <div class="inline-input-action">
+                                    <input type="text" id="pecaBar">
+                                    <button class="btn btn-secondary btn-icon" data-action="iniciarScanner" data-arg="cadastro"><i class="bi bi-qr-code"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Grupo Checklist</label>
+                                <select id="pecaGrupoChecklist">
+                                    <option value="estrutura">Estrutura</option>
+                                    <option value="moveis">Móveis</option>
+                                    <option value="eletrica">Elétrica</option>
+                                    <option value="cobertura">Cobertura</option>
+                                    <option value="acabamento">Acabamento</option>
+                                    <option value="outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Família Estrutural</label>
+                                <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Subtipo Estrutural</label>
+                                <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
+                            </div>
+                            <div class="form-group">
+                                <label>Pode compor estrutura?</label>
+                                <select id="pecaPodeCompor">
+                                    <option value="sim">Sim</option>
+                                    <option value="nao">Não</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-primary" data-acesso="admin" data-action="salvarPeca">Salvar Item</button>
+                            <button class="btn btn-secondary" data-action="abrirModalModeloChecklist">Criar Modelo de Estrutura</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-block panel-block-spaced">
+                        <h3>Modelos de Estrutura Salvos</h3>
+                        <div id="listaModelosChecklist"></div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="table-select-col">
+                                        <input type="checkbox" id="chkAllEstoque" data-change="toggleSelecionarTodosEstoque" data-arg="__checked__">
+                                    </th>
+                                    <th>Img</th>
+                                    <th>Cód</th>
+                                    <th>Tipo</th>
+                                    <th>Nome</th>
+                                    <th>Valor</th>
+                                    <th>Estoque</th>
+                                    <th class="col-actions">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblEstoque"></tbody>
+                        </table>
+                    </div>
                 </div>
-                   <div class="card">
-                       <div class="card" style="margin-top:20px;">
-    <h3>Modelos de Estrutura Salvos</h3>
-    <div id="listaModelosChecklist"></div>
-</div>
-  <input type="text" id="buscaEstoque" placeholder="🔍 Buscar item..." onkeyup="buscarComDebounce('estoque')" style="margin-bottom: 12px;">
-
-  <!-- BOTÃO AQUI (entre o input e a tabela) -->
-  <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-    <button class="btn btn-danger btn-sm" onclick="excluirSelecionadosEstoque()">
-      <i class="bi bi-trash"></i> Excluir selecionados
-    </button>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th style="width:40px;">
-            <input type="checkbox" id="chkAllEstoque"
-                   onchange="toggleSelecionarTodosEstoque(this.checked)">
-          </th>
-          <th>Img</th>
-          <th>Cód</th>
-          <th>Tipo</th>
-          <th>Nome</th>
-          <th>Valor</th>
-          <th>Estoque</th>
-          <th class="col-actions">Ações</th>
-        </tr>
-      </thead>
-    <tbody id="tblEstoque"></tbody>
-            </table>
-          </div>
-        </div> 
-      </div> 
-     </div> 
+            </div>
    <div id="tab-locacoes" class="tab-content">
-        <div class="card">
+        <div id="locacoesPrincipalCard" class="card">
             <h3>Nova Locação</h3>
-            <div class="form-row">
-                <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
-                <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+            <div id="locacaoFlow" class="locacao-flow">
+                <button type="button" id="locacaoStep1" class="locacao-step is-active" data-action="irEtapaLocacao" data-arg="1">
+                    <span>1</span> Cliente e datas
+                </button>
+                <button type="button" id="locacaoStep2" class="locacao-step" data-action="irEtapaLocacao" data-arg="2">
+                    <span>2</span> Itens do pedido
+                </button>
+                <button type="button" id="locacaoStep3" class="locacao-step" data-action="irEtapaLocacao" data-arg="3">
+                    <span>3</span> Revisar e concluir
+                </button>
             </div>
-            <div class="form-row">
-                <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
-                <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+
+            <div id="locacaoEtapa1" class="locacao-step-panel is-active">
+                <div class="form-row">
+                    <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
+                    <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
+                    <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+                </div>
+                <div class="inline-chip-row">
+                    <button id="btnIrEtapa2" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="2">
+                        Continuar para itens
+                    </button>
+                </div>
             </div>
-                    <div class="box-carrinho">
-                        <h4 style="margin-top:0; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
-                            <i class="bi bi-cart-plus" style="color:var(--primary)"></i> Itens do Pedido
+
+            <div id="locacaoEtapa2" class="locacao-step-panel">
+                <div class="box-carrinho">
+                        <h4 class="cart-title">
+                            <i class="bi bi-cart-plus cart-title-icon"></i> Itens do Pedido
                         </h4>
                         
-                        <div class="form-row" style="align-items: flex-end;">
+                        <div class="form-row locacao-form-row">
                         
-                        <div class="form-group" style="flex: 4; position: relative;">
+                        <div class="form-group locacao-item-search">
                             <label>Buscar Item (Digite para filtrar)</label>
-                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." onkeyup="filtrarItensLocacao()" autocomplete="off">
+                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." data-keyup="filtrarItensLocacao" autocomplete="off">
                             <input type="hidden" id="aluguelItemSelect">
                             <div id="listaSugestoes" class="dropdown-sugestoes"></div>
                         </div>
 
-                        <div class="form-group" style="flex: 1; min-width: 70px;">
-                            <label>Qtd <small id="avisoEstoque" style="color:red; font-weight:bold; font-size:10px;"></small></label>
-                            <input type="number" id="aluguelQtd" value="1" min="1" style="text-align:center;" oninput="validarDigitacao(this)">
+                        <div class="form-group locacao-item-qtd">
+                            <label>Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
+                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" data-input="validarDigitacao" data-arg="__this__">
                         </div>
 
-                        <div class="form-group" style="flex: 2; display:flex; gap: 5px; flex-direction: row;">
-                            <button class="btn btn-success" style="flex:1;" onclick="addItemCarrinho()">
+                        <div class="form-group locacao-item-actions">
+                            <button class="btn btn-success btn-grow" data-action="addItemCarrinho">
                                 <i class="bi bi-plus-lg"></i> Add
                             </button>
-                            <button class="btn btn-secondary" style="width: 50px;" onclick="iniciarScanner('locacao')" title="Ler QR Code">
+                            <button class="btn btn-secondary btn-square" data-action="iniciarScanner" data-arg="locacao" title="Ler QR Code">
                                 <i class="bi bi-qr-code"></i>
                             </button>
                         </div>
                     </div>
                     <div id="carrinhoList">
-                        <i><i class="bi bi-info-circle"></i> Nenhum item adicionado à lista.</i>
+                        <div class="ui-state-panel">
+                            <div class="ui-state ui-state--empty ui-state--compact">
+                                <div class="ui-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
+                                <div class="ui-state-content">
+                                    <strong>Pedido vazio</strong>
+                                    <span>Nenhum item adicionado à lista.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="checkout-bar">
+                        <div>
+                            <small>Total do pedido</small>
+                            <strong id="checkoutTotalLocacao">R$ 0,00</strong>
+                        </div>
+                        <div class="checkout-actions">
+                            <button id="btnLimparCarrinho" class="btn btn-secondary" data-action="limparCarrinhoLocacao" disabled>
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                            <button id="btnIrEtapa3" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="3" disabled>
+                                <i class="bi bi-arrow-right-circle"></i> Revisar locação
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="locacaoEtapa3" class="locacao-step-panel">
+                <div id="locacaoResumoFinal" class="locacao-review"></div>
+                <div class="inline-chip-row">
+                    <button class="btn btn-secondary" data-action="irEtapaLocacao" data-arg="2">
+                        <i class="bi bi-arrow-left"></i> Voltar aos itens
+                    </button>
+                    <button id="btnFinalizarLocacao" class="btn btn-primary" data-action="finalizarLocacao" disabled>
+                        <i class="bi bi-check2-circle"></i> Concluir Locação
+                    </button>
+                </div>
+            </div>
+
+               <div class="locacao-kpi-grid" aria-label="Resumo de locacoes">
+                    <div class="locacao-kpi-card" data-tone="total" data-action="aplicarFiltroLocacoesResumo" data-arg="todos">
+                        <small>Registros</small>
+                        <strong id="locacaoKpiTotal">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="aberto" data-action="aplicarFiltroLocacoesResumo" data-arg="ativo">
+                        <small>Em aberto</small>
+                        <strong id="locacaoKpiAbertas">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="atrasado" data-action="aplicarFiltroLocacoesResumo" data-arg="atrasado">
+                        <small>Atrasadas</small>
+                        <strong id="locacaoKpiAtrasadas">0</strong>
+                    </div>
+                    <div class="locacao-kpi-card" data-tone="pendente" data-action="aplicarFiltroLocacoesResumo" data-arg="pendente">
+                        <small>Valor pendente</small>
+                        <strong id="locacaoKpiPendente">R$ 0,00</strong>
                     </div>
                 </div>
 
-                
-               <div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
-                    <button class="btn btn-sm btn-secondary" onclick="mudarFiltro('todos')">Todos</button>
-                    <button class="btn btn-sm btn-success" onclick="mudarFiltro('ativo')">Em Aberto</button>
-                    <button class="btn btn-sm btn-danger" onclick="mudarFiltro('atrasado')">Atrasados</button>
-                    <button class="btn btn-sm btn-info" onclick="mudarFiltro('devolvido')">Histórico</button>
-                </div> 
+                <div class="locacoes-search-toolbar">
+                    <div id="locacoesFiltros" class="filters-row filters-segmented">
+                        <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro="todos" data-action="aplicarFiltroLocacoesLista" data-arg="todos"><i class="bi bi-list-ul"></i> Todos</button>
+                        <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro="ativo" data-action="aplicarFiltroLocacoesLista" data-arg="ativo"><i class="bi bi-play-circle"></i> Em Aberto</button>
+                        <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro="atrasado" data-action="aplicarFiltroLocacoesLista" data-arg="atrasado"><i class="bi bi-clock-history"></i> Atrasados</button>
+                        <button class="btn btn-sm btn-info" data-tone="info" data-filtro="devolvido" data-action="aplicarFiltroLocacoesLista" data-arg="devolvido"><i class="bi bi-archive"></i> Histórico</button>
+                        <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro="cancelado" data-action="aplicarFiltroLocacoesLista" data-arg="cancelado"><i class="bi bi-x-circle"></i> Canceladas</button>
+                    </div>
+                    <input type="text" id="buscaLocacoes" class="search-input" placeholder="🔍 Buscar cliente, código, período ou status..." data-input="buscarComDebounce" data-arg="locacoes">
+                    <div id="metaBuscaLocacoes" class="search-meta" aria-live="polite"></div>
+                </div>
 
-                 <div class="card">
+                 <div id="locacoesLista" class="panel-block panel-block-spaced">
                     <div class="table-responsive">
                         <table class="table">
                             <thead>
@@ -308,97 +747,1063 @@
                 </div>
 
         </div> 
-  </div> 
+  </div>
+
+            <div id="tab-propostas" class="tab-content">
+                <div class="propostas-hero-card">
+                    <div class="propostas-hero-main">
+                        <span class="propostas-hero-icon"><i class="bi bi-file-earmark-ruled"></i></span>
+                        <div>
+                            <h2>Orçamentos</h2>
+                            <p>Propostas comerciais com custos, PDF e conversão em locação.</p>
+                        </div>
+                    </div>
+                    <span id="propHeaderMeta" class="propostas-hero-badge">0 de 0 propostas • Lista completa</span>
+                </div>
+
+                <div class="propostas-workbar">
+                    <div class="propostas-subnav" role="tablist" aria-label="Área de propostas">
+                        <button type="button" class="propostas-subtab is-active" id="propostasSubtabFormulario" role="tab" aria-selected="true" aria-controls="propostasPainelFormulario" data-propostas-subtab="formulario" data-action="mostrarSubAbaPropostas" data-arg="formulario">
+                            <i class="bi bi-file-earmark-plus"></i> Nova/Editar proposta
+                        </button>
+                        <button type="button" class="propostas-subtab" id="propostasSubtabLista" role="tab" aria-selected="false" aria-controls="propostasPainelLista" data-propostas-subtab="lista" data-action="mostrarSubAbaPropostas" data-arg="lista">
+                            <i class="bi bi-list-check"></i> Lista de orçamentos
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary proposta-config-open-btn" data-action="abrirConfigOrcamentoProposta" aria-controls="propostaConfigDrawer" aria-expanded="false">
+                        <i class="bi bi-sliders"></i> Configurar orçamento
+                    </button>
+                </div>
+
+                <div id="propostaConfigDrawer" class="proposta-config-drawer" aria-hidden="true">
+                    <button type="button" class="proposta-config-backdrop" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar configurações do orçamento"></button>
+                    <aside class="proposta-config-panel" role="dialog" aria-modal="true" aria-labelledby="propostaConfigTitle">
+                        <div class="proposta-config-head">
+                            <div>
+                                <h3 id="propostaConfigTitle">Configurações do orçamento</h3>
+                                <p>Padrões que serão aplicados nesta proposta.</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary proposta-config-close" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <h4>Regras gerais</h4>
+                            <div class="proposta-config-grid">
+                                <div class="form-group">
+                                    <label>Entrada padrão (%)</label>
+                                    <input type="text" id="propOrcConfigEntradaPadrao" inputmode="decimal">
+                                </div>
+                                <div class="form-group">
+                                    <label>Honorários padrão (%)</label>
+                                    <input type="text" id="propOrcConfigHonorariosPadrao" inputmode="decimal">
+                                </div>
+                                <div class="form-group">
+                                    <label>Encargos padrão (%)</label>
+                                    <input type="text" id="propOrcConfigEncargosPadrao" inputmode="decimal">
+                                </div>
+                                <div class="form-group">
+                                    <label>INSS padrão (%)</label>
+                                    <input type="text" id="propOrcConfigINSSPadrao" inputmode="decimal">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de encargos</label>
+                                    <select id="propOrcConfigTipoEncargosPadrao">
+                                        <option value="simples">Simples</option>
+                                        <option value="por_dentro">Por dentro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de INSS</label>
+                                    <select id="propOrcConfigTipoINSSPadrao">
+                                        <option value="simples">Simples</option>
+                                        <option value="por_dentro">Por dentro</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor padrão do km (frete)</label>
+                                    <input type="number" id="propOrcConfigValorKmPadrao" min="0" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <div class="proposta-config-section-title">
+                                <h4>Categorias da composição</h4>
+                                <span>Crie, organize e aplique regras nos itens</span>
+                            </div>
+                            <div id="propOrcConfigCategorias" class="proposta-config-categories" aria-live="polite"></div>
+                        </div>
+
+                        <div class="proposta-config-section proposta-config-apply-mode">
+                            <h4>Aplicação</h4>
+                            <label class="proposta-config-mode-option">
+                                <input type="radio" name="propOrcConfigModoAplicacao" value="atual" checked>
+                                <span>
+                                    <strong>Aplicar somente nesta proposta</strong>
+                                    <small>Atualiza os itens e campos atuais sem alterar os próximos orçamentos.</small>
+                                </span>
+                            </label>
+                            <label class="proposta-config-mode-option">
+                                <input type="radio" name="propOrcConfigModoAplicacao" value="padrao">
+                                <span>
+                                    <strong>Salvar como padrão para próximos orçamentos</strong>
+                                    <small>Salva em configurações globais e aplica também nesta proposta.</small>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div class="proposta-config-actions">
+                            <button type="button" class="btn btn-secondary" data-action="restaurarPadroesConfigOrcamentoProposta">
+                                <i class="bi bi-arrow-counterclockwise"></i> Restaurar padrões
+                            </button>
+                            <button type="button" class="btn btn-primary" data-action="aplicarConfigOrcamentoProposta">
+                                <i class="bi bi-check2-circle"></i> Aplicar configurações
+                            </button>
+                        </div>
+                    </aside>
+                </div>
+
+                <section id="propostasPainelFormulario" class="propostas-subpanel is-active" role="tabpanel" aria-labelledby="propostasSubtabFormulario">
+                <div class="card" id="propostasFormularioCard">
+                    <div class="section-toolbar">
+                        <h3>Dados da proposta</h3>
+                        <div class="inline-chip-row">
+                            <span id="propostaModoLabel" class="badge badge-info">Nova proposta</span>
+                            <button class="btn btn-secondary btn-sm" data-action="limparFormularioProposta">
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="propostaIdAtual">
+                    <div class="proposta-form-nav" role="tablist" aria-label="Etapas do orçamento">
+                        <button type="button" class="proposta-form-tab is-active" id="propostaFormTabDados" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="dados" data-action="mostrarSecaoFormularioProposta" data-arg="dados">
+                            <span class="proposta-step-index">1</span>
+                            <span class="proposta-step-text"><strong>Dados do orçamento</strong><small>Informações gerais</small></span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabItens" role="tab" aria-selected="false" aria-controls="propostaSecaoItens" data-proposta-form-tab="itens" data-action="mostrarSecaoFormularioProposta" data-arg="itens">
+                            <span class="proposta-step-index">2</span>
+                            <span class="proposta-step-text"><strong>Itens e composição</strong><small>Produtos e serviços</small></span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabFechamento" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="fechamento" data-action="mostrarSecaoFormularioProposta" data-arg="fechamento">
+                            <span class="proposta-step-index">3</span>
+                            <span class="proposta-step-text"><strong>Fechamento comercial</strong><small>Custos, descontos e notas</small></span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabPdf" role="tab" aria-selected="false" aria-controls="propostaSecaoPdf" data-proposta-form-tab="pdf" data-action="mostrarSecaoFormularioProposta" data-arg="pdf">
+                            <span class="proposta-step-index">4</span>
+                            <span class="proposta-step-text"><strong>PDF e observações</strong><small>Documentos e envio</small></span>
+                        </button>
+                    </div>
+
+                    <div class="proposta-sticky-summary" aria-label="Resumo rápido da proposta">
+                        <div class="proposta-sticky-metrics">
+                            <span><small>Subtotal</small><strong id="propStickySubtotal">R$ 0,00</strong></span>
+                            <span><small>Custos</small><strong id="propStickyCustos">R$ 0,00</strong></span>
+                            <span><small>Desconto</small><strong id="propStickyDesconto">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-final"><small>Final</small><strong id="propStickyFinal">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-profit"><small>Lucro</small><strong id="propStickyLucro">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-margin"><small>Margem</small><strong id="propStickyMargem">0%</strong></span>
+                            <span class="proposta-sticky-status"><small>Status</small><strong id="propStickyStatus">Rascunho</strong></span>
+                        </div>
+                        <div class="proposta-sticky-actions">
+                            <button class="btn btn-primary btn-sm" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar</button>
+                            <button class="btn btn-warning btn-sm" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF</button>
+                            <button class="btn btn-secondary btn-sm" data-action="mostrarSubAbaPropostas" data-arg="lista"><i class="bi bi-list-check"></i> Ver lista</button>
+                        </div>
+                    </div>
+
+                    <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabDados" data-proposta-form-section="dados">
+                    <div class="proposta-data-grid">
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-file-earmark-text"></i></span>
+                                <div>
+                                    <h4>Dados da proposta</h4>
+                                    <p>Controle comercial e validade.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Código da proposta</label>
+                                    <input type="text" id="propCodigo" placeholder="Gerado automaticamente" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select id="propStatus" data-change="recalcularResumoProposta">
+                                        <option value="rascunho">Rascunho</option>
+                                        <option value="enviada">Enviada</option>
+                                        <option value="em_negociacao">Em negociação</option>
+                                        <option value="aprovada">Aprovada</option>
+                                        <option value="cancelada">Cancelada</option>
+                                        <option value="recusada">Recusada</option>
+                                        <option value="convertida">Convertida</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="propRevisionPanel" class="proposta-revision-panel" aria-live="polite"></div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Responsável pela proposta</label>
+                                    <input type="text" id="propResponsavel" placeholder="Nome do responsável">
+                                </div>
+                                <div class="form-group">
+                                    <label>Validade (dias)</label>
+                                    <input type="number" id="propValidadeDias" min="0" step="1" value="7">
+                                </div>
+                                <div class="form-group">
+                                    <label>Data de validade</label>
+                                    <input type="date" id="propValidadeData">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-person-vcard"></i></span>
+                                <div>
+                                    <h4>Dados do cliente</h4>
+                                    <p>Contato e identificação para proposta.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nome/empresa</label>
+                                    <input type="text" id="propClienteNome" placeholder="Nome do cliente ou empresa">
+                                </div>
+                                <div class="form-group">
+                                    <label>CPF/CNPJ</label>
+                                    <input type="text" id="propClienteDocumento" placeholder="Documento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Telefone</label>
+                                    <input type="text" id="propClienteTelefone" placeholder="Telefone">
+                                </div>
+                                <div class="form-group">
+                                    <label>E-mail</label>
+                                    <input type="email" id="propClienteEmail" placeholder="E-mail">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Endereço</label>
+                                    <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-geo-alt"></i></span>
+                                <div>
+                                    <h4>Dados do evento</h4>
+                                    <p>Local, cidade e acesso operacional.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Nome do evento</label>
+                                    <input type="text" id="propEventoNome" placeholder="Nome do evento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Local</label>
+                                    <input type="text" id="propEventoLocal" placeholder="Local do evento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Cidade</label>
+                                    <input type="text" id="propEventoCidade" placeholder="Cidade">
+                                </div>
+                                <div class="form-group form-group-compact">
+                                    <label>UF</label>
+                                    <input type="text" id="propEventoUF" maxlength="2" placeholder="UF">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Endereço completo do evento</label>
+                                    <input type="text" id="propEventoEnderecoCompleto" placeholder="Rua, número, bairro, complemento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Referência de acesso / observação logística</label>
+                                    <input type="text" id="propEventoReferenciaAcesso" placeholder="Ponto de referência, acesso de caminhão, portaria...">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-calendar2-week"></i></span>
+                                <div>
+                                    <h4>Montagem e desmontagem</h4>
+                                    <p>Cronograma para operação e equipe.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data de montagem</label>
+                                    <input type="date" id="propDataMontagem">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de montagem</label>
+                                    <input type="time" id="propHoraMontagem">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data do evento</label>
+                                    <input type="date" id="propDataEvento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de início do evento</label>
+                                    <input type="time" id="propHoraInicioEvento">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de término do evento</label>
+                                    <input type="time" id="propHoraFimEvento">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Data de desmontagem</label>
+                                    <input type="date" id="propDataDesmontagem">
+                                </div>
+                                <div class="form-group">
+                                    <label>Horário de desmontagem</label>
+                                    <input type="time" id="propHoraDesmontagem">
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="proposta-data-card proposta-data-card-wide">
+                            <div class="proposta-data-card-head">
+                                <span><i class="bi bi-chat-left-text"></i></span>
+                                <div>
+                                    <h4>Observações</h4>
+                                    <p>Notas importantes que acompanham a proposta.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Observações gerais</label>
+                                    <textarea id="propEventoObs" rows="2" placeholder="Observações da proposta"></textarea>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                    </div>
+
+                    <div id="propostaSecaoItens" class="proposta-form-section proposta-items-section" role="tabpanel" aria-labelledby="propostaFormTabItens" data-proposta-form-section="itens" hidden>
+                        <div class="proposta-items-header">
+                            <div>
+                                <h4>Itens e composição</h4>
+                                <p>Organize produtos e serviços por categoria para deixar o orçamento mais claro.</p>
+                            </div>
+                            <div class="proposta-items-actions">
+                                <button class="btn btn-primary proposta-add-item-btn" data-action="adicionarLinhaItemProposta">
+                                    <i class="bi bi-plus-circle"></i> + Adicionar item
+                                </button>
+                                <button class="btn btn-secondary proposta-items-action-btn" data-action="aplicarPadroesItensProposta">
+                                    <i class="bi bi-magic"></i> Aplicar padrões
+                                </button>
+                                <button class="btn btn-secondary proposta-items-action-btn" id="propBtnExpandirCalculosItens" data-action="alternarTodosDetalhesItensProposta">
+                                    <i class="bi bi-chevron-down"></i> <span id="propBtnExpandirCalculosTexto">Expandir cálculos</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive proposta-items-table-wrap">
+                            <table class="table proposta-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Categoria</th>
+                                        <th>Descrição</th>
+                                        <th>Medida</th>
+                                        <th>Período (dias)</th>
+                                        <th>Quantidade</th>
+                                        <th>Custo unitário</th>
+                                        <th>Custo total</th>
+                                        <th>Total final</th>
+                                        <th class="col-actions">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="propostaItensBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="proposta-category-summary" id="propostaResumoCategorias" aria-live="polite"></div>
+                    </div>
+
+                    <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabFechamento" data-proposta-form-section="fechamento" hidden>
+                    <h4>3. Fechamento comercial</h4>
+                    <div class="proposta-closing-grid">
+                        <div class="proposta-closing-block">
+                            <h5>Custos adicionais</h5>
+                            <div class="form-row">
+                                <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Valor por km (R$)</label><input type="text" id="propFreteValorKm" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Frete (R$)</label><input type="text" id="propCustoFrete" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Mão de obra</label><input type="text" id="propCustoMaoObra" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Operador</label><input type="text" id="propCustoOperador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Elétrica</label><input type="text" id="propCustoEletrica" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Gerador</label><input type="text" id="propCustoGerador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                <div class="form-group"><label>Terceirizados</label><input type="text" id="propCustoTerceirizados" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label>Outros custos</label><input type="text" id="propCustoOutros" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                            </div>
+                        </div>
+
+                        <div class="proposta-closing-block">
+                            <h5>Resumo financeiro</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Subtotal dos itens</label>
+                                    <input type="text" id="propSubtotal" value="R$ 0,00" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Desconto</label>
+                                    <input type="text" id="propDesconto" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Acréscimo</label>
+                                    <input type="text" id="propAcrescimo" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor final</label>
+                                    <input type="text" id="propValorFinal" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Percentual da Nota Fiscal (%)</label>
+                                    <input type="text" id="propPercentualNF" inputmode="decimal" value="0" data-input="recalcularResumoProposta">
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de cálculo da Nota Fiscal</label>
+                                    <select id="propTipoCalculoNF" data-change="recalcularResumoProposta">
+                                        <option value="descontar">Descontar do valor final</option>
+                                        <option value="acrescentar">Acrescentar ao valor final</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Valor calculado da Nota Fiscal</label>
+                                    <input type="text" id="propValorNF" value="R$ 0,00" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Valor final com NF</label>
+                                    <input type="text" id="propValorFinalComNF" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Valor líquido previsto após NF</label>
+                                    <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5>Condições comerciais</h5>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Percentual de entrada (%)</label>
+                            <input type="text" id="propPercentualEntrada" inputmode="decimal" value="50" data-input="recalcularResumoProposta">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor da entrada</label>
+                            <input type="text" id="propValorEntrada" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Percentual do saldo (%)</label>
+                            <input type="text" id="propPercentualSaldo" value="50%" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Valor do saldo</label>
+                            <input type="text" id="propValorSaldo" value="R$ 0,00" readonly>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Vencimento da entrada</label>
+                            <input type="date" id="propVencEntrada">
+                        </div>
+                        <div class="form-group">
+                            <label>Vencimento do saldo</label>
+                            <input type="date" id="propVencSaldo">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Forma de pagamento</label>
+                            <select id="propFormaPagamento">
+                                <option value="">Selecione</option>
+                                <option value="pix">PIX</option>
+                                <option value="boleto">Boleto</option>
+                                <option value="transferencia">Transferência</option>
+                                <option value="cartao">Cartão</option>
+                                <option value="dinheiro">Dinheiro</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Condição de pagamento</label>
+                            <input type="text" id="propCondicaoPagamento" placeholder="Ex: 50% entrada + 50% na montagem/desmontagem">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Observação de pagamento</label>
+                            <textarea id="propObsPagamento" rows="2" placeholder="Detalhes adicionais de pagamento"></textarea>
+                        </div>
+                    </div>
+
+                    <details class="proposta-internal-details">
+                        <summary><i class="bi bi-shield-lock"></i> Informações internas</summary>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="prop-interno-toggle">
+                                    <input type="checkbox" id="propExibirInformacoesInternasPDF">
+                                    Exibir informações internas no PDF
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Custo interno total</label>
+                                <input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Custo terceirizado total</label>
+                                <input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Outros custos internos</label>
+                                <input type="text" id="propOutrosCustosInternos" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Custo total da proposta</label>
+                                <input type="text" id="propCustoTotalProposta" value="R$ 0,00" readonly>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Lucro previsto</label>
+                                <input type="text" id="propLucroPrevisto" value="R$ 0,00" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Margem prevista (%)</label>
+                                <input type="text" id="propMargemPrevista" value="0%" readonly>
+                            </div>
+                        </div>
+                    </details>
+                    </div>
+
+                    <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabPdf" data-proposta-form-section="pdf" hidden>
+                    <h4>4. PDF e observações</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Incluso na proposta</label>
+                            <textarea id="propIncluso" rows="3" placeholder="O que está incluso na proposta"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Não incluso na proposta</label>
+                            <textarea id="propNaoIncluso" rows="3" placeholder="O que não está incluso na proposta"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Observações comerciais</label>
+                            <textarea id="propObsComerciais" rows="2" placeholder="Observações comerciais para o cliente"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Locação vinculada</label>
+                            <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
+                        </div>
+                    </div>
+                    <div class="proposta-action-panel">
+                        <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
+                        <button class="btn btn-info" data-action="alterarStatusPropostaAtual" data-arg="enviada"><i class="bi bi-send"></i> Marcar enviado</button>
+                        <button class="btn btn-success" data-action="alterarStatusPropostaAtual" data-arg="aprovada"><i class="bi bi-hand-thumbs-up"></i> Aprovar</button>
+                        <button class="btn btn-warning" data-action="alterarStatusPropostaAtual" data-arg="recusada"><i class="bi bi-hand-thumbs-down"></i> Recusar</button>
+                        <button class="btn btn-warning" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF cliente</button>
+                        <button class="btn btn-info" data-action="gerarPDFPropostaAtualInterno"><i class="bi bi-file-earmark-lock"></i> Gerar PDF interno</button>
+                        <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar orçamento</button>
+                        <button class="btn btn-secondary" data-action="criarNovaRevisaoPropostaAtual"><i class="bi bi-layers"></i> Nova revisão</button>
+                        <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
+                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
+                    </div>
+                    </div>
+                </div>
+                </section>
+
+                <section id="propostasPainelLista" class="propostas-subpanel" role="tabpanel" aria-labelledby="propostasSubtabLista" hidden>
+                <div class="card" id="propostasListaCard">
+                    <div class="section-toolbar">
+                        <h3>Lista de orçamentos</h3>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo de orçamentos">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Total</small>
+                            <strong id="propKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Enviadas</small>
+                            <strong id="propKpiEnviadas">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Aprovadas</small>
+                            <strong id="propKpiAprovadas">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="pendente">
+                            <small>Pipeline</small>
+                            <strong id="propKpiValor">R$ 0,00</strong>
+                        </div>
+                    </div>
+
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="propostasFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="todos" data-action="aplicarFiltroPropostas" data-arg="todos">Todas</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="rascunho" data-action="aplicarFiltroPropostas" data-arg="rascunho">Rascunho</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-proposta="enviada" data-action="aplicarFiltroPropostas" data-arg="enviada">Enviado</button>
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-proposta="em_negociacao" data-action="aplicarFiltroPropostas" data-arg="em_negociacao">Em negociação</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-proposta="aprovada" data-action="aplicarFiltroPropostas" data-arg="aprovada">Aprovado</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-proposta="cancelada" data-action="aplicarFiltroPropostas" data-arg="cancelada">Cancelado</button>
+                            <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro-proposta="recusada" data-action="aplicarFiltroPropostas" data-arg="recusada">Recusado</button>
+                            <button class="btn btn-sm btn-primary" data-tone="info" data-filtro-proposta="convertida" data-action="aplicarFiltroPropostas" data-arg="convertida">Convertido</button>
+                        </div>
+                        <input type="text" id="buscaPropostas" class="search-input" placeholder="🔍 Buscar orçamento por código, cliente, evento, status, responsável, cidade ou data..." data-input="buscarComDebounce" data-arg="propostas">
+                        <div id="metaBuscaPropostas" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Código</th><th>Cliente</th><th>Evento</th><th>Data</th><th>Valor final</th><th>Status</th><th>Responsável</th><th>Locação</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblPropostas"></tbody>
+                        </table>
+                    </div>
+                </div>
+                </section>
+            </div>
+
+            <div id="tab-financeiro" class="tab-content">
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Financeiro</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="irParaLocacoesCobrancas">
+                                <i class="bi bi-receipt"></i> Ir para cobranças
+                            </button>
+                        </div>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo financeiro">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Contratos</small>
+                            <strong id="finKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="pendente">
+                            <small>Em aberto</small>
+                            <strong id="finKpiAberto">R$ 0,00</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Recebido</small>
+                            <strong id="finKpiPago">R$ 0,00</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="atrasado">
+                            <small>Atrasado</small>
+                            <strong id="finKpiAtrasado">R$ 0,00</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="financeiroFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-fin="todos" data-action="aplicarFiltroFinanceiroRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-warning" data-tone="critico" data-filtro-fin="pendente" data-action="aplicarFiltroFinanceiroRapido" data-arg="pendente">Pendentes</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-fin="parcial" data-action="aplicarFiltroFinanceiroRapido" data-arg="parcial">Parciais</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-fin="hoje" data-action="aplicarFiltroFinanceiroRapido" data-arg="hoje">Vence hoje</button>
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-fin="semana" data-action="aplicarFiltroFinanceiroRapido" data-arg="semana">Próx. 7 dias</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-fin="atrasado" data-action="aplicarFiltroFinanceiroRapido" data-arg="atrasado">Atrasados</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-fin="pago" data-action="aplicarFiltroFinanceiroRapido" data-arg="pago">Pagos</button>
+                        </div>
+                        <input type="text" id="buscaFinanceiro" class="search-input" placeholder="🔍 Buscar cliente, código ou vencimento..." data-input="buscarComDebounce" data-arg="financeiro">
+                        <div id="metaBuscaFinanceiro" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Código</th><th>Cliente</th><th>Vencimento</th><th>Total</th><th>Recebido</th><th>Restante</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblFinanceiro"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-agenda" class="tab-content">
+                <div class="card">
+                    <div class="section-toolbar">
+                        <h3>Agenda Operacional</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="irParaLocacoesFormulario">
+                                <i class="bi bi-calendar-plus"></i> Nova agenda via locação
+                            </button>
+                        </div>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo da agenda">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Atividades</small>
+                            <strong id="agendaKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Hoje</small>
+                            <strong id="agendaKpiHoje">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Próximos 7 dias</small>
+                            <strong id="agendaKpiSemana">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="atrasado">
+                            <small>Atrasadas</small>
+                            <strong id="agendaKpiAtrasadas">0</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="agendaFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-agenda="todos" data-action="aplicarFiltroAgendaRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-agenda="hoje" data-action="aplicarFiltroAgendaRapido" data-arg="hoje">Hoje</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-agenda="semana" data-action="aplicarFiltroAgendaRapido" data-arg="semana">Próximos 7 dias</button>
+                            <button class="btn btn-sm btn-danger" data-tone="critico" data-filtro-agenda="atrasado" data-action="aplicarFiltroAgendaRapido" data-arg="atrasado">Atrasadas</button>
+                        </div>
+                        <input type="text" id="buscaAgenda" class="search-input" placeholder="🔍 Buscar cliente, equipe ou data..." data-input="buscarComDebounce" data-arg="agenda">
+                        <div id="metaBuscaAgenda" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Data</th><th>Cliente</th><th>Montagem</th><th>Desmontagem</th><th>Status</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblAgenda"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-transporte" class="tab-content">
+                <div class="card" id="transporteFormularioCard">
+                    <div class="section-toolbar">
+                        <h3>Transporte</h3>
+                        <div class="inline-chip-row">
+                            <button class="btn btn-secondary btn-sm" data-action="limparFormularioTransporte">
+                                <i class="bi bi-eraser"></i> Limpar
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="transporteId">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Locação vinculada</label>
+                            <select id="transporteLocacao" data-change="preencherTransporteDaLocacao">
+                                <option value="">Sem vínculo com locação</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tipo de operação</label>
+                            <select id="transporteTipoOperacao">
+                                <option value="entrega">Entrega</option>
+                                <option value="retirada">Retirada</option>
+                                <option value="montagem">Montagem</option>
+                                <option value="desmontagem">Desmontagem</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="transporteStatus">
+                                <option value="pendente">Pendente</option>
+                                <option value="em_rota">Em rota</option>
+                                <option value="entregue">Entregue</option>
+                                <option value="retirado">Retirado</option>
+                                <option value="concluido">Concluído</option>
+                                <option value="cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="transporteClienteNome" placeholder="Nome do cliente ou empresa">
+                        </div>
+                        <div class="form-group">
+                            <label>Cidade</label>
+                            <input type="text" id="transporteCidade" placeholder="Cidade">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Endereço / rota</label>
+                            <input type="text" id="transporteEndereco" placeholder="Endereço de entrega, retirada ou montagem">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Veículo</label>
+                            <input type="text" id="transporteVeiculo" placeholder="Ex: HR, caminhão, Fiorino">
+                        </div>
+                        <div class="form-group">
+                            <label>Placa</label>
+                            <input type="text" id="transportePlaca" placeholder="Placa">
+                        </div>
+                        <div class="form-group">
+                            <label>Motorista</label>
+                            <input type="text" id="transporteMotorista" placeholder="Responsável pelo transporte">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Equipe</label>
+                            <input type="text" id="transporteEquipe" placeholder="Equipe, ajudantes ou observação de escala">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Data saída</label>
+                            <input type="date" id="transporteDataSaida">
+                        </div>
+                        <div class="form-group">
+                            <label>Hora saída</label>
+                            <input type="time" id="transporteHoraSaida">
+                        </div>
+                        <div class="form-group">
+                            <label>Data chegada</label>
+                            <input type="date" id="transporteDataChegada">
+                        </div>
+                        <div class="form-group">
+                            <label>Hora chegada</label>
+                            <input type="time" id="transporteHoraChegada">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Distância (km)</label>
+                            <input type="number" id="transporteDistanciaKm" min="0" step="0.1" placeholder="0" data-input="calcularCustoTransporte">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor por km</label>
+                            <input type="number" id="transporteValorKm" min="0" step="0.01" placeholder="0,00" data-input="calcularCustoTransporte">
+                        </div>
+                        <div class="form-group">
+                            <label>Trechos</label>
+                            <input type="number" id="transporteTrechos" min="1" step="1" value="1" data-input="calcularCustoTransporte">
+                        </div>
+                        <div class="form-group">
+                            <label>Custo estimado</label>
+                            <input type="text" id="transporteCustoEstimado" readonly>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>Observações</label>
+                            <textarea id="transporteObservacoes" rows="3" placeholder="Informações de portaria, rota, carga, restrições de horário ou contato no local"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="inline-chip-row section-gap">
+                        <button class="btn btn-primary" data-action="salvarTransporte">
+                            <i class="bi bi-save"></i> Salvar transporte
+                        </button>
+                        <button class="btn btn-secondary" data-action="irParaTransporteBusca">
+                            <i class="bi bi-search"></i> Ver lista
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card" id="transporteListaCard">
+                    <div class="section-toolbar">
+                        <h3>Rotas cadastradas</h3>
+                    </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo de transportes">
+                        <div class="locacao-kpi-card" data-tone="total">
+                            <small>Transportes</small>
+                            <strong id="transporteKpiTotal">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="info">
+                            <small>Em rota</small>
+                            <strong id="transporteKpiRota">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="aberto">
+                            <small>Hoje</small>
+                            <strong id="transporteKpiHoje">0</strong>
+                        </div>
+                        <div class="locacao-kpi-card" data-tone="positivo">
+                            <small>Concluídos</small>
+                            <strong id="transporteKpiConcluidos">0</strong>
+                        </div>
+                    </div>
+                    <div class="cadastros-search-toolbar">
+                        <div class="filters-row filters-segmented" id="transporteFiltros">
+                            <button class="btn btn-sm btn-secondary" data-tone="neutro" data-filtro-transporte="todos" data-action="aplicarFiltroTransporteRapido" data-arg="todos">Todos</button>
+                            <button class="btn btn-sm btn-warning" data-tone="critico" data-filtro-transporte="pendente" data-action="aplicarFiltroTransporteRapido" data-arg="pendente">Pendentes</button>
+                            <button class="btn btn-sm btn-info" data-tone="info" data-filtro-transporte="em_rota" data-action="aplicarFiltroTransporteRapido" data-arg="em_rota">Em rota</button>
+                            <button class="btn btn-sm btn-success" data-tone="positivo" data-filtro-transporte="concluido" data-action="aplicarFiltroTransporteRapido" data-arg="concluido">Concluídos</button>
+                        </div>
+                        <input type="text" id="buscaTransporte" class="search-input" placeholder="🔍 Buscar cliente, motorista, veículo, cidade ou placa..." data-input="buscarComDebounce" data-arg="transporte">
+                        <div id="metaBuscaTransporte" class="search-meta" aria-live="polite"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr><th>Saída</th><th>Cliente</th><th>Destino</th><th>Equipe</th><th>Status</th><th>Custo</th><th class="col-actions">Ações</th></tr>
+                            </thead>
+                            <tbody id="tblTransporte"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="tab-checklist" class="tab-content">
-    <div class="card">
-        <h2>Checklist</h2>
-        
-         <div class="form-row">
-    <div class="form-group">
-        <label>Cliente</label>
-        <input type="text" id="checklistCliente" placeholder="Nome do cliente">
-    </div>
+                <div class="card">
+                    <h2>Checklist</h2>
+                    <div id="checklistOrigemLocacao" class="checklist-origin-banner" hidden></div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="checklistCliente" placeholder="Nome do cliente">
+                        </div>
+                        <div class="form-group">
+                            <label>Local</label>
+                            <input type="text" id="checklistLocal" placeholder="Local do evento">
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Local</label>
-        <input type="text" id="checklistLocal" placeholder="Local do evento">
-    </div>
-</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Montagem</label>
+                            <input type="date" id="checklistMontagemData">
+                        </div>
+                        <div class="form-group">
+                            <label>Horário</label>
+                            <input type="text" id="checklistHorario" placeholder="Ex: 08:00">
+                        </div>
+                        <div class="form-group">
+                            <label>Evento</label>
+                            <input type="text" id="checklistEvento" placeholder="Nome do evento">
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Montagem</label>
-        <input type="date" id="checklistMontagemData">
-    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Desmontagem</label>
+                            <input type="date" id="checklistDesmontagemData">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsável pela Saída</label>
+                            <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída">
+                        </div>
+                        <div class="form-group">
+                            <label>Responsável pelo Retorno</label>
+                            <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno">
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Horário</label>
-        <input type="text" id="checklistHorario" placeholder="Ex: 08:00">
-    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Modelo salvo</label>
+                            <select id="checklistModeloSelect"></select>
+                        </div>
+                        <div class="form-group form-group-end">
+                            <button class="btn btn-primary" data-action="adicionarModeloAoChecklist">
+                                Adicionar ao Checklist
+                            </button>
+                        </div>
+                    </div>
 
-    <div class="form-group">
-        <label>Evento</label>
-        <input type="text" id="checklistEvento" placeholder="Nome do evento">
-    </div>
-</div>
+                    <div class="section-gap">
+                        <h3>Checklist de Saída / Retorno</h3>
+                        <div id="listaChecklistMontagem">
+                            <div class="ui-state-panel">
+                                <div class="ui-state ui-state--empty ui-state--compact">
+                                    <div class="ui-state-icon"><i class="bi bi-inbox" aria-hidden="true"></i></div>
+                                    <div class="ui-state-content">
+                                        <strong>Checklist vazio</strong>
+                                        <span>Adicione itens ou modelos para iniciar a separação.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label>Desmontagem</label>
-        <input type="date" id="checklistDesmontagemData">
-    </div>
-
-    <div class="form-group">
-        <label>Responsável pela Saída</label>
-        <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída">
-    </div>
-
-    <div class="form-group">
-        <label>Responsável pelo Retorno</label>
-        <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno">
-    </div>
-</div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Modelo salvo</label>
-                <select id="checklistModeloSelect"></select>
+                    <div class="inline-chip-row section-gap">
+                        <button class="btn btn-success" data-action="gerarPDFChecklistMontagem">Gerar PDF</button>
+                        <button class="btn btn-secondary" data-action="limparChecklistMontagem">Limpar</button>
+                    </div>
+                </div>
             </div>
-
-            <div class="form-group" style="display:flex; align-items:flex-end;">
-                <button class="btn btn-primary" onclick="adicionarModeloAoChecklist()">
-                    Adicionar ao Checklist
-                </button>
-            </div>
-        </div>
-
-        <div style="margin-top:20px;">
-            <h3>Checklist de Saída / Retorno</h3>
-            <div id="listaChecklistMontagem">
-                <p>Nenhum item adicionado.</p>
-            </div>
-        </div>
-
-        <div style="margin-top:20px; display:flex; gap:10px;">
-            <button class="btn btn-success" onclick="gerarPDFChecklistMontagem()">Gerar PDF</button>
-            <button class="btn btn-secondary" onclick="limparChecklistMontagem()">Limpar</button>
-        </div>
-    </div>
-</div>
             <div id="tab-devolucoes" class="tab-content">
-        <div class="card">
+        <div class="card" id="devolucoesFormularioCard">
             <h3>Registrar Devolução</h3>
             <div class="form-row">
-                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" onchange="carregarItensDevolucao()"></select></div>
+                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao"></select></div>
                 <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
             </div>
-            <div id="divItensDevolucao" style="margin: 15px 0; background: var(--bg); padding: 15px; border-radius: 8px;">
-                <small style="color:var(--text-light)">Selecione uma locação para conferir.</small>
+            <div id="divItensDevolucao" class="soft-box">
+                <div class="ui-state-panel">
+                    <div class="ui-state ui-state--info ui-state--compact">
+                        <div class="ui-state-icon"><i class="bi bi-info-circle" aria-hidden="true"></i></div>
+                        <div class="ui-state-content">
+                            <strong>Selecione uma locação</strong>
+                            <span>Escolha uma locação em aberto para iniciar a conferência.</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="confirmarDevolucao()"><i class="bi bi-check-lg"></i> Confirmar Baixa</button>
+            <button class="btn btn-primary" data-action="confirmarDevolucao"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
-        <div class="card">
-            <h3>Histórico Recente</h3>
+        <div class="card" id="devolucoesHistoricoCard">
+            <div class="section-toolbar">
+                <h3>Histórico Recente</h3>
+            </div>
+            <div class="devolucoes-search-toolbar">
+                <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes">
+                    <option value="todos">Todos</option>
+                    <option value="parcial">Parciais</option>
+                    <option value="total">Concluídas</option>
+                </select>
+                <input type="text" id="devBuscaHistorico" class="search-input" placeholder="Buscar cliente..." data-input="buscarComDebounce" data-arg="devolucoes">
+            </div>
+            <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
+            <div class="devolucao-kpis">
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="todos" data-filtro-dev="todos"><small>Registros</small><strong id="devKpiRegistros">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="total" data-filtro-dev="total"><small>Concluídas</small><strong id="devKpiConcluidas">0</strong></div>
+                <div class="devolucao-kpi" data-action="aplicarFiltroHistoricoDevolucoesRapido" data-arg="parcial" data-filtro-dev="parcial"><small>Parciais</small><strong id="devKpiParciais">0</strong></div>
+                <div class="devolucao-kpi" data-action="irParaDevolucoesFormulario"><small>Pendentes</small><strong id="devKpiPendentes">0</strong></div>
+            </div>
             <div class="table-responsive">
               <table class="table">
                 <thead>
@@ -411,55 +1816,103 @@
   </div> 
         
             <div id="tab-config" class="tab-content">
-                <div class="card">
+                <div class="card config-card">
                     <h3>Personalização</h3>
                     <div class="form-row"><div class="form-group"><label>Rodapé PDF</label><input type="text" id="confRodape"></div></div>
                     <div class="form-row">
                         <div class="form-group"><label>Telefone</label><input type="text" id="confTel"></div>
                         <div class="form-group"><label>Email</label><input type="email" id="confEmail"></div>
                     </div>
-                    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" onchange="converterLogo()"></div>
-                    <div id="previewLogo" style="margin: 10px 0;"></div>
-                    <button class="btn btn-primary" onclick="salvarConfig()">Salvar Configurações</button>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Valor padrão do km (frete)</label>
+                            <input type="number" id="confValorKmFretePadrao" min="0" step="0.01" placeholder="Ex: 4,50">
+                        </div>
+                    </div>
+                    <div class="config-budget-box">
+                        <div class="section-toolbar">
+                            <div>
+                                <h4>Padrões de Orçamento</h4>
+                                <small class="field-hint">Regras usadas automaticamente nos itens das propostas.</small>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Honorários padrão (%)</label><input type="number" id="confOrcHonorariosPadrao" min="0" step="0.01"></div>
+                            <div class="form-group"><label>Encargos padrão (%)</label><input type="number" id="confOrcEncargosPadrao" min="0" step="0.01"></div>
+                            <div class="form-group"><label>INSS padrão (%)</label><input type="number" id="confOrcINSSPadrao" min="0" step="0.01"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Entrada padrão (%)</label><input type="number" id="confOrcEntradaPadrao" min="0" max="100" step="0.01"></div>
+                            <div class="form-group"><label>Desconto padrão (%)</label><input type="number" id="confOrcDescontoPadrao" min="0" max="100" step="0.01"></div>
+                            <div class="form-group"><label>Tipo encargos</label><select id="confOrcTipoEncargosPadrao"><option value="simples">Simples</option><option value="por_dentro">Por dentro</option></select></div>
+                            <div class="form-group"><label>Tipo INSS</label><select id="confOrcTipoINSSPadrao"><option value="simples">Simples</option><option value="por_dentro">Por dentro</option></select></div>
+                        </div>
+                        <div class="inline-chip-row config-budget-toggles">
+                            <label class="prop-interno-toggle"><input type="checkbox" id="confOrcAplicarHonorarios"> Aplicar honorários automaticamente</label>
+                            <label class="prop-interno-toggle"><input type="checkbox" id="confOrcAplicarEncargos"> Aplicar encargos automaticamente</label>
+                            <label class="prop-interno-toggle"><input type="checkbox" id="confOrcAplicarINSS"> Aplicar INSS automaticamente</label>
+                        </div>
+                        <div id="confOrcCategorias" class="config-budget-categories" aria-live="polite"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>E-mails permitidos (opcional)</label>
+                        <textarea id="confEmailsPermitidos" rows="3" placeholder="Um por linha ou separado por vírgula"></textarea>
+                        <small class="field-hint">Se preenchido, apenas esses e-mails poderão entrar com Google.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Administradores (opcional)</label>
+                        <textarea id="confAdminEmails" rows="3" placeholder="E-mails de admin: um por linha ou por vírgula"></textarea>
+                        <small class="field-hint">Quando vazio, todo login Google entra como administrador.</small>
+                    </div>
+                    <div class="form-group"><label>Logo</label><input type="file" id="confLogo" data-change="converterLogo"></div>
+                    <div id="previewLogo" class="preview-logo"></div>
+                    <button class="btn btn-primary" data-acesso="admin" data-action="salvarConfig">Salvar Configurações</button>
                 </div>
                 
-                <div class="card">
+                <div class="card config-actions-card">
                     <h3>Dados & Backup</h3>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn btn-info" onclick="baixarBackup()">Baixar JSON</button>
-                        <button class="btn btn-warning" onclick="document.getElementById('fileRestore').click()">Restaurar JSON</button>
-                        <button class="btn btn-danger" onclick="arquivarHistorico()">Arquivar (Limpeza)</button>
+                    <div class="inline-chip-row">
+                        <button class="btn btn-info" data-action="baixarBackup">Baixar JSON</button>
+                        <button class="btn btn-warning" data-acesso="admin" data-action="triggerClick" data-target-id="fileRestore">Restaurar JSON</button>
+                        <button class="btn btn-danger" data-acesso="admin" data-action="arquivarHistorico">Arquivar (Limpeza)</button>
                         
-                        <input type="file" id="fileRestore" style="display: none;" onchange="restaurarBackup(this)">
+                        <input type="file" id="fileRestore" class="hidden-file-input" data-change="restaurarBackup" data-arg="__this__">
                     </div>
                 </div>
             </div>
         
 <!-- ABA AUDITORIA -->
 <div id="tab-auditoria" class="tab-content">
-  <div class="card">
+  <div id="auditoriaCard" class="card">
 
     <div class="audit-header">
       <h3 class="audit-title"><i class="bi bi-shield-check"></i> Logs de Auditoria</h3>
 
       <div class="audit-actions">
-        <button class="btn btn-info btn-sm" onclick="exportarLogsCSV()">
+        <button class="btn btn-info btn-sm" data-action="exportarLogsCSV">
           <i class="bi bi-download"></i> Exportar
         </button>
-        <button class="btn btn-danger btn-sm" onclick="if(confirm('Limpar logs antigos?')) limparLogsAntigos()">
+        <button class="btn btn-danger btn-sm" data-acesso="admin" data-action="confirmarLimparLogsAntigos">
           <i class="bi bi-trash"></i> Limpar
         </button>
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-bottom:15px; overflow-x:auto; padding-bottom:5px;">
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('todos')">Todos</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('cliente')">Clientes</button>
-      <button class="btn btn-sm btn-success"   onclick="renderLogs('item')">Itens</button>
-      <button class="btn btn-sm btn-warning"   onclick="renderLogs('locacao')">Locações</button>
-      <button class="btn btn-sm btn-info"      onclick="renderLogs('devolucao')">Devoluções</button>
-      <button class="btn btn-sm btn-secondary" onclick="renderLogs('sistema')">Sistema</button>
+    <div class="filters-row filters-segmented audit-filters">
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="todos" data-action="aplicarFiltroAuditoriaRapido" data-arg="todos"><i class="bi bi-grid-3x3-gap"></i> Todos</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="cliente" data-action="aplicarFiltroAuditoriaRapido" data-arg="cliente"><i class="bi bi-people"></i> Clientes</button>
+      <button class="btn btn-sm btn-success audit-filter" data-tone="positivo" data-filter="item" data-action="aplicarFiltroAuditoriaRapido" data-arg="item"><i class="bi bi-box-seam"></i> Itens</button>
+      <button class="btn btn-sm btn-warning audit-filter" data-tone="alerta" data-filter="locacao" data-action="aplicarFiltroAuditoriaRapido" data-arg="locacao"><i class="bi bi-cart"></i> Locações</button>
+      <button class="btn btn-sm btn-info audit-filter" data-tone="info" data-filter="devolucao" data-action="aplicarFiltroAuditoriaRapido" data-arg="devolucao"><i class="bi bi-arrow-return-left"></i> Devoluções</button>
+      <button class="btn btn-sm btn-secondary audit-filter" data-tone="neutro" data-filter="sistema" data-action="aplicarFiltroAuditoriaRapido" data-arg="sistema"><i class="bi bi-cpu"></i> Sistema</button>
     </div>
+    <div class="form-row auditoria-search-toolbar">
+      <div class="form-group">
+        <label>Busca rápida em logs</label>
+        <input type="text" id="auditBusca" class="search-input" placeholder="Digite descrição, usuário, tipo ou ação..." data-input="buscarComDebounce" data-arg="auditoria">
+      </div>
+    </div>
+    <div id="metaBuscaAuditoria" class="search-meta" aria-live="polite"></div>
 
     <div class="table-responsive">
       <table class="table">
@@ -477,7 +1930,7 @@
     </div>
 
     <div class="audit-footer-info">
-      <small style="color:var(--text-light);">
+      <small class="muted-note">
         <i class="bi bi-info-circle"></i>
         <b>Total</b>:
         <span id="totalLogs">0</span>/1000
@@ -493,7 +1946,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Editar Cliente</h3>
-      <button class="btn-close-modal" onclick="fecharModal('modalEditarLocador')">
+      <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarLocador">
         <i class="bi bi-x-lg"></i>
       </button>
     </div>
@@ -503,8 +1956,8 @@
     <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
     <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
 
-    <div style="margin-top:20px">
-      <button class="btn btn-primary" onclick="salvarEdicaoLocador()" style="width:100%">
+    <div class="section-gap">
+      <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoLocador">
         <i class="bi bi-check-lg"></i> Salvar Alterações
       </button>
     </div>
@@ -515,15 +1968,15 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Editar Tipo</h3>
-                <button class="btn-close-modal" onclick="fecharModal('modalEditarTipo')">
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarTipo">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
             <input type="hidden" id="editTipoId">
             <div class="form-group"><label>Nome</label><input type="text" id="editTipoNome"></div>
             <div class="form-group"><label>Descrição</label><input type="text" id="editTipoDesc"></div>
-            <div style="margin-top:20px">
-                <button class="btn btn-primary" onclick="salvarEdicaoTipo()" style="width:100%">Salvar</button>
+            <div class="section-gap">
+                <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoTipo">Salvar</button>
             </div>
         </div>
     </div>
@@ -532,7 +1985,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Editar Item</h3>
-                <button class="btn-close-modal" onclick="fecharModal('modalEditarPeca')">
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarPeca">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
@@ -550,7 +2003,7 @@
                 <div class="form-group"><label>Qtd</label><input type="number" id="editPecaQtd"></div>
             </div>
             <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
-            <div style="margin-top:20px">
+            <div class="section-gap">
                 <div class="form-row">
     <div class="form-group">
         <label>Grupo Checklist</label>
@@ -584,7 +2037,7 @@
         </select>
     </div>
 </div>
-                <button class="btn btn-primary" onclick="salvarEdicaoPeca()" style="width:100%">Salvar</button>
+                <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoPeca">Salvar</button>
             </div>
         </div>
     </div>
@@ -593,32 +2046,37 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Leitor QR</h3>
-                <button class="btn-close-modal" onclick="fecharScanner()">
+                <button class="btn-close-modal" data-action="fecharScanner">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
             <div class="scanner-box"><div id="interactive" class="viewport"></div></div>
-            <p style="text-align:center;">Aponte a câmera</p>
+            <p class="modal-helper-text">Aponte a câmera</p>
         </div>
     </div>
     
     <div id="modalRelatorio" class="modal">
-        <div class="modal-content" style="max-width: 900px; padding: 0; background: #525659; height: 95vh; display: flex; flex-direction: column;">
-            <div style="padding: 10px 20px; background: #323639; color: white; display: flex; justify-content: space-between; align-items: center;">
+        <div class="modal-content modal-relatorio-content">
+            <div class="modal-relatorio-bar">
                 <span>Visualização de Impressão</span>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-primary btn-sm" onclick="gerarPDF()"><i class="bi bi-printer"></i> Salvar PDF</button>
-                    <button class="btn btn-danger btn-sm" onclick="fecharModal('modalRelatorio')">Fechar</button>
+                <div class="modal-relatorio-actions">
+                    <button class="btn btn-primary btn-sm" data-action="gerarPDF"><i class="bi bi-printer"></i> Salvar PDF</button>
+                    <button class="btn btn-danger btn-sm" data-action="fecharModal" data-arg="modalRelatorio">Fechar</button>
                 </div>
             </div>
-            <div style="flex: 1; overflow-y: auto; padding: 40px; display: flex; justify-content: center; background: #525659;">
+            <div class="modal-relatorio-scroll">
                 <div id="printArea" class="invoice-box"></div>
             </div>
         </div>
     </div>
             <div id="modalModeloChecklist" class="modal">
     <div class="modal-content">
-        <h3>Criar Modelo de Estrutura</h3>
+        <div class="modal-header">
+            <h3>Criar Modelo de Estrutura</h3>
+            <button class="btn-close-modal" data-action="fecharModalModeloChecklist">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
         <input type="hidden" id="modeloChecklistId">
         
         <div class="form-row">
@@ -645,53 +2103,144 @@
             </div>
         </div>
 
-        <div style="margin-bottom: 15px;">
-    <button class="btn btn-secondary" onclick="adicionarItemModeloChecklist()">Adicionar Peça</button>
-</div>
+        <div class="section-gap-small">
+            <button class="btn btn-secondary" data-action="adicionarItemModeloChecklist">Adicionar Peça</button>
+        </div>
 
-<div>
+<div class="modelo-checklist-list">
     <h4>Peças do Modelo</h4>
     <div id="listaItensModeloChecklist"></div>
 </div>
 
-<div style="margin-top: 20px; display: flex; gap: 10px;">
-    <button class="btn btn-success" onclick="salvarModeloChecklistForm()">Salvar Modelo</button>
-    <button class="btn btn-primary" onclick="fecharModalModeloChecklist()">Fechar</button>
+<div class="inline-chip-row section-gap">
+    <button class="btn btn-success" data-action="salvarModeloChecklistForm">Salvar Modelo</button>
+    <button class="btn btn-primary" data-action="fecharModalModeloChecklist">Fechar</button>
 </div>
     </div>
 </div>
+
+    <div id="modalShortcuts" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Atalhos de Teclado</h3>
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalShortcuts">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="shortcuts-guide">
+                <div class="shortcut-item"><kbd>/</kbd><span>Abrir busca da aba atual</span></div>
+                <div class="shortcut-item"><kbd>Ctrl + K</kbd><span>Abrir busca da aba atual</span></div>
+                <div class="shortcut-item"><kbd>Ctrl + S</kbd><span>Salvar na tela/modal atual</span></div>
+                <div class="shortcut-item"><kbd>Esc</kbd><span>Limpar busca ativa</span></div>
+                <div class="shortcut-item"><kbd>Ctrl + 1..9</kbd><span>Navegar entre áreas principais</span></div>
+                <div class="shortcut-item"><kbd>Shift + ?</kbd><span>Abrir este painel de atalhos</span></div>
+                <div class="shortcut-item"><kbd>F1</kbd><span>Abrir este painel de atalhos</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalHistoricoLocacao" class="modal">
+        <div class="modal-content modal-historico-locacao">
+            <div class="modal-header">
+                <h3>Histórico da Locação</h3>
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalHistoricoLocacao">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div id="historicoLocacaoConteudo"></div>
+        </div>
+    </div>
+
+    <div id="modalPagamentoLocacao" class="modal">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header">
+                <h3>Lançar Recebimento</h3>
+                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalPagamentoLocacao">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <input type="hidden" id="pagamentoLocacaoId">
+            <div class="pagamento-modal-head">
+                <div>
+                    <small>Cliente</small>
+                    <strong id="pagamentoLocacaoCliente">-</strong>
+                </div>
+                <span id="pagamentoLocacaoCodigo" class="badge badge-info">#----</span>
+            </div>
+            <div class="pagamento-modal-grid">
+                <div class="pagamento-modal-kpi">
+                    <small>Total</small>
+                    <strong id="pagamentoLocacaoTotal">R$ 0,00</strong>
+                </div>
+                <div class="pagamento-modal-kpi">
+                    <small>Recebido atual</small>
+                    <strong id="pagamentoLocacaoRecebidoAtual">R$ 0,00</strong>
+                </div>
+                <div class="pagamento-modal-kpi">
+                    <small>Restante atual</small>
+                    <strong id="pagamentoLocacaoRestanteAtual">R$ 0,00</strong>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Valor recebido até agora</label>
+                <input type="text" id="pagamentoLocacaoValorRecebido" inputmode="decimal" placeholder="0,00" data-input="atualizarPreviewPagamentoLocacao">
+            </div>
+            <div class="inline-chip-row pagamento-modal-quick">
+                <button class="btn btn-secondary btn-sm" data-action="preencherPagamentoRapido" data-arg="0">Zerar</button>
+                <button class="btn btn-secondary btn-sm" data-action="preencherPagamentoRapido" data-arg="50">50%</button>
+                <button class="btn btn-success btn-sm" data-action="preencherPagamentoRapido" data-arg="total">Total</button>
+            </div>
+            <div class="pagamento-modal-preview">
+                <div>
+                    <small>Novo restante</small>
+                    <strong id="pagamentoLocacaoNovoRestante">R$ 0,00</strong>
+                </div>
+                <span id="pagamentoLocacaoNovoStatus" class="badge badge-warning">PENDENTE</span>
+            </div>
+            <div class="inline-chip-row section-gap">
+                <button class="btn btn-secondary" data-action="fecharModal" data-arg="modalPagamentoLocacao">Cancelar</button>
+                <button class="btn btn-primary" data-action="salvarPagamentoLocacao">Salvar recebimento</button>
+            </div>
+        </div>
+    </div>
 
     <div id="toast"></div>
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js"></script>
-    <script src="./assets/js/core/utils.js"></script>
-    <script src="./assets/js/ui/toast.js"></script>
-    <script src="./assets/js/core/audit.js"></script>
-    <script src="./assets/js/core/sync.js"></script>
-    <script src="./assets/js/core/storage.js"></script>
-    <script src="./assets/js/ui/pwa.js"></script>
-    <script src="./assets/js/modules/locacoes.js"></script>
-    <script src="./assets/js/modules/clientes.js"></script>
-    <script src="./assets/js/modules/tipos.js"></script>
-    <script src="./assets/js/modules/estoque.js"></script>
-    <script src="./assets/js/modules/checklist.js"></script>       
-    <script src="./assets/js/modules/config.js"></script>
-    <script src="./assets/js/modules/importacao.js"></script>
-    <script src="./assets/js/modules/relatorios.js"></script>
-    <script src="./assets/js/modules/devolucoes.js"></script>
-    <script src="./assets/js/modules/scanner.js"></script>
-    <script src="./assets/js/modules/backup-tools.js"></script>
-    <script src="./assets/js/modules/whatsapp.js"></script>
-    <script src="./assets/js/modules/shared-actions.js"></script>
-    <script src="./assets/js/render/locacoes.js"></script>
-    <script src="./assets/js/render/cadastros.js"></script>
-    <script src="./assets/js/render/estoque.js"></script>
-    <script src="./assets/js/render/dashboard.js"></script>
-    <script src="./assets/js/render/devolucoes.js"></script>
-    <script src="./assets/js/ui/eventos.js"></script>
-    <script src="./assets/js/core/app.js"></script>
+    <script src="./assets/js/core/state.js?v=12.3"></script>
+    <script src="./assets/js/core/utils.js?v=2.3"></script>
+    <script src="./assets/js/ui/toast.js?v=1.1"></script>
+    <script src="./assets/js/core/audit.js?v=1.1"></script>
+    <script src="./assets/js/core/sync.js?v=1.4"></script>
+    <script src="./assets/js/core/access.js"></script>
+    <script src="./assets/js/core/migrations.js?v=12.6"></script>
+    <script src="./assets/js/core/domain-services.js?v=12.1"></script>
+    <script src="./assets/js/core/storage.js?v=12.5"></script>
+    <script src="./assets/js/ui/pwa.js?v=1.1"></script>
+    <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
+    <script src="./assets/js/modules/propostas.js?v=3.4"></script>
+    <script src="./assets/js/modules/clientes.js?v=2.0"></script>
+    <script src="./assets/js/modules/tipos.js?v=2.0"></script>
+    <script src="./assets/js/modules/estoque.js?v=2.4"></script>
+    <script src="./assets/js/modules/checklist.js?v=1.1"></script>
+    <script src="./assets/js/modules/config.js?v=1.1"></script>
+    <script src="./assets/js/modules/importacao.js?v=1.1"></script>
+    <script src="./assets/js/modules/relatorios.js?v=1.1"></script>
+    <script src="./assets/js/modules/devolucoes.js?v=2.3"></script>
+    <script src="./assets/js/modules/scanner.js?v=1.2"></script>
+    <script src="./assets/js/modules/backup-tools.js?v=1.1"></script>
+    <script src="./assets/js/modules/whatsapp.js?v=1.1"></script>
+    <script src="./assets/js/modules/transporte.js?v=1.1"></script>
+    <script src="./assets/js/modules/shared-actions.js?v=1.1"></script>
+    <script src="./assets/js/render/locacoes.js?v=15.1"></script>
+    <script src="./assets/js/render/cadastros.js?v=3.3"></script>
+    <script src="./assets/js/render/estoque.js?v=2.2"></script>
+    <script src="./assets/js/render/dashboard.js?v=1.6"></script>
+    <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
+    <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
+    <script src="./assets/js/ui/eventos.js?v=2.3"></script>
+    <script src="./assets/js/core/app.js?v=23.5"></script>
         
 </body>
 </html>

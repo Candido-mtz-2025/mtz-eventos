@@ -1,6 +1,16 @@
 // --- EXCEL INTELIGENTE (CORRIGIDO) ---
 function processarExcelInteligente(input) {
-    if(!input.files || !input.files[0]) return;
+    if(!input?.files || !input.files[0]) return;
+
+    const limparInputImportacao = () => {
+        if (input && typeof input.value === 'string') input.value = '';
+    };
+
+    if (typeof XLSX === 'undefined' || !XLSX?.read) {
+        mostrarToast('Importador Excel indisponível no momento.', 'erro');
+        limparInputImportacao();
+        return;
+    }
     
     // 1. DEFINIR STATS NO TOPO (Essencial para não dar erro)
     let stats = { importados: 0, categorias: 0 };
@@ -8,6 +18,14 @@ function processarExcelInteligente(input) {
     // Proteções de segurança
     if (typeof pecas === 'undefined' || !Array.isArray(pecas)) pecas = [];
     if (typeof tipos === 'undefined' || !Array.isArray(tipos)) tipos = [];
+
+    const gerarIdImportacao = (() => {
+        let sequencia = Date.now();
+        return () => {
+            sequencia += 1;
+            return sequencia;
+        };
+    })();
 
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -18,38 +36,68 @@ function processarExcelInteligente(input) {
             const worksheet = workbook.Sheets[firstSheet];
             const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1});
 
-            if(!rows.length) return;
-            if(!confirm(`Importar ${rows.length} linhas?`)) return;
+            if(!rows.length) {
+                mostrarToast('Planilha sem dados para importar.', 'erro');
+                return;
+            }
 
-            let catAtualId = garantirCategoriaGeral();
+            const linhasComConteudo = rows.filter((row) => Array.isArray(row) && row.some((coluna) => String(coluna || '').trim().length > 0)).length;
+            if (!linhasComConteudo) {
+                mostrarToast('Planilha sem linhas válidas para importar.', 'erro');
+                return;
+            }
 
-            rows.forEach(row => {
-                if (!row || row.length === 0) return;
-                
-                const dados = {
-                    nome: row[0] ? String(row[0]).trim() : "",
-                    colAno: row[1], 
-                    colQtd: row[3]  
-                };
+            const executarImportacao = () => {
+                let catAtualId = garantirCategoriaGeral();
 
-                if (ehCabecalhoCategoria(dados)) {
-                    catAtualId = definirOuCriarCategoria(dados.nome);
-                    return; 
-                }
+                rows.forEach(row => {
+                    if (!row || row.length === 0) return;
+                    
+                    const dados = {
+                        nome: row[0] ? String(row[0]).trim() : "",
+                        colAno: row[1], 
+                        colQtd: row[3]  
+                    };
 
-                if (ehItemValido(dados)) {
-                    const nomeFormatado = aplicarRegraMedidas(dados.nome);
-                    const quantidade = definirQuantidade(dados);
-                    cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
-                }
-            });
+                    if (ehCabecalhoCategoria(dados)) {
+                        catAtualId = definirOuCriarCategoria(dados.nome);
+                        return; 
+                    }
 
-            finalizarImportacao(stats);
+                    if (ehItemValido(dados)) {
+                        const nomeFormatado = aplicarRegraMedidas(dados.nome);
+                        const quantidade = definirQuantidade(dados);
+                        cadastrarItemSeNovo(nomeFormatado, quantidade, catAtualId);
+                    }
+                });
+
+                finalizarImportacao(stats);
+            };
+
+            const mensagem = `Importar ${linhasComConteudo} linha(s) desta planilha?`;
+            if (typeof confirmarAcao === 'function') {
+                confirmarAcao(mensagem, executarImportacao, {
+                    titulo: 'Importar planilha',
+                    textoConfirmar: 'Importar agora',
+                    classeConfirmar: 'btn-primary'
+                });
+                return;
+            }
+
+            if (confirm(mensagem)) {
+                executarImportacao();
+            }
 
         } catch(err) { 
             console.error(err);
-            alert("Erro ao ler Excel: " + err.message);
+            mostrarToast("Erro ao ler Excel.", 'erro');
+        } finally {
+            limparInputImportacao();
         }
+    };
+    reader.onerror = function() {
+        mostrarToast('Não foi possível ler o arquivo Excel.', 'erro');
+        limparInputImportacao();
     };
     reader.readAsArrayBuffer(input.files[0]);
 
@@ -61,6 +109,14 @@ function processarExcelInteligente(input) {
 
     function ehItemValido(d) {
         return d.nome && d.nome !== "TOTAL EM METROS";
+    }
+
+    function normalizarNomeImportacao(valor) {
+        return String(valor || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
     }
 
     function garantirCategoriaGeral() {
@@ -77,7 +133,7 @@ function processarExcelInteligente(input) {
         const nome = nomeBruto.replace(/[\r\n]+/g, "").trim();
         let cat = tipos.find(t => t.nome.toUpperCase() === nome.toUpperCase());
         if (!cat) {
-            cat = { id: Date.now() + Math.random(), nome: nome, desc: "Importado Excel" };
+            cat = { id: gerarIdImportacao(), nome: nome, desc: "Importado Excel" };
             tipos.push(cat);
             stats.categorias++;
         }
@@ -103,19 +159,39 @@ function processarExcelInteligente(input) {
 
     function cadastrarItemSeNovo(nome, qtd, catId) {
         if (!Array.isArray(pecas)) pecas = [];
-        const existe = pecas.find(p => p.nome === nome && p.tipoId === catId);
+        const nomeNormalizado = normalizarNomeImportacao(nome);
+        const existe = pecas.find((p) => {
+            const mesmoTipo = String(p.tipoId) === String(catId);
+            const nomePeca = normalizarNomeImportacao(p.nome);
+            return mesmoTipo && nomePeca === nomeNormalizado;
+        });
 
         if (!existe) {
-            pecas.push({
-                id: Date.now() + Math.random(),
-                codigo: 'IMP-' + Math.floor(Math.random() * 100000),
+            const novoId = gerarIdImportacao();
+            const pecaImportadaBase = {
+                id: novoId,
+                codigo: `IMP-${String(novoId).slice(-6)}`,
                 nome: nome,
                 quantidade: qtd,
+                quantidadeTotal: qtd,
                 disponivel: qtd,
+                reservado: 0,
+                manutencao: 0,
+                avariado: 0,
+                perdido: 0,
+                localizacao: '',
+                historicoMovimentacoes: [],
+                codigoInterno: `IMP-${String(novoId).slice(-6)}`,
+                qrCode: '',
+                status: 'ativo',
                 valor: 0,
                 tipoId: catId,
                 medida: ''
-            });
+            };
+            const pecaImportada = typeof normalizarPecaDominio === 'function'
+                ? normalizarPecaDominio(pecaImportadaBase)
+                : pecaImportadaBase;
+            pecas.push(pecaImportada);
             stats.importados++;
         }
     }

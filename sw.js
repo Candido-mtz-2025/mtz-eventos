@@ -1,64 +1,129 @@
-const CACHE_NAME = 'mtz-eventos-v13';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'mtz-eventos-v58';
+const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './logo.png',
-  
-  // Bibliotecas Externas (CDNs)
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap', // VÍRGULA ADICIONADA
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js' // DUPLICATA REMOVIDA
-]; // COLCHETE EXTRA REMOVIDO
+  './logo.png'
+];
 
-// 1. INSTALAÇÃO
-self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Instalando e cacheando recursos...');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+async function precacheShellComRede(cache) {
+  const tarefas = APP_SHELL.map(async (recurso) => {
+    try {
+      const request = new Request(recurso, { cache: 'reload' });
+      const response = await fetch(request);
+      if (response && response.ok) {
+        await cache.put(recurso, response.clone());
+      }
+    } catch (_) {
+      // Falha pontual de rede não deve impedir ativação do SW.
+    }
+  });
+
+  await Promise.allSettled(tarefas);
+}
+
+function deveIgnorarRequisicao(request) {
+  const url = new URL(request.url);
+  const protocoloHttp = url.protocol === 'http:' || url.protocol === 'https:';
+
+  return (
+    !protocoloHttp ||
+    request.method !== 'GET' ||
+    url.protocol === 'chrome-extension:' ||
+    request.url.includes('accounts.google.com') ||
+    request.url.includes('script.google.com')
+  );
+}
+
+function ehNavegacao(request) {
+  if (request.mode === 'navigate') return true;
+  return request.headers.get('accept')?.includes('text/html');
+}
+
+async function salvarNoCache(request, response) {
+  if (!response || !response.ok) return;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+}
+
+async function respostaNetworkFirst(request) {
+  try {
+    const response = await fetch(request);
+    await salvarNoCache(request, response);
+    return response;
+  } catch (erro) {
+    const cache = await caches.open(CACHE_NAME);
+    return (await cache.match(request)) || (await cache.match('./index.html'));
+  }
+}
+
+async function respostaStaleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  const atualizacao = fetch(request)
+    .then(async (response) => {
+      await salvarNoCache(request, response);
+      return response;
     })
+    .catch(() => null);
+
+  if (cached) return cached;
+
+  const respostaRede = await atualizacao;
+  if (respostaRede) return respostaRede;
+
+  return new Response('', { status: 504, statusText: 'Offline' });
+}
+
+function recursoCritico(request) {
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return false;
+
+  return (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('/index.html')
+  );
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => precacheShellComRede(cache))
   );
   self.skipWaiting();
 });
 
-// 2. ATIVAÇÃO
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Ativando e limpando caches antigos...');
   event.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(
-        keyList.map((key) => {
-          if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Removendo cache antigo:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+    )
   );
-  return self.clients.claim();
+  self.clients.claim();
 });
 
-// 3. INTERCEPTAÇÃO (FETCH)
+self.addEventListener('message', (event) => {
+  const data = event?.data || {};
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('accounts.google.com') || 
-      event.request.url.includes('script.google.com') ||
-      event.request.method === 'POST') {
-    return; 
+  const { request } = event;
+
+  if (deveIgnorarRequisicao(request)) return;
+
+  if (ehNavegacao(request)) {
+    event.respondWith(respostaNetworkFirst(request));
+    return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        console.log('[Service Worker] Recurso não disponível offline:', event.request.url);
-      });
-    })
-  );
+  if (recursoCritico(request)) {
+    event.respondWith(respostaNetworkFirst(request));
+    return;
+  }
+
+  event.respondWith(respostaStaleWhileRevalidate(request));
 });

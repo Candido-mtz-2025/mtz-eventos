@@ -16,10 +16,32 @@ function popularChecklistModeloSelect() {
     });
 }
 
+function focarCampoChecklist(idCampo, selecionar = false) {
+    const campo = document.getElementById(idCampo);
+    if (!campo) return;
+
+    const alvoRolagem = campo.closest('.form-group') || campo;
+    if (typeof alvoRolagem.scrollIntoView === 'function') {
+        alvoRolagem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    setTimeout(() => {
+        try {
+            campo.focus({ preventScroll: true });
+        } catch (_) {
+            campo.focus();
+        }
+        if (selecionar && typeof campo.select === 'function') {
+            campo.select();
+        }
+    }, 120);
+}
+
 function adicionarModeloAoChecklist() {
     const select = document.getElementById('checklistModeloSelect');
     if (!select || !select.value) {
-        alert('Selecione um modelo.');
+        mostrarToast('Selecione um modelo.', 'erro');
+        focarCampoChecklist('checklistModeloSelect');
         return;
     }
 
@@ -30,17 +52,19 @@ function adicionarModeloAoChecklist() {
         : modelosChecklist.find(m => String(m.id) === String(modeloId));
 
     if (!modelo) {
-        alert('Modelo não encontrado.');
+        mostrarToast('Modelo nao encontrado.', 'erro');
         return;
     }
 
     if (!modelo.itens || !modelo.itens.length) {
-        alert('Esse modelo não possui itens.');
+        mostrarToast('Esse modelo nao possui itens.', 'erro');
         return;
     }
 
     modelo.itens.forEach(itemModelo => {
         const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
+        const quantidadeModelo = Number(itemModelo.quantidade || itemModelo.qtd || 0);
+        if (!Number.isFinite(quantidadeModelo) || quantidadeModelo <= 0) return;
 
         const peca = pecas.find(p => String(p.id) === String(pecaId));
         if (!peca) {
@@ -51,7 +75,7 @@ function adicionarModeloAoChecklist() {
         const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
 
         if (existente) {
-            existente.quantidade += Number(itemModelo.quantidade || itemModelo.qtd || 0);
+            existente.quantidade += quantidadeModelo;
         } else {
             checklistMontagem.push({
             modeloId: modelo.id,
@@ -62,7 +86,7 @@ function adicionarModeloAoChecklist() {
             grupoChecklist: peca.grupoChecklist || 'outros',
             familiaEstrutural: peca.familiaEstrutural || '',
             subtipoEstrutural: peca.subtipoEstrutural || '',
-            quantidade: Number(itemModelo.quantidade || itemModelo.qtd || 0)
+            quantidade: quantidadeModelo
            });
         }
     });
@@ -71,6 +95,7 @@ function adicionarModeloAoChecklist() {
 
     if (typeof salvarLocal === 'function') salvarLocal();
     renderChecklistMontagem();
+    mostrarToast('Modelo adicionado ao checklist.');
 }
 
 function removerItemChecklistMontagem(index) {
@@ -84,37 +109,499 @@ function removerItemChecklistMontagem(index) {
 }
 
 function limparChecklistMontagem() {
-    const confirmar = confirm('Deseja limpar o checklist?');
-    if (!confirmar) return;
+    confirmarAcao('Deseja limpar o checklist?', () => {
+        checklistMontagem = [];
+        checklistConferencia = {};
+        window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
 
-    checklistMontagem = [];
-    window.checklistMontagem = checklistMontagem;
+        [
+            'checklistCliente',
+            'checklistLocal',
+            'checklistMontagemData',
+            'checklistHorario',
+            'checklistEvento',
+            'checklistDesmontagemData',
+            'checklistRespSaida',
+            'checklistRespRetorno'
+        ].forEach(id => {
+            const campo = document.getElementById(id);
+            if (campo) campo.value = '';
+        });
+        window.checklistLocacaoAtualId = '';
+        atualizarOrigemChecklistLocacao(null);
 
-    const campoCliente = document.getElementById('checklistCliente');
-    const campoEvento = document.getElementById('checklistEvento');
-    const campoData = document.getElementById('checklistData');
+        if (typeof salvarLocal === 'function') salvarLocal();
+        renderChecklistMontagem();
+        mostrarToast('Checklist limpo.');
+    }, {
+        titulo: 'Limpar checklist',
+        textoConfirmar: 'Limpar',
+        classeConfirmar: 'btn-danger'
+    });
+}
 
-    if (campoCliente) campoCliente.value = '';
-    if (campoEvento) campoEvento.value = '';
-    if (campoData) campoData.value = '';
+function preencherCampoChecklist(idCampo, valor) {
+    const campo = document.getElementById(idCampo);
+    if (campo) campo.value = valor || '';
+}
 
-    if (typeof salvarLocal === 'function') salvarLocal();
-    renderChecklistMontagem();
+function atualizarOrigemChecklistLocacao(locacao, clienteNome = '') {
+    const banner = document.getElementById('checklistOrigemLocacao');
+    if (!banner) return;
+
+    if (!locacao) {
+        banner.hidden = true;
+        banner.innerHTML = '';
+        return;
+    }
+
+    const codigoLocacao = `#${String(locacao.id || '').slice(-4) || '----'}`;
+    const proposta = locacao.codigoProposta ? ` • Proposta ${locacao.codigoProposta}` : '';
+    banner.hidden = false;
+    banner.innerHTML = `
+        <i class="bi bi-link-45deg" aria-hidden="true"></i>
+        <div>
+            <strong>Checklist originado da locação ${codigoLocacao}</strong>
+            <span>${escaparHTMLChecklist(clienteNome || locacao.clienteNome || 'Cliente')}${escaparHTMLChecklist(proposta)}</span>
+        </div>
+    `;
+}
+
+function obterOrigemChecklistAtual() {
+    const locacaoId = String(window.checklistLocacaoAtualId || '').trim();
+    if (!locacaoId || !Array.isArray(locacoes)) return null;
+
+    const locacao = locacoes.find((item) => String(item.id || '') === locacaoId);
+    if (!locacao) return null;
+
+    const codigoLocacao = `#${String(locacao.id || '').slice(-4) || '----'}`;
+    const codigoProposta = locacao.codigoProposta ? ` • Proposta ${locacao.codigoProposta}` : '';
+    return {
+        locacao,
+        texto: `Locação ${codigoLocacao}${codigoProposta}`
+    };
+}
+
+function obterPecaChecklistPorId(id) {
+    if (!id || !Array.isArray(pecas)) return null;
+    return pecas.find((peca) => String(peca.id) === String(id)) || null;
+}
+
+function criarItemChecklistDaLocacao(itemLocacao, locacao) {
+    const peca = obterPecaChecklistPorId(itemLocacao?.pecaId);
+    const quantidade = Math.max(1, parseInt(itemLocacao?.quantidade, 10) || 1);
+
+    return {
+        modeloId: locacao?.origemPropostaId || '',
+        modeloNome: locacao?.codigoProposta ? `Proposta ${locacao.codigoProposta}` : `Locação #${String(locacao?.id || '').slice(-4)}`,
+        pecaId: peca?.id || itemLocacao?.pecaId || '',
+        nome: peca?.nome || itemLocacao?.nome || 'Item da locação',
+        medida: peca?.medida || itemLocacao?.medida || '',
+        grupoChecklist: peca?.grupoChecklist || itemLocacao?.grupoChecklist || itemLocacao?.categoria || 'outros',
+        familiaEstrutural: peca?.familiaEstrutural || itemLocacao?.familiaEstrutural || '',
+        subtipoEstrutural: peca?.subtipoEstrutural || itemLocacao?.subtipoEstrutural || '',
+        quantidade
+    };
+}
+
+function preencherChecklistComLocacao(locacao, itens) {
+    const cliente = Array.isArray(locadores)
+        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
+        : null;
+
+    if (typeof abrirTab === 'function') abrirTab('checklist', { semRolagem: true });
+
+    setTimeout(() => {
+        preencherCampoChecklist('checklistCliente', cliente?.nome || locacao.clienteNome || '');
+        preencherCampoChecklist('checklistLocal', locacao.eventoLocal || locacao.eventoEndereco || locacao.logistica?.endereco || '');
+        preencherCampoChecklist('checklistMontagemData', locacao.dataAluguel || locacao.datasMontagem?.inicio || '');
+        preencherCampoChecklist('checklistHorario', locacao.datasMontagem?.horarioInicio || locacao.logistica?.horarioSaida || '');
+        preencherCampoChecklist('checklistEvento', locacao.eventoNome || locacao.codigoProposta || `Locação #${String(locacao.id).slice(-4)}`);
+        preencherCampoChecklist('checklistDesmontagemData', locacao.dataDevolucaoPrevisao || locacao.datasDesmontagem?.inicio || '');
+        preencherCampoChecklist('checklistRespSaida', locacao.equipe?.responsavel || '');
+        preencherCampoChecklist('checklistRespRetorno', locacao.equipe?.responsavel || '');
+        atualizarOrigemChecklistLocacao(locacao, cliente?.nome || locacao.clienteNome || '');
+
+        checklistMontagem = itens.map((item) => criarItemChecklistDaLocacao(item, locacao));
+        checklistConferencia = {};
+        window.checklistMontagem = checklistMontagem;
+        window.checklistConferencia = checklistConferencia;
+        window.checklistLocacaoAtualId = String(locacao.id || '');
+
+        locacao.checklist = {
+            ...(locacao.checklist || {}),
+            locacaoId: String(locacao.id || ''),
+            status: 'gerado',
+            origem: 'locacao',
+            ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
+        };
+        atualizarResumoChecklistLocacaoAtual();
+
+        if (typeof salvarLocal === 'function') salvarLocal();
+        if (typeof registrarLog === 'function') {
+            const clienteNome = cliente?.nome || locacao.clienteNome || 'Cliente';
+            registrarLog('checklist', 'gerar', `Checklist gerado a partir da locação de ${clienteNome} #${String(locacao.id || '').slice(-4)}.`);
+        }
+        renderChecklistMontagem();
+
+        const alvo = document.getElementById('tab-checklist');
+        if (alvo && typeof alvo.scrollIntoView === 'function') {
+            alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        mostrarToast('Checklist gerado a partir da locação.');
+    }, 120);
+}
+
+function abrirChecklistAtualDaLocacao(locacao) {
+    const cliente = Array.isArray(locadores)
+        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
+        : null;
+
+    if (typeof abrirTab === 'function') abrirTab('checklist', { semRolagem: true });
+
+    setTimeout(() => {
+        atualizarOrigemChecklistLocacao(locacao, cliente?.nome || locacao.clienteNome || '');
+        renderChecklistMontagem();
+
+        const alvo = document.getElementById('tab-checklist');
+        if (alvo && typeof alvo.scrollIntoView === 'function') {
+            alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        mostrarToast('Checklist da locação aberto.');
+    }, 120);
+}
+
+function gerarChecklistDaLocacao(id) {
+    const locacao = Array.isArray(locacoes)
+        ? locacoes.find((item) => String(item.id) === String(id))
+        : null;
+
+    if (!locacao) {
+        mostrarToast('Locação não encontrada para gerar checklist.', 'erro');
+        return;
+    }
+
+    const itens = Array.isArray(locacao.items) ? locacao.items : [];
+    if (!itens.length) {
+        mostrarToast('Essa locação não possui itens para checklist.', 'erro');
+        return;
+    }
+
+    const checklistAtualId = String(window.checklistLocacaoAtualId || '');
+    const checklistAtualDaLocacao = checklistAtualId === String(id)
+        && Array.isArray(checklistMontagem)
+        && checklistMontagem.length > 0;
+
+    if (checklistAtualDaLocacao) {
+        abrirChecklistAtualDaLocacao(locacao);
+        return;
+    }
+
+    const temChecklistEmAndamento = Array.isArray(checklistMontagem)
+        && checklistMontagem.length > 0
+        && checklistAtualId !== String(id);
+
+    if (temChecklistEmAndamento && typeof confirmarAcao === 'function') {
+        confirmarAcao('Já existe um checklist montado na tela. Deseja substituir pelos itens desta locação?', () => {
+            preencherChecklistComLocacao(locacao, itens);
+        }, {
+            titulo: 'Substituir checklist atual',
+            textoConfirmar: 'Substituir',
+            classeConfirmar: 'btn-warning'
+        });
+        return;
+    }
+
+    if (temChecklistEmAndamento && !confirm('Já existe um checklist montado na tela. Deseja substituir pelos itens desta locação?')) {
+        return;
+    }
+
+    preencherChecklistComLocacao(locacao, itens);
+}
+
+function normalizarGrupoChecklist(grupo) {
+    const valor = String(grupo || '').trim().toLowerCase();
+    const mapa = {
+        'elétrica': 'eletrica',
+        eletrica: 'eletrica',
+        'móveis': 'moveis',
+        moveis: 'moveis',
+        'estrutura q15': 'estrutura_q15',
+        'estrutura q30': 'estrutura_q30'
+    };
+
+    return mapa[valor] || valor || 'outros';
 }
 
 function formatarNomeGrupoChecklist(grupo) {
     const mapa = {
         estrutura: 'Estrutura',
+        estrutura_q15: 'Estrutura Q15',
+        estrutura_q30: 'Estrutura Q30',
         cobertura: 'Cobertura',
         elétrica: 'Elétrica',
         eletrica: 'Elétrica',
         moveis: 'Móveis',
         móveis: 'Móveis',
+        comunicacao: 'Comunicação Visual',
+        escritorio: 'Escritório',
         acabamento: 'Acabamento',
         outros: 'Outros'
     };
 
-    return mapa[grupo] || grupo;
+    return mapa[grupo] || grupo || 'Outros';
+}
+
+function escaparHTMLChecklist(valor) {
+    const div = document.createElement('div');
+    div.textContent = valor ?? '';
+    return div.innerHTML;
+}
+
+function criarEstadoChecklistPainel(opcoes = {}) {
+    if (typeof criarEstadoPainel === 'function') {
+        return criarEstadoPainel(opcoes.mensagem, {
+            tipo: opcoes.tipo || 'info',
+            titulo: opcoes.titulo || 'Informação'
+        });
+    }
+    return `<p class="muted-note">${escaparHTMLChecklist(opcoes.mensagem || 'Sem dados para mostrar.')}</p>`;
+}
+
+function formatarDataChecklist(valor) {
+    if (!valor) return '-';
+    const data = new Date(`${valor}T00:00:00`);
+    if (isNaN(data.getTime())) return '-';
+    return data.toLocaleDateString('pt-BR');
+}
+
+function obterDadosCabecalhoChecklist() {
+    return {
+        cliente: document.getElementById('checklistCliente')?.value || '',
+        local: document.getElementById('checklistLocal')?.value || '',
+        montagem: document.getElementById('checklistMontagemData')?.value || '',
+        horario: document.getElementById('checklistHorario')?.value || '',
+        evento: document.getElementById('checklistEvento')?.value || '',
+        desmontagem: document.getElementById('checklistDesmontagemData')?.value || '',
+        respSaida: document.getElementById('checklistRespSaida')?.value || '',
+        respRetorno: document.getElementById('checklistRespRetorno')?.value || ''
+    };
+}
+
+function obterNomeItemChecklist(item) {
+    const nome = String(item.nome || '').trim();
+    const medida = String(item.medida || '').trim();
+    const subtipo = String(item.subtipoEstrutural || '').trim();
+
+    if (nome && medida && !nome.toLowerCase().includes(medida.toLowerCase())) {
+        return `${nome} - ${medida}`;
+    }
+
+    return nome || medida || subtipo || 'Item';
+}
+
+function chaveConferenciaChecklist(grupo, nomeItem) {
+    const base = `${grupo || 'outros'}::${nomeItem || 'item'}`.toLowerCase();
+    return base.replace(/\s+/g, '_').replace(/[^a-z0-9:_-]/g, '');
+}
+
+function obterConferenciaItemChecklist(chave, quantidadeSaida) {
+    if (!checklistConferencia || typeof checklistConferencia !== 'object') {
+        checklistConferencia = {};
+    }
+
+    if (!checklistConferencia[chave]) {
+        checklistConferencia[chave] = {
+            retorno: '',
+            status: 'pendente',
+            observacao: ''
+        };
+    }
+
+    const registro = checklistConferencia[chave];
+    const maximo = Math.max(parseInt(quantidadeSaida, 10) || 0, 0);
+    const retornoNumero = parseInt(registro.retorno, 10);
+
+    registro.retorno = Number.isInteger(retornoNumero)
+        ? Math.max(0, Math.min(retornoNumero, maximo))
+        : '';
+
+    const statusPermitido = ['pendente', 'ok', 'faltando', 'avaria'];
+    if (!statusPermitido.includes(registro.status)) {
+        registro.status = 'pendente';
+    }
+
+    registro.observacao = String(registro.observacao || '').trim().slice(0, 160);
+    return registro;
+}
+
+function atualizarConferenciaChecklist(chave, campo, valor, quantidadeSaida) {
+    const registro = obterConferenciaItemChecklist(chave, quantidadeSaida);
+
+    if (campo === 'retorno') {
+        const maximo = Math.max(parseInt(quantidadeSaida, 10) || 0, 0);
+        const numero = parseInt(valor, 10);
+        registro.retorno = Number.isInteger(numero)
+            ? Math.max(0, Math.min(numero, maximo))
+            : '';
+
+        if (registro.status !== 'avaria') {
+            if (registro.retorno === '') registro.status = 'pendente';
+            else if (registro.retorno >= maximo) registro.status = 'ok';
+            else registro.status = 'faltando';
+        }
+    }
+
+    if (campo === 'status') {
+        const statusPermitido = ['pendente', 'ok', 'faltando', 'avaria'];
+        registro.status = statusPermitido.includes(valor) ? valor : 'pendente';
+    }
+
+    if (campo === 'observacao') {
+        registro.observacao = String(valor || '').trim().slice(0, 160);
+    }
+
+    checklistConferencia[chave] = registro;
+    window.checklistConferencia = checklistConferencia;
+    atualizarResumoChecklistLocacaoAtual();
+    if (typeof salvarLocal === 'function') salvarLocal();
+
+    if (campo !== 'observacao') {
+        renderChecklistMontagem();
+    }
+}
+
+function sincronizarConferenciaChecklist(grupos) {
+    if (!checklistConferencia || typeof checklistConferencia !== 'object') {
+        checklistConferencia = {};
+    }
+
+    const chavesValidas = new Set();
+    (grupos || []).forEach(grupo => {
+        (grupo.itens || []).forEach(item => {
+            if (item.chaveConferencia) chavesValidas.add(item.chaveConferencia);
+        });
+    });
+
+    Object.keys(checklistConferencia).forEach(chave => {
+        if (!chavesValidas.has(chave)) delete checklistConferencia[chave];
+    });
+
+    window.checklistConferencia = checklistConferencia;
+}
+
+function obterGruposChecklist() {
+    const gruposMap = {};
+
+    (checklistMontagem || []).forEach(item => {
+        const grupo = normalizarGrupoChecklist(item.grupoChecklist || item.grupo || item.categoriaChecklist || item.categoria);
+
+        if (!gruposMap[grupo]) {
+            gruposMap[grupo] = {
+                chave: grupo,
+                titulo: formatarNomeGrupoChecklist(grupo),
+                total: 0,
+                modelos: new Set(),
+                itens: new Map()
+            };
+        }
+
+        const referencia = obterNomeItemChecklist(item);
+        const chaveConferencia = chaveConferenciaChecklist(grupo, referencia);
+
+        const qtd = Number(item.quantidade) || 0;
+        const linhaAtual = gruposMap[grupo].itens.get(referencia) || {
+            nome: referencia,
+            quantidade: 0,
+            chaveConferencia
+        };
+
+        linhaAtual.quantidade += qtd;
+        gruposMap[grupo].itens.set(referencia, linhaAtual);
+        gruposMap[grupo].total += qtd;
+
+        if (item.modeloNome) gruposMap[grupo].modelos.add(item.modeloNome);
+    });
+
+    const ordem = [
+        'estrutura',
+        'estrutura_q15',
+        'estrutura_q30',
+        'cobertura',
+        'eletrica',
+        'moveis',
+        'acabamento',
+        'comunicacao',
+        'escritorio',
+        'outros'
+    ];
+
+    return Object.keys(gruposMap)
+        .sort((a, b) => {
+            const posA = ordem.includes(a) ? ordem.indexOf(a) : 999;
+            const posB = ordem.includes(b) ? ordem.indexOf(b) : 999;
+            if (posA !== posB) return posA - posB;
+            return formatarNomeGrupoChecklist(a).localeCompare(formatarNomeGrupoChecklist(b));
+        })
+        .map(chave => ({
+            ...gruposMap[chave],
+            modelos: Array.from(gruposMap[chave].modelos),
+            itens: Array.from(gruposMap[chave].itens.values()).map(item => ({
+                ...item,
+                conferencia: obterConferenciaItemChecklist(item.chaveConferencia, item.quantidade)
+            }))
+        }));
+}
+
+function calcularResumoChecklistAtual() {
+    const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
+
+    const resumo = grupos.reduce((acc, grupo) => {
+        acc.totalItens += Number(grupo.total) || 0;
+        acc.totalLinhas += grupo.itens.length;
+
+        grupo.itens.forEach((item) => {
+            const status = item.conferencia?.status || 'pendente';
+            if (status === 'ok') acc.conferidos += 1;
+            else if (status === 'faltando') acc.faltando += 1;
+            else if (status === 'avaria') acc.avarias += 1;
+            else acc.pendentes += 1;
+        });
+
+        return acc;
+    }, {
+        totalItens: 0,
+        totalLinhas: 0,
+        conferidos: 0,
+        pendentes: 0,
+        faltando: 0,
+        avarias: 0
+    });
+
+    resumo.percentual = resumo.totalLinhas
+        ? Math.round((resumo.conferidos / resumo.totalLinhas) * 100)
+        : 0;
+    return resumo;
+}
+
+function atualizarResumoChecklistLocacaoAtual() {
+    const locacaoId = String(window.checklistLocacaoAtualId || '').trim();
+    if (!locacaoId || !Array.isArray(locacoes)) return false;
+
+    const locacao = locacoes.find((item) => String(item.id || '') === locacaoId);
+    if (!locacao || !Array.isArray(checklistMontagem) || !checklistMontagem.length) return false;
+
+    locacao.checklist = {
+        ...(locacao.checklist || {}),
+        locacaoId,
+        status: 'gerado',
+        origem: 'locacao',
+        resumo: calcularResumoChecklistAtual(),
+        ultimaAtualizacao: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
+    };
+    return true;
 }
 
 function renderChecklistMontagem() {
@@ -122,212 +609,273 @@ function renderChecklistMontagem() {
     if (!container) return;
 
     if (!checklistMontagem || !checklistMontagem.length) {
-        container.innerHTML = `<p>Nenhum item adicionado.</p>`;
+        container.innerHTML = criarEstadoChecklistPainel({
+            tipo: 'empty',
+            titulo: 'Checklist vazio',
+            mensagem: 'Adicione itens ou modelos para iniciar a separação.'
+        });
         return;
     }
 
-    const gruposMap = {};
+    const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
+    const resumo = calcularResumoChecklistAtual();
 
-    checklistMontagem.forEach(item => {
-        let grupo = item.grupoChecklist || 'outros';
-
-        if (grupo === 'elétrica') grupo = 'eletrica';
-        if (grupo === 'móveis') grupo = 'moveis';
-
-        if (!gruposMap[grupo]) {
-            gruposMap[grupo] = new Map();
-        }
-
-        const referencia =
-            item.medida ||
-            item.subtipoEstrutural ||
-            item.nome ||
-            'Item';
-
-        const atual = gruposMap[grupo].get(referencia) || 0;
-        gruposMap[grupo].set(referencia, atual + (Number(item.quantidade) || 0));
-    });
-
-    let html = '';
-
-    Object.keys(gruposMap).forEach(grupo => {
-        let titulo = grupo;
-
-        if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
-        else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
-        else if (grupo === 'estrutura') titulo = 'Estrutura';
-        else if (grupo === 'moveis') titulo = 'Móveis';
-        else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
-        else if (grupo === 'escritorio') titulo = 'Escritório';
-        else if (grupo === 'cobertura') titulo = 'Cobertura';
-        else if (grupo === 'acabamento') titulo = 'Acabamento';
-        else if (grupo === 'eletrica') titulo = 'Elétrica';
-        else if (grupo === 'outros') titulo = 'Outros';
-
-        html += `
-            <div class="card" style="margin-bottom:15px;">
-                <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
-                    ${titulo}
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table">
+    container.innerHTML = `
+        <div class="checklist-summary-strip">
+            <div class="checklist-summary-main">
+                <strong>${resumo.percentual}% conferido</strong>
+                <span>${resumo.conferidos}/${resumo.totalLinhas} linhas conferidas • ${resumo.totalItens} peça(s)</span>
+            </div>
+            <div class="checklist-summary-badges">
+                <span class="badge badge-info">${resumo.pendentes} pendente(s)</span>
+                <span class="badge badge-warning">${resumo.faltando} faltando</span>
+                <span class="badge badge-danger">${resumo.avarias} avaria(s)</span>
+            </div>
+        </div>
+        <div class="checklist-preview-grid">
+            ${grupos.map(grupo => `
+                <div class="checklist-preview-card">
+                    <div class="checklist-preview-head">
+                        <div>
+                            <strong>${escaparHTMLChecklist(grupo.titulo)}</strong>
+                            ${grupo.modelos.length ? `<div style="font-size:0.8rem;color:var(--text-light);margin-top:3px;">${grupo.modelos.map(escaparHTMLChecklist).join(' • ')}</div>` : ''}
+                        </div>
+                        <span>${grupo.total} item(ns) • ${grupo.itens.filter(item => item.conferencia.status === 'ok').length}/${grupo.itens.length} conferidos</span>
+                    </div>
+                    <table class="checklist-preview-table">
                         <thead>
                             <tr>
                                 <th>Item</th>
                                 <th>Saída</th>
                                 <th>Retorno</th>
+                                <th>Status</th>
+                                <th>Observação</th>
                             </tr>
                         </thead>
                         <tbody>
-        `;
-
-        gruposMap[grupo].forEach((qtd, nome) => {
-            html += `
-                <tr>
-                    <td>${nome}</td>
-                    <td style="text-align:center;">${qtd}</td>
-                    <td style="text-align:center;">_______</td>
-                </tr>
-            `;
-        });
-
-        html += `
+                            ${grupo.itens.map(item => `
+                                <tr>
+                                    <td>${escaparHTMLChecklist(item.nome)}</td>
+                                    <td>${item.quantidade}</td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="${item.quantidade}"
+                                            class="checklist-input-retorno"
+                                            value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="retorno"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
+                                    </td>
+                                    <td>
+                                        <select
+                                            class="checklist-select-status"
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="status"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
+                                            <option value="pendente" ${item.conferencia.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                                            <option value="ok" ${item.conferencia.status === 'ok' ? 'selected' : ''}>Conferido</option>
+                                            <option value="faltando" ${item.conferencia.status === 'faltando' ? 'selected' : ''}>Faltando</option>
+                                            <option value="avaria" ${item.conferencia.status === 'avaria' ? 'selected' : ''}>Avaria</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            maxlength="160"
+                                            class="checklist-input-obs"
+                                            value="${escaparHTMLChecklist(item.conferencia.observacao || '')}"
+                                            placeholder="Observacao rapida"
+                                            data-change="atualizarConferenciaChecklist"
+                                            data-arg="${item.chaveConferencia}"
+                                            data-arg2="observacao"
+                                            data-arg3="__value__"
+                                            data-arg4="${item.quantidade}">
+                                    </td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
                 </div>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
+            `).join('')}
+        </div>
+    `;
 }
 
-function gerarPDFChecklistMontagem() {
+function gerarPDFChecklistMontagem(opcoes = {}) {
     if (!checklistMontagem || !checklistMontagem.length) {
-    alert('Nenhum item no checklist para gerar PDF.');
-    return;
-}
+        mostrarToast('Nenhum item no checklist para gerar PDF.', 'erro');
+        focarCampoChecklist('checklistModeloSelect');
+        return;
+    }
 
     const printArea = document.getElementById('printArea');
     const modalRelatorio = document.getElementById('modalRelatorio');
 
     if (!printArea) {
-        alert('printArea não encontrada.');
+        mostrarToast('Area de impressao nao encontrada.', 'erro');
         return;
     }
 
-    const cliente = document.getElementById('checklistCliente')?.value || '';
-    const evento = document.getElementById('checklistEvento')?.value || '';
-    const data = document.getElementById('checklistData')?.value || '';
-
-    const dataFormatada = data
-        ? new Date(data + 'T00:00:00').toLocaleDateString('pt-BR')
-        : '-';
-
-    const modeloSelecionadoId = document.getElementById('checklistModeloSelect')?.value || '';
-    const modeloSelecionado = typeof buscarModeloChecklist === 'function'
-        ? buscarModeloChecklist(modeloSelecionadoId)
-        : null;
-
-    const gruposMap = {};
-
-    (checklistMontagem || []).forEach(item => {
-    let grupo = item.grupoChecklist || 'outros';
-
-    if (grupo === 'elétrica') grupo = 'eletrica';
-    if (grupo === 'móveis') grupo = 'moveis';
-
-    if (!gruposMap[grupo]) {
-        gruposMap[grupo] = new Map();
+    const dados = obterDadosCabecalhoChecklist();
+    if (!dados.cliente || !dados.evento) {
+        mostrarToast('Preencha pelo menos cliente e evento antes de gerar o PDF.', 'erro');
+        focarCampoChecklist(!dados.cliente ? 'checklistCliente' : 'checklistEvento', !dados.cliente);
+        return;
     }
 
-    const referenciaPeca =
-        item.medida ||
-        item.subtipoEstrutural ||
-        item.nome ||
-        'Item';
+    const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
 
-    const atual = gruposMap[grupo].get(referenciaPeca) || 0;
-    gruposMap[grupo].set(referenciaPeca, atual + (Number(item.quantidade) || 0));
-});
+    const grupos = obterGruposChecklist();
+    sincronizarConferenciaChecklist(grupos);
+    const origemChecklist = obterOrigemChecklistAtual();
+    const resumoChecklist = calcularResumoChecklistAtual();
 
-    let htmlSeparacao = '';
+    const temPendenciaChecklist = resumoChecklist.pendentes > 0
+        || resumoChecklist.faltando > 0
+        || resumoChecklist.avarias > 0;
 
-    Object.keys(gruposMap).forEach(grupo => {
-        let titulo = grupo;
+    if (!opcoes.ignorarPendencias && temPendenciaChecklist) {
+        const mensagem = `Este checklist ainda tem ${resumoChecklist.pendentes} pendente(s), ${resumoChecklist.faltando} faltando e ${resumoChecklist.avarias} avaria(s). Deseja gerar o PDF mesmo assim?`;
 
-        if (grupo === 'estrutura_q15') titulo = 'Estrutura Q15';
-        else if (grupo === 'estrutura_q30') titulo = 'Estrutura Q30';
-        else if (grupo === 'estrutura') titulo = 'Estrutura';
-        else if (grupo === 'moveis') titulo = 'Móveis';
-        else if (grupo === 'comunicacao') titulo = 'Comunicação Visual';
-        else if (grupo === 'escritorio') titulo = 'Escritório';
-        else if (grupo === 'cobertura') titulo = 'Cobertura';
-        else if (grupo === 'acabamento') titulo = 'Acabamento';
-        else if (grupo === 'eletrica') titulo = 'Elétrica';
-        else if (grupo === 'outros') titulo = 'Outros';
-
-        htmlSeparacao += `
-            <div style="margin-top:25px;">
-                <div style="background:#f3ef00; font-weight:bold; text-align:center; padding:8px; border:1px solid #000;">
-                    ${titulo}
-                </div>
-
-                <table style="width:100%; border-collapse:collapse;" border="1">
-                    <thead>
-                        <tr style="background:#f3ef00;">
-                            <th style="padding:6px; text-align:left;">Item</th>
-                            <th style="padding:6px; text-align:center; width:180px;">Quantidade de Saída</th>
-                            <th style="padding:6px; text-align:center; width:180px;">Quantidade de Retorno</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        if (modeloSelecionado && (grupo === 'estrutura' || grupo === 'estrutura_q15' || grupo === 'estrutura_q30')) {
-            htmlSeparacao += `
-                <tr>
-                    <td style="padding:6px; font-weight:bold;">${modeloSelecionado.nome || 'Modelo'}</td>
-                    <td style="padding:6px; text-align:center; font-weight:bold;">1</td>
-                    <td style="padding:6px; text-align:center;">_______</td>
-                </tr>
-            `;
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(mensagem, () => gerarPDFChecklistMontagem({ ignorarPendencias: true }), {
+                titulo: 'Gerar PDF com pendências',
+                textoConfirmar: 'Gerar PDF',
+                classeConfirmar: 'btn-warning'
+            });
+            return;
         }
 
-        gruposMap[grupo].forEach((qtd, nome) => {
-            htmlSeparacao += `
-                <tr>
-                    <td style="padding:6px;">${nome}</td>
-                    <td style="padding:6px; text-align:center;">${qtd}</td>
-                    <td style="padding:6px; text-align:center;">_______</td>
-                </tr>
-            `;
-        });
+        if (!confirm(mensagem)) return;
+    }
 
-        htmlSeparacao += `
-                    </tbody>
-                </table>
+    const totalItens = grupos.reduce((total, grupo) => total + grupo.total, 0);
+    const totalLinhas = grupos.reduce((total, grupo) => total + grupo.itens.length, 0);
+    const totalConferidos = grupos.reduce((total, grupo) => (
+        total + grupo.itens.filter(item => item.conferencia.status === 'ok').length
+    ), 0);
+
+    const infoCard = (label, value) => `
+        <div style="border:1px solid #d7dde8;border-radius:10px;padding:10px 12px;background:#f8fafc;">
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:700;">${label}</div>
+            <div style="margin-top:4px;font-size:12px;color:#111827;font-weight:700;line-height:1.3;">${escaparHTMLChecklist(value || '-')}</div>
+        </div>
+    `;
+
+    const htmlSeparacao = grupos.map((grupo, index) => `
+        <section style="margin-top:16px;border:1px solid #d7dde8;border-radius:14px;overflow:hidden;break-inside:avoid;background:#ffffff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;background:#111827;color:#ffffff;padding:12px 14px;">
+                <div>
+                    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#bfdbfe;font-weight:800;">Grupo ${String(index + 1).padStart(2, '0')}</div>
+                    <div style="font-size:15px;font-weight:800;margin-top:2px;">${escaparHTMLChecklist(grupo.titulo)}</div>
+                </div>
+                <div style="font-size:11px;font-weight:800;background:#2563eb;color:#ffffff;border-radius:999px;padding:6px 10px;white-space:nowrap;">${grupo.total} item(ns)</div>
             </div>
-        `;
-    });
-    
-    const html = `
-        <div style="padding:20px; font-family:Arial,sans-serif; background:#fff; color:#000;">
-            <div style="margin-bottom:25px;">
-                <h2 style="margin:0 0 10px 0;">Checklist de Evento</h2>
 
-                <div style="font-size:14px; line-height:1.7;">
-                    <div><strong>Cliente:</strong> ${cliente || '-'}</div>
-                    <div><strong>Evento:</strong> ${evento || '-'}</div>
-                    <div><strong>Data:</strong> ${dataFormatada}</div>
-                    <div><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
+            ${grupo.modelos.length ? `
+                <div style="padding:10px 14px;background:#eff6ff;border-bottom:1px solid #d7dde8;color:#1e3a8a;font-size:11px;">
+                    <strong>Modelo:</strong> ${grupo.modelos.map(escaparHTMLChecklist).join(' • ')}
+                </div>
+            ` : ''}
+
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                <thead>
+                    <tr style="background:#f8fafc;color:#475569;">
+                        <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #d7dde8;width:46%;">Item</th>
+                        <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #d7dde8;width:16%;">Saída</th>
+                        <th style="padding:10px 12px;text-align:center;border-bottom:1px solid #d7dde8;width:20%;">Retorno</th>
+                        <th style="padding:10px 12px;text-align:left;border-bottom:1px solid #d7dde8;width:18%;">Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${grupo.itens.map((item, linhaIndex) => {
+                        const retorno = item.conferencia.retorno === '' ? '' : String(item.conferencia.retorno);
+                        const mapaStatus = {
+                            pendente: 'Pendente',
+                            ok: 'Conferido',
+                            faltando: 'Faltando',
+                            avaria: 'Avaria'
+                        };
+                        const statusTexto = mapaStatus[item.conferencia.status] || 'Pendente';
+                        const observacoes = [statusTexto !== 'Pendente' ? statusTexto : '', item.conferencia.observacao || '']
+                            .filter(Boolean)
+                            .join(' • ');
+
+                        return `
+                            <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">${escaparHTMLChecklist(item.nome)}</td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#111827;font-weight:800;">${item.quantidade}</td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#0f172a;font-weight:800;">
+                                    ${retorno || '<span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>'}
+                                </td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#475569;">
+                                    ${observacoes ? escaparHTMLChecklist(observacoes) : '<span style="display:block;border-bottom:1px solid #cbd5e1;height:14px;"></span>'}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </section>
+    `).join('');
+
+    const html = `
+        <div style="font-family:Inter,Arial,sans-serif;background:#ffffff;color:#111827;width:100%;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding-bottom:16px;border-bottom:3px solid #111827;">
+                <div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#2563eb;font-weight:900;">MTZ Eventos</div>
+                    <h1 style="margin:5px 0 4px 0;font-size:28px;line-height:1;color:#111827;">Checklist Operacional</h1>
+                    <div style="font-size:12px;color:#64748b;font-weight:700;">Separação, saída e retorno de materiais</div>
+                </div>
+                <div style="text-align:right;">
+                    <img src="${logoPdfSrc}" alt="MTZ Eventos" style="height:64px;object-fit:contain;margin-bottom:6px;">
+                    <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;font-weight:800;">Gerado em</div>
+                    <div style="font-size:11px;color:#111827;font-weight:800;">${new Date().toLocaleString('pt-BR')}</div>
                 </div>
             </div>
 
-            <div style="margin-top:10px;">
-                <h2 style="margin:0 0 12px 0;">1. Checklist de Separação</h2>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;">
+                ${infoCard('Cliente', dados.cliente)}
+                ${infoCard('Evento', dados.evento)}
+                ${infoCard('Local', dados.local)}
+                ${infoCard('Montagem', `${formatarDataChecklist(dados.montagem)}${dados.horario ? ' às ' + dados.horario : ''}`)}
+                ${infoCard('Desmontagem', formatarDataChecklist(dados.desmontagem))}
+                ${infoCard('Resp. saída', dados.respSaida)}
+                ${infoCard('Resp. retorno', dados.respRetorno)}
+                ${infoCard('Itens', `${totalItens} peças • ${totalLinhas} linhas`)}
+                ${infoCard('Conferidos', `${totalConferidos}/${totalLinhas} • ${resumoChecklist.percentual}%`)}
+                ${infoCard('Pendentes', resumoChecklist.pendentes)}
+                ${infoCard('Faltando', resumoChecklist.faltando)}
+                ${infoCard('Avarias', resumoChecklist.avarias)}
+                ${origemChecklist ? infoCard('Origem', origemChecklist.texto) : ''}
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;padding:12px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
+                <div>
+                    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#1d4ed8;font-weight:900;">Checklist de separação</div>
+                    <div style="font-size:12px;color:#1e3a8a;margin-top:3px;">Conferir saída, registrar retorno e anotar divergências.</div>
+                </div>
+                <div style="font-size:20px;font-weight:900;color:#1d4ed8;">${String(grupos.length).padStart(2, '0')}</div>
+            </div>
+
+            <div>
                 ${htmlSeparacao || '<p>Nenhum item adicionado.</p>'}
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:38px;break-inside:avoid;">
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827;padding-top:9px;font-size:10px;font-weight:800;color:#111827;text-transform:uppercase;">Responsável pela saída</div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="border-top:1.5px solid #111827;padding-top:9px;font-size:10px;font-weight:800;color:#111827;text-transform:uppercase;">Responsável pelo retorno</div>
+                </div>
             </div>
         </div>
     `;
@@ -402,7 +950,11 @@ function renderChecklistEtapasMontagem() {
     if (!container) return;
 
     if (!checklistEtapasMontagem || !checklistEtapasMontagem.length) {
-        container.innerHTML = '<p>Nenhuma etapa de montagem adicionada.</p>';
+        container.innerHTML = criarEstadoChecklistPainel({
+            tipo: 'empty',
+            titulo: 'Nenhuma etapa cadastrada',
+            mensagem: 'Adicione uma etapa manual ou gere a partir da separação.'
+        });
         return;
     }
 
@@ -429,36 +981,54 @@ function renderChecklistEtapasMontagem() {
     <td>
         <input type="text"
                value="${linha.etapa || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'etapa', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="etapa"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="text"
                value="${linha.descricao || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'descricao', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="descricao"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="text"
                value="${linha.peca || ''}"
-               onchange="atualizarLinhaMontagem(${index}, 'peca', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="peca"
+               data-arg3="__value__">
     </td>
     <td>
         <input type="number"
                min="0"
                value="${linha.quantidade || 0}"
-               onchange="atualizarLinhaMontagem(${index}, 'quantidade', this.value)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="quantidade"
+               data-arg3="__value__">
     </td>
     <td>
         <textarea
             rows="2"
-            onchange="atualizarLinhaMontagem(${index}, 'observacao', this.value)">${linha.observacao || ''}</textarea>
+            data-change="atualizarLinhaMontagem"
+            data-arg="${index}"
+            data-arg2="observacao"
+            data-arg3="__value__">${linha.observacao || ''}</textarea>
     </td>
     <td style="text-align:center;">
         <input type="checkbox"
                ${linha.conferido ? 'checked' : ''}
-               onchange="atualizarLinhaMontagem(${index}, 'conferido', this.checked)">
+               data-change="atualizarLinhaMontagem"
+               data-arg="${index}"
+               data-arg2="conferido"
+               data-arg3="__checked__">
     </td>
     <td>
-        <button class="btn btn-danger btn-sm" onclick="removerLinhaMontagem(${index})">
+        <button class="btn btn-danger btn-sm" data-action="removerLinhaMontagem" data-arg="${index}">
             Remover
         </button>
     </td>
@@ -479,5 +1049,7 @@ window.popularChecklistModeloSelect = popularChecklistModeloSelect;
 window.adicionarModeloAoChecklist = adicionarModeloAoChecklist;
 window.removerItemChecklistMontagem = removerItemChecklistMontagem;
 window.limparChecklistMontagem = limparChecklistMontagem;
+window.gerarChecklistDaLocacao = gerarChecklistDaLocacao;
+window.atualizarConferenciaChecklist = atualizarConferenciaChecklist;
 window.renderChecklistMontagem = renderChecklistMontagem;
 window.gerarPDFChecklistMontagem = gerarPDFChecklistMontagem;
