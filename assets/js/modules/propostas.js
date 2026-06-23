@@ -3545,6 +3545,9 @@
         const dataMontagem = proposta.evento.dataMontagem || proposta.evento.dataEvento || hojeIso;
         const dataDesmontagem = proposta.evento.dataDesmontagem || proposta.evento.dataEvento || dataMontagem;
         const valorFinalComercial = obterValorFinalComercial(proposta);
+        const financeiroProposta = proposta.financeiro && typeof proposta.financeiro === 'object'
+            ? proposta.financeiro
+            : {};
         const custosProposta = proposta.custos && typeof proposta.custos === 'object' ? proposta.custos : {};
         const freteKm = calcularFretePorKm(
             custosProposta.freteDistanciaKm ?? custosProposta.distanciaKm,
@@ -3560,9 +3563,9 @@
             textoSeguro(proposta.evento.referenciaAcesso || ''),
             textoSeguro(proposta.evento.observacoesGerais || '')
         ].filter(Boolean).join(' | ');
-        const valorEntradaLocacao = numeroNaoNegativo(proposta.financeiro.valorEntrada, 0);
+        const valorEntradaLocacao = numeroNaoNegativo(financeiroProposta.valorEntrada, 0);
         const valorRestanteLocacao = numeroNaoNegativo(
-            proposta.financeiro.valorSaldo,
+            financeiroProposta.valorSaldo,
             Math.max(valorFinalComercial - valorEntradaLocacao, 0)
         );
         const statusPagamentoLocacao = valorFinalComercial > 0 && valorRestanteLocacao <= 0
@@ -3570,6 +3573,11 @@
             : valorEntradaLocacao > 0
                 ? 'parcial'
                 : 'pendente';
+        const tipoCalculoNFLocacao = normalizarTipoCalculoNF(financeiroProposta.tipoCalculoNF, 'descontar');
+        const percentualNFLocacao = converterTextoPercentualParaNumero(financeiroProposta.percentualNF, 0, { maximo: 99.99 });
+        const valorNFLocacao = numeroNaoNegativo(financeiroProposta.valorNF, 0);
+        const valorFinalComNFLocacao = numeroNaoNegativo(financeiroProposta.valorFinalComNF, valorFinalComercial);
+        const valorLiquidoPrevistoLocacao = numeroNaoNegativo(financeiroProposta.valorLiquidoPrevisto, valorFinalComercial);
 
         const itensLocacao = proposta.itens.map((item) => {
             const itemCalculado = calcularItemProposta(item || {});
@@ -3655,15 +3663,23 @@
                 valorTotal: valorFinalComercial,
                 sinal: valorEntradaLocacao,
                 valorRestante: valorRestanteLocacao,
-                vencimento: proposta.financeiro.vencimentoSaldo || proposta.evento.dataEvento || dataMontagem,
-                formaPagamento: rotuloFormaPagamento(proposta.financeiro.formaPagamento),
+                vencimento: financeiroProposta.vencimentoSaldo || proposta.evento.dataEvento || dataMontagem,
+                formaPagamento: rotuloFormaPagamento(financeiroProposta.formaPagamento),
                 statusPagamento: statusPagamentoLocacao,
-                notaFiscal: '',
+                notaFiscal: textoSeguro(financeiroProposta.notaFiscal, ''),
+                statusNotaFiscal: textoSeguro(financeiroProposta.statusNotaFiscal || financeiroProposta.notaFiscal, 'pendente'),
                 comprovante: '',
-                condicaoPagamento: proposta.financeiro.condicaoPagamento || '',
-                observacaoPagamento: proposta.financeiro.observacaoPagamento || '',
-                percentualEntrada: converterTextoPercentualParaNumero(proposta.financeiro.percentualEntrada, 50, { maximo: 100 }),
-                percentualSaldo: converterTextoPercentualParaNumero(proposta.financeiro.percentualSaldo, 50, { maximo: 100 })
+                condicaoPagamento: financeiroProposta.condicaoPagamento || '',
+                observacaoPagamento: financeiroProposta.observacaoPagamento || '',
+                percentualEntrada: converterTextoPercentualParaNumero(financeiroProposta.percentualEntrada, 50, { maximo: 100 }),
+                percentualSaldo: converterTextoPercentualParaNumero(financeiroProposta.percentualSaldo, 50, { maximo: 100 }),
+                percentualNF: percentualNFLocacao,
+                tipoCalculoNF: tipoCalculoNFLocacao,
+                valorNF: valorNFLocacao,
+                valorFinalComNF: valorFinalComNFLocacao,
+                valorLiquidoPrevisto: valorLiquidoPrevistoLocacao,
+                origemPropostaId: String(proposta.id || ''),
+                codigoProposta: proposta.codigo || ''
             },
             checklist: {
                 idChecklist: null,
@@ -3686,6 +3702,9 @@
                 forcarHistorico: true
             });
         }
+        if (typeof sincronizarFinanceiroLocacao === 'function') {
+            novaLocacao = sincronizarFinanceiroLocacao(novaLocacao) || novaLocacao;
+        }
 
         if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
@@ -3706,6 +3725,7 @@
                 evitarDuplicado: true
             });
         }
+        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
 
         const agoraIso = obterAgoraIso();
         propostas = obterPropostasBase().map((item) => {
