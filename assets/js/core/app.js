@@ -1,0 +1,100 @@
+// Render central e inicialização da aplicação
+// === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
+function renderTudo() {
+    if(typeof renderLocacoes === 'function') renderLocacoes();
+    if(typeof renderLocadores === 'function') renderLocadores();
+    if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
+    if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
+    if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
+    if(typeof renderDevolucoes === 'function') renderDevolucoes();
+    if(typeof renderTipos === 'function') renderTipos();
+    if(typeof renderStats === 'function') renderStats();
+    if(typeof updateSelects === 'function') updateSelects();
+    if(typeof renderLogs === 'function') renderLogs();
+    if(typeof renderConfig === 'function') renderConfig();
+}
+
+    // --- INICIALIZAÇÃO ---
+    window.onload = function() {
+    carregarLocal();
+    renderTudo();
+        
+    const checklistData = document.getElementById('checklistData');
+    if (checklistData && !checklistData.value) {
+    checklistData.value = new Date().toISOString().split('T')[0];
+}
+    const hoje = new Date().toISOString().split('T')[0];
+    const elIni = document.getElementById('aluguelIni');
+    const elDev = document.getElementById('devData');
+    if(elIni) elIni.value = hoje;
+    if(elDev) elDev.value = hoje;
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @media print { @page { margin: 0; } body { background: white; } }
+        
+       /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
+        #printArea { 
+            position: relative !important;
+            background-color: #ffffff !important;
+            color: #000000 !important; 
+            box-shadow: none !important; 
+            margin: 0 auto !important; 
+            width: 100% !important;
+            padding: 15mm 15mm 30mm 15mm !important; 
+            min-height: 297mm !important;
+            display: flex;
+            flex-direction: column;
+        }
+        #printArea * { color: #000000 !important; border-color: #000000 !important; }
+        #printArea thead { background-color: #000000 !important; }
+        #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
+        #printArea .footer-bar, #printArea .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
+    `;
+    document.head.appendChild(style);
+    
+    const temaSalvo = localStorage.getItem('theme');
+    document.body.setAttribute('data-theme', temaSalvo === 'dark' ? 'dark' : 'light');
+    atualizarControleTema();
+    if(window.google) gisLoaded();
+    if(localStorage.getItem('gToken')) { entrarApp(); sincronizar('carregar'); }
+    iniciarBackupAutomatico();
+    setInterval(salvarLocal, 60000);
+    console.log('✅ Sistema de backup ativado');
+};
+    function atualizarControleTema() {
+        const temaEscuro = document.body.getAttribute('data-theme') === 'dark';
+        const botao = document.getElementById('themeToggle');
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+
+        if (botao) {
+            botao.innerHTML = `<i class="bi bi-${temaEscuro ? 'sun' : 'moon'}"></i>`;
+            botao.setAttribute('aria-label', temaEscuro ? 'Ativar tema claro' : 'Ativar tema escuro');
+            botao.title = temaEscuro ? 'Ativar tema claro' : 'Ativar tema escuro';
+        }
+
+        if (metaThemeColor) metaThemeColor.content = temaEscuro ? '#0f172a' : '#2563eb';
+    }
+
+    function toggleTheme() { 
+        const body = document.body;
+        const isDark = body.getAttribute('data-theme') === 'dark'; 
+        body.setAttribute('data-theme', isDark ? 'light' : 'dark'); 
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
+        atualizarControleTema();
+    }
+
+    function abrirTab(id) { 
+        document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(x => {
+            const ativa = x.dataset.tab === id;
+            x.classList.toggle('active', ativa);
+            if (ativa) x.setAttribute('aria-current', 'page');
+            else x.removeAttribute('aria-current');
+        });
+        const tab = document.getElementById('tab-'+id);
+        if(tab) tab.classList.add('active'); 
+    }
+    
+    function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }

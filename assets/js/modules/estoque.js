@@ -1,0 +1,583 @@
+// Estoque: cadastro, edição, remoção e seleção em lote
+    // === RECALCULAR DISPONIBILIDADE COM CACHE ===
+    function recalcularDisponibilidade(forcar = false) {
+        const agora = Date.now();
+        
+        if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
+            console.log('📦 Usando cache de disponibilidade');
+            return;
+        }
+        
+        console.log('🔄 Recalculando disponibilidade...');
+        
+        const aluguelPorPeca = new Map();
+        
+        locacoes.forEach(l => {
+            if (l.status !== 'devolvido') {
+                l.items.forEach(i => {
+                    const qtdAlugada = (i.quantidade || 0) - (i.devolvidos || 0);
+                    const atual = aluguelPorPeca.get(i.pecaId) || 0;
+                    aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
+                });
+            }
+        });
+        
+        pecas.forEach(p => {
+            const alugado = aluguelPorPeca.get(p.id) || 0;
+            p.disponivel = (p.quantidade || 0) - alugado;
+        });
+        
+        cacheDisponibilidade = true;
+        ultimaAtualizacaoCache = agora;
+        
+        console.log('✅ Disponibilidade recalculada');
+    }
+
+    function salvarLocador() { const n=document.getElementById('locNome').value; if(!n) return; locadores.push({id:Date.now(), nome:n, email:document.getElementById('locEmail').value, telefone:document.getElementById('locTel').value, documento:document.getElementById('locDoc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('locNome').value=""; mostrarToast("Cliente Salvo!"); }
+    
+    function salvarPeca() {
+    const n = document.getElementById('pecaNome').value;
+    if (!n) return;
+
+    pecas.push({
+        id: Date.now(),
+        nome: n,
+        codigo: document.getElementById('pecaCod').value,
+        valor: parseFloat(document.getElementById('pecaValor').value) || 0,
+        quantidade: parseInt(document.getElementById('pecaQtd').value) || 0,
+        disponivel: parseInt(document.getElementById('pecaQtd').value) || 0,
+        tipoId: parseInt(document.getElementById('pecaTipo').value),
+        medida: document.getElementById('pecaMedida').value,
+
+        grupoChecklist: document.getElementById('pecaGrupoChecklist').value || 'outros',
+        familiaEstrutural: document.getElementById('pecaFamiliaEstrutural').value || '',
+        subtipoEstrutural: document.getElementById('pecaSubtipoEstrutural').value || '',
+        podeComporEstrutura: document.getElementById('pecaPodeCompor').value === 'sim'
+    });
+
+    salvarLocal();
+    renderTudo();
+    sincronizar('salvar');
+
+    document.getElementById('pecaNome').value = "";
+    mostrarToast("Item Salvo!");
+}
+    function salvarTipo() { const n=document.getElementById('tipoNome').value; if(!n) return; tipos.push({id:Date.now(), nome:n, desc:document.getElementById('tipoDesc').value}); salvarLocal(); renderTudo(); sincronizar('salvar'); document.getElementById('tipoNome').value=""; mostrarToast("Tipo Salvo!"); }
+
+    function removerItem(t, id) {
+        if(!confirm("Tem certeza?")) return;
+        
+        if(t === 'locadores') {
+            const item = locadores.find(x => x.id == id);
+            locadores = locadores.filter(x => x.id !== id);
+            registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
+        }
+        if(t === 'pecas') {
+            const item = pecas.find(x => x.id == id);
+            pecas = pecas.filter(x => x.id !== id);
+            registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
+        }
+        if(t === 'tipos') {
+            const item = tipos.find(x => x.id == id);
+            tipos = tipos.filter(x => x.id !== id);
+            registrarLog('item', 'deletar', `Tipo removido: ${item?.nome || 'ID:'+id}`);
+        }
+        
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+    }
+
+  function abrirEditarPeca(id) {
+    const p = pecas.find(x => String(x.id) === String(id));
+    if (!p) {
+        mostrarToast("Item não encontrado!", "erro");
+        return;
+    }
+
+    document.getElementById('editPecaId').value = p.id;
+    document.getElementById('editPecaCod').value = p.codigo || '';
+    document.getElementById('editPecaNome').value = p.nome || '';
+    document.getElementById('editPecaMedida').value = p.medida || '';
+    document.getElementById('editPecaValor').value = p.valor || 0;
+    document.getElementById('editPecaQtd').value = p.quantidade || 0;
+    document.getElementById('editPecaBar').value = p.barras || p.codigoBarras || '';
+
+    updateSelects();
+    const sel = document.getElementById('editPecaTipo');
+    if (sel) sel.value = p.tipoId || 0;
+
+    document.getElementById('editPecaGrupoChecklist').value = p.grupoChecklist || 'outros';
+    document.getElementById('editPecaFamiliaEstrutural').value = p.familiaEstrutural || '';
+    document.getElementById('editPecaSubtipoEstrutural').value = p.subtipoEstrutural || '';
+    document.getElementById('editPecaPodeCompor').value = p.podeComporEstrutura ? 'sim' : 'nao';
+
+    document.getElementById('modalEditarPeca').classList.add('active');
+}
+  function salvarEdicaoPeca() {
+    const id = document.getElementById('editPecaId').value;
+    const p = pecas.find(x => String(x.id) === String(id));
+
+    if (!p) {
+        mostrarToast("Item não encontrado para salvar!", "erro");
+        return;
+    }
+
+    const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
+    const diff = novaQtd - (p.quantidade || 0);
+
+    p.codigo = document.getElementById('editPecaCod').value;
+    p.nome = document.getElementById('editPecaNome').value;
+    p.medida = document.getElementById('editPecaMedida').value;
+    p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
+    p.tipoId = parseInt(document.getElementById('editPecaTipo').value) || 0;
+    p.quantidade = novaQtd;
+    p.disponivel = (p.disponivel || 0) + diff;
+    p.barras = document.getElementById('editPecaBar').value;
+
+    p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
+    p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
+    p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
+    p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
+
+    document.getElementById('modalEditarPeca').classList.remove('active');
+    document.getElementById('editPecaId').value = "";
+
+    salvarLocal();
+    sincronizar('salvar');
+
+    const busca = document.getElementById('buscaEstoque');
+    if (busca) busca.value = '';
+
+    renderEstoque();
+
+    registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
+    mostrarToast("Item atualizado!");
+}
+
+
+window.estoqueSelecionados = new Set();
+
+function onSelectEstoque(id, checked){
+  id = Number(id);
+  if (checked) window.estoqueSelecionados.add(id);
+  else window.estoqueSelecionados.delete(id);
+}
+
+function toggleSelecionarTodosEstoque(marcar) {
+  const checks = document.querySelectorAll('.chk-estoque');
+  checks.forEach(chk => {
+    chk.checked = marcar;
+    onSelectEstoque(chk.dataset.id, marcar);
+  });
+}
+
+function excluirSelecionadosEstoque(){
+  if (window.estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
+  if (!confirm(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`)) return;
+
+  const ids = new Set([...window.estoqueSelecionados].map(Number));
+  const removidos = pecas.filter(p => ids.has(p.id));
+  pecas = pecas.filter(p => !ids.has(p.id));
+
+  removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
+
+  window.estoqueSelecionados.clear();
+  salvarLocal();
+  renderEstoque();
+  sincronizar('salvar');
+  mostrarToast('Itens excluídos!');
+}
+window.salvarPeca = salvarPeca;
+window.abrirEditarPeca = abrirEditarPeca;
+window.salvarEdicaoPeca = salvarEdicaoPeca;
+window.onSelectEstoque = onSelectEstoque;
+window.toggleSelecionarTodosEstoque = toggleSelecionarTodosEstoque;
+window.excluirSelecionadosEstoque = excluirSelecionadosEstoque;
+// ===== MODELOS DE CHECKLIST / ESTRUTURA =====
+
+function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual') {
+    nome = (nome || '').trim();
+    familiaEstrutural = (familiaEstrutural || '').trim();
+
+    if (!nome) {
+        mostrarToast("Informe o nome do modelo.", "erro");
+        return null;
+    }
+
+    if (!Array.isArray(itens) || itens.length === 0) {
+        mostrarToast("Adicione pelo menos 1 peça ao modelo.", "erro");
+        return null;
+    }
+
+    const modelo = {
+        id: Date.now(),
+        nome,
+        familiaEstrutural,
+        origem,
+        criadoEm: new Date().toISOString(),
+        itens: itens.map(item => ({
+            pecaId: item.pecaId,
+            nome: item.nome || '',
+            qtd: parseInt(item.qtd) || 0
+        })).filter(item => item.pecaId && item.qtd > 0)
+    };
+
+    if (modelo.itens.length === 0) {
+        mostrarToast("Nenhuma peça válida foi adicionada.", "erro");
+        return null;
+    }
+
+    modelosChecklist.push(modelo);
+    console.log('MODELOS SALVOS AGORA:', modelosChecklist);
+    
+    salvarLocal();
+    sincronizar('salvar');
+    registrarLog('checklist', 'criar-modelo', `Modelo criado: ${modelo.nome}`);
+    mostrarToast("Modelo salvo com sucesso!");
+
+    return modelo;
+}
+
+function buscarModeloChecklist(id) {
+    return modelosChecklist.find(x => String(x.id) === String(id));
+}
+
+function listarModelosChecklist(familiaEstrutural = '') {
+    if (!familiaEstrutural) return [...modelosChecklist];
+
+    return modelosChecklist.filter(x =>
+        (x.familiaEstrutural || '').toLowerCase() === familiaEstrutural.toLowerCase()
+    );
+}
+
+function excluirModeloChecklist(id) {
+    const antes = modelosChecklist.length;
+    modelosChecklist = modelosChecklist.filter(x => String(x.id) !== String(id));
+
+    if (modelosChecklist.length === antes) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    salvarLocal();
+    sincronizar('salvar');
+    registrarLog('checklist', 'excluir-modelo', `Modelo removido: ${id}`);
+    mostrarToast("Modelo excluído!");
+}
+window.salvarModeloChecklist = salvarModeloChecklist;
+window.buscarModeloChecklist = buscarModeloChecklist;
+window.listarModelosChecklist = listarModelosChecklist;
+window.excluirModeloChecklist = excluirModeloChecklist;
+
+let itensModeloChecklistTemp = [];
+
+function abrirModalModeloChecklist() {
+    itensModeloChecklistTemp = [];
+
+    const id = document.getElementById('modeloChecklistId');
+    const nome = document.getElementById('modeloChecklistNome');
+    const familia = document.getElementById('modeloChecklistFamilia');
+    const qtd = document.getElementById('modeloChecklistQtd');
+
+    if (id) id.value = '';
+    if (nome) nome.value = '';
+    if (familia) familia.value = '';
+    if (qtd) qtd.value = 1;
+
+    atualizarSelectModeloChecklist();
+    renderItensModeloChecklistTemp();
+
+    document.getElementById('modalModeloChecklist').classList.add('active');
+}
+
+function fecharModalModeloChecklist() {
+    document.getElementById('modalModeloChecklist').classList.remove('active');
+}
+
+function atualizarSelectModeloChecklist() {
+    const select = document.getElementById('modeloChecklistPeca');
+    if (!select) return;
+
+    const pecasEstruturais = pecas.filter(p => p.podeComporEstrutura);
+
+    select.innerHTML = '<option value="">Selecione uma peça</option>';
+
+    pecasEstruturais.forEach(p => {
+        select.innerHTML += `<option value="${p.id}">${p.nome}${p.medida ? ' - ' + p.medida : ''}</option>`;
+    });
+}
+
+function editarModeloChecklist(id) {
+    const modelo = buscarModeloChecklist(id);
+
+    if (!modelo) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    document.getElementById('modeloChecklistId').value = modelo.id;
+    document.getElementById('modeloChecklistNome').value = modelo.nome || '';
+    document.getElementById('modeloChecklistFamilia').value = modelo.familiaEstrutural || '';
+    document.getElementById('modeloChecklistQtd').value = 1;
+
+    itensModeloChecklistTemp = (modelo.itens || []).map(item => ({
+        pecaId: item.pecaId,
+        nome: item.nome,
+        qtd: item.qtd
+    }));
+
+    atualizarSelectModeloChecklist();
+    renderItensModeloChecklistTemp();
+
+    document.getElementById('modalModeloChecklist').classList.add('active');
+}
+
+function adicionarItemModeloChecklist() {
+    const select = document.getElementById('modeloChecklistPeca');
+    const qtdInput = document.getElementById('modeloChecklistQtd');
+
+    if (!select || !qtdInput) {
+        mostrarToast("Campos do modelo não encontrados.", "erro");
+        return;
+    }
+
+    const pecaId = select.value;
+    const qtd = parseInt(qtdInput.value) || 0;
+
+    if (!pecaId) {
+        mostrarToast("Selecione uma peça.", "erro");
+        return;
+    }
+
+    if (qtd <= 0) {
+        mostrarToast("Informe uma quantidade válida.", "erro");
+        return;
+    }
+
+    const peca = pecas.find(p => String(p.id) === String(pecaId));
+    if (!peca) {
+        mostrarToast("Peça não encontrada.", "erro");
+        return;
+    }
+
+    const existente = itensModeloChecklistTemp.find(item => String(item.pecaId) === String(pecaId));
+
+    if (existente) {
+        existente.qtd += qtd;
+    } else {
+        itensModeloChecklistTemp.push({
+            pecaId: peca.id,
+            nome: peca.nome,
+            qtd: qtd
+        });
+    }
+
+    qtdInput.value = 1;
+    select.value = '';
+
+    renderItensModeloChecklistTemp();
+    mostrarToast("Peça adicionada!");
+}
+
+function renderItensModeloChecklistTemp() {
+    const lista = document.getElementById('listaItensModeloChecklist');
+    if (!lista) return;
+
+    if (itensModeloChecklistTemp.length === 0) {
+        lista.innerHTML = '<p>Nenhuma peça adicionada.</p>';
+        return;
+    }
+
+    lista.innerHTML = itensModeloChecklistTemp.map((item, index) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:8px;margin-bottom:6px;border-radius:6px;">
+            <span>${item.nome} - Qtd: ${item.qtd}</span>
+            <button class="btn btn-danger" onclick="removerItemModeloChecklistTemp(${index})">Remover</button>
+        </div>
+    `).join('');
+}
+
+function removerItemModeloChecklistTemp(index) {
+    itensModeloChecklistTemp.splice(index, 1);
+    renderItensModeloChecklistTemp();
+}
+function salvarModeloChecklistForm() {
+    const id = document.getElementById('modeloChecklistId').value;
+    const nome = document.getElementById('modeloChecklistNome').value.trim();
+    const familia = document.getElementById('modeloChecklistFamilia').value.trim();
+
+    if (!nome) {
+        mostrarToast("Informe o nome do modelo.", "erro");
+        return;
+    }
+
+    if (itensModeloChecklistTemp.length === 0) {
+        mostrarToast("Adicione pelo menos uma peça.", "erro");
+        return;
+    }
+
+    if (id) {
+        const modelo = buscarModeloChecklist(id);
+
+        if (!modelo) {
+            mostrarToast("Modelo não encontrado para editar.", "erro");
+            return;
+        }
+
+        modelo.nome = nome;
+        modelo.familiaEstrutural = familia;
+        modelo.itens = itensModeloChecklistTemp.map(item => ({
+            pecaId: item.pecaId,
+            nome: item.nome,
+            qtd: item.qtd
+        }));
+
+        salvarLocal();
+        sincronizar('salvar');
+        registrarLog('checklist', 'editar-modelo', `Modelo editado: ${modelo.nome}`);
+        mostrarToast("Modelo atualizado com sucesso!");
+    } else {
+        const novo = salvarModeloChecklist(nome, familia, itensModeloChecklistTemp, 'manual');
+        if (!novo) return;
+    }
+
+    fecharModalModeloChecklist();
+    itensModeloChecklistTemp = [];
+    renderItensModeloChecklistTemp();
+    renderModelosChecklist();
+}
+function renderModelosChecklist() {
+    console.log('MODELOS NA HORA DE RENDERIZAR:', modelosChecklist);
+
+    const lista = document.getElementById('listaModelosChecklist');
+    console.log('DIV LISTA MODELOS:', lista);
+    if (!lista) return;
+
+    if (!modelosChecklist || modelosChecklist.length === 0) {
+        lista.innerHTML = '<p>Nenhum modelo salvo.</p>';
+        return;
+    }
+
+    lista.innerHTML = modelosChecklist.map(modelo => `
+        <div style="display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;padding:10px;margin-bottom:8px;border-radius:8px;">
+            <div>
+                <strong>${modelo.nome}</strong><br>
+                <small>Família: ${modelo.familiaEstrutural || 'Não informada'}</small><br>
+                <small>Peças: ${modelo.itens ? modelo.itens.length : 0}</small>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="editarModeloChecklist(${modelo.id})">Editar</button>
+                <button class="btn btn-primary" onclick="gerarChecklistModelo(${modelo.id})">Gerar Checklist</button>
+                <button class="btn btn-danger" onclick="excluirModeloChecklistUI(${modelo.id})">Excluir</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function excluirModeloChecklistUI(id) {
+    if (!confirm('Deseja excluir este modelo?')) return;
+
+    excluirModeloChecklist(id);
+    renderModelosChecklist();
+}
+
+function gerarChecklistModelo(id) {
+    const modelo = buscarModeloChecklist(id);
+
+    if (!modelo) {
+        mostrarToast("Modelo não encontrado.", "erro");
+        return;
+    }
+
+    const grupos = {};
+
+    modelo.itens.forEach(itemModelo => {
+        const peca = pecas.find(p => String(p.id) === String(itemModelo.pecaId));
+        if (!peca) return;
+
+        const grupo = peca.grupoChecklist || 'outros';
+
+        if (!grupos[grupo]) grupos[grupo] = [];
+
+        grupos[grupo].push({
+            nome: peca.nome + (peca.medida ? ` - ${peca.medida}` : ''),
+            qtd: itemModelo.qtd || 0
+        });
+    });
+
+    const ordemGrupos = ['estrutura', 'cobertura', 'eletrica', 'moveis', 'acabamento', 'outros'];
+
+    const secoes = ordemGrupos
+        .filter(grupo => grupos[grupo] && grupos[grupo].length > 0)
+        .map(grupo => {
+            const linhas = grupos[grupo].map(item => `
+                <tr>
+                    <td style="padding:8px; border:1px solid #ccc;">${item.nome}</td>
+                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">${item.qtd}</td>
+                    <td style="padding:8px; border:1px solid #ccc; text-align:center;">_______</td>
+                    <td style="padding:8px; border:1px solid #ccc;">&nbsp;</td>
+                </tr>
+            `).join('');
+
+            return `
+                <div style="margin-bottom:25px;">
+                    <h3 style="margin:0 0 10px 0; text-transform:uppercase; border-bottom:2px solid #000; padding-bottom:5px;">
+                        ${grupo}
+                    </h3>
+                    <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+                        <thead>
+                            <tr style="background:#000; color:#fff;">
+                                <th style="padding:8px; border:1px solid #000; text-align:left;">Item</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:center; width:80px;">Qtd</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:center; width:120px;">Conferido</th>
+                                <th style="padding:8px; border:1px solid #000; text-align:left;">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${linhas}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+
+    const layout = `
+        <div style="font-family:Arial,sans-serif; background:#fff; color:#000; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:25px; border-bottom:2px solid #000; padding-bottom:10px;">
+                <div>
+                    <h2 style="margin:0;">CHECKLIST DE SEPARAÇÃO</h2>
+                    <div style="margin-top:6px; font-size:14px;"><strong>Modelo:</strong> ${modelo.nome}</div>
+                    <div style="margin-top:4px; font-size:14px;"><strong>Família:</strong> ${modelo.familiaEstrutural || 'Não informada'}</div>
+                </div>
+                <div style="text-align:right; font-size:12px;">
+                    <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+                </div>
+            </div>
+
+            ${secoes || '<p>Nenhuma peça encontrada para este modelo.</p>'}
+        </div>
+    `;
+
+    const printArea = document.getElementById('printArea');
+    if (!printArea) {
+        mostrarToast("Área de impressão não encontrada.", "erro");
+        return;
+    }
+
+    printArea.innerHTML = layout;
+    document.getElementById('modalRelatorio').classList.add('active');
+}
+
+window.abrirModalModeloChecklist = abrirModalModeloChecklist;
+window.fecharModalModeloChecklist = fecharModalModeloChecklist;
+window.atualizarSelectModeloChecklist = atualizarSelectModeloChecklist;
+window.adicionarItemModeloChecklist = adicionarItemModeloChecklist;
+window.renderItensModeloChecklistTemp = renderItensModeloChecklistTemp;
+window.removerItemModeloChecklistTemp = removerItemModeloChecklistTemp;
+window.salvarModeloChecklistForm = salvarModeloChecklistForm;
+window.renderModelosChecklist = renderModelosChecklist;
+window.excluirModeloChecklistUI = excluirModeloChecklistUI;
+window.gerarChecklistModelo = gerarChecklistModelo;
+window.editarModeloChecklist = editarModeloChecklist;
+window.checklistMontagem = checklistMontagem;
+window.checklistEtapasMontagem = checklistEtapasMontagem;
