@@ -18846,6 +18846,66 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
 
+@media (min-width: 1180px) {
+    /* Normaliza a sidebar recolhida para que os botoes caibam inteiros em todos os temas. */
+    #appArea.sidebar-collapsed {
+        --app-shell-sidebar-width: 98px;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container,
+    body[data-theme="dark"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container,
+    body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container,
+    body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container {
+        width: var(--app-shell-sidebar-width) !important;
+        padding: 20px 12px 24px !important;
+        overflow-x: hidden !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .tabs.app-main-nav,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .tabs.app-main-nav {
+        align-items: center !important;
+        gap: 10px !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav > .tab-btn,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav > .nav-menu-group,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav > .tab-btn,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav > .nav-menu-group {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .tab-btn,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-menu-trigger {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 56px !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+        border-radius: 18px !important;
+        font-size: 0 !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn > i:first-child,
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger > i:first-child,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .tab-btn > i:first-child,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-menu-trigger > i:first-child {
+        margin: 0 !important;
+        font-size: 1.18rem !important;
+    }
+
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger > i:not(:first-child),
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-menu-trigger > i:not(:first-child),
+    #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-caret,
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-caret {
+        display: none !important;
+    }
+}
+
 body[data-theme="dark"] #appArea :is(.config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row),
 body[data-theme="mtz-premium"] #appArea :is(.config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row),
 body[data-theme="mtz-gold"] #appArea :is(.config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row) {
