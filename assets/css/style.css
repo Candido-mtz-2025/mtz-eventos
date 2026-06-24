@@ -19070,6 +19070,93 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     transform: none !important;
 }
 
+/* Ajuste final da area de usuario + status: fundo continuo e menus alinhados. */
+#appArea > header .header-actions {
+    position: relative !important;
+    overflow: visible !important;
+    isolation: isolate !important;
+    gap: 10px !important;
+}
+
+#appArea > header .header-actions::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: 64px !important;
+    width: 388px !important;
+    height: 60px !important;
+    transform: translateY(-50%) !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+}
+
+#appArea > header #headerUser.header-user,
+#appArea > header #syncBadge.sync-badge {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+#appArea > header #headerUser.header-user {
+    width: 226px !important;
+    min-width: 226px !important;
+    max-width: 226px !important;
+    padding-inline: 12px 10px !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#appArea > header #syncBadge.sync-badge {
+    min-width: 120px !important;
+    max-width: 120px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+#appArea > header #syncBadge.sync-badge .sync-caret {
+    cursor: pointer !important;
+}
+
+#appArea > header #accountMenu.account-menu {
+    top: calc(100% + 12px) !important;
+}
+
+@media (min-width: 900px) {
+    #appArea > header #accountMenu.account-menu {
+        right: -136px !important;
+    }
+}
+
+.theme-menu.theme-menu-floating {
+    z-index: 4105 !important;
+}
+
+.theme-menu.theme-menu-floating[data-float-side="left"]::before {
+    top: 18px !important;
+    left: -6px !important;
+    right: auto !important;
+    transform: rotate(-45deg) !important;
+}
+
+.theme-menu.theme-menu-floating[data-float-side="right"]::before {
+    top: 18px !important;
+    left: auto !important;
+    right: -6px !important;
+    transform: rotate(135deg) !important;
+}
+
+.theme-menu.theme-menu-floating[data-float-side="top"]::before {
+    top: -6px !important;
+    left: 24px !important;
+    right: auto !important;
+    transform: rotate(45deg) !important;
+}
+
 #appArea.sidebar-collapsed .app-sidebar-brand {
     justify-items: center !important;
     padding-inline: 0 !important;

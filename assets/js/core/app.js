@@ -2960,6 +2960,7 @@ function executarAtalhoRapido(atalhoId) {
         if (!menu || !wrap) return;
         if (menu.parentElement !== wrap) wrap.appendChild(menu);
         menu.classList.remove('theme-menu-floating');
+        delete menu.dataset.floatSide;
         menu.style.removeProperty('top');
         menu.style.removeProperty('left');
         menu.style.removeProperty('right');
@@ -2972,12 +2973,29 @@ function executarAtalhoRapido(atalhoId) {
 
         const rect = origem.getBoundingClientRect();
         const largura = 230;
+        const altura = 252;
         const margem = 12;
-        const esquerda = Math.min(window.innerWidth - largura - margem, Math.max(margem, rect.left));
-        const topo = Math.min(window.innerHeight - 250, Math.max(margem, rect.bottom + 8));
+        const offset = 10;
+        let esquerda = rect.right + offset;
+        let lado = 'left';
+
+        if (esquerda + largura > window.innerWidth - margem) {
+            esquerda = rect.left - largura - offset;
+            lado = 'right';
+        }
+
+        if (esquerda < margem) {
+            esquerda = Math.min(window.innerWidth - largura - margem, Math.max(margem, rect.left));
+            lado = 'top';
+        }
+
+        const topo = lado === 'top'
+            ? Math.min(window.innerHeight - altura - margem, Math.max(margem, rect.bottom + 8))
+            : Math.min(window.innerHeight - altura - margem, Math.max(margem, rect.top - 6));
 
         document.body.appendChild(menu);
         menu.classList.add('theme-menu-floating');
+        menu.dataset.floatSide = lado;
         menu.style.position = 'fixed';
         menu.style.left = `${esquerda}px`;
         menu.style.top = `${topo}px`;
@@ -3068,6 +3086,16 @@ document.addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') fecharMenuTema();
 });
+
+document.addEventListener('click', (event) => {
+    const alvo = event.target;
+    if (!(alvo instanceof HTMLElement)) return;
+    const setaSync = alvo.closest('#syncBadge .sync-caret');
+    if (!setaSync) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    abrirMenuConta();
+}, true);
 
 document.addEventListener('click', (event) => {
     const alvo = event.target;
