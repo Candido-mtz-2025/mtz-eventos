@@ -19070,27 +19070,11 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     transform: none !important;
 }
 
-/* Ajuste final da area de usuario + status: fundo continuo e menus alinhados. */
+/* Ajuste final da area de usuario + status: blocos separados e alinhados. */
 #appArea > header .header-actions {
     position: relative !important;
     overflow: visible !important;
-    isolation: isolate !important;
-    gap: 10px !important;
-}
-
-#appArea > header .header-actions::before {
-    content: "" !important;
-    position: absolute !important;
-    top: 50% !important;
-    right: 64px !important;
-    width: 388px !important;
-    height: 60px !important;
-    transform: translateY(-50%) !important;
-    border-radius: 999px !important;
-    background: rgba(255, 255, 255, 0.98) !important;
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
-    z-index: 0 !important;
-    pointer-events: none !important;
+    gap: 12px !important;
 }
 
 #appArea > header #headerUser.header-user,
@@ -19104,9 +19088,9 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     min-width: 226px !important;
     max-width: 226px !important;
     padding-inline: 12px 10px !important;
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
+    border-color: rgba(203, 213, 225, 0.88) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
 }
 
 #appArea > header #syncBadge.sync-badge {
@@ -19115,7 +19099,7 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     height: 40px !important;
     min-height: 40px !important;
     border-radius: 14px !important;
-    box-shadow: none !important;
+    box-shadow: 0 10px 24px rgba(22, 163, 74, 0.10) !important;
 }
 
 #appArea > header #syncBadge.sync-badge .sync-caret {
