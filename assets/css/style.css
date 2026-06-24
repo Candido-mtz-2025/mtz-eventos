@@ -18858,3 +18858,449 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     background: color-mix(in srgb, var(--app-theme-panel-bg) 78%, var(--app-theme-panel-soft) 22%) !important;
     border-color: var(--app-theme-border) !important;
 }
+
+/* =========================
+   V26 | NORMALIZACAO TECNICA FINAL DOS TEMAS
+   Congela geometria entre temas e elimina fundos claros
+   residuais em dark / premium / gold.
+========================= */
+
+#appArea > header .container {
+    min-height: 92px !important;
+    align-items: center !important;
+    gap: 18px !important;
+}
+
+#appArea > header .logo {
+    min-width: 248px !important;
+    min-height: 70px !important;
+    display: grid !important;
+    align-content: center !important;
+    gap: 2px !important;
+    margin: 0 !important;
+}
+
+#appArea > header .logo h1,
+#appArea > header .logo-subtitle {
+    margin: 0 !important;
+}
+
+#appArea > header .header-actions {
+    min-height: 72px !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+#appArea > header #headerUser.header-user {
+    min-width: 236px !important;
+    width: 236px !important;
+    max-width: 236px !important;
+}
+
+#appArea > header #syncBadge.sync-badge {
+    min-width: 116px !important;
+    justify-content: center !important;
+}
+
+#appArea > header :is(.header-user, .sync-badge, .header-controls .btn, .theme-menu-wrap > .btn, .header-notification-btn) {
+    min-height: 52px !important;
+}
+
+#appArea .container > #appMainSidebar .app-sidebar-brand,
+#appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand {
+    min-height: 78px !important;
+    display: grid !important;
+    grid-template-columns: 54px minmax(0, 1fr) 38px !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 10px 8px 18px !important;
+}
+
+#appArea .container > #appMainSidebar .app-sidebar-brand img,
+#appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand img {
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    place-self: center !important;
+}
+
+body[data-theme="dark"] {
+    --app-theme-page-bg: #0b1320;
+    --app-theme-page-glow-a: rgba(40, 88, 176, 0.16);
+    --app-theme-page-glow-b: rgba(18, 31, 52, 0.24);
+    --app-theme-panel-bg: #121a28;
+    --app-theme-panel-soft: #0f1623;
+    --app-theme-panel-muted: #162032;
+    --app-theme-field-bg: #0d1420;
+    --app-theme-border: rgba(94, 117, 148, 0.34);
+    --app-theme-border-strong: rgba(94, 117, 148, 0.46);
+    --app-theme-text: #ffffff;
+    --app-theme-text-soft: #d1d9e6;
+    --app-theme-badge-bg: rgba(38, 54, 79, 0.92);
+    --app-theme-badge-text: #edf3fb;
+}
+
+body[data-theme="mtz-premium"] {
+    --app-theme-page-bg: #0a0f18;
+    --app-theme-page-glow-a: rgba(210, 32, 56, 0.14);
+    --app-theme-page-glow-b: rgba(20, 70, 150, 0.18);
+    --app-theme-panel-bg: #111a29;
+    --app-theme-panel-soft: #0c1320;
+    --app-theme-panel-muted: #162133;
+    --app-theme-field-bg: #0b121d;
+    --app-theme-border: rgba(104, 122, 148, 0.34);
+    --app-theme-border-strong: rgba(209, 42, 59, 0.28);
+    --app-theme-text: #ffffff;
+    --app-theme-text-soft: #d7dfec;
+    --app-theme-badge-bg: rgba(36, 52, 79, 0.92);
+    --app-theme-badge-text: #f2f6ff;
+}
+
+body[data-theme="mtz-gold"] {
+    --app-theme-page-bg: #0d0905;
+    --app-theme-page-glow-a: rgba(215, 173, 71, 0.12);
+    --app-theme-page-glow-b: rgba(112, 58, 14, 0.12);
+    --app-theme-panel-bg: #151109;
+    --app-theme-panel-soft: #0f0b05;
+    --app-theme-panel-muted: #1b150c;
+    --app-theme-field-bg: #0d0904;
+    --app-theme-border: rgba(214, 168, 71, 0.26);
+    --app-theme-border-strong: rgba(230, 188, 90, 0.34);
+    --app-theme-text: #fff8ec;
+    --app-theme-text-soft: #efdcae;
+    --app-theme-badge-bg: rgba(89, 69, 22, 0.92);
+    --app-theme-badge-text: #ffedb9;
+}
+
+body[data-theme="dark"] #appArea,
+body[data-theme="mtz-premium"] #appArea,
+body[data-theme="mtz-gold"] #appArea {
+    background:
+        radial-gradient(circle at 12% 16%, var(--app-theme-page-glow-a), transparent 34%),
+        radial-gradient(circle at 88% 10%, var(--app-theme-page-glow-b), transparent 32%),
+        var(--app-theme-page-bg) !important;
+}
+
+body[data-theme="dark"] #appArea .content,
+body[data-theme="mtz-premium"] #appArea .content,
+body[data-theme="mtz-gold"] #appArea .content {
+    background: transparent !important;
+}
+
+body[data-theme="dark"] #appArea .module-topbar,
+body[data-theme="mtz-premium"] #appArea .module-topbar,
+body[data-theme="mtz-gold"] #appArea .module-topbar {
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22) !important;
+}
+
+body[data-theme="dark"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #13243f 0%, #0f3c74 56%, #15579d 100%) !important;
+    border-color: rgba(83, 133, 215, 0.34) !important;
+}
+
+body[data-theme="mtz-premium"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #141c2d 0%, #1d2d55 52%, #6a2230 100%) !important;
+    border-color: rgba(212, 55, 78, 0.26) !important;
+}
+
+body[data-theme="mtz-gold"] #tab-dashboard .dashboard-topbar {
+    background: linear-gradient(135deg, #181208 0%, #20170b 46%, #3a2810 100%) !important;
+    border-color: rgba(217, 173, 69, 0.32) !important;
+}
+
+body[data-theme="dark"] #appArea :is(
+    .card,
+    .panel-block,
+    .dash-section,
+    .module-topbar,
+    .table-responsive,
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .ui-state,
+    .ui-state-panel,
+    .finance-kpi,
+    .stat-card,
+    .dashboard-topbar,
+    .dashboard-topbar-meta,
+    .finance-strip,
+    .dash-chart-placeholder,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-sticky-summary,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-summary-strip .summary-card,
+    .proposta-summary-strip .proposta-summary-action,
+    .proposta-category-summary,
+    .proposta-category-summary-head,
+    .proposta-category-chip,
+    .proposta-category-summary-empty,
+    .config-card,
+    .config-actions-card,
+    .config-budget-box,
+    .config-budget-categories,
+    .config-budget-category-head,
+    .config-budget-category-row,
+    .config-budget-category-name,
+    .config-budget-rule,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .box-carrinho,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .proposta-config-tax-cell,
+    .proposta-config-matrix-row
+),
+body[data-theme="mtz-premium"] #appArea :is(
+    .card,
+    .panel-block,
+    .dash-section,
+    .module-topbar,
+    .table-responsive,
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .ui-state,
+    .ui-state-panel,
+    .finance-kpi,
+    .stat-card,
+    .dashboard-topbar,
+    .dashboard-topbar-meta,
+    .finance-strip,
+    .dash-chart-placeholder,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-sticky-summary,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-summary-strip .summary-card,
+    .proposta-summary-strip .proposta-summary-action,
+    .proposta-category-summary,
+    .proposta-category-summary-head,
+    .proposta-category-chip,
+    .proposta-category-summary-empty,
+    .config-card,
+    .config-actions-card,
+    .config-budget-box,
+    .config-budget-categories,
+    .config-budget-category-head,
+    .config-budget-category-row,
+    .config-budget-category-name,
+    .config-budget-rule,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .box-carrinho,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .proposta-config-tax-cell,
+    .proposta-config-matrix-row
+),
+body[data-theme="mtz-gold"] #appArea :is(
+    .card,
+    .panel-block,
+    .dash-section,
+    .module-topbar,
+    .table-responsive,
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .ui-state,
+    .ui-state-panel,
+    .finance-kpi,
+    .stat-card,
+    .dashboard-topbar,
+    .dashboard-topbar-meta,
+    .finance-strip,
+    .dash-chart-placeholder,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-config-panel,
+    .proposta-config-section,
+    .proposta-item-card,
+    .proposta-sticky-summary,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-summary-strip,
+    .proposta-summary-strip .summary-card,
+    .proposta-summary-strip .proposta-summary-action,
+    .proposta-category-summary,
+    .proposta-category-summary-head,
+    .proposta-category-chip,
+    .proposta-category-summary-empty,
+    .config-card,
+    .config-actions-card,
+    .config-budget-box,
+    .config-budget-categories,
+    .config-budget-category-head,
+    .config-budget-category-row,
+    .config-budget-category-name,
+    .config-budget-rule,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .box-carrinho,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .proposta-config-tax-cell,
+    .proposta-config-matrix-row
+) {
+    background: var(--app-theme-panel-bg) !important;
+    border-color: var(--app-theme-border-strong) !important;
+    color: var(--app-theme-text) !important;
+}
+
+body[data-theme="dark"] #appArea :is(
+    .module-topbar,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .proposta-summary-strip
+),
+body[data-theme="mtz-premium"] #appArea :is(
+    .module-topbar,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .proposta-summary-strip
+),
+body[data-theme="mtz-gold"] #appArea :is(
+    .module-topbar,
+    .cadastros-search-toolbar,
+    .estoque-search-toolbar,
+    .locacoes-search-toolbar,
+    .devolucoes-search-toolbar,
+    .auditoria-search-toolbar,
+    .search-input-shell,
+    .filters-row.filters-segmented,
+    .section-toolbar,
+    .section-toolbar-compact,
+    .proposta-summary-strip
+) {
+    background: var(--app-theme-panel-soft) !important;
+}
+
+body[data-theme="dark"] #appArea :is(.dashboard-topbar-meta, .finance-strip > *, .dash-chart-placeholder, .ui-state-panel, .proposta-category-summary-head, .config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row),
+body[data-theme="mtz-premium"] #appArea :is(.dashboard-topbar-meta, .finance-strip > *, .dash-chart-placeholder, .ui-state-panel, .proposta-category-summary-head, .config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row),
+body[data-theme="mtz-gold"] #appArea :is(.dashboard-topbar-meta, .finance-strip > *, .dash-chart-placeholder, .ui-state-panel, .proposta-category-summary-head, .config-budget-category-head, .config-budget-category-row, .proposta-config-matrix-row) {
+    background: var(--app-theme-panel-muted) !important;
+}
+
+body[data-theme="dark"] #appArea :is(input, select, textarea, .search-input, input[type="file"]),
+body[data-theme="mtz-premium"] #appArea :is(input, select, textarea, .search-input, input[type="file"]),
+body[data-theme="mtz-gold"] #appArea :is(input, select, textarea, .search-input, input[type="file"]) {
+    background: var(--app-theme-field-bg) !important;
+    border-color: var(--app-theme-border) !important;
+    color: var(--app-theme-text) !important;
+}
+
+body[data-theme="dark"] #appArea :is(input::placeholder, textarea::placeholder),
+body[data-theme="mtz-premium"] #appArea :is(input::placeholder, textarea::placeholder),
+body[data-theme="mtz-gold"] #appArea :is(input::placeholder, textarea::placeholder) {
+    color: color-mix(in srgb, var(--app-theme-text-soft) 84%, transparent) !important;
+}
+
+body[data-theme="dark"] #appArea :is(h1, h2, h3, h4, h5, h6, strong, label, th, .card-title, .section-title, .module-topbar h2, .proposta-section-title, .proposta-data-card-head h4, .config-budget-box h4, .dash-section-head h3, .proposta-category-summary-head strong, .proposta-category-chip strong),
+body[data-theme="mtz-premium"] #appArea :is(h1, h2, h3, h4, h5, h6, strong, label, th, .card-title, .section-title, .module-topbar h2, .proposta-section-title, .proposta-data-card-head h4, .config-budget-box h4, .dash-section-head h3, .proposta-category-summary-head strong, .proposta-category-chip strong),
+body[data-theme="mtz-gold"] #appArea :is(h1, h2, h3, h4, h5, h6, strong, label, th, .card-title, .section-title, .module-topbar h2, .proposta-section-title, .proposta-data-card-head h4, .config-budget-box h4, .dash-section-head h3, .proposta-category-summary-head strong, .proposta-category-chip strong) {
+    color: var(--app-theme-text) !important;
+}
+
+body[data-theme="dark"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .module-topbar p, .module-topbar small, .logo-subtitle, .proposta-section-subtitle, .proposta-data-card-head p, .dashboard-topbar p, .dashboard-topbar-meta small, .ui-state-panel p, .proposta-category-summary-head small, .proposta-category-chip small, .proposta-category-chip em),
+body[data-theme="mtz-premium"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .module-topbar p, .module-topbar small, .logo-subtitle, .proposta-section-subtitle, .proposta-data-card-head p, .dashboard-topbar p, .dashboard-topbar-meta small, .ui-state-panel p, .proposta-category-summary-head small, .proposta-category-chip small, .proposta-category-chip em),
+body[data-theme="mtz-gold"] #appArea :is(p, small, .muted, .field-hint, .table-cell-sub, .module-topbar p, .module-topbar small, .logo-subtitle, .proposta-section-subtitle, .proposta-data-card-head p, .dashboard-topbar p, .dashboard-topbar-meta small, .ui-state-panel p, .proposta-category-summary-head small, .proposta-category-chip small, .proposta-category-chip em) {
+    color: var(--app-theme-text-soft) !important;
+    text-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(.badge, .status-badge, .stock-pill, .module-count-badge, .propostas-hero-badge, .search-meta, .module-topbar-meta, .stat-tag, .module-topbar small.is-context, .proposta-category-chip),
+body[data-theme="mtz-premium"] #appArea :is(.badge, .status-badge, .stock-pill, .module-count-badge, .propostas-hero-badge, .search-meta, .module-topbar-meta, .stat-tag, .module-topbar small.is-context, .proposta-category-chip),
+body[data-theme="mtz-gold"] #appArea :is(.badge, .status-badge, .stock-pill, .module-count-badge, .propostas-hero-badge, .search-meta, .module-topbar-meta, .stat-tag, .module-topbar small.is-context, .proposta-category-chip) {
+    background: var(--app-theme-badge-bg) !important;
+    border-color: var(--app-theme-border-strong) !important;
+    color: var(--app-theme-badge-text) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme="dark"] #appArea :is(.search-meta.is-active, .search-meta.is-empty, .proposta-category-chip:not(.has-value)),
+body[data-theme="mtz-premium"] #appArea :is(.search-meta.is-active, .search-meta.is-empty, .proposta-category-chip:not(.has-value)),
+body[data-theme="mtz-gold"] #appArea :is(.search-meta.is-active, .search-meta.is-empty, .proposta-category-chip:not(.has-value)) {
+    background: color-mix(in srgb, var(--app-theme-panel-muted) 78%, transparent) !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table thead th, table thead th),
+body[data-theme="mtz-premium"] #appArea :is(.table thead th, table thead th),
+body[data-theme="mtz-gold"] #appArea :is(.table thead th, table thead th) {
+    background: color-mix(in srgb, var(--app-theme-panel-soft) 88%, #000000 12%) !important;
+    color: var(--app-theme-text-soft) !important;
+    border-color: var(--app-theme-border) !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table tbody td, table tbody td),
+body[data-theme="mtz-premium"] #appArea :is(.table tbody td, table tbody td),
+body[data-theme="mtz-gold"] #appArea :is(.table tbody td, table tbody td) {
+    background: var(--app-theme-panel-bg) !important;
+    color: var(--app-theme-text) !important;
+    border-color: color-mix(in srgb, var(--app-theme-border) 82%, transparent) !important;
+}
+
+body[data-theme="dark"] #appArea :is(.table tbody tr:nth-child(even) td, table tbody tr:nth-child(even) td),
+body[data-theme="mtz-premium"] #appArea :is(.table tbody tr:nth-child(even) td, table tbody tr:nth-child(even) td),
+body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, table tbody tr:nth-child(even) td) {
+    background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
+}
