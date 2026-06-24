@@ -18948,22 +18948,61 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
 #appArea > header .header-actions {
     min-height: 72px !important;
     align-items: center !important;
-    gap: 12px !important;
+    gap: 16px !important;
+    justify-content: flex-end !important;
 }
 
 #appArea > header #headerUser.header-user {
     min-width: 236px !important;
     width: 236px !important;
     max-width: 236px !important;
+    min-height: 52px !important;
+    padding-inline: 14px !important;
 }
 
 #appArea > header #syncBadge.sync-badge {
     min-width: 116px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-inline: 16px !important;
     justify-content: center !important;
 }
 
 #appArea > header :is(.header-user, .sync-badge, .header-controls .btn, .theme-menu-wrap > .btn, .header-notification-btn) {
     min-height: 52px !important;
+}
+
+#appArea > header .header-actions > * {
+    align-self: center !important;
+}
+
+#appArea > header .header-controls {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+#appArea > header .header-notification-btn {
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 999px !important;
+    padding: 0 !important;
+    flex: 0 0 52px !important;
+}
+
+#appArea > header .header-notification-btn i {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+}
+
+#appArea > header .header-notification-count {
+    top: -4px !important;
+    right: -2px !important;
 }
 
 #appArea .container > #appMainSidebar .app-sidebar-brand,
