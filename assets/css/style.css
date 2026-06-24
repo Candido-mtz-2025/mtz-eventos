@@ -18849,7 +18849,7 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
 @media (min-width: 1180px) {
     /* Normaliza a sidebar recolhida para que os botoes caibam inteiros em todos os temas. */
     #appArea.sidebar-collapsed {
-        --app-shell-sidebar-width: 112px;
+        --app-shell-sidebar-width: 96px;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container,
@@ -18857,8 +18857,8 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container,
     body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container {
         width: var(--app-shell-sidebar-width) !important;
-        padding: 20px 14px 24px !important;
-        overflow-x: hidden !important;
+        padding: 20px 10px 24px !important;
+        overflow: visible !important;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container .tabs.app-main-nav,
@@ -18879,8 +18879,10 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger,
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .tab-btn,
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-menu-trigger {
-        width: 100% !important;
-        max-width: 100% !important;
+        width: 56px !important;
+        min-width: 56px !important;
+        max-width: 56px !important;
+        height: 56px !important;
         min-height: 56px !important;
         justify-content: center !important;
         padding: 0 !important;
@@ -18888,6 +18890,7 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
         box-sizing: border-box !important;
         border-radius: 18px !important;
         font-size: 0 !important;
+        margin-inline: auto !important;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn > i:first-child,
@@ -18903,6 +18906,32 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-caret,
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-caret {
         display: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand {
+        grid-template-columns: 1fr !important;
+        justify-items: center !important;
+        gap: 10px !important;
+        padding: 8px 0 18px !important;
+    }
+
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand > div {
+        display: none !important;
+    }
+
+    #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand img {
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        max-width: 48px !important;
+        max-height: 48px !important;
+        margin: 0 auto !important;
+        place-self: center !important;
+    }
+
+    #appArea.sidebar-collapsed .container > #appMainSidebar .sidebar-collapse-toggle {
+        margin: 0 auto !important;
     }
 }
 
