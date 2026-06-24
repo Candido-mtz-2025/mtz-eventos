@@ -18929,6 +18929,9 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     min-height: 92px !important;
     align-items: center !important;
     gap: 18px !important;
+    box-sizing: border-box !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
 }
 
 #appArea > header .logo {
@@ -18947,9 +18950,13 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
 
 #appArea > header .header-actions {
     min-height: 72px !important;
+    height: 100% !important;
     align-items: center !important;
     gap: 16px !important;
     justify-content: flex-end !important;
+    box-sizing: border-box !important;
+    padding-block: 4px !important;
+    transform: translateY(-2px) !important;
 }
 
 #appArea > header #headerUser.header-user {
