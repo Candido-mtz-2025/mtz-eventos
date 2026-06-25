@@ -455,6 +455,32 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
     return locacaoMigrada;
 }
 
+function normalizarMovimentacaoEstoqueV12(movimentacaoOriginal, indice = 0) {
+    const movimentacao = clonarObjetoSeguro(movimentacaoOriginal);
+    const tipoPermitido = new Set(['reserva', 'separacao', 'saida', 'devolucao', 'avaria', 'perda', 'ajuste', 'entrada']);
+    const tipoMovimentacao = valorEmConjunto(movimentacao.tipoMovimentacao, tipoPermitido, 'ajuste');
+
+    return {
+        ...movimentacao,
+        id: movimentacao.id || `mov-${Date.now()}-${indice + 1}`,
+        chaveIdempotencia: textoSeguro(movimentacao.chaveIdempotencia, ''),
+        pecaId: textoSeguro(movimentacao.pecaId, ''),
+        pecaNome: textoSeguro(movimentacao.pecaNome, ''),
+        tipoMovimentacao,
+        quantidade: numeroNaoNegativo(movimentacao.quantidade, 0),
+        locacaoId: textoSeguro(movimentacao.locacaoId, ''),
+        locacaoRef: textoSeguro(movimentacao.locacaoRef, ''),
+        usuario: textoSeguro(movimentacao.usuario, ''),
+        dataHora: textoSeguro(movimentacao.dataHora, ''),
+        observacao: textoSeguro(movimentacao.observacao, ''),
+        valorEstimado: numeroNaoNegativo(movimentacao.valorEstimado, 0),
+        saldoAntes: Number.isFinite(Number(movimentacao.saldoAntes)) ? Number(movimentacao.saldoAntes) : null,
+        saldoDepois: Number.isFinite(Number(movimentacao.saldoDepois)) ? Number(movimentacao.saldoDepois) : null,
+        origemEvento: textoSeguro(movimentacao.origemEvento, ''),
+        statusProcessamento: textoSeguro(movimentacao.statusProcessamento, 'auditoria')
+    };
+}
+
 function migrarLocadorParaV12(locadorOriginal, contexto) {
     const locador = clonarObjetoSeguro(locadorOriginal);
     const migrado = {
@@ -813,6 +839,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         locacoes: clonarArraySeguro(dadosBase.locacoes).map((locacao) => migrarLocacaoParaV12(locacao, contexto)),
         propostas: clonarArraySeguro(dadosBase.propostas).map((proposta) => migrarPropostaParaV12(proposta, contexto)),
         devolucoes: clonarArraySeguro(dadosBase.devolucoes),
+        movimentacoesEstoque: clonarArraySeguro(dadosBase.movimentacoesEstoque).map((movimentacao, indice) => normalizarMovimentacaoEstoqueV12(movimentacao, indice)),
         transportes: clonarArraySeguro(dadosBase.transportes),
         tipos: clonarArraySeguro(dadosBase.tipos),
         modelosChecklist: clonarArraySeguro(dadosBase.modelosChecklist),
@@ -841,6 +868,10 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     }
 
     if (!('transportes' in dadosBase)) {
+        contexto.houveMudanca = true;
+    }
+
+    if (!('movimentacoesEstoque' in dadosBase)) {
         contexto.houveMudanca = true;
     }
 

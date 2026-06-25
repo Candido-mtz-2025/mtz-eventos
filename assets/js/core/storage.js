@@ -17,6 +17,7 @@ function gerarSnapshotDadosSistema() {
         locacoes: Array.isArray(locacoes) ? locacoes : [],
         propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
+        movimentacoesEstoque: Array.isArray(movimentacoesEstoque) ? movimentacoesEstoque : [],
         transportes: Array.isArray(transportes) ? transportes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
         usuarios: Array.isArray(usuarios) ? usuarios : [],
@@ -83,6 +84,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     locacoes = Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [];
     propostas = Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [];
     devolucoes = Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [];
+    movimentacoesEstoque = Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [];
     transportes = Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [];
     tipos = Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [];
     usuarios = Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [];
@@ -98,6 +100,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     checklistEtapasMontagem = Array.isArray(dadosNormalizados.checklistEtapasMontagem)
         ? dadosNormalizados.checklistEtapasMontagem
         : [];
+    window.movimentacoesEstoque = movimentacoesEstoque;
 
     if (resultadoMigracao?.houveMudanca) {
         registrarLogsMigracaoV12(resultadoMigracao.logs || [], {

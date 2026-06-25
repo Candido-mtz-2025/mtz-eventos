@@ -304,10 +304,94 @@
         };
     }
 
+    function normalizarMovimentacaoEstoque(movimentacaoOriginal = {}, indice = 0) {
+        const movimentacao = clonarObjetoSeguro(movimentacaoOriginal);
+        const tiposPermitidos = new Set(['reserva', 'separacao', 'saida', 'devolucao', 'avaria', 'perda', 'ajuste', 'entrada']);
+        const tipoMovimentacao = valorEmConjunto(movimentacao.tipoMovimentacao, tiposPermitidos, 'ajuste');
+        const quantidade = Math.max(0, numeroSeguro(movimentacao.quantidade, 0));
+        const valorEstimado = Math.max(0, numeroSeguro(movimentacao.valorEstimado, 0));
+
+        return {
+            ...movimentacao,
+            id: textoSeguro(movimentacao.id, `mov-${Date.now()}-${indice + 1}`),
+            chaveIdempotencia: textoSeguro(movimentacao.chaveIdempotencia, ''),
+            pecaId: textoSeguro(movimentacao.pecaId, ''),
+            pecaNome: textoSeguro(movimentacao.pecaNome, ''),
+            tipoMovimentacao,
+            quantidade,
+            locacaoId: textoSeguro(movimentacao.locacaoId, ''),
+            locacaoRef: textoSeguro(movimentacao.locacaoRef, ''),
+            usuario: textoSeguro(movimentacao.usuario, obterIdentidadeOperacaoDominio()),
+            dataHora: textoSeguro(movimentacao.dataHora, new Date().toISOString()),
+            observacao: textoSeguro(movimentacao.observacao, ''),
+            valorEstimado,
+            saldoAntes: Number.isFinite(Number(movimentacao.saldoAntes)) ? Number(movimentacao.saldoAntes) : null,
+            saldoDepois: Number.isFinite(Number(movimentacao.saldoDepois)) ? Number(movimentacao.saldoDepois) : null,
+            origemEvento: textoSeguro(movimentacao.origemEvento, ''),
+            statusProcessamento: textoSeguro(movimentacao.statusProcessamento, 'auditoria')
+        };
+    }
+
+    function gerarChaveMovimentacao(dados = {}) {
+        const partes = [
+            textoSeguro(dados.tipoMovimentacao, 'ajuste'),
+            textoSeguro(dados.pecaId, ''),
+            textoSeguro(dados.locacaoId, ''),
+            String(Math.max(0, Math.trunc(numeroSeguro(dados.quantidade, 0))))
+        ];
+
+        if (dados.origemEvento) partes.push(textoSeguro(dados.origemEvento, ''));
+        if (dados.observacao) partes.push(textoSeguro(dados.observacao, ''));
+
+        return partes.join('|').toLowerCase();
+    }
+
+    function movimentacaoJaRegistrada(chaveIdempotencia) {
+        const ledger = typeof movimentacoesEstoque !== 'undefined'
+            ? movimentacoesEstoque
+            : (window.movimentacoesEstoque = Array.isArray(window.movimentacoesEstoque) ? window.movimentacoesEstoque : []);
+
+        if (!chaveIdempotencia || !Array.isArray(ledger)) return false;
+        return ledger.some((movimentacao) => String(movimentacao?.chaveIdempotencia || '') === String(chaveIdempotencia));
+    }
+
+    function registrarMovimentacaoEstoque(dados = {}) {
+        const ledger = typeof movimentacoesEstoque !== 'undefined'
+            ? movimentacoesEstoque
+            : (window.movimentacoesEstoque = Array.isArray(window.movimentacoesEstoque) ? window.movimentacoesEstoque : []);
+
+        const base = {
+            ...dados,
+            tipoMovimentacao: textoSeguro(dados.tipoMovimentacao, 'ajuste').trim().toLowerCase(),
+            dataHora: dados.dataHora || new Date().toISOString(),
+            usuario: textoSeguro(dados.usuario, obterIdentidadeOperacaoDominio())
+        };
+
+        const normalizada = normalizarMovimentacaoEstoque(base, ledger.length);
+        normalizada.chaveIdempotencia = normalizada.chaveIdempotencia || gerarChaveMovimentacao(normalizada);
+
+        if (movimentacaoJaRegistrada(normalizada.chaveIdempotencia)) {
+            return ledger.find((movimentacao) => String(movimentacao?.chaveIdempotencia || '') === normalizada.chaveIdempotencia) || null;
+        }
+
+        ledger.unshift(normalizada);
+        if (ledger.length > 5000) {
+            ledger.length = 5000;
+        }
+
+        window.movimentacoesEstoque = ledger;
+
+        return normalizada;
+    }
+
     window.calcularValorLocacaoDominio = calcularValorLocacaoDominio;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;
+    window.normalizarMovimentacaoEstoque = normalizarMovimentacaoEstoque;
+    window.gerarChaveMovimentacao = gerarChaveMovimentacao;
+    window.movimentacaoJaRegistrada = movimentacaoJaRegistrada;
+    window.registrarMovimentacaoEstoque = registrarMovimentacaoEstoque;
     window.registrarHistoricoLocacaoDominio = registrarHistoricoLocacaoDominio;
     window.atualizarStatusLocacaoDominio = atualizarStatusLocacaoDominio;
 })();
