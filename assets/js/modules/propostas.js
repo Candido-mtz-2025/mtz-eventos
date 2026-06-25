@@ -3725,6 +3725,27 @@
 
         if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
+        if (typeof registrarMovimentacaoEstoque === 'function') {
+            const propostaIdMov = String(proposta.id || proposta.codigo || '');
+            itensLocacao.forEach((item) => {
+                const quantidadeMov = Math.max(0, Math.trunc(numeroNaoNegativo(item.quantidade, 0)));
+                const pecaIdMov = String(item.pecaId || '');
+                if (!pecaIdMov || quantidadeMov <= 0) return;
+
+                registrarMovimentacaoEstoque({
+                    id: `mov-${novaLocacaoId}-${propostaIdMov}-${pecaIdMov}-reserva`,
+                    chaveIdempotencia: `reserva|proposta:${propostaIdMov}|locacao:${novaLocacaoId}|peca:${pecaIdMov}|q:${quantidadeMov}`,
+                    tipoMovimentacao: 'reserva',
+                    quantidade: quantidadeMov,
+                    pecaId: pecaIdMov,
+                    pecaNome: item.nome,
+                    locacaoId: String(novaLocacaoId),
+                    locacaoRef: String(proposta.codigo || ''),
+                    origemEvento: `proposta:${propostaIdMov}`,
+                    observacao: `Reserva gerada na conversao da proposta ${proposta.codigo || propostaIdMov}.`
+                });
+            });
+        }
         const deveCriarTransporte = typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento);
         if (deveCriarTransporte) {
             const criarRetiradaAutomatica = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);

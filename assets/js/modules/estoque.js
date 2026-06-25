@@ -214,6 +214,20 @@ function salvarPeca() {
         : novaPecaBase;
     pecas.push(novaPeca);
 
+    if (typeof registrarMovimentacaoEstoque === 'function') {
+        const quantidadeMov = Math.max(0, Math.trunc(quantidade));
+        registrarMovimentacaoEstoque({
+            id: `mov-${novoId}-entrada-cadastro`,
+            chaveIdempotencia: `entrada|origem:cadastro|peca:${String(novaPeca.id)}|codigo:${normalizarIdentificadorEstoque(novaPeca.codigo || codigo)}|q:${quantidadeMov}`,
+            tipoMovimentacao: 'entrada',
+            quantidade: quantidadeMov,
+            pecaId: String(novaPeca.id),
+            pecaNome: novaPeca.nome,
+            origemEvento: 'cadastro_estoque',
+            observacao: `Cadastro manual do item ${novaPeca.codigo || codigo || String(novaPeca.id)}.`
+        });
+    }
+
     limparFormularioCadastroPeca();
     salvarLocal();
     renderTudo();
@@ -328,6 +342,20 @@ function salvarEdicaoPeca() {
 
     if (typeof normalizarPecaDominio === 'function') {
         Object.assign(p, normalizarPecaDominio(p));
+    }
+
+    if (diff !== 0 && typeof registrarMovimentacaoEstoque === 'function') {
+        const quantidadeMov = Math.abs(Math.trunc(diff));
+        registrarMovimentacaoEstoque({
+            id: `mov-${p.id}-ajuste-${qtdAnterior}-${novaQtd}`,
+            chaveIdempotencia: `ajuste|origem:manual|peca:${String(p.id)}|codigo:${normalizarIdentificadorEstoque(p.codigo || novoCodigo)}|de:${qtdAnterior}|para:${novaQtd}`,
+            tipoMovimentacao: 'ajuste',
+            quantidade: quantidadeMov,
+            pecaId: String(p.id),
+            pecaNome: p.nome,
+            origemEvento: 'ajuste_manual_estoque',
+            observacao: `Ajuste manual de quantidade: ${qtdAnterior} -> ${novaQtd}.`
+        });
     }
 
     document.getElementById('modalEditarPeca').classList.remove('active');

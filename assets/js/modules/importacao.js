@@ -192,6 +192,19 @@ function processarExcelInteligente(input) {
                 ? normalizarPecaDominio(pecaImportadaBase)
                 : pecaImportadaBase;
             pecas.push(pecaImportada);
+            if (typeof registrarMovimentacaoEstoque === 'function') {
+                const quantidadeMov = Math.max(0, Math.trunc(qtd));
+                registrarMovimentacaoEstoque({
+                    id: `mov-${novoId}-entrada-importacao`,
+                    chaveIdempotencia: `entrada|origem:importacao|peca:${String(pecaImportada.id)}|codigo:${normalizarIdentificadorEstoque(pecaImportada.codigo || `IMP-${String(novoId).slice(-6)}`)}|q:${quantidadeMov}`,
+                    tipoMovimentacao: 'entrada',
+                    quantidade: quantidadeMov,
+                    pecaId: String(pecaImportada.id),
+                    pecaNome: pecaImportada.nome,
+                    origemEvento: 'importacao_planilha',
+                    observacao: `Item importado da planilha (${pecaImportada.codigo || `IMP-${String(novoId).slice(-6)}`}).`
+                });
+            }
             stats.importados++;
         }
     }

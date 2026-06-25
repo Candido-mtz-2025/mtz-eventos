@@ -334,12 +334,49 @@ function confirmarDevolucao() {
         obs: devolucaoTotal ? 'Total' : 'Parcial',
         itens: itensDevolvidos
     };
+    const assinaturaConfirmacaoDevolucao = normalizarAssinaturaItensDevolucao(itensDevolvidos);
+    const identificadorConfirmacaoDevolucao = `dev-${String(l.id || '')}-${String(dataDevolucao || '')}-${assinaturaConfirmacaoDevolucao}`;
 
     const concluirRegistroDevolucao = () => {
         pendencias.forEach((registro) => {
             const { item, qtdDevolvida } = registro;
             item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
         });
+
+        if (typeof registrarMovimentacaoEstoque === 'function') {
+            pendencias.forEach((registro) => {
+                const { item, qtdDevolvida, qtdAvaria, obs } = registro;
+                const pecaIdMov = String(item.pecaId || '');
+
+                if (qtdDevolvida > 0) {
+                    registrarMovimentacaoEstoque({
+                        id: `mov-${l.id}-${item.pecaId}-devolucao-${dataDevolucao}`,
+                        chaveIdempotencia: `devolucao|conf:${identificadorConfirmacaoDevolucao}|locacao:${String(l.id)}|peca:${pecaIdMov}|q:${qtdDevolvida}`,
+                        tipoMovimentacao: 'devolucao',
+                        quantidade: Math.max(0, Math.trunc(qtdDevolvida)),
+                        pecaId: pecaIdMov,
+                        pecaNome: item.nome,
+                        locacaoId: String(l.id),
+                        origemEvento: identificadorConfirmacaoDevolucao,
+                        observacao: obs ? `Devolução: ${obs}` : `Devolução registrada em ${dataDevolucao}.`
+                    });
+                }
+
+                if (qtdAvaria > 0) {
+                    registrarMovimentacaoEstoque({
+                        id: `mov-${l.id}-${item.pecaId}-avaria-${dataDevolucao}`,
+                        chaveIdempotencia: `avaria|conf:${identificadorConfirmacaoDevolucao}|locacao:${String(l.id)}|peca:${pecaIdMov}|q:${qtdAvaria}`,
+                        tipoMovimentacao: 'avaria',
+                        quantidade: Math.max(0, Math.trunc(qtdAvaria)),
+                        pecaId: pecaIdMov,
+                        pecaNome: item.nome,
+                        locacaoId: String(l.id),
+                        origemEvento: identificadorConfirmacaoDevolucao,
+                        observacao: obs ? `Avaria: ${obs}` : `Avaria registrada em ${dataDevolucao}.`
+                    });
+                }
+            });
+        }
 
         l.status = devolucaoTotal ? 'devolvido' : 'ativo';
         if (devolucaoTotal && typeof atualizarStatusLocacaoDominio === 'function') {
