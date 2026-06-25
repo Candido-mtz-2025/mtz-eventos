@@ -19113,11 +19113,11 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
 }
 
 #appArea > header #headerUser.header-user {
-    width: 340px !important;
-    min-width: 340px !important;
-    max-width: 340px !important;
-    padding-inline: 12px 132px !important;
-    margin-right: -120px !important;
+    width: 356px !important;
+    min-width: 356px !important;
+    max-width: 356px !important;
+    padding-inline: 12px 148px !important;
+    margin-right: -128px !important;
     border-color: rgba(203, 213, 225, 0.88) !important;
     background: rgba(255, 255, 255, 0.98) !important;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
@@ -19131,6 +19131,7 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
     height: 40px !important;
     min-height: 40px !important;
     margin-left: 0 !important;
+    margin-right: 14px !important;
     border-radius: 14px !important;
     box-shadow: 0 10px 24px rgba(22, 163, 74, 0.10) !important;
 }
@@ -19151,16 +19152,17 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
 
 @media (max-width: 820px) {
     #appArea > header #headerUser.header-user {
-        width: 300px !important;
-        min-width: 300px !important;
-        max-width: 300px !important;
-        padding-inline: 10px 118px !important;
-        margin-right: -112px !important;
+        width: 312px !important;
+        min-width: 312px !important;
+        max-width: 312px !important;
+        padding-inline: 10px 130px !important;
+        margin-right: -118px !important;
     }
 
     #appArea > header #syncBadge.sync-badge {
         min-width: 112px !important;
         max-width: 112px !important;
+        margin-right: 10px !important;
     }
 }
 
