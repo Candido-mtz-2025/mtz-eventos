@@ -18849,7 +18849,7 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
 @media (min-width: 1180px) {
     /* Normaliza a sidebar recolhida para que os botoes caibam inteiros em todos os temas. */
     #appArea.sidebar-collapsed {
-        --app-shell-sidebar-width: 96px;
+        --app-shell-sidebar-width: 112px;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container,
@@ -18857,14 +18857,15 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     body[data-theme="mtz-premium"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container,
     body[data-theme="mtz-gold"] #appArea.sidebar-collapsed .container > #appMainSidebar.tabs-container {
         width: var(--app-shell-sidebar-width) !important;
-        padding: 20px 10px 24px !important;
+        padding: 18px 14px 24px !important;
         overflow: visible !important;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container .tabs.app-main-nav,
     #appArea.sidebar-collapsed .container > #appMainSidebar .tabs.app-main-nav {
         align-items: center !important;
-        gap: 10px !important;
+        justify-items: center !important;
+        gap: 12px !important;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav > .tab-btn,
@@ -18873,22 +18874,24 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav > .nav-menu-group {
         width: 100% !important;
         max-width: 100% !important;
+        display: grid !important;
+        justify-items: center !important;
     }
 
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .tab-btn,
     #appArea.sidebar-collapsed .container > .tabs-container .app-main-nav .nav-menu-trigger,
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .tab-btn,
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-main-nav .nav-menu-trigger {
-        width: 56px !important;
-        min-width: 56px !important;
-        max-width: 56px !important;
-        height: 56px !important;
-        min-height: 56px !important;
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+        height: 60px !important;
+        min-height: 60px !important;
         justify-content: center !important;
         padding: 0 !important;
         overflow: hidden !important;
         box-sizing: border-box !important;
-        border-radius: 18px !important;
+        border-radius: 20px !important;
         font-size: 0 !important;
         margin-inline: auto !important;
     }
@@ -18911,8 +18914,8 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand {
         grid-template-columns: 1fr !important;
         justify-items: center !important;
-        gap: 10px !important;
-        padding: 8px 0 18px !important;
+        gap: 12px !important;
+        padding: 8px 6px 18px !important;
     }
 
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand > div {
@@ -18932,6 +18935,7 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
 
     #appArea.sidebar-collapsed .container > #appMainSidebar .sidebar-collapse-toggle {
         margin: 0 auto !important;
+        place-self: center !important;
     }
 }
 
