@@ -18913,7 +18913,9 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
 
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand {
         grid-template-columns: 1fr !important;
+        grid-auto-rows: auto !important;
         justify-items: center !important;
+        align-content: start !important;
         gap: 12px !important;
         padding: 8px 6px 18px !important;
     }
@@ -18923,6 +18925,8 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     }
 
     #appArea.sidebar-collapsed .container > #appMainSidebar .app-sidebar-brand img {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
         width: 48px !important;
         height: 48px !important;
         min-width: 48px !important;
@@ -18934,8 +18938,11 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     }
 
     #appArea.sidebar-collapsed .container > #appMainSidebar .sidebar-collapse-toggle {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
         margin: 0 auto !important;
         place-self: center !important;
+        align-self: start !important;
     }
 }
 
