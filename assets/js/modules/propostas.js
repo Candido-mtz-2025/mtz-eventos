@@ -4727,15 +4727,8 @@
 
         if (campoDias) {
             campoDias.addEventListener('input', () => {
-                const acao = () => {
-                    sincronizarValidadePorDias();
-                    recalcularResumoProposta();
-                };
-                if (typeof executarMantendoScroll === 'function') {
-                    executarMantendoScroll(acao, campoDias);
-                } else {
-                    acao();
-                }
+                sincronizarValidadePorDias();
+                recalcularResumoProposta();
             });
         }
         if (campoData) {
@@ -4757,15 +4750,8 @@
         document.addEventListener('input', (event) => {
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
-            const acao = () => {
-                campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
-                recalcularResumoProposta();
-            };
-            if (typeof executarMantendoScroll === 'function') {
-                executarMantendoScroll(acao, campoMoeda);
-            } else {
-                acao();
-            }
+            campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
+            recalcularResumoProposta();
         });
 
         document.addEventListener('focusout', (event) => {

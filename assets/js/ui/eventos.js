@@ -65,45 +65,9 @@ function obterSelecaoCampoEditavel(elemento) {
 }
 
 function preservarRolagemDuranteDigitacao(elemento, acao) {
-    if (!usuarioDigitandoEmCampo(elemento)) {
-        acao();
-        return;
-    }
-
-    if (typeof executarMantendoScroll === 'function') {
-        executarMantendoScroll(acao, elemento);
-        return;
-    }
-
-    const posicaoX = window.scrollX;
-    const posicaoY = window.scrollY;
-    const idAtivo = elemento.id || '';
-    const selecao = obterSelecaoCampoEditavel(elemento);
-
-    acao();
-
-    const restaurar = () => {
-        const campoAtual = idAtivo ? document.getElementById(idAtivo) : elemento;
-        if (campoAtual instanceof HTMLElement && document.activeElement !== campoAtual) {
-            campoAtual.focus({ preventScroll: true });
-        }
-        if (
-            (campoAtual instanceof HTMLInputElement || campoAtual instanceof HTMLTextAreaElement)
-            && selecao.inicio !== null
-            && selecao.fim !== null
-            && typeof campoAtual.setSelectionRange === 'function'
-        ) {
-            try {
-                campoAtual.setSelectionRange(selecao.inicio, selecao.fim);
-            } catch (_) {}
-        }
-        window.scrollTo(posicaoX, posicaoY);
-    };
-
-    window.requestAnimationFrame(restaurar);
-    setTimeout(restaurar, 80);
-    setTimeout(restaurar, 180);
-    setTimeout(restaurar, 320);
+    // Durante digitacao, a tela nao deve tentar corrigir foco ou rolagem.
+    // A rolagem fica manual para evitar tremor e saltos no formulario.
+    if (typeof acao === 'function') acao();
 }
 
 const ATRIBUTOS_GATILHO_AUDITORIA = Object.freeze([

@@ -1,41 +1,27 @@
 // Render central e inicialização da aplicação
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
-    const campoAtivo = document.activeElement;
-    const preservaPosicao = typeof usuarioDigitandoEmCampo === 'function'
-        && usuarioDigitandoEmCampo(campoAtivo)
-        && typeof executarMantendoScroll === 'function';
-
-    const executarRender = () => {
-        if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade();
-        if(typeof renderLocacoes === 'function') renderLocacoes();
-        if(typeof renderPropostas === 'function') renderPropostas();
-        if(typeof renderLocadores === 'function') renderLocadores();
-        if(typeof renderEstoque === 'function') renderEstoque();
-        if(typeof renderOrcamentos === 'function') renderOrcamentos();
-        if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
-        if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
-        if(typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
-        if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
-        if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
-        if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
-        if(typeof renderDevolucoes === 'function') renderDevolucoes();
-        if(typeof renderTipos === 'function') renderTipos();
-        if(typeof renderStats === 'function') renderStats();
-        if(typeof updateSelects === 'function') updateSelects();
-        if(typeof renderLogs === 'function') renderLogs();
-        if(typeof renderConfig === 'function') renderConfig();
-        if(typeof atualizarFluxoLocacao === 'function') atualizarFluxoLocacao();
-        if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
-        revalidarAcoesDaInterface();
-    };
-
-    if (preservaPosicao) {
-        executarMantendoScroll(executarRender, campoAtivo);
-        return;
-    }
-
-    executarRender();
+    if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade();
+    if(typeof renderLocacoes === 'function') renderLocacoes();
+    if(typeof renderPropostas === 'function') renderPropostas();
+    if(typeof renderLocadores === 'function') renderLocadores();
+    if(typeof renderEstoque === 'function') renderEstoque();
+    if(typeof renderOrcamentos === 'function') renderOrcamentos();
+    if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+    if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
+    if(typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
+    if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
+    if(typeof popularChecklistModeloSelect === 'function') popularChecklistModeloSelect();
+    if(typeof renderChecklistMontagem === 'function') renderChecklistMontagem();
+    if(typeof renderDevolucoes === 'function') renderDevolucoes();
+    if(typeof renderTipos === 'function') renderTipos();
+    if(typeof renderStats === 'function') renderStats();
+    if(typeof updateSelects === 'function') updateSelects();
+    if(typeof renderLogs === 'function') renderLogs();
+    if(typeof renderConfig === 'function') renderConfig();
+    if(typeof atualizarFluxoLocacao === 'function') atualizarFluxoLocacao();
+    if(typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
+    revalidarAcoesDaInterface();
 }
 
 const TAB_TOPBAR_CONFIG = {

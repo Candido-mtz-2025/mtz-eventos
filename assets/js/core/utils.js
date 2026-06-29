@@ -168,57 +168,57 @@ const buscarComDebounce = debounce(function(tipo) {
     const alvo = String(tipo || '').toLowerCase();
 
     if (alvo === 'locadores' && typeof renderLocadores === 'function') {
-        executarMantendoScroll(renderLocadores);
+        renderLocadores();
         return;
     }
 
     if (alvo === 'estoque' && typeof renderEstoque === 'function') {
-        executarMantendoScroll(renderEstoque);
+        renderEstoque();
         return;
     }
 
     if (alvo === 'devolucoes' && typeof renderDevolucoes === 'function') {
-        executarMantendoScroll(renderDevolucoes);
+        renderDevolucoes();
         return;
     }
 
     if (alvo === 'locacoes' && typeof renderLocacoes === 'function') {
-        executarMantendoScroll(renderLocacoes);
+        renderLocacoes();
         return;
     }
 
     if (alvo === 'propostas' && typeof renderPropostas === 'function') {
-        executarMantendoScroll(renderPropostas);
+        renderPropostas();
         return;
     }
 
     if (alvo === 'orcamentos' && typeof renderOrcamentos === 'function') {
-        executarMantendoScroll(renderOrcamentos);
+        renderOrcamentos();
         return;
     }
 
     if (alvo === 'financeiro' && typeof renderFinanceiroResumo === 'function') {
-        executarMantendoScroll(renderFinanceiroResumo);
+        renderFinanceiroResumo();
         return;
     }
 
     if (alvo === 'agenda' && typeof renderAgendaOperacional === 'function') {
-        executarMantendoScroll(renderAgendaOperacional);
+        renderAgendaOperacional();
         return;
     }
 
     if (alvo === 'transporte' && typeof renderTransporteOperacional === 'function') {
-        executarMantendoScroll(renderTransporteOperacional);
+        renderTransporteOperacional();
         return;
     }
 
     if (alvo === 'tipos' && typeof renderTipos === 'function') {
-        executarMantendoScroll(renderTipos);
+        renderTipos();
         return;
     }
 
     if (alvo === 'auditoria' && typeof renderLogs === 'function') {
-        executarMantendoScroll(() => renderLogs(window.filtroLogAtual || 'todos'));
+        renderLogs(window.filtroLogAtual || 'todos');
     }
 }, 280);
 
