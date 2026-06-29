@@ -44,6 +44,61 @@ const ACTIONS_ALIAS = Object.freeze({
     removerSelecionadosEstoque: 'excluirSelecionadosEstoque'
 });
 
+function usuarioDigitandoEmCampo(elemento) {
+    if (!(elemento instanceof HTMLElement)) return false;
+    const tag = elemento.tagName?.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || elemento.isContentEditable;
+}
+
+function obterSelecaoCampoEditavel(elemento) {
+    try {
+        if (!(elemento instanceof HTMLInputElement || elemento instanceof HTMLTextAreaElement)) {
+            return { inicio: null, fim: null };
+        }
+        if (typeof elemento.selectionStart !== 'number' || typeof elemento.selectionEnd !== 'number') {
+            return { inicio: null, fim: null };
+        }
+        return { inicio: elemento.selectionStart, fim: elemento.selectionEnd };
+    } catch (_) {
+        return { inicio: null, fim: null };
+    }
+}
+
+function preservarRolagemDuranteDigitacao(elemento, acao) {
+    if (!usuarioDigitandoEmCampo(elemento)) {
+        acao();
+        return;
+    }
+
+    const posicaoX = window.scrollX;
+    const posicaoY = window.scrollY;
+    const idAtivo = elemento.id || '';
+    const selecao = obterSelecaoCampoEditavel(elemento);
+
+    acao();
+
+    const restaurar = () => {
+        const campoAtual = idAtivo ? document.getElementById(idAtivo) : elemento;
+        if (campoAtual instanceof HTMLElement && document.activeElement !== campoAtual) {
+            campoAtual.focus({ preventScroll: true });
+        }
+        if (
+            (campoAtual instanceof HTMLInputElement || campoAtual instanceof HTMLTextAreaElement)
+            && selecao.inicio !== null
+            && selecao.fim !== null
+            && typeof campoAtual.setSelectionRange === 'function'
+        ) {
+            try {
+                campoAtual.setSelectionRange(selecao.inicio, selecao.fim);
+            } catch (_) {}
+        }
+        window.scrollTo(posicaoX, posicaoY);
+    };
+
+    window.requestAnimationFrame(restaurar);
+    setTimeout(restaurar, 80);
+}
+
 const ATRIBUTOS_GATILHO_AUDITORIA = Object.freeze([
     'data-change',
     'data-input',
@@ -374,7 +429,9 @@ document.addEventListener('change', function (event) {
 document.addEventListener('input', function (event) {
     const inputEl = event.target.closest('[data-input]');
     if (!inputEl || inputEl !== event.target) return;
-    runDataAction(inputEl.dataset.input, inputEl, event);
+    preservarRolagemDuranteDigitacao(inputEl, () => {
+        runDataAction(inputEl.dataset.input, inputEl, event);
+    });
 });
 
 document.addEventListener('keyup', function (event) {
