@@ -717,8 +717,18 @@ function obterAlvoInicialDaTab(tabId) {
     return alvoPrioritario || tab;
 }
 
+function usuarioEditandoCampo() {
+    const alvo = document.activeElement;
+    if (!(alvo instanceof HTMLElement)) return false;
+
+    const tag = alvo.tagName?.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable;
+}
+
 function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
+    if (opcoes?.bloquearDuranteEdicao && usuarioEditandoCampo()) return false;
+
     const rect = elemento.getBoundingClientRect();
     const topoDocumento = window.pageYOffset + rect.top;
     const offsetCabecalho = obterOffsetCabecalhoApp();
@@ -751,6 +761,7 @@ function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     // pixels encoberto após o smooth scroll, então corrigimos em duas passadas curtas.
     if (block === 'start' && elemento instanceof HTMLElement) {
         const corrigirPosicao = () => {
+            if (opcoes?.bloquearDuranteEdicao && usuarioEditandoCampo()) return;
             const retAjuste = elemento.getBoundingClientRect();
             const margemTopo = obterOffsetCabecalhoApp() + 8;
             const deltaTopo = retAjuste.top - margemTopo;
@@ -3141,13 +3152,14 @@ document.addEventListener('keydown', (event) => {
         revalidarAcoesDaInterface(id);
         setTimeout(() => sincronizarEstadoVisualDaAba(id), 20);
 
-        if (opcoes.semRolagem) return;
+        if (opcoes.semRolagem || usuarioEditandoCampo()) return;
 
         setTimeout(() => {
+            if (usuarioEditandoCampo()) return;
             const alvo = opcoes.seletorAlvo
                 ? document.querySelector(opcoes.seletorAlvo)
                 : obterAlvoInicialDaTab(id);
-            if (alvo) rolarParaElementoAtalho(alvo, 'start', { forcar: true });
+            if (alvo) rolarParaElementoAtalho(alvo, 'start', { forcar: true, bloquearDuranteEdicao: true });
         }, Number(opcoes.delayMs) || 80);
     }
     
