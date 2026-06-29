@@ -89,15 +89,21 @@ function restaurarEstadoCampoAtivo(estadoCampo) {
 
     if (!(campo instanceof HTMLElement) || !document.contains(campo)) return;
 
+    let focoRecuperado = false;
+
     try {
         if (document.activeElement !== campo) {
             campo.focus({ preventScroll: true });
+            focoRecuperado = true;
         }
     } catch (_) {
         try {
             campo.focus();
+            focoRecuperado = true;
         } catch (__) {}
     }
+
+    if (!focoRecuperado) return;
 
     if (
         (campo instanceof HTMLInputElement || campo instanceof HTMLTextAreaElement)
@@ -117,15 +123,21 @@ function restaurarEstadoRolagem(estadoRolagem) {
     estadoRolagem.elementos.forEach(({ elemento, top, left }) => {
         if (!(elemento instanceof Element)) return;
         if (elemento !== document.documentElement && elemento !== document.body && !document.contains(elemento)) return;
-        elemento.scrollTop = top;
-        elemento.scrollLeft = left;
+        if (Math.abs((elemento.scrollTop || 0) - top) > 1) elemento.scrollTop = top;
+        if (Math.abs((elemento.scrollLeft || 0) - left) > 1) elemento.scrollLeft = left;
     });
 
-    window.scrollTo({
-        top: estadoRolagem.janela.y,
-        left: estadoRolagem.janela.x,
-        behavior: 'auto'
-    });
+    const deslocouJanela =
+        Math.abs((window.scrollY || window.pageYOffset || 0) - estadoRolagem.janela.y) > 1 ||
+        Math.abs((window.scrollX || window.pageXOffset || 0) - estadoRolagem.janela.x) > 1;
+
+    if (deslocouJanela) {
+        window.scrollTo({
+            top: estadoRolagem.janela.y,
+            left: estadoRolagem.janela.x,
+            behavior: 'auto'
+        });
+    }
 }
 
 let sequenciaExecucaoMantendoScroll = 0;
