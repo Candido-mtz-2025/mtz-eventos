@@ -7,8 +7,10 @@ function debounce(func, delay) {
     };
 }
 
-function capturarEstadoCampoAtivo() {
-    const elemento = document.activeElement;
+function capturarEstadoCampoAtivo(elementoPreferido = null) {
+    const elemento = elementoPreferido instanceof HTMLElement
+        ? elementoPreferido
+        : document.activeElement;
     if (!(elemento instanceof HTMLElement)) return null;
 
     const tag = elemento.tagName?.toLowerCase();
@@ -126,9 +128,9 @@ function restaurarEstadoRolagem(estadoRolagem) {
     });
 }
 
-function executarMantendoScroll(callback) {
+function executarMantendoScroll(callback, elementoPreferido = null) {
     const estadoRolagem = capturarEstadoRolagem();
-    const estadoCampo = capturarEstadoCampoAtivo();
+    const estadoCampo = capturarEstadoCampoAtivo(elementoPreferido);
 
     try {
         if (typeof callback === 'function') callback();
@@ -142,6 +144,7 @@ function executarMantendoScroll(callback) {
         setTimeout(restaurar, 40);
         setTimeout(restaurar, 140);
         setTimeout(restaurar, 320);
+        setTimeout(restaurar, 700);
     }
 }
 

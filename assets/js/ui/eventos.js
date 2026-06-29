@@ -71,7 +71,7 @@ function preservarRolagemDuranteDigitacao(elemento, acao) {
     }
 
     if (typeof executarMantendoScroll === 'function') {
-        executarMantendoScroll(acao);
+        executarMantendoScroll(acao, elemento);
         return;
     }
 
@@ -156,6 +156,14 @@ const ROTULOS_ACAO_BUSY = Object.freeze({
     exportarLogsCSV: 'Exportando...',
     baixarBackup: 'Baixando...'
 });
+
+document.addEventListener('input', function (event) {
+    const alvo = event.target;
+    if (!usuarioDigitandoEmCampo(alvo)) return;
+    if (typeof executarMantendoScroll === 'function') {
+        executarMantendoScroll(null, alvo);
+    }
+}, true);
 
 function acaoTemBloqueioCurto(actionName) {
     return ACTIONS_COM_BLOQUEIO_CURTO.has(String(actionName || '').trim());

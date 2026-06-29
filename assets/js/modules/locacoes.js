@@ -548,7 +548,15 @@ function inicializarFluxoLocacao() {
             const campo = document.getElementById(id);
             if (!campo) return;
             campo.addEventListener('change', atualizarFluxoLocacao);
-            if (id === 'aluguelDivisor') campo.addEventListener('input', atualizarFluxoLocacao);
+            if (id === 'aluguelDivisor') {
+                campo.addEventListener('input', () => {
+                    if (typeof executarMantendoScroll === 'function') {
+                        executarMantendoScroll(atualizarFluxoLocacao, campo);
+                    } else {
+                        atualizarFluxoLocacao();
+                    }
+                });
+            }
         });
         fluxoLocacaoInicializado = true;
     }
