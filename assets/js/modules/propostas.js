@@ -71,11 +71,20 @@
     let categoriasOrcamentoTemporarias = null;
     let mostrarCategoriasVaziasProposta = false;
     let ultimoAvisoPercentualInvalido = 0;
+    let resumoCategoriasPropostaTimer = null;
     const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
         return String(valor).trim();
+    }
+
+    function usuarioEditandoProposta() {
+        const alvo = document.activeElement;
+        if (!(alvo instanceof HTMLElement)) return false;
+        if (!alvo.closest('#tab-propostas')) return false;
+        const tag = alvo.tagName?.toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable;
     }
 
     function converterTextoMoedaParaNumero(valor, fallback = 0) {
@@ -823,6 +832,18 @@
                 </div>
             `}
         `;
+    }
+
+    function atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens = []) {
+        if (!usuarioEditandoProposta()) {
+            renderizarResumoCategoriasProposta(itens);
+            return;
+        }
+
+        clearTimeout(resumoCategoriasPropostaTimer);
+        resumoCategoriasPropostaTimer = setTimeout(() => {
+            renderizarResumoCategoriasProposta(itens);
+        }, 500);
     }
 
     function valorNumeroConfigOrcamento(id, fallback = 0, max = Infinity) {
@@ -1670,7 +1691,10 @@
         if (freteEl) {
             freteEl.readOnly = resultado.calculoAtivo;
             if (resultado.calculoAtivo) {
-                freteEl.value = valorInputMonetario(resultado.freteCalculado);
+                const valorCalculado = valorInputMonetario(resultado.freteCalculado);
+                if (freteEl.value !== valorCalculado) {
+                    freteEl.value = valorCalculado;
+                }
                 freteEl.title = 'Frete calculado automaticamente por distância x valor por km.';
             } else {
                 freteEl.removeAttribute('title');
@@ -2434,7 +2458,7 @@
         const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
         const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
         const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
-        renderizarResumoCategoriasProposta(itens);
+        atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens);
         const custos = obterCustosFormulario();
         const controleInterno = obterControleInternoFormulario();
         const desconto = parseNumeroInput('propDesconto');

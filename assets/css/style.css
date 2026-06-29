@@ -18864,6 +18864,13 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
 
+html,
+body,
+#appArea,
+#appArea * {
+    overflow-anchor: none;
+}
+
 @media (min-width: 1180px) {
     /* Normaliza a sidebar recolhida para que os botoes caibam inteiros em todos os temas. */
     #appArea.sidebar-collapsed {
