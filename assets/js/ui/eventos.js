@@ -70,6 +70,11 @@ function preservarRolagemDuranteDigitacao(elemento, acao) {
         return;
     }
 
+    if (typeof executarMantendoScroll === 'function') {
+        executarMantendoScroll(acao);
+        return;
+    }
+
     const posicaoX = window.scrollX;
     const posicaoY = window.scrollY;
     const idAtivo = elemento.id || '';
@@ -97,6 +102,8 @@ function preservarRolagemDuranteDigitacao(elemento, acao) {
 
     window.requestAnimationFrame(restaurar);
     setTimeout(restaurar, 80);
+    setTimeout(restaurar, 180);
+    setTimeout(restaurar, 320);
 }
 
 const ATRIBUTOS_GATILHO_AUDITORIA = Object.freeze([
@@ -437,7 +444,9 @@ document.addEventListener('input', function (event) {
 document.addEventListener('keyup', function (event) {
     const keyupEl = event.target.closest('[data-keyup]');
     if (!keyupEl || keyupEl !== event.target) return;
-    runDataAction(keyupEl.dataset.keyup, keyupEl, event);
+    preservarRolagemDuranteDigitacao(keyupEl, () => {
+        runDataAction(keyupEl.dataset.keyup, keyupEl, event);
+    });
 });
 
 // Fecha a lista ao pressionar ESC

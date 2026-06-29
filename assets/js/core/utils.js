@@ -7,22 +7,141 @@ function debounce(func, delay) {
     };
 }
 
-function executarMantendoScroll(callback) {
-    const posicaoAnterior = {
-        x: window.scrollX || 0,
-        y: window.scrollY || 0
+function capturarEstadoCampoAtivo() {
+    const elemento = document.activeElement;
+    if (!(elemento instanceof HTMLElement)) return null;
+
+    const tag = elemento.tagName?.toLowerCase();
+    const editavel = tag === 'input' || tag === 'textarea' || tag === 'select' || elemento.isContentEditable;
+    if (!editavel) return null;
+
+    const estado = {
+        elemento,
+        id: elemento.id || '',
+        inicio: null,
+        fim: null
     };
+
+    try {
+        if (
+            (elemento instanceof HTMLInputElement || elemento instanceof HTMLTextAreaElement)
+            && typeof elemento.selectionStart === 'number'
+            && typeof elemento.selectionEnd === 'number'
+        ) {
+            estado.inicio = elemento.selectionStart;
+            estado.fim = elemento.selectionEnd;
+        }
+    } catch (_) {
+        estado.inicio = null;
+        estado.fim = null;
+    }
+
+    return estado;
+}
+
+function capturarEstadoRolagem() {
+    const elementos = new Set([
+        document.scrollingElement,
+        document.documentElement,
+        document.body
+    ]);
+
+    document.querySelectorAll([
+        '#appArea',
+        '.container',
+        '.tab-content.active',
+        '.modal-content',
+        '.table-responsive',
+        '.table-scroll',
+        '.proposta-itens-table-wrap',
+        '.prop-items-scroll',
+        '.app-main',
+        '.main-content',
+        '.content-area',
+        '[data-scroll-container]'
+    ].join(',')).forEach((elemento) => {
+        if (elemento instanceof HTMLElement) elementos.add(elemento);
+    });
+
+    return {
+        janela: {
+            x: window.scrollX || window.pageXOffset || 0,
+            y: window.scrollY || window.pageYOffset || 0
+        },
+        elementos: Array.from(elementos)
+            .filter((elemento) => elemento instanceof Element)
+            .map((elemento) => ({
+                elemento,
+                top: elemento.scrollTop || 0,
+                left: elemento.scrollLeft || 0
+            }))
+    };
+}
+
+function restaurarEstadoCampoAtivo(estadoCampo) {
+    if (!estadoCampo) return;
+
+    const campo = estadoCampo.id
+        ? document.getElementById(estadoCampo.id)
+        : estadoCampo.elemento;
+
+    if (!(campo instanceof HTMLElement) || !document.contains(campo)) return;
+
+    try {
+        if (document.activeElement !== campo) {
+            campo.focus({ preventScroll: true });
+        }
+    } catch (_) {
+        try {
+            campo.focus();
+        } catch (__) {}
+    }
+
+    if (
+        (campo instanceof HTMLInputElement || campo instanceof HTMLTextAreaElement)
+        && estadoCampo.inicio !== null
+        && estadoCampo.fim !== null
+        && typeof campo.setSelectionRange === 'function'
+    ) {
+        try {
+            campo.setSelectionRange(estadoCampo.inicio, estadoCampo.fim);
+        } catch (_) {}
+    }
+}
+
+function restaurarEstadoRolagem(estadoRolagem) {
+    if (!estadoRolagem) return;
+
+    estadoRolagem.elementos.forEach(({ elemento, top, left }) => {
+        if (!(elemento instanceof Element)) return;
+        if (elemento !== document.documentElement && elemento !== document.body && !document.contains(elemento)) return;
+        elemento.scrollTop = top;
+        elemento.scrollLeft = left;
+    });
+
+    window.scrollTo({
+        top: estadoRolagem.janela.y,
+        left: estadoRolagem.janela.x,
+        behavior: 'auto'
+    });
+}
+
+function executarMantendoScroll(callback) {
+    const estadoRolagem = capturarEstadoRolagem();
+    const estadoCampo = capturarEstadoCampoAtivo();
 
     try {
         if (typeof callback === 'function') callback();
     } finally {
-        requestAnimationFrame(() => {
-            window.scrollTo({
-                top: posicaoAnterior.y,
-                left: posicaoAnterior.x,
-                behavior: 'auto'
-            });
-        });
+        const restaurar = () => {
+            restaurarEstadoCampoAtivo(estadoCampo);
+            restaurarEstadoRolagem(estadoRolagem);
+        };
+
+        requestAnimationFrame(restaurar);
+        setTimeout(restaurar, 40);
+        setTimeout(restaurar, 140);
+        setTimeout(restaurar, 320);
     }
 }
 
@@ -239,6 +358,7 @@ window.criarLinhaTabelaEstado = criarLinhaTabelaEstado;
 window.criarLinhaTabelaVazia = criarLinhaTabelaVazia;
 window.criarLinhaTabelaCarregando = criarLinhaTabelaCarregando;
 window.atualizarMetaBusca = atualizarMetaBusca;
+window.executarMantendoScroll = executarMantendoScroll;
 window.buscarComDebounce = buscarComDebounce;
 
     // --- FORMATAÇÃO DE DATA ---
