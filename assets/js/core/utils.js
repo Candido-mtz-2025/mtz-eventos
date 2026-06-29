@@ -128,7 +128,10 @@ function restaurarEstadoRolagem(estadoRolagem) {
     });
 }
 
+let sequenciaExecucaoMantendoScroll = 0;
+
 function executarMantendoScroll(callback, elementoPreferido = null) {
+    const sequenciaAtual = ++sequenciaExecucaoMantendoScroll;
     const estadoRolagem = capturarEstadoRolagem();
     const estadoCampo = capturarEstadoCampoAtivo(elementoPreferido);
 
@@ -136,15 +139,14 @@ function executarMantendoScroll(callback, elementoPreferido = null) {
         if (typeof callback === 'function') callback();
     } finally {
         const restaurar = () => {
+            if (sequenciaAtual !== sequenciaExecucaoMantendoScroll) return;
             restaurarEstadoCampoAtivo(estadoCampo);
             restaurarEstadoRolagem(estadoRolagem);
         };
 
         requestAnimationFrame(restaurar);
-        setTimeout(restaurar, 40);
-        setTimeout(restaurar, 140);
-        setTimeout(restaurar, 320);
-        setTimeout(restaurar, 700);
+        setTimeout(restaurar, 80);
+        setTimeout(restaurar, 180);
     }
 }
 

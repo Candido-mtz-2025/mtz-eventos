@@ -157,14 +157,6 @@ const ROTULOS_ACAO_BUSY = Object.freeze({
     baixarBackup: 'Baixando...'
 });
 
-document.addEventListener('input', function (event) {
-    const alvo = event.target;
-    if (!usuarioDigitandoEmCampo(alvo)) return;
-    if (typeof executarMantendoScroll === 'function') {
-        executarMantendoScroll(null, alvo);
-    }
-}, true);
-
 function acaoTemBloqueioCurto(actionName) {
     return ACTIONS_COM_BLOQUEIO_CURTO.has(String(actionName || '').trim());
 }
