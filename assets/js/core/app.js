@@ -730,6 +730,49 @@ function rolagemBloqueadaPorDigitacao() {
     return Number.isFinite(limite) && Date.now() < limite && usuarioEditandoCampo();
 }
 
+window.rolagemBloqueadaPorDigitacao = rolagemBloqueadaPorDigitacao;
+
+function inicializarBloqueioRolagemDuranteDigitacao() {
+    if (window.__mtzScrollGuardInicializado) return;
+    window.__mtzScrollGuardInicializado = true;
+
+    const scrollToOriginal = window.scrollTo.bind(window);
+    const scrollByOriginal = window.scrollBy.bind(window);
+    const scrollIntoViewOriginal = window.Element?.prototype?.scrollIntoView;
+
+    window.__mtzScrollToOriginal = scrollToOriginal;
+    window.__mtzScrollByOriginal = scrollByOriginal;
+
+    window.scrollTo = function(...args) {
+        if (typeof window.rolagemBloqueadaPorDigitacao === 'function' && window.rolagemBloqueadaPorDigitacao()) {
+            return undefined;
+        }
+
+        return scrollToOriginal(...args);
+    };
+
+    window.scrollBy = function(...args) {
+        if (typeof window.rolagemBloqueadaPorDigitacao === 'function' && window.rolagemBloqueadaPorDigitacao()) {
+            return undefined;
+        }
+
+        return scrollByOriginal(...args);
+    };
+
+    if (typeof scrollIntoViewOriginal === 'function') {
+        window.__mtzScrollIntoViewOriginal = scrollIntoViewOriginal;
+        window.Element.prototype.scrollIntoView = function(...args) {
+            if (typeof window.rolagemBloqueadaPorDigitacao === 'function' && window.rolagemBloqueadaPorDigitacao()) {
+                return undefined;
+            }
+
+            return scrollIntoViewOriginal.apply(this, args);
+        };
+    }
+}
+
+inicializarBloqueioRolagemDuranteDigitacao();
+
 function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
     if (rolagemBloqueadaPorDigitacao()) return false;

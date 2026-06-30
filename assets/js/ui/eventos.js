@@ -75,7 +75,9 @@ function executarInputPendenteAgora(inputEl, event) {
     inputActionTimers.delete(inputEl);
     if (!document.contains(inputEl)) return false;
 
-    runDataAction(pendente.actionName, inputEl, event);
+    preservarRolagemDuranteDigitacao(inputEl, () => {
+        runDataAction(pendente.actionName, inputEl, event);
+    });
     return true;
 }
 
@@ -84,7 +86,9 @@ function executarInputEstavel(inputEl, event) {
     if (!actionName) return;
 
     if (INPUT_ACTIONS_IMEDIATAS.has(actionName)) {
-        runDataAction(actionName, inputEl, event);
+        preservarRolagemDuranteDigitacao(inputEl, () => {
+            runDataAction(actionName, inputEl, event);
+        });
         return;
     }
 
@@ -94,7 +98,9 @@ function executarInputEstavel(inputEl, event) {
     const timer = setTimeout(() => {
         inputActionTimers.delete(inputEl);
         if (!document.contains(inputEl)) return;
-        runDataAction(actionName, inputEl, event);
+        preservarRolagemDuranteDigitacao(inputEl, () => {
+            runDataAction(actionName, inputEl, event);
+        });
     }, obterDelayInputAction(actionName));
 
     inputActionTimers.set(inputEl, { timer, actionName });
@@ -121,9 +127,16 @@ function obterSelecaoCampoEditavel(elemento) {
 }
 
 function preservarRolagemDuranteDigitacao(elemento, acao) {
-    // Durante digitacao, a tela nao deve tentar corrigir foco ou rolagem.
-    // A rolagem fica manual para evitar tremor e saltos no formulario.
-    if (typeof acao === 'function') acao();
+    if (typeof acao !== 'function') return;
+
+    marcarDigitacaoAtiva();
+
+    if (typeof executarMantendoScroll === 'function') {
+        executarMantendoScroll(acao, elemento);
+        return;
+    }
+
+    acao();
 }
 
 const ATRIBUTOS_GATILHO_AUDITORIA = Object.freeze([

@@ -4752,7 +4752,11 @@
         if (campoDias) {
             campoDias.addEventListener('input', () => {
                 sincronizarValidadePorDias();
-                recalcularResumoProposta();
+                if (typeof executarMantendoScroll === 'function') {
+                    executarMantendoScroll(recalcularResumoProposta, campoDias);
+                } else {
+                    recalcularResumoProposta();
+                }
             });
         }
         if (campoData) {
@@ -4775,7 +4779,12 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
-            recalcularResumoProposta();
+            window.__mtzDigitandoAte = Date.now() + 900;
+            if (typeof executarMantendoScroll === 'function') {
+                executarMantendoScroll(recalcularResumoProposta, campoMoeda);
+            } else {
+                recalcularResumoProposta();
+            }
         });
 
         document.addEventListener('focusout', (event) => {
