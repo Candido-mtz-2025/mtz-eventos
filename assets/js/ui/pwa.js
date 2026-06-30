@@ -1,6 +1,6 @@
 // 1. Registra o Service Worker (Obrigatório para instalar)
 if ('serviceWorker' in navigator) {
-    const SW_VERSION = 'v56';
+    const SW_VERSION = 'v60';
 
     function ativarWorkerEmEspera(worker) {
         if (!worker) return;

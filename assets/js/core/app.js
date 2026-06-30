@@ -727,7 +727,7 @@ function usuarioEditandoCampo() {
 
 function rolagemBloqueadaPorDigitacao() {
     const limite = Number(window.__mtzDigitandoAte || 0);
-    return Number.isFinite(limite) && Date.now() < limite && usuarioEditandoCampo();
+    return Number.isFinite(limite) && Date.now() < limite;
 }
 
 function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {

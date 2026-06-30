@@ -7,6 +7,60 @@ function debounce(func, delay) {
     };
 }
 
+function escaparSeletorSeguro(valor) {
+    const texto = String(valor || '');
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(texto);
+    return texto.replace(/["\\]/g, '\\$&');
+}
+
+function montarSeletorCampoEditavel(elemento) {
+    if (!(elemento instanceof HTMLElement)) return '';
+
+    const tag = elemento.tagName?.toLowerCase() || '*';
+    const partes = [tag];
+
+    Array.from(elemento.classList || [])
+        .filter(Boolean)
+        .slice(0, 5)
+        .forEach((classe) => partes.push(`.${escaparSeletorSeguro(classe)}`));
+
+    ['type', 'name', 'data-input', 'data-change', 'data-keyup', 'placeholder'].forEach((atributo) => {
+        const valor = elemento.getAttribute(atributo);
+        if (valor) partes.push(`[${atributo}="${escaparSeletorSeguro(valor)}"]`);
+    });
+
+    return partes.join('');
+}
+
+function capturarAssinaturaCampoAtivo(elemento) {
+    if (!(elemento instanceof HTMLElement)) return null;
+    const seletor = montarSeletorCampoEditavel(elemento);
+    if (!seletor) return null;
+
+    const raiz =
+        elemento.closest('.tab-content.active') ||
+        elemento.closest('#appArea') ||
+        document.body;
+    if (!(raiz instanceof HTMLElement)) return null;
+
+    const raizSeletor = raiz.id ? `#${escaparSeletorSeguro(raiz.id)}` : 'body';
+    const lista = Array.from(raiz.querySelectorAll(seletor));
+    const indice = lista.indexOf(elemento);
+
+    return {
+        raizSeletor,
+        seletor,
+        indice: indice >= 0 ? indice : 0
+    };
+}
+
+function localizarCampoPorAssinatura(assinatura) {
+    if (!assinatura?.seletor) return null;
+    const raiz = document.querySelector(assinatura.raizSeletor || 'body') || document.body;
+    const lista = Array.from(raiz.querySelectorAll(assinatura.seletor));
+    return lista[assinatura.indice] || lista[0] || null;
+}
+
 function capturarEstadoCampoAtivo(elementoPreferido = null) {
     const elemento = elementoPreferido instanceof HTMLElement
         ? elementoPreferido
@@ -20,6 +74,7 @@ function capturarEstadoCampoAtivo(elementoPreferido = null) {
     const estado = {
         elemento,
         id: elemento.id || '',
+        assinatura: capturarAssinaturaCampoAtivo(elemento),
         inicio: null,
         fim: null
     };
@@ -83,27 +138,25 @@ function capturarEstadoRolagem() {
 function restaurarEstadoCampoAtivo(estadoCampo) {
     if (!estadoCampo) return;
 
-    const campo = estadoCampo.id
-        ? document.getElementById(estadoCampo.id)
-        : estadoCampo.elemento;
+    let campo = estadoCampo.id ? document.getElementById(estadoCampo.id) : null;
+    if (!(campo instanceof HTMLElement) && estadoCampo.elemento instanceof HTMLElement && document.contains(estadoCampo.elemento)) {
+        campo = estadoCampo.elemento;
+    }
+    if (!(campo instanceof HTMLElement)) {
+        campo = localizarCampoPorAssinatura(estadoCampo.assinatura);
+    }
 
     if (!(campo instanceof HTMLElement) || !document.contains(campo)) return;
-
-    let focoRecuperado = false;
 
     try {
         if (document.activeElement !== campo) {
             campo.focus({ preventScroll: true });
-            focoRecuperado = true;
         }
     } catch (_) {
         try {
             campo.focus();
-            focoRecuperado = true;
         } catch (__) {}
     }
-
-    if (!focoRecuperado) return;
 
     if (
         (campo instanceof HTMLInputElement || campo instanceof HTMLTextAreaElement)

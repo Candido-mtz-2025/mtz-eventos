@@ -58,8 +58,8 @@ const INPUT_ACTION_DELAYS = Object.freeze({
 
 const inputActionTimers = new WeakMap();
 
-function marcarDigitacaoAtiva() {
-    window.__mtzDigitandoAte = Date.now() + 900;
+function marcarDigitacaoAtiva(duracaoMs = 1800) {
+    window.__mtzDigitandoAte = Date.now() + Math.max(900, Number(duracaoMs) || 1800);
 }
 
 function obterDelayInputAction(actionName) {
@@ -131,10 +131,14 @@ function preservarRolagemDuranteDigitacao(elemento, acao) {
 
     const digitando = usuarioDigitandoEmCampo(elemento);
 
-    if (digitando) marcarDigitacaoAtiva();
+    if (digitando) marcarDigitacaoAtiva(2200);
 
     if (digitando && typeof executarMantendoScroll === 'function') {
-        executarMantendoScroll(acao, elemento);
+        executarMantendoScroll(() => {
+            marcarDigitacaoAtiva(2200);
+            acao();
+            marcarDigitacaoAtiva(2200);
+        }, elemento);
         return;
     }
 
