@@ -725,8 +725,14 @@ function usuarioEditandoCampo() {
     return tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable;
 }
 
+function rolagemBloqueadaPorDigitacao() {
+    const limite = Number(window.__mtzDigitandoAte || 0);
+    return Number.isFinite(limite) && Date.now() < limite && usuarioEditandoCampo();
+}
+
 function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     if (!elemento || typeof elemento.scrollIntoView !== 'function') return false;
+    if (rolagemBloqueadaPorDigitacao()) return false;
     if (opcoes?.bloquearDuranteEdicao && usuarioEditandoCampo()) return false;
 
     const rect = elemento.getBoundingClientRect();
@@ -761,6 +767,7 @@ function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     // pixels encoberto após o smooth scroll, então corrigimos em duas passadas curtas.
     if (block === 'start' && elemento instanceof HTMLElement) {
         const corrigirPosicao = () => {
+            if (rolagemBloqueadaPorDigitacao()) return;
             if (opcoes?.bloquearDuranteEdicao && usuarioEditandoCampo()) return;
             const retAjuste = elemento.getBoundingClientRect();
             const margemTopo = obterOffsetCabecalhoApp() + 8;
@@ -790,6 +797,7 @@ function destacarAlvoAtalho(elemento, duracaoMs = 1200) {
 
 function garantirCampoVisivelNaViewport(campo, alinhamentoPreferido = 'start') {
     if (!(campo instanceof HTMLElement)) return false;
+    if (rolagemBloqueadaPorDigitacao()) return false;
 
     const ret = campo.getBoundingClientRect();
     const margemTopo = obterOffsetCabecalhoApp() + 10;

@@ -44,6 +44,62 @@ const ACTIONS_ALIAS = Object.freeze({
     removerSelecionadosEstoque: 'excluirSelecionadosEstoque'
 });
 
+const INPUT_ACTIONS_IMEDIATAS = new Set([
+    'validarDigitacao',
+    'onInputConferenciaDevolucao',
+    'atualizarPreviewPagamentoLocacao'
+]);
+
+const INPUT_ACTION_DELAYS = Object.freeze({
+    buscarComDebounce: 60,
+    recalcularResumoProposta: 280,
+    calcularCustoTransporte: 240
+});
+
+const inputActionTimers = new WeakMap();
+
+function marcarDigitacaoAtiva() {
+    window.__mtzDigitandoAte = Date.now() + 900;
+}
+
+function obterDelayInputAction(actionName) {
+    const nome = resolverNomeAcao(actionName);
+    return INPUT_ACTION_DELAYS[nome] || 180;
+}
+
+function executarInputPendenteAgora(inputEl, event) {
+    const pendente = inputActionTimers.get(inputEl);
+    if (!pendente) return false;
+
+    clearTimeout(pendente.timer);
+    inputActionTimers.delete(inputEl);
+    if (!document.contains(inputEl)) return false;
+
+    runDataAction(pendente.actionName, inputEl, event);
+    return true;
+}
+
+function executarInputEstavel(inputEl, event) {
+    const actionName = resolverNomeAcao(inputEl?.dataset?.input || '');
+    if (!actionName) return;
+
+    if (INPUT_ACTIONS_IMEDIATAS.has(actionName)) {
+        runDataAction(actionName, inputEl, event);
+        return;
+    }
+
+    const anterior = inputActionTimers.get(inputEl);
+    if (anterior) clearTimeout(anterior.timer);
+
+    const timer = setTimeout(() => {
+        inputActionTimers.delete(inputEl);
+        if (!document.contains(inputEl)) return;
+        runDataAction(actionName, inputEl, event);
+    }, obterDelayInputAction(actionName));
+
+    inputActionTimers.set(inputEl, { timer, actionName });
+}
+
 function usuarioDigitandoEmCampo(elemento) {
     if (!(elemento instanceof HTMLElement)) return false;
     const tag = elemento.tagName?.toLowerCase();
@@ -392,6 +448,11 @@ document.addEventListener('click', function (event) {
 });
 
 document.addEventListener('change', function (event) {
+    const inputPendente = event.target.closest('[data-input]');
+    if (inputPendente && inputPendente === event.target) {
+        executarInputPendenteAgora(inputPendente, event);
+    }
+
     const changeEl = event.target.closest('[data-change]');
     if (!changeEl || changeEl !== event.target) return;
     runDataAction(changeEl.dataset.change, changeEl, event);
@@ -400,14 +461,20 @@ document.addEventListener('change', function (event) {
 document.addEventListener('input', function (event) {
     const inputEl = event.target.closest('[data-input]');
     if (!inputEl || inputEl !== event.target) return;
-    preservarRolagemDuranteDigitacao(inputEl, () => {
-        runDataAction(inputEl.dataset.input, inputEl, event);
-    });
+    marcarDigitacaoAtiva();
+    executarInputEstavel(inputEl, event);
+});
+
+document.addEventListener('focusout', function (event) {
+    const inputEl = event.target.closest('[data-input]');
+    if (!inputEl || inputEl !== event.target) return;
+    executarInputPendenteAgora(inputEl, event);
 });
 
 document.addEventListener('keyup', function (event) {
     const keyupEl = event.target.closest('[data-keyup]');
     if (!keyupEl || keyupEl !== event.target) return;
+    marcarDigitacaoAtiva();
     preservarRolagemDuranteDigitacao(keyupEl, () => {
         runDataAction(keyupEl.dataset.keyup, keyupEl, event);
     });
