@@ -1508,6 +1508,8 @@
         if (opcoes.semRolagem) return;
 
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
+
             const alvoScroll = subAba === 'lista'
                 ? document.getElementById('propostasListaCard')
                 : document.getElementById('propostasFormularioCard');
@@ -1548,6 +1550,8 @@
         if (opcoes.semRolagem) return;
 
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
+
             const painel = document.querySelector(`[data-proposta-form-section="${secao}"]`);
             if (typeof window.rolarParaElementoAtalho === 'function') {
                 window.rolarParaElementoAtalho(painel, 'start', { forcar: true });
@@ -4752,11 +4756,7 @@
         if (campoDias) {
             campoDias.addEventListener('input', () => {
                 sincronizarValidadePorDias();
-                if (typeof executarMantendoScroll === 'function') {
-                    executarMantendoScroll(recalcularResumoProposta, campoDias);
-                } else {
-                    recalcularResumoProposta();
-                }
+                recalcularResumoProposta();
             });
         }
         if (campoData) {
@@ -4779,12 +4779,7 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
-            window.__mtzDigitandoAte = Date.now() + 900;
-            if (typeof executarMantendoScroll === 'function') {
-                executarMantendoScroll(recalcularResumoProposta, campoMoeda);
-            } else {
-                recalcularResumoProposta();
-            }
+            recalcularResumoProposta();
         });
 
         document.addEventListener('focusout', (event) => {

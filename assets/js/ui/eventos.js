@@ -129,9 +129,11 @@ function obterSelecaoCampoEditavel(elemento) {
 function preservarRolagemDuranteDigitacao(elemento, acao) {
     if (typeof acao !== 'function') return;
 
-    marcarDigitacaoAtiva();
+    const digitando = usuarioDigitandoEmCampo(elemento);
 
-    if (typeof executarMantendoScroll === 'function') {
+    if (digitando) marcarDigitacaoAtiva();
+
+    if (digitando && typeof executarMantendoScroll === 'function') {
         executarMantendoScroll(acao, elemento);
         return;
     }

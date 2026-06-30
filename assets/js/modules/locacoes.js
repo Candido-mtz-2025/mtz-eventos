@@ -550,12 +550,7 @@ function inicializarFluxoLocacao() {
             campo.addEventListener('change', atualizarFluxoLocacao);
             if (id === 'aluguelDivisor') {
                 campo.addEventListener('input', () => {
-                    window.__mtzDigitandoAte = Date.now() + 900;
-                    if (typeof executarMantendoScroll === 'function') {
-                        executarMantendoScroll(atualizarFluxoLocacao, campo);
-                    } else {
-                        atualizarFluxoLocacao();
-                    }
+                    atualizarFluxoLocacao();
                 });
             }
         });

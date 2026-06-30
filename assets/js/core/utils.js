@@ -132,11 +132,7 @@ function restaurarEstadoRolagem(estadoRolagem) {
         Math.abs((window.scrollX || window.pageXOffset || 0) - estadoRolagem.janela.x) > 1;
 
     if (deslocouJanela) {
-        const scrollToSeguro = typeof window.__mtzScrollToOriginal === 'function'
-            ? window.__mtzScrollToOriginal
-            : window.scrollTo.bind(window);
-
-        scrollToSeguro({
+        window.scrollTo({
             top: estadoRolagem.janela.y,
             left: estadoRolagem.janela.x,
             behavior: 'auto'
@@ -170,67 +166,59 @@ function executarMantendoScroll(callback, elementoPreferido = null) {
 // Centraliza o comportamento de busca por área para reduzir re-render em digitação.
 const buscarComDebounce = debounce(function(tipo) {
     const alvo = String(tipo || '').toLowerCase();
-    const executarBusca = (callback) => {
-        if (typeof executarMantendoScroll === 'function') {
-            executarMantendoScroll(callback, document.activeElement);
-            return;
-        }
-
-        callback();
-    };
 
     if (alvo === 'locadores' && typeof renderLocadores === 'function') {
-        executarBusca(renderLocadores);
+        renderLocadores();
         return;
     }
 
     if (alvo === 'estoque' && typeof renderEstoque === 'function') {
-        executarBusca(renderEstoque);
+        renderEstoque();
         return;
     }
 
     if (alvo === 'devolucoes' && typeof renderDevolucoes === 'function') {
-        executarBusca(renderDevolucoes);
+        renderDevolucoes();
         return;
     }
 
     if (alvo === 'locacoes' && typeof renderLocacoes === 'function') {
-        executarBusca(renderLocacoes);
+        renderLocacoes();
         return;
     }
 
     if (alvo === 'propostas' && typeof renderPropostas === 'function') {
-        executarBusca(renderPropostas);
+        renderPropostas();
         return;
     }
 
     if (alvo === 'orcamentos' && typeof renderOrcamentos === 'function') {
-        executarBusca(renderOrcamentos);
+        renderOrcamentos();
         return;
     }
 
     if (alvo === 'financeiro' && typeof renderFinanceiroResumo === 'function') {
-        executarBusca(renderFinanceiroResumo);
+        renderFinanceiroResumo();
         return;
     }
 
     if (alvo === 'agenda' && typeof renderAgendaOperacional === 'function') {
-        executarBusca(renderAgendaOperacional);
+        renderAgendaOperacional();
         return;
     }
 
     if (alvo === 'transporte' && typeof renderTransporteOperacional === 'function') {
-        executarBusca(renderTransporteOperacional);
+        renderTransporteOperacional();
         return;
     }
 
     if (alvo === 'tipos' && typeof renderTipos === 'function') {
-        executarBusca(renderTipos);
+        renderTipos();
         return;
     }
 
     if (alvo === 'auditoria' && typeof renderLogs === 'function') {
-        executarBusca(() => renderLogs(window.filtroLogAtual || 'todos'));
+        renderLogs(window.filtroLogAtual || 'todos');
     }
 }, 280);
 
