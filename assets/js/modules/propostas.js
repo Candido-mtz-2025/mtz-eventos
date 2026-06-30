@@ -87,6 +87,22 @@
         return tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable;
     }
 
+    function focarPropostaSemRolagem(elemento, selecionar = false) {
+        if (!(elemento instanceof HTMLElement) || !document.contains(elemento)) return;
+
+        try {
+            elemento.focus({ preventScroll: true });
+        } catch (_) {
+            elemento.focus();
+        }
+
+        if (selecionar && typeof elemento.select === 'function') {
+            try {
+                elemento.select();
+            } catch (_) {}
+        }
+    }
+
     function converterTextoMoedaParaNumero(valor, fallback = 0) {
         if (typeof valor === 'number') {
             return Number.isFinite(valor) ? valor : (Number(fallback) || 0);
@@ -1137,9 +1153,9 @@
         host.innerHTML = montarEditorCategoriaConfigOrcamento(categoria, opcoes);
         atualizarCamposEditorCategoriaConfig();
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
             const primeiroCampo = host.querySelector('.prop-orc-editor-nome:not([readonly]), .prop-orc-editor-cor, button');
-            primeiroCampo?.focus?.();
-            if (primeiroCampo?.select) primeiroCampo.select();
+            focarPropostaSemRolagem(primeiroCampo, true);
         }, 50);
     }
 
@@ -1220,7 +1236,7 @@
         if (!categoria) return;
         if (!textoSeguro(categoria.nome)) {
             mostrarToast('Informe o nome da categoria.', 'erro');
-            painel.querySelector('.prop-orc-editor-nome')?.focus();
+            focarPropostaSemRolagem(painel.querySelector('.prop-orc-editor-nome'));
             return;
         }
 
@@ -1318,7 +1334,10 @@
         document.querySelectorAll('[data-action="abrirConfigOrcamentoProposta"]').forEach((btn) => {
             btn.setAttribute('aria-expanded', 'true');
         });
-        setTimeout(() => document.getElementById('propOrcConfigEntradaPadrao')?.focus(), 80);
+        setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
+            focarPropostaSemRolagem(document.getElementById('propOrcConfigEntradaPadrao'));
+        }, 80);
     }
 
     function fecharConfigOrcamentoProposta() {
@@ -1520,13 +1539,13 @@
             }
 
             if (subAba === 'lista') {
-                document.getElementById('buscaPropostas')?.focus();
+                focarPropostaSemRolagem(document.getElementById('buscaPropostas'));
                 return;
             }
 
             mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
             if (opcoes.foco !== false) {
-                document.getElementById('propClienteNome')?.focus();
+                focarPropostaSemRolagem(document.getElementById('propClienteNome'));
             }
         }, 80);
     }
@@ -1570,11 +1589,11 @@
 
             const campoId = focoPorSecao[secao];
             if (campoId) {
-                document.getElementById(campoId)?.focus();
+                focarPropostaSemRolagem(document.getElementById(campoId));
                 return;
             }
 
-            document.querySelector('#propostaItensBody .prop-item-descricao')?.focus();
+            focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
         }, 80);
     }
 
@@ -2224,7 +2243,7 @@
         recalcularResumoProposta();
         const linhas = Array.from(tbody.querySelectorAll('.proposta-item-row'));
         const ultimaDescricao = linhas[linhas.length - 1]?.querySelector('.prop-item-descricao');
-        if (ultimaDescricao) ultimaDescricao.focus();
+        focarPropostaSemRolagem(ultimaDescricao);
     }
 
     function removerLinhaItemProposta(botao) {
@@ -2255,7 +2274,10 @@
         detalhes.insertAdjacentHTML('afterend', criarLinhaItemProposta(item));
         recalcularResumoProposta();
         const novaLinha = detalhes.nextElementSibling;
-        setTimeout(() => novaLinha?.querySelector('.prop-item-descricao')?.focus(), 60);
+        setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
+            focarPropostaSemRolagem(novaLinha?.querySelector('.prop-item-descricao'));
+        }, 60);
     }
 
     function aplicarPadraoLinhaItemProposta(botao) {
@@ -2718,11 +2740,11 @@
         mostrarSecaoFormularioProposta(pendencia.secao, { semRolagem: true, foco: false });
 
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
             const campo = pendencia.campo ? document.getElementById(pendencia.campo) : null;
             const alvo = campo || document.getElementById(`propostaSecao${pendencia.secao[0]?.toUpperCase() || ''}${pendencia.secao.slice(1)}`);
             alvo?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-            campo?.focus?.();
-            campo?.select?.();
+            focarPropostaSemRolagem(campo, true);
         }, 120);
     }
 
@@ -2915,19 +2937,28 @@
             if (!proposta.cliente.nome) {
                 mostrarToast('Informe o nome/empresa do cliente.', 'erro');
                 mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => document.getElementById('propClienteNome')?.focus(), 120);
+                setTimeout(() => {
+                    if (usuarioEditandoProposta()) return;
+                    focarPropostaSemRolagem(document.getElementById('propClienteNome'));
+                }, 120);
                 return null;
             }
             if (!proposta.evento.nome) {
                 mostrarToast('Informe o nome do evento.', 'erro');
                 mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => document.getElementById('propEventoNome')?.focus(), 120);
+                setTimeout(() => {
+                    if (usuarioEditandoProposta()) return;
+                    focarPropostaSemRolagem(document.getElementById('propEventoNome'));
+                }, 120);
                 return null;
             }
             if (proposta.itens.length === 0) {
                 mostrarToast('Adicione pelo menos 1 item na proposta.', 'erro');
                 mostrarSecaoFormularioProposta('itens');
-                setTimeout(() => document.querySelector('#propostaItensBody .prop-item-descricao')?.focus(), 120);
+                setTimeout(() => {
+                    if (usuarioEditandoProposta()) return;
+                    focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
+                }, 120);
                 return null;
             }
         }
@@ -3074,7 +3105,7 @@
         atualizarPainelRevisaoProposta(null);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
-        document.getElementById('propClienteNome')?.focus();
+        focarPropostaSemRolagem(document.getElementById('propClienteNome'));
     }
 
     function aplicarDatasAutomaticasStatus(propostaNova, propostaAnterior, agoraIso) {
@@ -3158,12 +3189,13 @@
         if (typeof abrirTab === 'function') abrirTab('propostas', { semRolagem: true });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
             const card = document.getElementById('propostasFormularioCard');
             if (card && typeof rolarParaElementoAtalho === 'function') {
                 rolarParaElementoAtalho(card, 'start');
                 destacarAlvoAtalho(card, 1200);
             }
-            document.getElementById('propClienteNome')?.focus();
+            focarPropostaSemRolagem(document.getElementById('propClienteNome'));
         }, 90);
     }
 
@@ -4736,12 +4768,13 @@
         if (typeof abrirTab === 'function') abrirTab('propostas', { semRolagem: true });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         setTimeout(() => {
+            if (usuarioEditandoProposta()) return;
             const card = document.getElementById('propostasFormularioCard');
             if (card && typeof rolarParaElementoAtalho === 'function') {
                 rolarParaElementoAtalho(card, 'start');
                 destacarAlvoAtalho(card, 1200);
             }
-            document.getElementById('propClienteNome')?.focus();
+            focarPropostaSemRolagem(document.getElementById('propClienteNome'));
         }, 90);
     }
 
