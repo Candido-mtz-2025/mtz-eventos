@@ -446,6 +446,7 @@ window.buscarComDebounce = buscarComDebounce;
 (function diagnosticarScrollPropostas() {
     if (window.__mtzDiagnosticoScrollPropostas) return;
     window.__mtzDiagnosticoScrollPropostas = true;
+    console.info('[DIAGNÓSTICO] Monitor de scroll em Propostas carregado.');
 
     function digitandoEmPropostas() {
         const ativo = document.activeElement;
@@ -454,6 +455,19 @@ window.buscarComDebounce = buscarComDebounce;
 
         const tag = ativo.tagName?.toLowerCase();
         return tag === 'input' || tag === 'textarea' || tag === 'select' || ativo.isContentEditable;
+    }
+
+    function campoEditavelPropostas(elemento) {
+        if (!(elemento instanceof HTMLElement)) return false;
+        if (!elemento.closest('#tab-propostas')) return false;
+
+        const tag = elemento.tagName?.toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || elemento.isContentEditable;
+    }
+
+    function nomeCampoDebug(elemento) {
+        if (!(elemento instanceof HTMLElement)) return 'sem campo';
+        return elemento.id || elemento.name || elemento.className || elemento.tagName;
     }
 
     const scrollToOriginal = window.scrollTo.bind(window);
@@ -482,4 +496,63 @@ window.buscarComDebounce = buscarComDebounce;
         }
         return focusOriginal.apply(this, args);
     };
+
+    document.addEventListener('input', (event) => {
+        if (!campoEditavelPropostas(event.target)) return;
+
+        const campo = event.target;
+        const inicio = {
+            x: window.scrollX || window.pageXOffset || 0,
+            y: window.scrollY || window.pageYOffset || 0,
+            campo: nomeCampoDebug(campo),
+            valor: campo.value
+        };
+
+        console.info('[DIAGNÓSTICO] input em Propostas detectado', inicio);
+
+        [50, 150, 400, 900].forEach((tempo) => {
+            setTimeout(() => {
+                const atual = {
+                    x: window.scrollX || window.pageXOffset || 0,
+                    y: window.scrollY || window.pageYOffset || 0,
+                    ativo: nomeCampoDebug(document.activeElement)
+                };
+
+                if (Math.abs(atual.y - inicio.y) > 1 || Math.abs(atual.x - inicio.x) > 1) {
+                    console.warn('[DIAGNÓSTICO] scroll mudou após input em Propostas', {
+                        tempo,
+                        inicio,
+                        atual,
+                        deltaY: atual.y - inicio.y,
+                        deltaX: atual.x - inicio.x
+                    });
+                    console.trace();
+                }
+            }, tempo);
+        });
+    }, true);
+
+    function envolverRecalculoProposta() {
+        if (typeof window.recalcularResumoProposta !== 'function') return false;
+        if (window.recalcularResumoProposta.__mtzDiagnosticoScroll) return true;
+
+        const original = window.recalcularResumoProposta;
+        window.recalcularResumoProposta = function(...args) {
+            if (digitandoEmPropostas()) {
+                console.warn('[DIAGNÓSTICO] recalcularResumoProposta chamado enquanto digita em Propostas', args);
+                console.trace();
+            }
+            return original.apply(this, args);
+        };
+        window.recalcularResumoProposta.__mtzDiagnosticoScroll = true;
+        console.info('[DIAGNÓSTICO] recalcularResumoProposta monitorado.');
+        return true;
+    }
+
+    if (!envolverRecalculoProposta()) {
+        const timer = setInterval(() => {
+            if (envolverRecalculoProposta()) clearInterval(timer);
+        }, 300);
+        setTimeout(() => clearInterval(timer), 10000);
+    }
 })();
