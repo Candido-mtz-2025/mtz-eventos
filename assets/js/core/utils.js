@@ -442,3 +442,44 @@ window.buscarComDebounce = buscarComDebounce;
         const dataCorrigida = new Date(data.getTime() + data.getTimezoneOffset() * 60000);
         return dataCorrigida.toLocaleDateString('pt-BR');
     }
+
+(function diagnosticarScrollPropostas() {
+    if (window.__mtzDiagnosticoScrollPropostas) return;
+    window.__mtzDiagnosticoScrollPropostas = true;
+
+    function digitandoEmPropostas() {
+        const ativo = document.activeElement;
+        if (!(ativo instanceof HTMLElement)) return false;
+        if (!ativo.closest('#tab-propostas')) return false;
+
+        const tag = ativo.tagName?.toLowerCase();
+        return tag === 'input' || tag === 'textarea' || tag === 'select' || ativo.isContentEditable;
+    }
+
+    const scrollToOriginal = window.scrollTo.bind(window);
+    window.scrollTo = function(...args) {
+        if (digitandoEmPropostas()) {
+            console.warn('[DIAGNÓSTICO] window.scrollTo chamado enquanto digita em Propostas', args);
+            console.trace();
+        }
+        return scrollToOriginal(...args);
+    };
+
+    const scrollIntoViewOriginal = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function(...args) {
+        if (digitandoEmPropostas()) {
+            console.warn('[DIAGNÓSTICO] scrollIntoView chamado enquanto digita em Propostas', this, args);
+            console.trace();
+        }
+        return scrollIntoViewOriginal.apply(this, args);
+    };
+
+    const focusOriginal = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function(...args) {
+        if (digitandoEmPropostas() && this !== document.activeElement) {
+            console.warn('[DIAGNÓSTICO] focus chamado enquanto digita em Propostas', this, args);
+            console.trace();
+        }
+        return focusOriginal.apply(this, args);
+    };
+})();
