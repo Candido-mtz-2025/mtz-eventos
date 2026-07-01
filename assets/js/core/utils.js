@@ -210,6 +210,8 @@ function executarMantendoScroll(callback, elementoPreferido = null) {
         };
 
         requestAnimationFrame(restaurar);
+        setTimeout(restaurar, 80);
+        setTimeout(restaurar, 180);
         setTimeout(restaurar, 350);
         setTimeout(restaurar, 700);
         setTimeout(restaurar, 1200);
