@@ -18876,6 +18876,16 @@ body,
     overflow-anchor: none;
 }
 
+/* Evita que o navegador realinhe a pagina ao editar campos em Propostas. */
+html:has(#tab-propostas :is(input, textarea, select):focus) {
+    scroll-padding-top: 0 !important;
+}
+
+#tab-propostas :is(input, textarea, select):focus {
+    scroll-margin-top: 0 !important;
+    scroll-margin-bottom: 0 !important;
+}
+
 @media (min-width: 1180px) {
     /* Normaliza a sidebar recolhida para que os botoes caibam inteiros em todos os temas. */
     #appArea.sidebar-collapsed {
