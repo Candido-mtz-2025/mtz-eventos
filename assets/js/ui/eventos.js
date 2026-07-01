@@ -474,7 +474,9 @@ document.addEventListener('change', function (event) {
 
     const changeEl = event.target.closest('[data-change]');
     if (!changeEl || changeEl !== event.target) return;
-    runDataAction(changeEl.dataset.change, changeEl, event);
+    preservarRolagemDuranteDigitacao(changeEl, () => {
+        runDataAction(changeEl.dataset.change, changeEl, event);
+    });
 });
 
 document.addEventListener('input', function (event) {

@@ -87,6 +87,24 @@
         return tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable;
     }
 
+    function executarPropostaMantendoScroll(acao, elementoPreferido = document.activeElement) {
+        if (typeof acao !== 'function') return;
+
+        const alvo = elementoPreferido instanceof HTMLElement ? elementoPreferido : document.activeElement;
+        const tag = alvo?.tagName?.toLowerCase();
+        const campoDaProposta = alvo instanceof HTMLElement
+            && alvo.closest('#tab-propostas')
+            && (tag === 'input' || tag === 'textarea' || tag === 'select' || alvo.isContentEditable);
+        const editandoProposta = campoDaProposta || usuarioEditandoProposta();
+
+        if (editandoProposta && typeof executarMantendoScroll === 'function') {
+            executarMantendoScroll(acao, alvo);
+            return;
+        }
+
+        acao();
+    }
+
     function focarPropostaSemRolagem(elemento, selecionar = false) {
         if (!(elemento instanceof HTMLElement) || !document.contains(elemento)) return;
 
@@ -2481,47 +2499,49 @@
     }
 
     function recalcularResumoProposta() {
-        const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
-        const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
-        const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
-        atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens);
-        const custos = obterCustosFormulario();
-        const controleInterno = obterControleInternoFormulario();
-        const desconto = parseNumeroInput('propDesconto');
-        const acrescimo = parseNumeroInput('propAcrescimo');
-        const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
-        const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
-        const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
+        executarPropostaMantendoScroll(() => {
+            const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+            const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
+            const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
+            atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens);
+            const custos = obterCustosFormulario();
+            const controleInterno = obterControleInternoFormulario();
+            const desconto = parseNumeroInput('propDesconto');
+            const acrescimo = parseNumeroInput('propAcrescimo');
+            const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
+            const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
+            const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
 
-        const resumo = calcularResumoProposta({
-            itens,
-            custos,
-            desconto,
-            acrescimo,
-            percentualNF,
-            tipoCalculoNF,
-            percentualEntrada,
-            controleInterno
-        });
+            const resumo = calcularResumoProposta({
+                itens,
+                custos,
+                desconto,
+                acrescimo,
+                percentualNF,
+                tipoCalculoNF,
+                percentualEntrada,
+                controleInterno
+            });
 
-        const mapaTexto = [
-            ['propSubtotal', formatarMoeda(resumo.subtotalItens)],
-            ['propValorFinal', formatarMoeda(resumo.valorFinal)],
-            ['propValorNF', formatarMoeda(resumo.valorNF)],
-            ['propValorFinalComNF', formatarMoeda(resumo.valorFinalComNF)],
-            ['propValorLiquidoPrevisto', formatarMoeda(resumo.valorLiquidoPrevisto)],
-            ['propValorEntrada', formatarMoeda(resumo.valorEntrada)],
-            ['propPercentualSaldo', formatarPercentual(resumo.percentualSaldo)],
-            ['propValorSaldo', formatarMoeda(resumo.valorSaldo)],
-            ['propCustoTotalProposta', formatarMoeda(resumo.custoTotalProposta)],
-            ['propLucroPrevisto', formatarMoeda(resumo.lucroPrevisto)],
-            ['propMargemPrevista', formatarPercentual(resumo.margemPrevista)]
-        ];
-        mapaTexto.forEach(([id, valor]) => {
-            const el = document.getElementById(id);
-            if (el) el.value = valor;
+            const mapaTexto = [
+                ['propSubtotal', formatarMoeda(resumo.subtotalItens)],
+                ['propValorFinal', formatarMoeda(resumo.valorFinal)],
+                ['propValorNF', formatarMoeda(resumo.valorNF)],
+                ['propValorFinalComNF', formatarMoeda(resumo.valorFinalComNF)],
+                ['propValorLiquidoPrevisto', formatarMoeda(resumo.valorLiquidoPrevisto)],
+                ['propValorEntrada', formatarMoeda(resumo.valorEntrada)],
+                ['propPercentualSaldo', formatarPercentual(resumo.percentualSaldo)],
+                ['propValorSaldo', formatarMoeda(resumo.valorSaldo)],
+                ['propCustoTotalProposta', formatarMoeda(resumo.custoTotalProposta)],
+                ['propLucroPrevisto', formatarMoeda(resumo.lucroPrevisto)],
+                ['propMargemPrevista', formatarPercentual(resumo.margemPrevista)]
+            ];
+            mapaTexto.forEach(([id, valor]) => {
+                const el = document.getElementById(id);
+                if (el) el.value = valor;
+            });
+            atualizarResumoCompactoProposta(resumo);
         });
-        atualizarResumoCompactoProposta(resumo);
     }
 
     function obterCamposPadraoEscopo() {
@@ -4789,7 +4809,7 @@
         if (campoDias) {
             campoDias.addEventListener('input', () => {
                 sincronizarValidadePorDias();
-                recalcularResumoProposta();
+                executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoDias);
             });
         }
         if (campoData) {
@@ -4798,7 +4818,7 @@
             });
         }
         if (campoStatus) {
-            campoStatus.addEventListener('change', () => recalcularResumoProposta());
+            campoStatus.addEventListener('change', () => executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoStatus));
         }
 
         document.addEventListener('focusin', (event) => {
@@ -4812,14 +4832,14 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
-            recalcularResumoProposta();
+            executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoMoeda);
         });
 
         document.addEventListener('focusout', (event) => {
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             formatarValorMonetarioEditavel(campoMoeda);
-            recalcularResumoProposta();
+            executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoMoeda);
         });
 
         document.addEventListener('keydown', (event) => {
