@@ -4826,7 +4826,7 @@
         if (campoDias) {
             campoDias.addEventListener('input', () => {
                 sincronizarValidadePorDias();
-                executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoDias);
+                window.__mtzPropostaResumoPendente = true;
             });
         }
         if (campoData) {
@@ -4849,30 +4849,25 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
-            executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoMoeda);
+            window.__mtzPropostaResumoPendente = true;
         });
 
         document.addEventListener('focusout', (event) => {
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             formatarValorMonetarioEditavel(campoMoeda);
-            executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoMoeda);
         });
 
         document.addEventListener('focusout', (event) => {
             const campoProposta = event.target?.closest?.('#tab-propostas input, #tab-propostas textarea, #tab-propostas select');
             if (!campoProposta || campoProposta !== event.target) return;
 
-            const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
-            const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
-            const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
+            if (!window.__mtzPropostaResumoPendente) return;
+            window.__mtzPropostaResumoPendente = false;
 
-            if (typeof executarPropostaMantendoScroll === 'function') {
-                executarPropostaMantendoScroll(() => renderizarResumoCategoriasProposta(itens), campoProposta);
-                return;
-            }
-
-            renderizarResumoCategoriasProposta(itens);
+            setTimeout(() => {
+                recalcularResumoProposta();
+            }, 50);
         });
 
         document.addEventListener('keydown', (event) => {

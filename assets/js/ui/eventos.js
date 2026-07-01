@@ -85,6 +85,15 @@ function executarInputEstavel(inputEl, event) {
     const actionName = resolverNomeAcao(inputEl?.dataset?.input || '');
     if (!actionName) return;
 
+    if (
+        actionName === 'recalcularResumoProposta'
+        && inputEl instanceof HTMLElement
+        && inputEl.closest('#tab-propostas')
+    ) {
+        window.__mtzPropostaResumoPendente = true;
+        return;
+    }
+
     if (INPUT_ACTIONS_IMEDIATAS.has(actionName)) {
         preservarRolagemDuranteDigitacao(inputEl, () => {
             runDataAction(actionName, inputEl, event);
