@@ -873,27 +873,30 @@
             renderizarResumoCategoriasProposta(itens);
         };
 
-        if (!usuarioEditandoProposta()) {
-            executarRender();
+        clearTimeout(resumoCategoriasPropostaTimer);
+
+        if (usuarioEditandoProposta()) {
+            resumoCategoriasPropostaTimer = setTimeout(() => {
+                if (usuarioEditandoProposta()) return;
+
+                if (typeof executarPropostaMantendoScroll === 'function') {
+                    executarPropostaMantendoScroll(executarRender, document.activeElement);
+                    return;
+                }
+
+                if (typeof executarMantendoScroll === 'function') {
+                    executarMantendoScroll(executarRender, document.activeElement);
+                    return;
+                }
+
+                executarRender();
+            }, 900);
+
             return;
         }
 
-        clearTimeout(resumoCategoriasPropostaTimer);
-        resumoCategoriasPropostaTimer = setTimeout(() => {
-            if (typeof executarPropostaMantendoScroll === 'function') {
-                executarPropostaMantendoScroll(executarRender, document.activeElement);
-                return;
-            }
-
-            if (typeof executarMantendoScroll === 'function') {
-                executarMantendoScroll(executarRender, document.activeElement);
-                return;
-            }
-
-            executarRender();
-        }, 500);
+        executarRender();
     }
-
     function valorNumeroConfigOrcamento(id, fallback = 0, max = Infinity) {
         const valor = converterTextoPercentualParaNumero(document.getElementById(id)?.value, fallback, {
             maximo: max,
@@ -4854,6 +4857,22 @@
             if (!campoMoeda || campoMoeda !== event.target) return;
             formatarValorMonetarioEditavel(campoMoeda);
             executarPropostaMantendoScroll(() => recalcularResumoProposta(), campoMoeda);
+        });
+
+        document.addEventListener('focusout', (event) => {
+            const campoProposta = event.target?.closest?.('#tab-propostas input, #tab-propostas textarea, #tab-propostas select');
+            if (!campoProposta || campoProposta !== event.target) return;
+
+            const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+            const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
+            const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
+
+            if (typeof executarPropostaMantendoScroll === 'function') {
+                executarPropostaMantendoScroll(() => renderizarResumoCategoriasProposta(itens), campoProposta);
+                return;
+            }
+
+            renderizarResumoCategoriasProposta(itens);
         });
 
         document.addEventListener('keydown', (event) => {
