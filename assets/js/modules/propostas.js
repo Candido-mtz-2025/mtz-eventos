@@ -869,14 +869,28 @@
     }
 
     function atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens = []) {
-        if (!usuarioEditandoProposta()) {
+        const executarRender = () => {
             renderizarResumoCategoriasProposta(itens);
+        };
+
+        if (!usuarioEditandoProposta()) {
+            executarRender();
             return;
         }
 
         clearTimeout(resumoCategoriasPropostaTimer);
         resumoCategoriasPropostaTimer = setTimeout(() => {
-            renderizarResumoCategoriasProposta(itens);
+            if (typeof executarPropostaMantendoScroll === 'function') {
+                executarPropostaMantendoScroll(executarRender, document.activeElement);
+                return;
+            }
+
+            if (typeof executarMantendoScroll === 'function') {
+                executarMantendoScroll(executarRender, document.activeElement);
+                return;
+            }
+
+            executarRender();
         }, 500);
     }
 
