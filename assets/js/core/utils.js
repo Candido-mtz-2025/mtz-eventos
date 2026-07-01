@@ -514,6 +514,8 @@ window.buscarComDebounce = buscarComDebounce;
     ['wheel', 'touchmove', 'pointerdown', 'mousedown'].forEach((evento) => {
         document.addEventListener(evento, () => {
             ultimoScrollManual = Date.now();
+            bloqueioScrollAte = 0;
+            estadoScrollProposta = null;
         }, { capture: true, passive: true });
     });
 
@@ -544,12 +546,5 @@ window.buscarComDebounce = buscarComDebounce;
 
         bloqueioScrollAte = Date.now() + 2500;
         agendarRestauracaoScrollProposta();
-    }, true);
-
-    document.addEventListener('scroll', () => {
-        if (restaurandoScroll) return;
-        if (Date.now() > bloqueioScrollAte) return;
-
-        requestAnimationFrame(restaurarScrollProposta);
     }, true);
 })();
