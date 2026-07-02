@@ -75,10 +75,23 @@ function executarInputPendenteAgora(inputEl, event) {
     inputActionTimers.delete(inputEl);
     if (!document.contains(inputEl)) return false;
 
-    preservarRolagemDuranteDigitacao(inputEl, () => {
-        runDataAction(pendente.actionName, inputEl, event);
-    });
+    executarAcaoInputEstavel(pendente.actionName, inputEl, event);
     return true;
+}
+
+function executarAcaoInputEstavel(actionName, inputEl, event) {
+    const nomeAcao = resolverNomeAcao(actionName);
+
+    // Buscas atualizam apenas as listas filtradas. Evitar restaurar selecao aqui
+    // impede que um timer antigo reposicione o cursor no inicio do campo.
+    if (nomeAcao === 'buscarComDebounce') {
+        runDataAction(actionName, inputEl, event);
+        return;
+    }
+
+    preservarRolagemDuranteDigitacao(inputEl, () => {
+        runDataAction(actionName, inputEl, event);
+    });
 }
 
 function executarInputEstavel(inputEl, event) {
@@ -95,9 +108,7 @@ function executarInputEstavel(inputEl, event) {
     }
 
     if (INPUT_ACTIONS_IMEDIATAS.has(actionName)) {
-        preservarRolagemDuranteDigitacao(inputEl, () => {
-            runDataAction(actionName, inputEl, event);
-        });
+        executarAcaoInputEstavel(actionName, inputEl, event);
         return;
     }
 
@@ -107,9 +118,7 @@ function executarInputEstavel(inputEl, event) {
     const timer = setTimeout(() => {
         inputActionTimers.delete(inputEl);
         if (!document.contains(inputEl)) return;
-        preservarRolagemDuranteDigitacao(inputEl, () => {
-            runDataAction(actionName, inputEl, event);
-        });
+        executarAcaoInputEstavel(actionName, inputEl, event);
     }, obterDelayInputAction(actionName));
 
     inputActionTimers.set(inputEl, { timer, actionName });
