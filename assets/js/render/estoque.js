@@ -96,7 +96,10 @@ function renderEstoque() {
   const termo = normalizar(termoRaw);
   const tbody = DOM.get('tblEstoque');
   if (!tbody) return;
-  atualizarResumoExecutivoEstoque();
+  const digitandoBuscaEstoque = document.activeElement?.id === 'buscaEstoque';
+  if (!digitandoBuscaEstoque) {
+    atualizarResumoExecutivoEstoque();
+  }
 
   // Evita varreduras repetidas em `tipos.find(...)` durante filtro/sort/render.
   const mapaTiposNomePorId = new Map(
