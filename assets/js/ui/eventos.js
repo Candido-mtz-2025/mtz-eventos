@@ -51,7 +51,7 @@ const INPUT_ACTIONS_IMEDIATAS = new Set([
 ]);
 
 const INPUT_ACTION_DELAYS = Object.freeze({
-    buscarComDebounce: 60,
+    buscarComDebounce: 120,
     recalcularResumoProposta: 280,
     calcularCustoTransporte: 240
 });
