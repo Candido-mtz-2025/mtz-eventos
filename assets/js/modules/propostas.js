@@ -4012,17 +4012,29 @@
         return `
             <header class="proposal-pdf-header">
                 <div class="proposal-brand">
-                    <img src="${logoPdfSrc}" alt="MTZ Eventos">
-                    <div>
-                        <h1>ORCAMENTO</h1>
+                    <div class="proposal-brand-mark">
+                        <img src="${logoPdfSrc}" alt="MTZ Eventos">
+                    </div>
+                    <div class="proposal-brand-copy">
+                        <span class="proposal-doc-label">Proposta comercial</span>
+                        <h1>Orcamento para eventos</h1>
                         <strong>${sanitizar(rodape)}</strong>
                         <span>${sanitizar(dadosContato || 'Gestao e locacao para eventos')}</span>
                     </div>
                 </div>
-                <div class="proposal-meta">
-                    <div><span>Nº</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
-                    <div><span>Data</span><strong>${formatarData(p.dataCriacao || new Date())}</strong></div>
-                    <div><span>Validade</span><strong>${validadeLabel}</strong></div>
+                <div class="proposal-meta" aria-label="Dados do orcamento">
+                    <div class="proposal-meta-card proposal-meta-number">
+                        <span>Orcamento</span>
+                        <strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong>
+                    </div>
+                    <div class="proposal-meta-row">
+                        <span>Data</span>
+                        <strong>${formatarData(p.dataCriacao || new Date())}</strong>
+                    </div>
+                    <div class="proposal-meta-row">
+                        <span>Validade</span>
+                        <strong>${validadeLabel}</strong>
+                    </div>
                 </div>
             </header>
         `;
@@ -4232,47 +4244,118 @@
                 }
                 .proposal-pdf-header {
                     display:grid;
-                    grid-template-columns:1fr 170px;
-                    gap:14px;
+                    grid-template-columns:1fr 178px;
+                    gap:12px;
                     align-items:start;
-                    padding-bottom:12px;
-                    border-bottom:2px solid #1f2937;
+                    padding:10px 12px;
+                    border:1px solid #dbe3ef;
+                    border-left:4px solid #1d4ed8;
+                    border-radius:12px;
+                    background:linear-gradient(135deg, #f8fafc 0%, #ffffff 58%, #eef4ff 100%);
                     margin-bottom:12px;
+                    page-break-inside:avoid;
                 }
-                .proposal-brand { display:flex; gap:12px; align-items:center; min-width:0; }
-                .proposal-brand img {
-                    width:96px;
-                    max-height:58px;
-                    object-fit:contain;
-                    padding:4px;
-                    border:1px solid #e5e7eb;
-                    border-radius:8px;
+                .proposal-brand {
+                    display:flex;
+                    gap:10px;
+                    align-items:center;
+                    min-width:0;
+                }
+                .proposal-brand-mark {
+                    width:76px;
+                    min-width:76px;
+                    height:54px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:5px;
+                    border:1px solid #e2e8f0;
+                    border-radius:10px;
                     background:#ffffff;
                 }
+                .proposal-brand img {
+                    width:66px;
+                    max-height:40px;
+                    object-fit:contain;
+                }
+                .proposal-brand-copy { min-width:0; }
+                .proposal-doc-label {
+                    display:inline-flex;
+                    align-items:center;
+                    margin-bottom:3px;
+                    padding:2px 7px;
+                    border-radius:999px;
+                    background:#dbeafe;
+                    color:#1d4ed8;
+                    font-size:8px;
+                    font-weight:900;
+                    text-transform:uppercase;
+                    letter-spacing:.08em;
+                }
                 .proposal-brand h1 {
-                    margin:0 0 2px;
-                    font-size:21px;
-                    letter-spacing:.06em;
+                    margin:0 0 1px;
+                    font-size:17px;
+                    line-height:1.1;
+                    letter-spacing:.02em;
                     color:#111827;
                 }
-                .proposal-brand strong { display:block; font-size:12px; color:#111827; }
-                .proposal-brand span { display:block; margin-top:2px; font-size:10px; color:#64748b; }
-                .proposal-meta {
-                    border:1px solid #e2e8f0;
-                    border-radius:9px;
-                    overflow:hidden;
-                    font-size:10px;
+                .proposal-brand strong {
+                    display:block;
+                    font-size:11px;
+                    line-height:1.2;
+                    color:#111827;
+                    overflow-wrap:anywhere;
                 }
-                .proposal-meta div {
+                .proposal-brand-copy > span:not(.proposal-doc-label) {
+                    display:block;
+                    margin-top:2px;
+                    font-size:9.2px;
+                    color:#64748b;
+                    overflow-wrap:anywhere;
+                }
+                .proposal-meta {
+                    display:grid;
+                    gap:5px;
+                    font-size:9px;
+                }
+                .proposal-meta-card {
+                    padding:7px 8px;
+                    border-radius:9px;
+                    background:#111827;
+                    color:#ffffff;
+                    text-align:right;
+                }
+                .proposal-meta-card span,
+                .proposal-meta-row span {
+                    display:block;
+                    color:#64748b;
+                    text-transform:uppercase;
+                    font-weight:800;
+                    letter-spacing:.05em;
+                }
+                .proposal-meta-card span { color:#cbd5e1; }
+                .proposal-meta-card strong {
+                    display:block;
+                    margin-top:2px;
+                    color:#ffffff;
+                    font-size:12px;
+                    line-height:1.1;
+                    overflow-wrap:anywhere;
+                }
+                .proposal-meta-row {
                     display:flex;
                     justify-content:space-between;
                     gap:8px;
-                    padding:6px 8px;
-                    border-bottom:1px solid #e2e8f0;
+                    padding:5px 8px;
+                    border:1px solid #e2e8f0;
+                    border-radius:8px;
+                    background:#ffffff;
                 }
-                .proposal-meta div:last-child { border-bottom:0; }
-                .proposal-meta span { color:#64748b; text-transform:uppercase; font-weight:700; }
-                .proposal-meta strong { color:#111827; text-align:right; }
+                .proposal-meta-row strong {
+                    color:#111827;
+                    text-align:right;
+                    font-weight:900;
+                }
                 .proposal-highlight {
                     display:grid;
                     grid-template-columns:1fr 1fr 160px;
