@@ -56,6 +56,25 @@
     ]);
     const CATEGORIAS_ITEM_PROPOSTA = Object.freeze(CATEGORIAS_ORCAMENTO_PADRAO.map((categoria) => categoria.nome));
     const TIPOS_CALCULO_TRIBUTO_PROPOSTA = new Set(['simples', 'por_dentro']);
+    const TIPO_FISCAL_ITEM_PADRAO = 'verificar_contador';
+    const TIPOS_FISCAIS_ITEM_PROPOSTA = Object.freeze([
+        { id: 'locacao_bem_movel', rotulo: 'Locação de bem móvel' },
+        { id: 'servico', rotulo: 'Serviço' },
+        { id: 'mao_de_obra', rotulo: 'Mão de obra' },
+        { id: 'frete_logistica', rotulo: 'Frete / logística' },
+        { id: 'impressao_producao', rotulo: 'Impressão / produção' },
+        { id: 'art_projeto_documentacao', rotulo: 'ART / projeto / documentação' },
+        { id: 'produto_venda', rotulo: 'Produto / venda' },
+        { id: 'reembolso_despesa', rotulo: 'Reembolso de despesa' },
+        { id: TIPO_FISCAL_ITEM_PADRAO, rotulo: 'Verificar com contador' }
+    ]);
+    const TIPOS_FISCAIS_BASE_NFSE = new Set([
+        'servico',
+        'mao_de_obra',
+        'frete_logistica',
+        'impressao_producao',
+        'art_projeto_documentacao'
+    ]);
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
         'itens',
@@ -524,6 +543,25 @@
         return encontrada.nome;
     }
 
+    function normalizarTipoFiscalItem(tipoFiscal) {
+        const valor = textoSeguro(tipoFiscal, '');
+        const encontrado = TIPOS_FISCAIS_ITEM_PROPOSTA.find((tipo) => tipo.id === valor);
+        return encontrado ? encontrado.id : TIPO_FISCAL_ITEM_PADRAO;
+    }
+
+    function rotuloTipoFiscalItem(tipoFiscal) {
+        const tipo = TIPOS_FISCAIS_ITEM_PROPOSTA.find((item) => item.id === normalizarTipoFiscalItem(tipoFiscal));
+        return tipo?.rotulo || 'Verificar com contador';
+    }
+
+    function montarOptionsTipoFiscalItem(tipoAtual) {
+        const atual = normalizarTipoFiscalItem(tipoAtual);
+        return TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo) => {
+            const selected = tipo.id === atual ? ' selected' : '';
+            return `<option value="${sanitizar(tipo.id)}"${selected}>${sanitizar(tipo.rotulo)}</option>`;
+        }).join('');
+    }
+
     function criarPadroesOrcamentoDefault() {
         const globais = criarGlobaisPadraoOrcamento();
 
@@ -684,6 +722,7 @@
 
         return {
             categoria,
+            tipoFiscal: normalizarTipoFiscalItem(item.tipoFiscal),
             descricao: textoSeguro(item.descricao, ''),
             medida: textoSeguro(item.medida, ''),
             periodoDias,
@@ -707,6 +746,72 @@
             observacoes: textoSeguro(item.observacoes, ''),
             usarPadraoCalculo: false
         };
+    }
+
+    function calcularResumoFiscalProposta(itens = [], opcoes = {}) {
+        const resumo = {
+            totalLocacao: 0,
+            totalServicos: 0,
+            totalMaoObra: 0,
+            totalFreteLogistica: 0,
+            totalImpressaoProducao: 0,
+            totalArtProjeto: 0,
+            totalProdutoVenda: 0,
+            totalReembolso: 0,
+            totalVerificarContador: 0,
+            baseEstimadaNfse: 0,
+            impostosEstimados: 0,
+            retencoesPrevistas: 0,
+            valorBrutoProposta: 0,
+            valorLiquidoPrevisto: 0,
+            tipoDocumentoSugerido: 'Conferir com contabilidade',
+            avisos: []
+        };
+
+        (Array.isArray(itens) ? itens : []).forEach((itemOriginal) => {
+            const item = calcularItemProposta(itemOriginal || {});
+            const tipoFiscal = normalizarTipoFiscalItem(item.tipoFiscal);
+            const valor = numeroNaoNegativo(item.valorTotal ?? item.totalFinal, 0);
+
+            if (tipoFiscal === 'locacao_bem_movel') resumo.totalLocacao += valor;
+            if (tipoFiscal === 'servico') resumo.totalServicos += valor;
+            if (tipoFiscal === 'mao_de_obra') resumo.totalMaoObra += valor;
+            if (tipoFiscal === 'frete_logistica') resumo.totalFreteLogistica += valor;
+            if (tipoFiscal === 'impressao_producao') resumo.totalImpressaoProducao += valor;
+            if (tipoFiscal === 'art_projeto_documentacao') resumo.totalArtProjeto += valor;
+            if (tipoFiscal === 'produto_venda') resumo.totalProdutoVenda += valor;
+            if (tipoFiscal === 'reembolso_despesa') resumo.totalReembolso += valor;
+            if (tipoFiscal === TIPO_FISCAL_ITEM_PADRAO) resumo.totalVerificarContador += valor;
+            if (TIPOS_FISCAIS_BASE_NFSE.has(tipoFiscal)) resumo.baseEstimadaNfse += valor;
+
+            resumo.retencoesPrevistas += numeroNaoNegativo(item.valorINSS, 0);
+        });
+
+        Object.keys(resumo).forEach((chave) => {
+            if (typeof resumo[chave] === 'number') resumo[chave] = arredondarMoeda(resumo[chave]);
+        });
+
+        const percentualFiscal = converterTextoPercentualParaNumero(opcoes.percentualNF, 0, { maximo: 99.99 });
+        resumo.impostosEstimados = arredondarMoeda((resumo.baseEstimadaNfse * percentualFiscal) / 100);
+        resumo.valorBrutoProposta = numeroNaoNegativo(opcoes.valorBrutoProposta ?? opcoes.valorFinalComercial, resumo.totalLocacao + resumo.baseEstimadaNfse + resumo.totalProdutoVenda + resumo.totalReembolso + resumo.totalVerificarContador);
+        resumo.valorLiquidoPrevisto = numeroSeguro(opcoes.valorLiquidoPrevisto, resumo.valorBrutoProposta - resumo.impostosEstimados);
+
+        const totalServicosFiscais = resumo.totalServicos + resumo.totalMaoObra + resumo.totalFreteLogistica + resumo.totalImpressaoProducao + resumo.totalArtProjeto;
+        if (resumo.totalLocacao > 0 && totalServicosFiscais > 0) {
+            resumo.tipoDocumentoSugerido = 'Locação + NFS-e separadas';
+            resumo.avisos.push('Este orçamento possui locação e prestação de serviço. Confira a separação fiscal antes da emissão.');
+        } else if (totalServicosFiscais > 0) {
+            resumo.tipoDocumentoSugerido = 'NFS-e de serviços';
+        } else if (resumo.totalLocacao > 0) {
+            resumo.tipoDocumentoSugerido = 'Contrato/recibo de locação';
+        }
+
+        if (resumo.totalVerificarContador > 0) {
+            resumo.avisos.push('Existem itens sem classificação fiscal.');
+        }
+
+        resumo.avisos.push('Cálculo fiscal estimado. Conferir com a contabilidade antes da emissão oficial.');
+        return resumo;
     }
 
     function montarOptionsCategoriaItemProposta(categoriaAtual) {
@@ -2087,6 +2192,11 @@
                         ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
+                <td data-label="Tipo fiscal">
+                    <select class="prop-item-tipo-fiscal" data-change="recalcularResumoProposta">
+                        ${montarOptionsTipoFiscalItem(itemCalculado.tipoFiscal)}
+                    </select>
+                </td>
                 <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
                 <td data-label="Medida"><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
                 <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
@@ -2113,7 +2223,7 @@
                 </td>
             </tr>
             <tr class="proposta-item-details-row" hidden>
-                <td colspan="9">
+                <td colspan="10">
                     <div class="prop-item-details-panel">
                         <div class="prop-item-details-title">
                             <strong>Detalhes de calculo</strong>
@@ -2218,6 +2328,7 @@
             : null;
         const item = {
             categoria: normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value),
+            tipoFiscal: normalizarTipoFiscalItem(linha.querySelector('.prop-item-tipo-fiscal')?.value),
             descricao: textoSeguro(linha.querySelector('.prop-item-descricao')?.value),
             medida: textoSeguro(linha.querySelector('.prop-item-medida')?.value),
             periodoDias: numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1,
@@ -2461,6 +2572,12 @@
         const custoTotalProposta = arredondarMoeda(custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos);
         const lucroPrevisto = arredondarMoeda(valorLiquidoPrevisto - custoTotalProposta);
         const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
+        const resumoFiscal = calcularResumoFiscalProposta(itensCalculados, {
+            percentualNF: percentualNFNormalizado,
+            valorBrutoProposta: valorFinalComercial,
+            valorLiquidoPrevisto,
+            tipoCalculoNF: tipoNF
+        });
 
         return {
             subtotalItens,
@@ -2488,7 +2605,8 @@
             outrosCustosInternos,
             custoTotalProposta,
             lucroPrevisto,
-            margemPrevista
+            margemPrevista,
+            resumoFiscal
         };
     }
 
@@ -2512,6 +2630,44 @@
         const statusEl = document.getElementById('propStickyStatus');
         if (statusEl) {
             statusEl.className = `badge ${statusBadge(statusAtual)}`;
+        }
+    }
+
+    function atualizarResumoFiscalProposta(resumoFiscal = {}) {
+        const resumo = resumoFiscal && typeof resumoFiscal === 'object'
+            ? resumoFiscal
+            : calcularResumoFiscalProposta([]);
+        const totalServicosSeparados = arredondarMoeda(
+            numeroNaoNegativo(resumo.totalServicos, 0)
+            + numeroNaoNegativo(resumo.totalMaoObra, 0)
+            + numeroNaoNegativo(resumo.totalFreteLogistica, 0)
+            + numeroNaoNegativo(resumo.totalImpressaoProducao, 0)
+            + numeroNaoNegativo(resumo.totalArtProjeto, 0)
+        );
+        const mapa = [
+            ['propFiscalTipoDocumento', textoSeguro(resumo.tipoDocumentoSugerido, 'Conferir com contabilidade')],
+            ['propFiscalBaseNfse', formatarMoeda(resumo.baseEstimadaNfse)],
+            ['propFiscalTotalLocacao', formatarMoeda(resumo.totalLocacao)],
+            ['propFiscalTotalServicos', formatarMoeda(totalServicosSeparados)],
+            ['propFiscalRetencoes', formatarMoeda(resumo.retencoesPrevistas)]
+        ];
+
+        mapa.forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = valor;
+        });
+
+        const avisosEl = document.getElementById('propFiscalAvisos');
+        if (avisosEl) {
+            const avisos = Array.isArray(resumo.avisos) && resumo.avisos.length
+                ? resumo.avisos
+                : ['Cálculo fiscal estimado. Conferir com a contabilidade antes da emissão oficial.'];
+            avisosEl.innerHTML = avisos.map((aviso) => `
+                <div class="proposta-fiscal-alert">
+                    <i class="bi bi-info-circle"></i>
+                    <span>${sanitizar(aviso)}</span>
+                </div>
+            `).join('');
         }
     }
 
@@ -2558,6 +2714,7 @@
                 if (el) el.value = valor;
             });
             atualizarResumoCompactoProposta(resumo);
+            atualizarResumoFiscalProposta(resumo.resumoFiscal);
         });
     }
 
@@ -2585,6 +2742,34 @@
             dataDesmontagem: textoSeguro(evento.dataDesmontagem, ''),
             horaDesmontagem: textoSeguro(evento.horaDesmontagem, ''),
             observacoesGerais: textoSeguro(evento.observacoesGerais ?? evento.observacoes ?? '', '')
+        };
+    }
+
+    function montarClientePropostaNormalizado(cliente = {}) {
+        const origem = cliente && typeof cliente === 'object' ? cliente : {};
+        const nome = textoSeguro(origem.nome ?? origem.nomeEmpresa ?? origem.nomeFantasia, '');
+        const documento = textoSeguro(origem.documento ?? origem.cpfCnpj, '');
+        const telefone = textoSeguro(origem.telefone, '');
+        const email = textoSeguro(origem.email, '');
+        const endereco = textoSeguro(origem.endereco, '');
+
+        return {
+            nome,
+            documento,
+            telefone,
+            email,
+            endereco,
+            razaoSocial: textoSeguro(origem.razaoSocial, nome),
+            nomeFantasia: textoSeguro(origem.nomeFantasia, nome),
+            cpfCnpj: textoSeguro(origem.cpfCnpj, documento),
+            inscricaoEstadual: textoSeguro(origem.inscricaoEstadual, ''),
+            inscricaoMunicipal: textoSeguro(origem.inscricaoMunicipal, ''),
+            enderecoFiscal: textoSeguro(origem.enderecoFiscal, endereco),
+            cidadeFiscal: textoSeguro(origem.cidadeFiscal, ''),
+            ufFiscal: textoSeguro(origem.ufFiscal, '').toUpperCase().slice(0, 2),
+            cepFiscal: textoSeguro(origem.cepFiscal, ''),
+            emailFiscal: textoSeguro(origem.emailFiscal, email),
+            contatoFinanceiro: textoSeguro(origem.contatoFinanceiro, '')
         };
     }
 
@@ -2617,6 +2802,22 @@
             exibirInformacoesInternasPDF: exibirInfoInterna,
             // compatibilidade com estrutura anterior
             exibirCustosInternosPdf: exibirInfoInterna
+        };
+    }
+
+    function montarFiscalPropostaNormalizado(fiscalOrig = {}, cliente = {}, evento = {}, resumoFiscal = {}) {
+        const fiscal = fiscalOrig && typeof fiscalOrig === 'object' ? fiscalOrig : {};
+        const resumo = resumoFiscal && typeof resumoFiscal === 'object' ? resumoFiscal : calcularResumoFiscalProposta([]);
+        return {
+            tomador: textoSeguro(fiscal.tomador, cliente.razaoSocial || cliente.nome),
+            cpfCnpj: textoSeguro(fiscal.cpfCnpj, cliente.cpfCnpj || cliente.documento),
+            emailFiscal: textoSeguro(fiscal.emailFiscal, cliente.emailFiscal || cliente.email),
+            municipioPrestacao: textoSeguro(fiscal.municipioPrestacao, evento.cidadeEvento || evento.cidade || cliente.cidadeFiscal),
+            descricaoFiscalSugerida: textoSeguro(fiscal.descricaoFiscalSugerida, 'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.'),
+            observacoesEmissao: textoSeguro(fiscal.observacoesEmissao, 'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'),
+            tipoDocumentoSugerido: textoSeguro(fiscal.tipoDocumentoSugerido, resumo.tipoDocumentoSugerido),
+            resumo,
+            avisos: Array.isArray(fiscal.avisos) && fiscal.avisos.length ? fiscal.avisos.slice() : (Array.isArray(resumo.avisos) ? resumo.avisos.slice() : [])
         };
     }
 
@@ -2694,6 +2895,8 @@
         };
 
         const evento = montarEventoNormalizado(proposta.evento || {});
+        const cliente = montarClientePropostaNormalizado(proposta.cliente || {});
+        const fiscal = montarFiscalPropostaNormalizado(proposta.fiscal || proposta.dadosFiscais || {}, cliente, evento, resumo.resumoFiscal);
         const id = proposta.id || Date.now();
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
         const codigoBase = obterCodigoBaseProposta(proposta.codigoBase || codigo) || codigo;
@@ -2715,17 +2918,13 @@
             revisao,
             numeroRevisao: revisao,
             codigoExibicao: formatarCodigoRevisaoProposta({ codigoBase, revisao }),
-            cliente: {
-                nome: textoSeguro(proposta?.cliente?.nome, ''),
-                documento: textoSeguro(proposta?.cliente?.documento, ''),
-                telefone: textoSeguro(proposta?.cliente?.telefone, ''),
-                email: textoSeguro(proposta?.cliente?.email, ''),
-                endereco: textoSeguro(proposta?.cliente?.endereco, '')
-            },
+            cliente,
             evento,
             itens,
             custos,
             financeiro,
+            fiscal,
+            dadosFiscais: fiscal,
             controleInterno: {
                 ...controleInterno,
                 custoTotalProposta: resumo.custoTotalProposta,
@@ -2875,6 +3074,34 @@
         const validadeData = parseDataIso(validadeDataDigitada)
             ? validadeDataDigitada
             : adicionarDiasDataIso(dataCriacao.slice(0, 10), validadeDias);
+        const clienteFormulario = montarClientePropostaNormalizado({
+            nome: textoSeguro(document.getElementById('propClienteNome')?.value),
+            documento: textoSeguro(document.getElementById('propClienteDocumento')?.value),
+            telefone: textoSeguro(document.getElementById('propClienteTelefone')?.value),
+            email: textoSeguro(document.getElementById('propClienteEmail')?.value),
+            endereco: textoSeguro(document.getElementById('propClienteEndereco')?.value),
+            razaoSocial: textoSeguro(document.getElementById('propFiscalRazaoSocial')?.value),
+            nomeFantasia: textoSeguro(document.getElementById('propFiscalNomeFantasia')?.value),
+            cpfCnpj: textoSeguro(document.getElementById('propFiscalCpfCnpj')?.value),
+            inscricaoEstadual: textoSeguro(document.getElementById('propFiscalIE')?.value),
+            inscricaoMunicipal: textoSeguro(document.getElementById('propFiscalIM')?.value),
+            enderecoFiscal: textoSeguro(document.getElementById('propFiscalEndereco')?.value),
+            cidadeFiscal: textoSeguro(document.getElementById('propFiscalCidade')?.value),
+            ufFiscal: textoSeguro(document.getElementById('propFiscalUF')?.value),
+            cepFiscal: textoSeguro(document.getElementById('propFiscalCEP')?.value),
+            emailFiscal: textoSeguro(document.getElementById('propFiscalEmail')?.value),
+            contatoFinanceiro: textoSeguro(document.getElementById('propFiscalContatoFinanceiro')?.value)
+        });
+        const fiscalFormulario = montarFiscalPropostaNormalizado({
+            tomador: clienteFormulario.razaoSocial || clienteFormulario.nome,
+            cpfCnpj: clienteFormulario.cpfCnpj || clienteFormulario.documento,
+            emailFiscal: clienteFormulario.emailFiscal || clienteFormulario.email,
+            municipioPrestacao: textoSeguro(document.getElementById('propEventoCidade')?.value) || clienteFormulario.cidadeFiscal,
+            descricaoFiscalSugerida: 'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.',
+            observacoesEmissao: 'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'
+        }, clienteFormulario, montarEventoNormalizado({
+            cidadeEvento: textoSeguro(document.getElementById('propEventoCidade')?.value)
+        }), resumo.resumoFiscal);
 
         const proposta = {
             id: idAtual || Date.now(),
@@ -2882,13 +3109,7 @@
             codigoBase: textoSeguro(propostaAtual?.codigoBase || propostaAtual?.codigo, ''),
             revisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
             numeroRevisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
-            cliente: {
-                nome: textoSeguro(document.getElementById('propClienteNome')?.value),
-                documento: textoSeguro(document.getElementById('propClienteDocumento')?.value),
-                telefone: textoSeguro(document.getElementById('propClienteTelefone')?.value),
-                email: textoSeguro(document.getElementById('propClienteEmail')?.value),
-                endereco: textoSeguro(document.getElementById('propClienteEndereco')?.value)
-            },
+            cliente: clienteFormulario,
             evento: {
                 nome: textoSeguro(document.getElementById('propEventoNome')?.value),
                 local: textoSeguro(document.getElementById('propEventoLocal')?.value),
@@ -2934,6 +3155,8 @@
                 // compatibilidade legado
                 exibirCustosInternosPdf: document.getElementById('propExibirInformacoesInternasPDF')?.checked === true
             },
+            fiscal: fiscalFormulario,
+            dadosFiscais: fiscalFormulario,
             controleInterno: {
                 custoInternoTotal: resumo.custoInternoTotal,
                 custoTerceirizadoTotal: resumo.custoTerceirizadoTotal,
@@ -3017,6 +3240,17 @@
             propClienteTelefone: p.cliente.telefone,
             propClienteEmail: p.cliente.email,
             propClienteEndereco: p.cliente.endereco,
+            propFiscalRazaoSocial: p.cliente.razaoSocial,
+            propFiscalNomeFantasia: p.cliente.nomeFantasia,
+            propFiscalCpfCnpj: p.cliente.cpfCnpj,
+            propFiscalIE: p.cliente.inscricaoEstadual,
+            propFiscalIM: p.cliente.inscricaoMunicipal,
+            propFiscalEndereco: p.cliente.enderecoFiscal,
+            propFiscalCidade: p.cliente.cidadeFiscal,
+            propFiscalUF: p.cliente.ufFiscal,
+            propFiscalCEP: p.cliente.cepFiscal,
+            propFiscalEmail: p.cliente.emailFiscal,
+            propFiscalContatoFinanceiro: p.cliente.contatoFinanceiro,
             propEventoNome: p.evento.nome,
             propEventoLocal: p.evento.local,
             propEventoEnderecoCompleto: p.evento.enderecoEvento,
@@ -3081,7 +3315,9 @@
         categoriasOrcamentoTemporarias = null;
         const campos = [
             'propostaIdAtual', 'propCodigo', 'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail',
-            'propClienteEndereco', 'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
+            'propClienteEndereco', 'propFiscalRazaoSocial', 'propFiscalNomeFantasia', 'propFiscalCpfCnpj', 'propFiscalIE', 'propFiscalIM',
+            'propFiscalEndereco', 'propFiscalCidade', 'propFiscalUF', 'propFiscalCEP', 'propFiscalEmail', 'propFiscalContatoFinanceiro',
+            'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
             'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
@@ -3124,6 +3360,7 @@
         }
         const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
         if (chkInterno) chkInterno.checked = false;
+        fecharPreNotaProposta();
 
         const obsPagEl = document.getElementById('propObsPagamento');
         if (obsPagEl) obsPagEl.value = TEXTO_PADRAO_OBS_PAGAMENTO;
@@ -4068,6 +4305,7 @@
                 const descricao = [
                     `<strong>${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao || '-')}</strong>`,
                     item.medida ? `<small>Medida: ${sanitizar(item.medida)}</small>` : '',
+                    exibirInterno ? `<small>Tipo fiscal: ${sanitizar(rotuloTipoFiscalItem(item.tipoFiscal))}</small>` : '',
                     item.observacoes ? `<small>Obs.: ${sanitizar(item.observacoes)}</small>` : ''
                 ].filter(Boolean).join('');
 
@@ -4162,6 +4400,19 @@
         const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
         const custosAdicionaisSemFrete = arredondarMoeda(Math.max(custosAdicionaisResumo - freteResumo, 0));
         const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
+        const resumoFiscalPdf = p.fiscal?.resumo || calcularResumoFiscalProposta(p.itens, {
+            percentualNF: p.financeiro.percentualNF,
+            valorBrutoProposta: valorFinalComercial,
+            valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
+            tipoCalculoNF: tipoNF
+        });
+        const totalServicosFiscalPdf = arredondarMoeda(
+            numeroNaoNegativo(resumoFiscalPdf.totalServicos, 0)
+            + numeroNaoNegativo(resumoFiscalPdf.totalMaoObra, 0)
+            + numeroNaoNegativo(resumoFiscalPdf.totalFreteLogistica, 0)
+            + numeroNaoNegativo(resumoFiscalPdf.totalImpressaoProducao, 0)
+            + numeroNaoNegativo(resumoFiscalPdf.totalArtProjeto, 0)
+        );
 
         const blocoResumoFinanceiro = `
             <table class="pdf-summary-table" style="width:100%; border-collapse:collapse; font-size:11px;">
@@ -4176,8 +4427,8 @@
                     ${(custosAdicionaisSemFrete > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais (sem frete)', formatarMoeda(custosAdicionaisSemFrete)) : ''}
                     ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
                     ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}
-                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf(`Percentual NF (${formatarPercentual(p.financeiro.percentualNF)})`, formatarMoeda(p.financeiro.valorNF)) : ''}
-                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf('Tipo calculo NF', sanitizar(rotuloTipoCalculoNF(tipoNF))) : ''}
+                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf(`Percentual fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, formatarMoeda(p.financeiro.valorNF)) : ''}
+                    ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf('Tipo de calculo fiscal', sanitizar(rotuloTipoCalculoNF(tipoNF))) : ''}
                     ${linhaResumoPdf('Valor final da proposta', formatarMoeda(valorFinalComercial), true)}
                 </tbody>
             </table>
@@ -4189,8 +4440,8 @@
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tbody>
                         ${linhaResumoPdf('Valor final base', formatarMoeda(p.financeiro.valorFinal))}
-                        ${linhaResumoPdf('Valor final com NF', formatarMoeda(p.financeiro.valorFinalComNF))}
-                        ${linhaResumoPdf('Valor liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
+                        ${linhaResumoPdf('Valor final com fiscal', formatarMoeda(p.financeiro.valorFinalComNF))}
+                        ${linhaResumoPdf('Valor liquido previsto apos fiscal', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
                         ${linhaResumoPdf('Custo total interno', formatarMoeda(custoTotalInterno))}
                         ${linhaResumoPdf('Lucro previsto', formatarMoeda(p.controleInterno.lucroPrevisto))}
                         ${linhaResumoPdf('Margem prevista', formatarPercentual(p.controleInterno.margemPrevista))}
@@ -4214,9 +4465,12 @@
             montarDadoCompactoPdf('Observacao de pagamento', p.financeiro.observacaoPagamento)
         ].filter(Boolean).join('');
         const controleFiscal = [
-            montarDadoCompactoPdf('Situacao NF', situacaoFiscal),
-            montarDadoCompactoPdf('Imposto/encargo', nfCliente),
-            exibirInterno ? montarDadoCompactoPdf('Calculo NF', rotuloTipoCalculoNF(tipoNF)) : '',
+            montarDadoCompactoPdf('Situacao fiscal', situacaoFiscal),
+            montarDadoCompactoPdf('Imposto/encargo estimado', nfCliente),
+            montarDadoCompactoPdf('Base estimada NFS-e', formatarMoeda(resumoFiscalPdf.baseEstimadaNfse)),
+            montarDadoCompactoPdf('Locacao separada', formatarMoeda(resumoFiscalPdf.totalLocacao)),
+            montarDadoCompactoPdf('Servicos separados', formatarMoeda(totalServicosFiscalPdf)),
+            exibirInterno ? montarDadoCompactoPdf('Calculo fiscal', rotuloTipoCalculoNF(tipoNF)) : '',
             exibirInterno ? montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto)) : ''
         ].filter(Boolean).join('');
         const observacoesEscopo = [
@@ -4898,6 +5152,83 @@
         }, 90);
     }
 
+    function montarHtmlPreNotaProposta(proposta) {
+        const p = normalizarProposta(proposta);
+        const resumoFiscal = p.fiscal?.resumo || calcularResumoFiscalProposta(p.itens, {
+            percentualNF: p.financeiro.percentualNF,
+            valorBrutoProposta: obterValorFinalComercial(p),
+            valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
+            tipoCalculoNF: p.financeiro.tipoCalculoNF
+        });
+        const totalServicosSeparados = arredondarMoeda(
+            numeroNaoNegativo(resumoFiscal.totalServicos, 0)
+            + numeroNaoNegativo(resumoFiscal.totalMaoObra, 0)
+            + numeroNaoNegativo(resumoFiscal.totalFreteLogistica, 0)
+            + numeroNaoNegativo(resumoFiscal.totalImpressaoProducao, 0)
+            + numeroNaoNegativo(resumoFiscal.totalArtProjeto, 0)
+        );
+        const tomador = textoSeguro(p.fiscal?.tomador || p.cliente.razaoSocial || p.cliente.nome, '-');
+        const documento = textoSeguro(p.fiscal?.cpfCnpj || p.cliente.cpfCnpj || p.cliente.documento, '-');
+        const emailFiscal = textoSeguro(p.fiscal?.emailFiscal || p.cliente.emailFiscal || p.cliente.email, '-');
+        const municipio = textoSeguro(p.fiscal?.municipioPrestacao || p.evento.cidadeEvento || p.cliente.cidadeFiscal, '-');
+        const descricaoFiscal = textoSeguro(
+            p.fiscal?.descricaoFiscalSugerida,
+            'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.'
+        );
+        const observacoes = textoSeguro(
+            p.fiscal?.observacoesEmissao,
+            'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'
+        );
+
+        const item = (rotulo, valor) => `
+            <div class="proposta-pre-nota-item">
+                <span>${sanitizar(rotulo)}</span>
+                <strong>${sanitizar(valor)}</strong>
+            </div>
+        `;
+
+        return `
+            <div class="proposta-pre-nota-grid">
+                ${item('Tomador', tomador)}
+                ${item('CNPJ/CPF', documento)}
+                ${item('E-mail fiscal', emailFiscal)}
+                ${item('Município da prestação', municipio)}
+                ${item('Valor de serviços', formatarMoeda(totalServicosSeparados))}
+                ${item('Valor de locação separado', formatarMoeda(resumoFiscal.totalLocacao))}
+                ${item('Retenções previstas', formatarMoeda(resumoFiscal.retencoesPrevistas))}
+                ${item('Documento sugerido', textoSeguro(resumoFiscal.tipoDocumentoSugerido, 'Conferir com contabilidade'))}
+            </div>
+            <div class="proposta-pre-nota-text">
+                <strong>Descrição fiscal sugerida</strong>
+                <p>${sanitizar(descricaoFiscal)}</p>
+            </div>
+            <div class="proposta-pre-nota-text">
+                <strong>Observações para emissão</strong>
+                <p>${sanitizar(observacoes)}</p>
+            </div>
+        `;
+    }
+
+    function gerarPreNotaPropostaAtual() {
+        const proposta = coletarDadosFormulario(false);
+        if (!proposta) return;
+
+        const painel = document.getElementById('propPreNotaPanel');
+        const conteudo = document.getElementById('propPreNotaConteudo');
+        if (!painel || !conteudo) return;
+
+        conteudo.innerHTML = montarHtmlPreNotaProposta(proposta);
+        painel.hidden = false;
+        destacarAlvoAtalho(painel, 1200);
+    }
+
+    function fecharPreNotaProposta() {
+        const painel = document.getElementById('propPreNotaPanel');
+        const conteudo = document.getElementById('propPreNotaConteudo');
+        if (conteudo) conteudo.innerHTML = '';
+        if (painel) painel.hidden = true;
+    }
+
     function registrarListenersPropostas() {
         if (listenersRegistrados) return;
         listenersRegistrados = true;
@@ -5008,6 +5339,8 @@
     window.gerarPDFPropostaAtual = gerarPDFPropostaAtual;
     window.gerarPDFPropostaAtualCliente = gerarPDFPropostaAtualCliente;
     window.gerarPDFPropostaAtualInterno = gerarPDFPropostaAtualInterno;
+    window.gerarPreNotaPropostaAtual = gerarPreNotaPropostaAtual;
+    window.fecharPreNotaProposta = fecharPreNotaProposta;
     window.converterPropostaEmLocacaoFechada = converterPropostaEmLocacaoFechada;
     window.converterPropostaAtual = converterPropostaAtual;
     window.aplicarFiltroPropostas = aplicarFiltroPropostas;

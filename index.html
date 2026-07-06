@@ -993,6 +993,66 @@
                                     <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
                                 </div>
                             </div>
+                            <details class="proposta-fiscal-details">
+                                <summary>
+                                    <span><i class="bi bi-receipt"></i> Dados fiscais do cliente</span>
+                                    <small>Opcional para faturamento</small>
+                                </summary>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Razão social</label>
+                                        <input type="text" id="propFiscalRazaoSocial" placeholder="Razão social para faturamento">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Nome fantasia</label>
+                                        <input type="text" id="propFiscalNomeFantasia" placeholder="Nome fantasia">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>CPF/CNPJ fiscal</label>
+                                        <input type="text" id="propFiscalCpfCnpj" placeholder="Documento fiscal">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Inscrição estadual</label>
+                                        <input type="text" id="propFiscalIE" placeholder="IE, se houver">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Inscrição municipal</label>
+                                        <input type="text" id="propFiscalIM" placeholder="IM, se houver">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Endereço fiscal</label>
+                                        <input type="text" id="propFiscalEndereco" placeholder="Endereço fiscal completo">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Cidade fiscal</label>
+                                        <input type="text" id="propFiscalCidade" placeholder="Cidade">
+                                    </div>
+                                    <div class="form-group form-group-compact">
+                                        <label>UF</label>
+                                        <input type="text" id="propFiscalUF" maxlength="2" placeholder="UF">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>CEP fiscal</label>
+                                        <input type="text" id="propFiscalCEP" placeholder="CEP">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>E-mail fiscal</label>
+                                        <input type="email" id="propFiscalEmail" placeholder="E-mail para nota/faturamento">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Contato financeiro</label>
+                                        <input type="text" id="propFiscalContatoFinanceiro" placeholder="Responsável financeiro">
+                                    </div>
+                                </div>
+                            </details>
                         </section>
 
                         <section class="proposta-data-card">
@@ -1120,6 +1180,7 @@
                                 <thead>
                                     <tr>
                                         <th>Categoria</th>
+                                        <th>Tipo fiscal</th>
                                         <th>Descrição</th>
                                         <th>Medida</th>
                                         <th>Período (dias)</th>
@@ -1187,11 +1248,11 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Percentual da Nota Fiscal (%)</label>
+                                    <label>Percentual fiscal estimado (%)</label>
                                     <input type="text" id="propPercentualNF" inputmode="decimal" value="0" data-input="recalcularResumoProposta">
                                 </div>
                                 <div class="form-group">
-                                    <label>Tipo de cálculo da Nota Fiscal</label>
+                                    <label>Tipo de cálculo fiscal</label>
                                     <select id="propTipoCalculoNF" data-change="recalcularResumoProposta">
                                         <option value="descontar">Descontar do valor final</option>
                                         <option value="acrescentar">Acrescentar ao valor final</option>
@@ -1200,20 +1261,52 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Valor calculado da Nota Fiscal</label>
+                                    <label>Impostos/encargos estimados</label>
                                     <input type="text" id="propValorNF" value="R$ 0,00" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label>Valor final com NF</label>
+                                    <label>Valor final com fiscal</label>
                                     <input type="text" id="propValorFinalComNF" value="R$ 0,00" readonly>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Valor líquido previsto após NF</label>
+                                    <label>Valor líquido previsto após fiscal</label>
                                     <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="proposta-fiscal-prep-card" id="propFiscalPrepCard">
+                        <div class="proposta-fiscal-prep-head">
+                            <div>
+                                <span class="proposta-fiscal-prep-icon"><i class="bi bi-receipt-cutoff"></i></span>
+                                <div>
+                                    <h5>Preparação fiscal</h5>
+                                    <p>Dados estimados para conferência antes do faturamento.</p>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" data-action="gerarPreNotaPropostaAtual">
+                                <i class="bi bi-file-earmark-text"></i> Gerar pré-nota / dados para faturamento
+                            </button>
+                        </div>
+                        <div class="proposta-fiscal-metrics">
+                            <div><span>Documento sugerido</span><strong id="propFiscalTipoDocumento">Conferir com contabilidade</strong></div>
+                            <div><span>Base estimada NFS-e</span><strong id="propFiscalBaseNfse">R$ 0,00</strong></div>
+                            <div><span>Locação separada</span><strong id="propFiscalTotalLocacao">R$ 0,00</strong></div>
+                            <div><span>Serviços separados</span><strong id="propFiscalTotalServicos">R$ 0,00</strong></div>
+                            <div><span>Retenções previstas</span><strong id="propFiscalRetencoes">R$ 0,00</strong></div>
+                        </div>
+                        <div class="proposta-fiscal-alerts" id="propFiscalAvisos"></div>
+                        <div class="proposta-pre-nota-panel" id="propPreNotaPanel" hidden>
+                            <div class="proposta-pre-nota-head">
+                                <strong>Pré-nota / dados para faturamento</strong>
+                                <button type="button" class="btn btn-sm btn-secondary" data-action="fecharPreNotaProposta">
+                                    <i class="bi bi-x-lg"></i> Fechar
+                                </button>
+                            </div>
+                            <div id="propPreNotaConteudo"></div>
                         </div>
                     </div>
 
