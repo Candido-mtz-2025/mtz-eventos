@@ -68,13 +68,72 @@
         { id: 'reembolso_despesa', rotulo: 'Reembolso de despesa' },
         { id: TIPO_FISCAL_ITEM_PADRAO, rotulo: 'Verificar com contador' }
     ]);
-    const TIPOS_FISCAIS_BASE_NFSE = new Set([
-        'servico',
-        'mao_de_obra',
-        'frete_logistica',
-        'impressao_producao',
-        'art_projeto_documentacao'
-    ]);
+    const MATRIZ_FISCAL_ITEM_PADRAO = Object.freeze({
+        locacao_bem_movel: {
+            documentoSugerido: 'Contrato/fatura/recibo de locação, conforme orientação contábil',
+            entraBaseNfse: false,
+            exigeConferenciaContador: false,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Locação separada da base estimada de NFS-e.'
+        },
+        servico: {
+            documentoSugerido: 'NFS-e de serviços',
+            entraBaseNfse: true,
+            exigeConferenciaContador: false,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Serviço entra na base estimada de NFS-e.'
+        },
+        mao_de_obra: {
+            documentoSugerido: 'NFS-e de serviços / mão de obra',
+            entraBaseNfse: true,
+            exigeConferenciaContador: false,
+            permiteRetencaoINSS: true,
+            observacaoFiscalPadrao: 'Mão de obra pode ter retenções conforme enquadramento.'
+        },
+        frete_logistica: {
+            documentoSugerido: 'NFS-e de serviço logístico, se cobrado do cliente',
+            entraBaseNfse: true,
+            exigeConferenciaContador: false,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Só entra na pré-nota quando lançado como item cobrado do cliente.'
+        },
+        impressao_producao: {
+            documentoSugerido: 'Conferir documento aplicável com a contabilidade',
+            entraBaseNfse: true,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Impressão/produção exige conferência fiscal antes da emissão.'
+        },
+        art_projeto_documentacao: {
+            documentoSugerido: 'NFS-e de serviço/documentação, se cobrado do cliente',
+            entraBaseNfse: true,
+            exigeConferenciaContador: false,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Projeto, ART ou documentação entram como serviço quando cobrados.'
+        },
+        produto_venda: {
+            documentoSugerido: 'Possível NF-e/produto',
+            entraBaseNfse: false,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Produto/venda não deve ser tratado automaticamente como NFS-e.'
+        },
+        reembolso_despesa: {
+            documentoSugerido: 'Conferir tratamento de reembolso com a contabilidade',
+            entraBaseNfse: false,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Reembolso exige validação antes de constar na pré-nota.'
+        },
+        verificar_contador: {
+            documentoSugerido: 'Bloqueado até conferência do contador',
+            entraBaseNfse: false,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Classificação pendente. A pré-nota deve ser revisada antes da emissão.'
+        }
+    });
+    const TEXTO_PRE_NOTA_CONFERENCIA = 'Pré-nota para conferência. Emissão fiscal oficial deve ser validada pela contabilidade.';
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
         'itens',
@@ -88,6 +147,7 @@
     let listenersRegistrados = false;
     let bloqueioSincronizacaoValidade = false;
     let categoriasOrcamentoTemporarias = null;
+    let matrizFiscalTemporaria = null;
     let mostrarCategoriasVaziasProposta = false;
     let ultimoAvisoPercentualInvalido = 0;
     let resumoCategoriasPropostaTimer = null;
@@ -557,6 +617,46 @@
         return tipo?.rotulo || 'Verificar com contador';
     }
 
+    function normalizarRegraMatrizFiscal(tipoFiscal, origem = {}) {
+        const tipo = normalizarTipoFiscalItem(tipoFiscal);
+        const base = MATRIZ_FISCAL_ITEM_PADRAO[tipo] || MATRIZ_FISCAL_ITEM_PADRAO[TIPO_FISCAL_ITEM_PADRAO];
+        const valor = origem && typeof origem === 'object' ? origem : {};
+        return {
+            tipoFiscal: tipo,
+            rotulo: rotuloTipoFiscalItem(tipo),
+            documentoSugerido: textoSeguro(valor.documentoSugerido, base.documentoSugerido),
+            entraBaseNfse: normalizarBooleanoProposta(valor.entraBaseNfse, base.entraBaseNfse),
+            exigeConferenciaContador: normalizarBooleanoProposta(valor.exigeConferenciaContador, base.exigeConferenciaContador),
+            permiteRetencaoINSS: normalizarBooleanoProposta(valor.permiteRetencaoINSS, base.permiteRetencaoINSS),
+            observacaoFiscalPadrao: textoSeguro(valor.observacaoFiscalPadrao, base.observacaoFiscalPadrao)
+        };
+    }
+
+    function normalizarMatrizFiscalProposta(valor = {}) {
+        const origem = valor && typeof valor === 'object' ? valor : {};
+        return TIPOS_FISCAIS_ITEM_PROPOSTA.reduce((acc, tipo) => {
+            acc[tipo.id] = normalizarRegraMatrizFiscal(tipo.id, origem[tipo.id]);
+            return acc;
+        }, {});
+    }
+
+    function obterMatrizFiscalProposta(padroesOrigem = null) {
+        if (matrizFiscalTemporaria && typeof matrizFiscalTemporaria === 'object') {
+            return normalizarMatrizFiscalProposta(matrizFiscalTemporaria);
+        }
+        const origem = padroesOrigem && typeof padroesOrigem === 'object'
+            ? padroesOrigem
+            : config?.padroesOrcamento;
+        const matriz = origem?.matrizFiscal || origem?.globais?.matrizFiscal || {};
+        return normalizarMatrizFiscalProposta(matriz);
+    }
+
+    function obterRegraMatrizFiscal(tipoFiscal, matriz = null) {
+        const tipo = normalizarTipoFiscalItem(tipoFiscal);
+        const regras = matriz || obterMatrizFiscalProposta();
+        return regras[tipo] || normalizarRegraMatrizFiscal(tipo);
+    }
+
     function montarOptionsTipoFiscalItem(tipoAtual) {
         const atual = normalizarTipoFiscalItem(tipoAtual);
         return TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo) => {
@@ -574,7 +674,12 @@
             categorias[categoria.id] = normalizarRegraCategoriaOrcamento(categoria.id, categoria, globais);
         });
 
-        return { globais, categorias, categoriasOrcamento };
+        return {
+            globais,
+            categorias,
+            categoriasOrcamento,
+            matrizFiscal: normalizarMatrizFiscalProposta()
+        };
     }
 
     function normalizarRegraCategoriaOrcamento(categoria, regra = {}, globais = criarGlobaisPadraoOrcamento()) {
@@ -640,7 +745,12 @@
             }, globais);
         });
 
-        return { globais, categorias, categoriasOrcamento };
+        return {
+            globais,
+            categorias,
+            categoriasOrcamento,
+            matrizFiscal: normalizarMatrizFiscalProposta(origem.matrizFiscal || origemGlobais.matrizFiscal)
+        };
     }
 
     function obterPadroesOrcamento() {
@@ -761,6 +871,7 @@
     }
 
     function calcularResumoFiscalProposta(itens = [], opcoes = {}) {
+        const matrizFiscal = normalizarMatrizFiscalProposta(opcoes.matrizFiscal || config?.padroesOrcamento?.matrizFiscal);
         const resumo = {
             totalLocacao: 0,
             totalServicos: 0,
@@ -777,14 +888,26 @@
             valorBrutoProposta: 0,
             valorLiquidoPrevisto: 0,
             tipoDocumentoSugerido: 'Conferir com contabilidade',
+            totaisPorTipoFiscal: {},
+            itensSemClassificacaoFiscal: 0,
+            itensVerificarContador: 0,
+            itensExigemConferencia: 0,
+            bloquearPreNota: false,
             avisos: []
         };
 
+        TIPOS_FISCAIS_ITEM_PROPOSTA.forEach((tipo) => {
+            resumo.totaisPorTipoFiscal[tipo.id] = 0;
+        });
+
         (Array.isArray(itens) ? itens : []).forEach((itemOriginal) => {
             const item = calcularItemProposta(itemOriginal || {});
+            const tipoFiscalOriginal = textoSeguro(itemOriginal?.tipoFiscal, '');
             const tipoFiscal = normalizarTipoFiscalItem(item.tipoFiscal);
+            const regraFiscal = obterRegraMatrizFiscal(tipoFiscal, matrizFiscal);
             const valor = numeroNaoNegativo(item.valorTotal ?? item.totalFinal, 0);
 
+            resumo.totaisPorTipoFiscal[tipoFiscal] = arredondarMoeda((resumo.totaisPorTipoFiscal[tipoFiscal] || 0) + valor);
             if (tipoFiscal === 'locacao_bem_movel') resumo.totalLocacao += valor;
             if (tipoFiscal === 'servico') resumo.totalServicos += valor;
             if (tipoFiscal === 'mao_de_obra') resumo.totalMaoObra += valor;
@@ -794,9 +917,14 @@
             if (tipoFiscal === 'produto_venda') resumo.totalProdutoVenda += valor;
             if (tipoFiscal === 'reembolso_despesa') resumo.totalReembolso += valor;
             if (tipoFiscal === TIPO_FISCAL_ITEM_PADRAO) resumo.totalVerificarContador += valor;
-            if (TIPOS_FISCAIS_BASE_NFSE.has(tipoFiscal)) resumo.baseEstimadaNfse += valor;
+            if (regraFiscal.entraBaseNfse) resumo.baseEstimadaNfse += valor;
+            if (!tipoFiscalOriginal) resumo.itensSemClassificacaoFiscal += 1;
+            if (tipoFiscal === TIPO_FISCAL_ITEM_PADRAO) resumo.itensVerificarContador += 1;
+            if (regraFiscal.exigeConferenciaContador) resumo.itensExigemConferencia += 1;
 
-            resumo.retencoesPrevistas += numeroNaoNegativo(item.valorINSS, 0);
+            if (regraFiscal.permiteRetencaoINSS) {
+                resumo.retencoesPrevistas += numeroNaoNegativo(item.valorINSS, 0);
+            }
         });
 
         Object.keys(resumo).forEach((chave) => {
@@ -809,6 +937,7 @@
         resumo.valorLiquidoPrevisto = numeroSeguro(opcoes.valorLiquidoPrevisto, resumo.valorBrutoProposta - resumo.impostosEstimados);
 
         const totalServicosFiscais = resumo.totalServicos + resumo.totalMaoObra + resumo.totalFreteLogistica + resumo.totalImpressaoProducao + resumo.totalArtProjeto;
+        resumo.bloquearPreNota = resumo.itensSemClassificacaoFiscal > 0 || resumo.itensVerificarContador > 0;
         if (resumo.totalLocacao > 0 && totalServicosFiscais > 0) {
             resumo.tipoDocumentoSugerido = 'Locação + NFS-e separadas';
             resumo.avisos.push('Este orçamento possui locação e prestação de serviço. Confira a separação fiscal antes da emissão.');
@@ -818,11 +947,20 @@
             resumo.tipoDocumentoSugerido = 'Contrato/recibo de locação';
         }
 
-        if (resumo.totalVerificarContador > 0) {
+        if (resumo.itensSemClassificacaoFiscal > 0) {
             resumo.avisos.push('Existem itens sem classificação fiscal.');
         }
 
-        resumo.avisos.push('Cálculo fiscal estimado. Conferir com a contabilidade antes da emissão oficial.');
+        if (resumo.itensVerificarContador > 0) {
+            resumo.avisos.push('Existem itens marcados como "Verificar com contador". A pré-nota fica bloqueada até conferência.');
+        }
+
+        if (resumo.itensExigemConferencia > 0) {
+            resumo.avisos.push('Existem tipos fiscais que exigem conferência do contador antes da emissão.');
+        }
+
+        resumo.avisos.push('Custos adicionais do fechamento são tratados como custos internos. Se forem cobrados do cliente, lance como item da proposta com tipo fiscal próprio.');
+        resumo.avisos.push(TEXTO_PRE_NOTA_CONFERENCIA);
         return resumo;
     }
 
@@ -1145,6 +1283,38 @@
         `;
     }
 
+    function montarLinhaConfigMatrizFiscal(regra) {
+        const normalizada = normalizarRegraMatrizFiscal(regra?.tipoFiscal, regra);
+        return `
+            <div class="proposta-config-fiscal-row" data-prop-matriz-fiscal="${sanitizar(normalizada.tipoFiscal)}">
+                <div class="proposta-config-fiscal-type">
+                    <strong>${sanitizar(normalizada.rotulo)}</strong>
+                    <small>${sanitizar(normalizada.observacaoFiscalPadrao)}</small>
+                </div>
+                <div class="form-group">
+                    <label>Documento sugerido</label>
+                    <input type="text" class="prop-matriz-documento" value="${sanitizar(normalizada.documentoSugerido)}">
+                </div>
+                <label class="proposta-config-check-option">
+                    <input type="checkbox" class="prop-matriz-base-nfse" ${normalizada.entraBaseNfse ? 'checked' : ''}>
+                    <span>Entra na base estimada de NFS-e</span>
+                </label>
+                <label class="proposta-config-check-option">
+                    <input type="checkbox" class="prop-matriz-contador" ${normalizada.exigeConferenciaContador ? 'checked' : ''}>
+                    <span>Exige conferência do contador</span>
+                </label>
+                <label class="proposta-config-check-option">
+                    <input type="checkbox" class="prop-matriz-retencao" ${normalizada.permiteRetencaoINSS ? 'checked' : ''}>
+                    <span>Permite retenção/INSS</span>
+                </label>
+                <div class="form-group proposta-config-fiscal-observation">
+                    <label>Observação fiscal padrão</label>
+                    <textarea class="prop-matriz-observacao" rows="2">${sanitizar(normalizada.observacaoFiscalPadrao)}</textarea>
+                </div>
+            </div>
+        `;
+    }
+
     function atualizarMetaTopoPropostas(total = 0, filtradas = 0, termoRaw = '') {
         const el = document.getElementById('propHeaderMeta');
         if (!el) return;
@@ -1174,6 +1344,18 @@
         if (tipoFiscal) tipoFiscal.value = normalizarTipoCalculoNF(globais.tipoCalculoFiscalPadrao, 'descontar');
         const aplicarFiscal = document.getElementById('propOrcConfigAplicarFiscalAutomaticamente');
         if (aplicarFiscal) aplicarFiscal.value = globais.aplicarFiscalAutomaticamente === true ? 'sim' : 'nao';
+
+        const matrizFiscalEl = document.getElementById('propOrcConfigMatrizFiscal');
+        if (matrizFiscalEl) {
+            const matrizFiscal = normalizarMatrizFiscalProposta(padroes.matrizFiscal);
+            matrizFiscalEl.innerHTML = `
+                <div class="proposta-config-fiscal-matrix-note">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Esta matriz prepara dados para conferência fiscal. Ela não emite nota e não substitui a contabilidade.</span>
+                </div>
+                ${TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo) => montarLinhaConfigMatrizFiscal(matrizFiscal[tipo.id])).join('')}
+            `;
+        }
 
         const container = document.getElementById('propOrcConfigCategorias');
         if (!container) return;
@@ -1479,8 +1661,20 @@
             };
         });
 
+        const matrizFiscal = {};
+        document.querySelectorAll('#propOrcConfigMatrizFiscal [data-prop-matriz-fiscal]').forEach((linha) => {
+            const tipoFiscal = normalizarTipoFiscalItem(linha.getAttribute('data-prop-matriz-fiscal'));
+            matrizFiscal[tipoFiscal] = normalizarRegraMatrizFiscal(tipoFiscal, {
+                documentoSugerido: linha.querySelector('.prop-matriz-documento')?.value,
+                entraBaseNfse: linha.querySelector('.prop-matriz-base-nfse')?.checked === true,
+                exigeConferenciaContador: linha.querySelector('.prop-matriz-contador')?.checked === true,
+                permiteRetencaoINSS: linha.querySelector('.prop-matriz-retencao')?.checked === true,
+                observacaoFiscalPadrao: linha.querySelector('.prop-matriz-observacao')?.value
+            });
+        });
+
         return {
-            padroes: normalizarPadroesOrcamento({ globais, categorias, categoriasOrcamento }),
+            padroes: normalizarPadroesOrcamento({ globais, categorias, categoriasOrcamento, matrizFiscal }),
             categoriasOrcamento: normalizarCategoriasOrcamentoConfig(categoriasOrcamento, categorias, globais),
             valorKmFretePadrao: numeroNaoNegativo(document.getElementById('propOrcConfigValorKmPadrao')?.value, 0)
         };
@@ -1516,6 +1710,9 @@
             categoriasOrcamentoTemporarias = normalizarCategoriasOrcamentoConfig(categoriasOverride, padroesOverride?.categorias || {}, padroesOverride?.globais || criarGlobaisPadraoOrcamento());
         }
         const padroes = normalizarPadroesOrcamento(padroesOverride || obterPadroesOrcamento());
+        if (padroesOverride) {
+            matrizFiscalTemporaria = normalizarMatrizFiscalProposta(padroes.matrizFiscal);
+        }
         const entradaEl = document.getElementById('propPercentualEntrada');
         if (entradaEl) entradaEl.value = String(padroes.globais.percentualEntradaPadrao ?? 50);
         const aplicarFiscalCampos = !!padroesOverride || padroes.globais.aplicarFiscalAutomaticamente === true;
@@ -1573,6 +1770,7 @@
             config.valorKmFretePadrao = valorKmFretePadrao;
         }
         categoriasOrcamentoTemporarias = null;
+        matrizFiscalTemporaria = null;
 
         salvarLocal();
         sincronizar('salvar');
@@ -5238,13 +5436,44 @@
             p.fiscal?.observacoesEmissao,
             'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'
         );
-
         const item = (rotulo, valor) => `
             <div class="proposta-pre-nota-item">
                 <span>${sanitizar(rotulo)}</span>
                 <strong>${sanitizar(valor)}</strong>
             </div>
         `;
+        const totaisPorTipo = resumoFiscal.totaisPorTipoFiscal && typeof resumoFiscal.totaisPorTipoFiscal === 'object'
+            ? resumoFiscal.totaisPorTipoFiscal
+            : {};
+        const totaisTipoHtml = TIPOS_FISCAIS_ITEM_PROPOSTA
+            .map((tipo) => ({
+                tipo,
+                valor: numeroNaoNegativo(totaisPorTipo[tipo.id], 0)
+            }))
+            .filter((entrada) => entrada.valor > 0)
+            .map((entrada) => item(entrada.tipo.rotulo, formatarMoeda(entrada.valor)))
+            .join('');
+        const avisosHtml = Array.isArray(resumoFiscal.avisos) && resumoFiscal.avisos.length
+            ? resumoFiscal.avisos.map((aviso) => `
+                <div class="proposta-fiscal-alert">
+                    <i class="bi bi-info-circle"></i>
+                    <span>${sanitizar(aviso)}</span>
+                </div>
+            `).join('')
+            : '';
+
+        if (resumoFiscal.bloquearPreNota) {
+            return `
+                <div class="proposta-pre-nota-blocked">
+                    <strong>Pré-nota bloqueada para conferência</strong>
+                    <p>${TEXTO_PRE_NOTA_CONFERENCIA}</p>
+                </div>
+                <div class="proposta-fiscal-alerts">${avisosHtml}</div>
+                <div class="proposta-pre-nota-grid">
+                    ${totaisTipoHtml || item('Itens classificados', 'Nenhum total disponível')}
+                </div>
+            `;
+        }
 
         return `
             <div class="proposta-pre-nota-grid">
@@ -5254,8 +5483,15 @@
                 ${item('Município da prestação', municipio)}
                 ${item('Valor de serviços', formatarMoeda(totalServicosSeparados))}
                 ${item('Valor de locação separado', formatarMoeda(resumoFiscal.totalLocacao))}
+                ${item('Base estimada de NFS-e', formatarMoeda(resumoFiscal.baseEstimadaNfse))}
                 ${item('Retenções previstas', formatarMoeda(resumoFiscal.retencoesPrevistas))}
                 ${item('Documento sugerido', textoSeguro(resumoFiscal.tipoDocumentoSugerido, 'Conferir com contabilidade'))}
+            </div>
+            <div class="proposta-pre-nota-text">
+                <strong>Totais por tipo fiscal</strong>
+                <div class="proposta-pre-nota-grid proposta-pre-nota-type-totals">
+                    ${totaisTipoHtml || item('Sem itens fiscais', 'R$ 0,00')}
+                </div>
             </div>
             <div class="proposta-pre-nota-text">
                 <strong>Descrição fiscal sugerida</strong>
@@ -5264,7 +5500,9 @@
             <div class="proposta-pre-nota-text">
                 <strong>Observações para emissão</strong>
                 <p>${sanitizar(observacoes)}</p>
+                <p>${TEXTO_PRE_NOTA_CONFERENCIA}</p>
             </div>
+            <div class="proposta-fiscal-alerts">${avisosHtml}</div>
         `;
     }
 
@@ -5276,7 +5514,12 @@
         const conteudo = document.getElementById('propPreNotaConteudo');
         if (!painel || !conteudo) return;
 
-        conteudo.innerHTML = montarHtmlPreNotaProposta(proposta);
+        const propostaNormalizada = normalizarProposta(proposta);
+        if (propostaNormalizada.fiscal?.resumo?.bloquearPreNota) {
+            mostrarToast('Pré-nota bloqueada: confira os tipos fiscais antes de faturar.', 'warning');
+        }
+
+        conteudo.innerHTML = montarHtmlPreNotaProposta(propostaNormalizada);
         painel.hidden = false;
         destacarAlvoAtalho(painel, 1200);
     }

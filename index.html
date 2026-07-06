@@ -804,7 +804,7 @@
                                     <input type="text" id="propOrcConfigHonorariosPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Encargos padrão (%)</label>
+                                    <label>Acréscimo comercial / custo tributário estimado (%)</label>
                                     <input type="text" id="propOrcConfigEncargosPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
@@ -861,6 +861,14 @@
                                 <i class="bi bi-info-circle"></i>
                                 <span>Cálculo fiscal estimado. Conferir com a contabilidade antes da emissão oficial.</span>
                             </div>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <div class="proposta-config-section-title">
+                                <h4>Matriz fiscal por tipo de item</h4>
+                                <span>Classificação usada somente na pré-nota para conferência.</span>
+                            </div>
+                            <div id="propOrcConfigMatrizFiscal" class="proposta-config-fiscal-matrix" aria-live="polite"></div>
                         </div>
 
                         <div class="proposta-config-section">
@@ -1314,8 +1322,9 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Impostos/encargos estimados</label>
+                                    <label>Custo fiscal/comercial estimado</label>
                                     <input type="text" id="propValorNF" value="R$ 0,00" readonly>
+                                    <small>Valor estimado para composição comercial. Não substitui cálculo fiscal oficial da contabilidade.</small>
                                 </div>
                                 <div class="form-group">
                                     <label>Valor final com fiscal</label>

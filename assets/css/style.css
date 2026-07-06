@@ -8042,6 +8042,79 @@ header {
     line-height: 1.35;
 }
 
+#tab-propostas .proposta-config-fiscal-matrix {
+    display: grid;
+    gap: 10px;
+}
+
+#tab-propostas .proposta-config-fiscal-matrix-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text-light);
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+#tab-propostas .proposta-config-fiscal-matrix-note i {
+    color: var(--primary);
+}
+
+#tab-propostas .proposta-config-fiscal-row {
+    display: grid;
+    grid-template-columns: minmax(190px, 1.1fr) minmax(220px, 1.3fr);
+    gap: 10px;
+    align-items: start;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-config-fiscal-type {
+    display: grid;
+    gap: 4px;
+}
+
+#tab-propostas .proposta-config-fiscal-type strong {
+    color: var(--text);
+}
+
+#tab-propostas .proposta-config-fiscal-type small {
+    color: var(--text-light);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+#tab-propostas .proposta-config-check-option {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+#tab-propostas .proposta-config-check-option input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+
+#tab-propostas .proposta-config-fiscal-observation {
+    grid-column: 1 / -1;
+}
+
 #tab-propostas .proposta-config-section-title {
     display: flex;
     align-items: flex-start;
@@ -19240,6 +19313,33 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     color: var(--app-theme-muted, #64748b);
 }
 
+#tab-propostas .proposta-pre-nota-blocked {
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid rgba(239, 68, 68, 0.34);
+    border-radius: 14px;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--app-theme-text, #0f172a);
+}
+
+#tab-propostas .proposta-pre-nota-blocked strong {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--app-theme-text, #0f172a);
+    font-size: 0.98rem;
+}
+
+#tab-propostas .proposta-pre-nota-blocked p {
+    margin: 0;
+    color: var(--app-theme-muted, #64748b);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+#tab-propostas .proposta-pre-nota-type-totals {
+    margin-top: 10px;
+}
+
 body[data-theme="dark"] #tab-propostas .proposta-fiscal-details,
 body[data-theme="dark"] #tab-propostas .proposta-fiscal-prep-card,
 body[data-theme="mtz-premium"] #tab-propostas .proposta-fiscal-details,
@@ -19262,6 +19362,10 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-fiscal-prep-card {
     #tab-propostas .proposta-pre-nota-head {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    #tab-propostas .proposta-config-fiscal-row {
+        grid-template-columns: 1fr;
     }
 }
 
