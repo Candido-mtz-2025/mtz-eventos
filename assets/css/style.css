@@ -8775,12 +8775,12 @@ header {
 
 #tab-propostas .proposta-sticky-metrics strong {
     display: block;
-    overflow: hidden;
     color: var(--text);
-    font-size: 0.88rem;
+    font-size: clamp(0.78rem, 1vw, 0.94rem);
     font-weight: 950;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 #tab-propostas .proposta-sticky-actions {
@@ -9145,6 +9145,69 @@ header {
     white-space: nowrap;
 }
 
+#tab-propostas .proposta-items-fiscal-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 12px;
+}
+
+#tab-propostas .proposta-items-fiscal-card {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface) 86%, var(--surface-soft));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+#tab-propostas .proposta-items-fiscal-card span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+#tab-propostas .proposta-items-fiscal-card strong {
+    display: block;
+    color: var(--text);
+    font-size: clamp(0.96rem, 1.35vw, 1.16rem);
+    font-weight: 950;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+}
+
+#tab-propostas .proposta-items-fiscal-card-total {
+    border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+    background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+}
+
+[data-theme="dark"] #tab-propostas .proposta-items-fiscal-card,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-fiscal-card {
+    background: #0b1524;
+    border-color: rgba(126, 146, 174, 0.32);
+    box-shadow: none;
+}
+
+body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card {
+    background: #151106;
+    border-color: rgba(214, 168, 71, 0.3);
+    box-shadow: none;
+}
+
+[data-theme="dark"] #tab-propostas .proposta-items-fiscal-card-total,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-fiscal-card-total {
+    background: linear-gradient(135deg, rgba(239, 35, 60, 0.18), rgba(8, 17, 29, 0.94));
+    border-color: rgba(239, 35, 60, 0.42);
+}
+
+body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
+    background: linear-gradient(135deg, rgba(212, 164, 58, 0.24), rgba(21, 17, 6, 0.94));
+    border-color: rgba(214, 168, 71, 0.48);
+}
+
 #tab-propostas .proposta-items-table-wrap {
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -9170,6 +9233,10 @@ header {
 
 #tab-propostas #propostaItensBody .prop-item-categoria {
     min-width: 164px;
+}
+
+#tab-propostas #propostaItensBody .prop-item-tipo-fiscal {
+    min-width: 190px;
 }
 
 #tab-propostas #propostaItensBody .prop-item-descricao {
@@ -9199,8 +9266,30 @@ header {
 #tab-propostas #propostaItensBody .prop-details-toggle-btn {
     gap: 6px;
     width: auto;
-    min-width: 92px;
+    min-width: 104px;
     padding-inline: 10px;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-actions-cell {
+    min-width: 280px;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-action-btn {
+    min-height: 34px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-action-btn i {
+    font-size: 0.9rem;
 }
 
 #tab-propostas .proposta-item-details-row td {
@@ -9564,6 +9653,10 @@ header {
         justify-content: stretch;
     }
 
+    #tab-propostas .proposta-items-fiscal-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     #tab-propostas .proposta-add-item-btn {
         width: 100%;
     }
@@ -9617,6 +9710,10 @@ header {
 }
 
 @media (max-width: 560px) {
+    #tab-propostas .proposta-items-fiscal-summary {
+        grid-template-columns: 1fr;
+    }
+
     #tab-propostas .proposta-category-summary-grid {
         grid-template-columns: 1fr;
     }

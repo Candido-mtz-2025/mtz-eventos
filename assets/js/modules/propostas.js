@@ -2187,12 +2187,12 @@
 
         return `
             <tr class="proposta-item-row" data-categoria-atual="${sanitizar(itemCalculado.categoria)}">
-                <td data-label="Categoria">
+                <td data-label="Categoria comercial" class="proposta-item-col-categoria">
                     <select class="prop-item-categoria" data-change="recalcularResumoProposta">
                         ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
-                <td data-label="Tipo fiscal">
+                <td data-label="Tipo fiscal" class="proposta-item-col-fiscal">
                     <select class="prop-item-tipo-fiscal" data-change="recalcularResumoProposta">
                         ${montarOptionsTipoFiscalItem(itemCalculado.tipoFiscal)}
                     </select>
@@ -2201,23 +2201,22 @@
                 <td data-label="Medida"><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
                 <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
                 <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
-                <td data-label="Custo unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></td>
-                <td data-label="Custo total"><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
-                <td data-label="Valor final"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
-                <td class="col-actions" data-label="Ações">
-                    <div class="actions-cell">
-                        <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de calculo">
+                <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></td>
+                <td data-label="Subtotal"><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
+                <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
+                <td class="col-actions proposta-item-actions-cell" data-label="Ações">
+                    <div class="actions-cell proposta-item-actions">
+                        <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn proposta-item-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de cálculo">
                             <i class="bi bi-chevron-down"></i>
-                            <span>Mostrar cálculos avançados</span>
+                            <span>Detalhes</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="aplicarPadraoLinhaItemProposta" data-arg="__this__" title="Aplicar padrão do item">
-                            <i class="bi bi-arrow-repeat"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-info table-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item">
+                        <button type="button" class="btn btn-sm btn-info table-action-btn proposta-item-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item">
                             <i class="bi bi-files"></i>
+                            <span>Duplicar</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
+                        <button type="button" class="btn btn-sm btn-danger table-action-btn proposta-item-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
                             <i class="bi bi-trash"></i>
+                            <span>Remover</span>
                         </button>
                     </div>
                 </td>
@@ -2226,8 +2225,8 @@
                 <td colspan="10">
                     <div class="prop-item-details-panel">
                         <div class="prop-item-details-title">
-                            <strong>Detalhes de calculo</strong>
-                            <span>Use estes campos apenas para excecoes do item.</span>
+                            <strong>Cálculos avançados</strong>
+                            <span>Use estes campos apenas para exceções do item.</span>
                         </div>
                         <div class="prop-item-details-grid">
                             <label class="prop-calc-toggle">
@@ -2445,7 +2444,7 @@
             icon.classList.toggle('bi-chevron-up', aberto);
         }
         const texto = botao.querySelector('span');
-        if (texto) texto.textContent = aberto ? 'Ocultar cálculos avançados' : 'Mostrar cálculos avançados';
+        if (texto) texto.textContent = aberto ? 'Ocultar' : 'Detalhes';
     }
 
     function atualizarBotaoExpandirTodosItensProposta(aberto) {
@@ -2671,6 +2670,30 @@
         }
     }
 
+    function atualizarResumoRapidoItensProposta(resumo = {}) {
+        const fiscal = resumo.resumoFiscal && typeof resumo.resumoFiscal === 'object'
+            ? resumo.resumoFiscal
+            : calcularResumoFiscalProposta([]);
+        const totalServicosSeparados = arredondarMoeda(
+            numeroNaoNegativo(fiscal.totalServicos, 0)
+            + numeroNaoNegativo(fiscal.totalMaoObra, 0)
+            + numeroNaoNegativo(fiscal.totalFreteLogistica, 0)
+            + numeroNaoNegativo(fiscal.totalImpressaoProducao, 0)
+            + numeroNaoNegativo(fiscal.totalArtProjeto, 0)
+        );
+        const mapa = [
+            ['propItensTotalLocacao', formatarMoeda(fiscal.totalLocacao)],
+            ['propItensTotalServicos', formatarMoeda(totalServicosSeparados)],
+            ['propItensBaseNfse', formatarMoeda(fiscal.baseEstimadaNfse)],
+            ['propItensTotalProposta', formatarMoeda(resumo.valorFinalComercial || 0)]
+        ];
+
+        mapa.forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = valor;
+        });
+    }
+
     function recalcularResumoProposta() {
         executarPropostaMantendoScroll(() => {
             const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
@@ -2715,6 +2738,7 @@
             });
             atualizarResumoCompactoProposta(resumo);
             atualizarResumoFiscalProposta(resumo.resumoFiscal);
+            atualizarResumoRapidoItensProposta(resumo);
         });
     }
 
