@@ -8022,6 +8022,26 @@ header {
     margin-top: 12px;
 }
 
+#tab-propostas .proposta-config-fiscal-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text-light);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+#tab-propostas .proposta-config-fiscal-note i {
+    color: var(--primary);
+    line-height: 1.35;
+}
+
 #tab-propostas .proposta-config-section-title {
     display: flex;
     align-items: flex-start;

@@ -245,7 +245,6 @@ function renderConfig() {
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
-    const elValorKmFrete = document.getElementById('confValorKmFretePadrao');
     const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
     const elAdminEmails = document.getElementById('confAdminEmails');
     const elLogo = document.getElementById('previewLogo');
@@ -253,7 +252,6 @@ function renderConfig() {
     if (elRodape) elRodape.value = config.rodape || '';
     if (elTel) elTel.value = config.tel || '';
     if (elEmail) elEmail.value = config.email || '';
-    if (elValorKmFrete) elValorKmFrete.value = Number(config.valorKmFretePadrao || 0) || '';
     if (elEmailsPermitidos) elEmailsPermitidos.value = config.emailsPermitidos || '';
     if (elAdminEmails) elAdminEmails.value = config.adminEmails || '';
     if (typeof renderConfigPadroesOrcamento === 'function') renderConfigPadroesOrcamento();

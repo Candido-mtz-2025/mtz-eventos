@@ -380,11 +380,14 @@
             percentualINSSPadrao: 0,
             percentualEntradaPadrao: 50,
             percentualDescontoPadrao: 0,
+            percentualFiscalPadrao: 0,
             tipoCalculoEncargosPadrao: 'simples',
             tipoCalculoINSSPadrao: 'simples',
+            tipoCalculoFiscalPadrao: 'descontar',
             aplicarHonorariosAutomaticamente: true,
             aplicarEncargosAutomaticamente: true,
-            aplicarINSSAutomaticamente: true
+            aplicarINSSAutomaticamente: true,
+            aplicarFiscalAutomaticamente: false
         };
     }
 
@@ -610,11 +613,20 @@
             percentualINSSPadrao: converterTextoPercentualParaNumero(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, padrao.globais.percentualINSSPadrao),
             percentualEntradaPadrao: clampPercentual(origemGlobais.percentualEntradaPadrao ?? origemGlobais.entradaPadrao ?? padrao.globais.percentualEntradaPadrao),
             percentualDescontoPadrao: clampPercentual(origemGlobais.percentualDescontoPadrao ?? origemGlobais.descontoPadrao ?? padrao.globais.percentualDescontoPadrao),
+            percentualFiscalPadrao: converterTextoPercentualParaNumero(
+                origemGlobais.percentualFiscalPadrao ?? origemGlobais.percentualNFPadrao ?? origemGlobais.percentualNF,
+                padrao.globais.percentualFiscalPadrao
+            ),
             tipoCalculoEncargosPadrao: normalizarTipoCalculoTributo(origemGlobais.tipoCalculoEncargosPadrao, padrao.globais.tipoCalculoEncargosPadrao),
             tipoCalculoINSSPadrao: normalizarTipoCalculoTributo(origemGlobais.tipoCalculoINSSPadrao, padrao.globais.tipoCalculoINSSPadrao),
+            tipoCalculoFiscalPadrao: normalizarTipoCalculoNF(
+                origemGlobais.tipoCalculoFiscalPadrao ?? origemGlobais.tipoCalculoNFPadrao ?? origemGlobais.tipoCalculoNF,
+                padrao.globais.tipoCalculoFiscalPadrao
+            ),
             aplicarHonorariosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarHonorariosAutomaticamente, padrao.globais.aplicarHonorariosAutomaticamente),
             aplicarEncargosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarEncargosAutomaticamente, padrao.globais.aplicarEncargosAutomaticamente),
-            aplicarINSSAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarINSSAutomaticamente, padrao.globais.aplicarINSSAutomaticamente)
+            aplicarINSSAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarINSSAutomaticamente, padrao.globais.aplicarINSSAutomaticamente),
+            aplicarFiscalAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarFiscalAutomaticamente, padrao.globais.aplicarFiscalAutomaticamente)
         };
 
         const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
@@ -1147,15 +1159,21 @@
         const globais = padroes.globais || {};
 
         preencherValorConfigOrcamento('propOrcConfigEntradaPadrao', globais.percentualEntradaPadrao ?? 50);
+        preencherValorConfigOrcamento('propOrcConfigDescontoPadrao', globais.percentualDescontoPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigHonorariosPadrao', globais.percentualHonorariosPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigEncargosPadrao', globais.percentualEncargosPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigINSSPadrao', globais.percentualINSSPadrao || 0);
+        preencherValorConfigOrcamento('propOrcConfigPercentualFiscalPadrao', globais.percentualFiscalPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigValorKmPadrao', valorKmOrigem ?? obterValorKmFretePadrao());
 
         const tipoEncargos = document.getElementById('propOrcConfigTipoEncargosPadrao');
         if (tipoEncargos) tipoEncargos.value = globais.tipoCalculoEncargosPadrao || 'simples';
         const tipoINSS = document.getElementById('propOrcConfigTipoINSSPadrao');
         if (tipoINSS) tipoINSS.value = globais.tipoCalculoINSSPadrao || 'simples';
+        const tipoFiscal = document.getElementById('propOrcConfigTipoFiscalPadrao');
+        if (tipoFiscal) tipoFiscal.value = normalizarTipoCalculoNF(globais.tipoCalculoFiscalPadrao, 'descontar');
+        const aplicarFiscal = document.getElementById('propOrcConfigAplicarFiscalAutomaticamente');
+        if (aplicarFiscal) aplicarFiscal.value = globais.aplicarFiscalAutomaticamente === true ? 'sim' : 'nao';
 
         const container = document.getElementById('propOrcConfigCategorias');
         if (!container) return;
@@ -1402,12 +1420,15 @@
             percentualEncargosPadrao: valorNumeroConfigOrcamento('propOrcConfigEncargosPadrao'),
             percentualINSSPadrao: valorNumeroConfigOrcamento('propOrcConfigINSSPadrao'),
             percentualEntradaPadrao: valorNumeroConfigOrcamento('propOrcConfigEntradaPadrao', 50, 100),
-            percentualDescontoPadrao: globaisAtuais.percentualDescontoPadrao || 0,
+            percentualDescontoPadrao: valorNumeroConfigOrcamento('propOrcConfigDescontoPadrao', 0, 100),
+            percentualFiscalPadrao: valorNumeroConfigOrcamento('propOrcConfigPercentualFiscalPadrao', 0, 99.99),
             tipoCalculoEncargosPadrao: normalizarTipoCalculoTributo(document.getElementById('propOrcConfigTipoEncargosPadrao')?.value),
             tipoCalculoINSSPadrao: normalizarTipoCalculoTributo(document.getElementById('propOrcConfigTipoINSSPadrao')?.value),
+            tipoCalculoFiscalPadrao: normalizarTipoCalculoNF(document.getElementById('propOrcConfigTipoFiscalPadrao')?.value, 'descontar'),
             aplicarHonorariosAutomaticamente: globaisAtuais.aplicarHonorariosAutomaticamente !== false,
             aplicarEncargosAutomaticamente: globaisAtuais.aplicarEncargosAutomaticamente !== false,
-            aplicarINSSAutomaticamente: globaisAtuais.aplicarINSSAutomaticamente !== false
+            aplicarINSSAutomaticamente: globaisAtuais.aplicarINSSAutomaticamente !== false,
+            aplicarFiscalAutomaticamente: document.getElementById('propOrcConfigAplicarFiscalAutomaticamente')?.value === 'sim'
         };
 
         const categorias = {};
@@ -1497,6 +1518,13 @@
         const padroes = normalizarPadroesOrcamento(padroesOverride || obterPadroesOrcamento());
         const entradaEl = document.getElementById('propPercentualEntrada');
         if (entradaEl) entradaEl.value = String(padroes.globais.percentualEntradaPadrao ?? 50);
+        const aplicarFiscalCampos = !!padroesOverride || padroes.globais.aplicarFiscalAutomaticamente === true;
+        if (aplicarFiscalCampos) {
+            const percentualNFEl = document.getElementById('propPercentualNF');
+            if (percentualNFEl) percentualNFEl.value = String(padroes.globais.percentualFiscalPadrao || 0);
+            const tipoNFEl = document.getElementById('propTipoCalculoNF');
+            if (tipoNFEl) tipoNFEl.value = normalizarTipoCalculoNF(padroes.globais.tipoCalculoFiscalPadrao, 'descontar');
+        }
 
         const valorKm = valorKmOverride == null
             ? obterValorKmFretePadrao()
@@ -3362,12 +3390,19 @@
 
         const statusEl = document.getElementById('propStatus');
         if (statusEl) statusEl.value = 'rascunho';
+        const padroesOrcamento = obterPadroesOrcamento();
+        const globaisOrcamento = padroesOrcamento.globais || criarGlobaisPadraoOrcamento();
+        const aplicarFiscalPadrao = globaisOrcamento.aplicarFiscalAutomaticamente === true;
         const tipoNFEl = document.getElementById('propTipoCalculoNF');
-        if (tipoNFEl) tipoNFEl.value = 'descontar';
+        if (tipoNFEl) tipoNFEl.value = aplicarFiscalPadrao
+            ? normalizarTipoCalculoNF(globaisOrcamento.tipoCalculoFiscalPadrao, 'descontar')
+            : 'descontar';
         const percentualNFEl = document.getElementById('propPercentualNF');
-        if (percentualNFEl) percentualNFEl.value = '0';
+        if (percentualNFEl) percentualNFEl.value = aplicarFiscalPadrao
+            ? String(globaisOrcamento.percentualFiscalPadrao || 0)
+            : '0';
         const percentualEntradaEl = document.getElementById('propPercentualEntrada');
-        if (percentualEntradaEl) percentualEntradaEl.value = String(obterPadroesOrcamento().globais.percentualEntradaPadrao || 50);
+        if (percentualEntradaEl) percentualEntradaEl.value = String(globaisOrcamento.percentualEntradaPadrao || 50);
         const validadeDiasEl = document.getElementById('propValidadeDias');
         if (validadeDiasEl) validadeDiasEl.value = '7';
         const formaPagamentoEl = document.getElementById('propFormaPagamento');

@@ -70,6 +70,9 @@ function obterCategoriasOrcamentoConfig(padroes) {
 }
 
 function renderConfigPadroesOrcamento() {
+    const container = document.getElementById('confOrcCategorias');
+    if (!container) return;
+
     const padroes = obterPadroesOrcamentoConfig();
     if (config && typeof config === 'object') {
         config.padroesOrcamento = padroes;
@@ -91,8 +94,6 @@ function renderConfigPadroesOrcamento() {
     preencherCampoConfig('confOrcAplicarINSS', globais.aplicarINSSAutomaticamente !== false, 'checked');
 
     const categorias = obterCategoriasOrcamentoConfig(padroes);
-    const container = document.getElementById('confOrcCategorias');
-    if (!container) return;
 
     container.innerHTML = `
         <div class="config-budget-category-head">
@@ -190,17 +191,12 @@ function salvarConfig() {
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');
     const elEmail = document.getElementById('confEmail');
-    const elValorKmFrete = document.getElementById('confValorKmFretePadrao');
     const elEmailsPermitidos = document.getElementById('confEmailsPermitidos');
     const elAdminEmails = document.getElementById('confAdminEmails');
 
     if (elRodape) config.rodape = elRodape.value;
     if (elTel) config.tel = elTel.value;
     if (elEmail) config.email = elEmail.value;
-    if (elValorKmFrete) {
-        config.valorKmFretePadrao = normalizarNumeroConfig(elValorKmFrete.value, 0);
-        elValorKmFrete.value = config.valorKmFretePadrao || '';
-    }
     if (elEmailsPermitidos) {
         config.emailsPermitidos = normalizarEmailsPermitidos(elEmailsPermitidos.value);
         elEmailsPermitidos.value = config.emailsPermitidos;
@@ -208,11 +204,6 @@ function salvarConfig() {
     if (elAdminEmails) {
         config.adminEmails = normalizarEmailsPermitidos(elAdminEmails.value);
         elAdminEmails.value = config.adminEmails;
-    }
-    const padroesOrcamento = coletarConfigPadroesOrcamento();
-    config.padroesOrcamento = padroesOrcamento;
-    if (Array.isArray(padroesOrcamento.categoriasOrcamento)) {
-        config.categoriasOrcamento = padroesOrcamento.categoriasOrcamento;
     }
 
     salvarLocal();
