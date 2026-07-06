@@ -9213,10 +9213,15 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     border-radius: 12px;
     background: var(--surface);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
 }
 
 #tab-propostas .proposta-items-table {
     margin: 0;
+    min-width: 1240px;
+    table-layout: fixed;
 }
 
 #tab-propostas .proposta-items-table thead th {
@@ -9224,6 +9229,42 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     background: rgba(15, 23, 42, 0.045);
     color: var(--text-light);
     font-size: 0.78rem;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(1),
+#tab-propostas .proposta-items-table td:nth-child(1) {
+    width: 150px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(2),
+#tab-propostas .proposta-items-table td:nth-child(2) {
+    width: 180px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(3),
+#tab-propostas .proposta-items-table td:nth-child(3) {
+    width: 210px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(4),
+#tab-propostas .proposta-items-table td:nth-child(4) {
+    width: 110px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(5),
+#tab-propostas .proposta-items-table td:nth-child(5),
+#tab-propostas .proposta-items-table th:nth-child(6),
+#tab-propostas .proposta-items-table td:nth-child(6) {
+    width: 92px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(7),
+#tab-propostas .proposta-items-table td:nth-child(7),
+#tab-propostas .proposta-items-table th:nth-child(8),
+#tab-propostas .proposta-items-table td:nth-child(8),
+#tab-propostas .proposta-items-table th:nth-child(9),
+#tab-propostas .proposta-items-table td:nth-child(9) {
+    width: 118px;
 }
 
 #tab-propostas #propostaItensBody input,
@@ -9266,25 +9307,27 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
 #tab-propostas #propostaItensBody .prop-details-toggle-btn {
     gap: 6px;
     width: auto;
-    min-width: 104px;
-    padding-inline: 10px;
+    min-width: 86px;
+    padding-inline: 8px;
 }
 
 #tab-propostas #propostaItensBody .proposta-item-actions-cell {
-    min-width: 280px;
+    width: 214px;
+    min-width: 214px;
 }
 
 #tab-propostas #propostaItensBody .proposta-item-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 5px;
+    flex-wrap: nowrap;
 }
 
 #tab-propostas #propostaItensBody .proposta-item-action-btn {
-    min-height: 34px;
-    padding: 7px 10px;
+    min-height: 32px;
+    padding: 6px 8px;
     border-radius: 10px;
-    font-size: 0.78rem;
+    font-size: 0.73rem;
     white-space: nowrap;
 }
 
@@ -10435,92 +10478,89 @@ html {
     display: block;
     width: 100%;
     max-width: 100%;
-    overflow-x: visible !important;
+    overflow-x: auto !important;
     overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
 }
 
 #tab-propostas .proposta-items-table {
     width: 100%;
-    min-width: 0;
-    table-layout: auto;
+    min-width: 1240px;
+    table-layout: fixed;
 }
 
 #tab-propostas .proposta-items-table th,
 #tab-propostas .proposta-items-table td {
     vertical-align: middle;
+    min-width: 0;
 }
 
 #tab-propostas .proposta-items-table .col-actions {
-    min-width: 182px;
-    width: 182px;
+    min-width: 214px;
+    width: 214px;
     text-align: right;
 }
 
 #tab-propostas .proposta-items-table .actions-cell {
     justify-content: flex-end;
-    gap: 6px;
+    gap: 5px;
+    flex-wrap: nowrap;
 }
 
 #tab-propostas .proposta-items-table .table-action-btn {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 6px 8px;
     border-radius: 10px;
 }
 
 #tab-propostas .proposta-items-table .prop-details-toggle-btn {
-    min-width: 168px;
+    min-width: 86px;
 }
 
 #tab-propostas .proposta-items-table-wrap {
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    overflow: visible !important;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    overflow-x: auto !important;
+    overflow-y: visible !important;
 }
 
-#tab-propostas .proposta-items-table,
-#tab-propostas .proposta-items-table tbody {
-    display: block;
+#tab-propostas .proposta-items-table {
+    display: table;
     width: 100%;
-    min-width: 0;
+    min-width: 1240px;
+}
+
+#tab-propostas .proposta-items-table tbody {
+    width: 100%;
+    min-width: 1240px;
 }
 
 #tab-propostas .proposta-items-table thead {
-    display: none;
+    display: table-header-group;
 }
 
 #tab-propostas #propostaItensBody {
-    display: grid;
-    gap: 12px;
+    display: table-row-group;
 }
 
 #tab-propostas .proposta-item-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    padding: 14px;
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--primary);
-    border-radius: 14px 14px 0 0;
+    display: table-row;
+    border-left: 0;
     background: var(--surface);
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+    box-shadow: none;
 }
 
 #tab-propostas .proposta-item-row td {
-    display: grid;
-    gap: 6px;
+    display: table-cell;
     min-width: 0;
-    padding: 0 !important;
-    border: 0 !important;
+    padding: 10px 8px !important;
+    border-bottom: 1px solid var(--border) !important;
 }
 
 #tab-propostas .proposta-item-row td::before {
-    content: attr(data-label);
-    color: var(--text-light);
-    font-size: 0.72rem;
-    font-weight: 900;
-    line-height: 1.2;
-    text-transform: uppercase;
+    content: none;
 }
 
 #tab-propostas .proposta-item-row input,
@@ -10529,21 +10569,20 @@ html {
 }
 
 #tab-propostas .proposta-item-row .col-actions {
-    grid-column: 1 / -1;
-    width: auto;
-    min-width: 0;
-    text-align: left;
+    width: 214px;
+    min-width: 214px;
+    text-align: right;
 }
 
 #tab-propostas .proposta-item-row .actions-cell {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 5px;
 }
 
 #tab-propostas .proposta-item-details-row {
-    display: block;
-    margin-top: -12px;
+    display: table-row;
+    margin-top: 0;
 }
 
 #tab-propostas .proposta-item-details-row[hidden] {
@@ -10551,15 +10590,15 @@ html {
 }
 
 #tab-propostas .proposta-item-details-row td {
-    display: block;
-    padding: 0 14px 14px !important;
-    border: 0 !important;
+    display: table-cell;
+    padding: 0 10px 12px !important;
+    border-bottom: 1px solid var(--border) !important;
     background: transparent;
 }
 
 #tab-propostas .prop-item-details-panel {
-    border-top: 0;
-    border-radius: 0 0 14px 14px;
+    border-top: 1px dashed var(--border);
+    border-radius: 12px;
     background: rgba(248, 251, 255, 0.96);
 }
 
@@ -10575,15 +10614,48 @@ html {
         padding-bottom: 10px !important;
     }
 
-    #tab-propostas .proposta-item-row {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    #tab-propostas .proposta-items-table {
+        min-width: 1160px;
     }
 }
 
 @media (max-width: 560px) {
-    #tab-propostas .proposta-item-row {
-        grid-template-columns: 1fr;
+    #tab-propostas .proposta-items-table,
+    #tab-propostas .proposta-items-table tbody {
+        min-width: 1080px;
     }
+}
+
+#tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn,
+body[data-theme="mtz-gold"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn,
+body[data-theme="dark"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn {
+    width: auto !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+}
+
+#tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn span,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn span,
+body[data-theme="mtz-gold"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn span,
+body[data-theme="dark"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn.proposta-item-action-btn span {
+    display: inline !important;
+}
+
+#tab-propostas .proposta-items-table .prop-details-toggle-btn,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .prop-details-toggle-btn {
+    width: auto !important;
+    min-width: 86px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 6px 8px !important;
 }
 
 /* === V20.1 | PDF DE ORCAMENTO SEM CORTES === */
