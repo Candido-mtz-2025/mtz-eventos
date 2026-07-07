@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.25">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.26">
 </head>
 <body>
 
@@ -1477,38 +1477,6 @@
                         </div>
                     </div>
 
-                    <div class="proposta-fiscal-prep-card" id="propFiscalPrepCard">
-                        <div class="proposta-fiscal-prep-head">
-                            <div>
-                                <span class="proposta-fiscal-prep-icon"><i class="bi bi-receipt-cutoff"></i></span>
-                                <div>
-                                    <h5>Pré-nota para conferência</h5>
-                                    <p>Dados estimados para conferência antes do faturamento.</p>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-secondary" data-action="gerarPreNotaPropostaAtual">
-                                <i class="bi bi-file-earmark-text"></i> Gerar pré-nota / dados para faturamento
-                            </button>
-                        </div>
-                        <div class="proposta-fiscal-metrics">
-                            <div><span>Documento sugerido</span><strong id="propFiscalTipoDocumento">Conferir com contabilidade</strong></div>
-                            <div><span>Base estimada NFS-e</span><strong id="propFiscalBaseNfse">R$ 0,00</strong></div>
-                            <div><span>Locação separada</span><strong id="propFiscalTotalLocacao">R$ 0,00</strong></div>
-                            <div><span>Serviços separados</span><strong id="propFiscalTotalServicos">R$ 0,00</strong></div>
-                            <div><span>Retenções previstas</span><strong id="propFiscalRetencoes">R$ 0,00</strong></div>
-                        </div>
-                        <div class="proposta-fiscal-alerts" id="propFiscalAvisos"></div>
-                        <div class="proposta-pre-nota-panel" id="propPreNotaPanel" hidden>
-                            <div class="proposta-pre-nota-head">
-                                <strong>Pré-nota / dados para faturamento</strong>
-                                <button type="button" class="btn btn-sm btn-secondary" data-action="fecharPreNotaProposta">
-                                    <i class="bi bi-x-lg"></i> Fechar
-                                </button>
-                            </div>
-                            <div id="propPreNotaConteudo"></div>
-                        </div>
-                    </div>
-
                     <h5>Condições comerciais</h5>
                     <div class="form-row">
                         <div class="form-group">
@@ -1611,6 +1579,37 @@
                     <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabRevisao" data-proposta-form-section="pdf" hidden>
                     <h4>Revisão e PDF</h4>
                     <div id="propRevisaoFinalGuiada" class="proposta-final-review" aria-live="polite"></div>
+                    <div class="proposta-fiscal-prep-card" id="propFiscalPrepCard">
+                        <div class="proposta-fiscal-prep-head">
+                            <div>
+                                <span class="proposta-fiscal-prep-icon"><i class="bi bi-receipt-cutoff"></i></span>
+                                <div>
+                                    <h5>Pré-nota para conferência</h5>
+                                    <p>Dados estimados para conferência antes do faturamento.</p>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" data-action="gerarPreNotaPropostaAtual">
+                                <i class="bi bi-file-earmark-text"></i> Gerar pré-nota / dados para faturamento
+                            </button>
+                        </div>
+                        <div class="proposta-fiscal-metrics">
+                            <div><span>Documento sugerido</span><strong id="propFiscalTipoDocumento">Conferir com contabilidade</strong></div>
+                            <div><span>Base estimada NFS-e</span><strong id="propFiscalBaseNfse">R$ 0,00</strong></div>
+                            <div><span>Locação separada</span><strong id="propFiscalTotalLocacao">R$ 0,00</strong></div>
+                            <div><span>Serviços separados</span><strong id="propFiscalTotalServicos">R$ 0,00</strong></div>
+                            <div><span>Retenções previstas</span><strong id="propFiscalRetencoes">R$ 0,00</strong></div>
+                        </div>
+                        <div class="proposta-fiscal-alerts" id="propFiscalAvisos"></div>
+                        <div class="proposta-pre-nota-panel" id="propPreNotaPanel" hidden>
+                            <div class="proposta-pre-nota-head">
+                                <strong>Pré-nota / dados para faturamento</strong>
+                                <button type="button" class="btn btn-sm btn-secondary" data-action="fecharPreNotaProposta">
+                                    <i class="bi bi-x-lg"></i> Fechar
+                                </button>
+                            </div>
+                            <div id="propPreNotaConteudo"></div>
+                        </div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Incluso na proposta</label>

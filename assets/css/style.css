@@ -19402,7 +19402,8 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > h5,
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > .form-row,
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > .proposta-internal-details,
-#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="comercial"] #propostaSecaoFechamento [data-proposta-grupo="logistica"] {
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="comercial"] #propostaSecaoFechamento [data-proposta-grupo="logistica"],
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="comercial"] #propostaSecaoFechamento > .proposta-internal-details {
     display: none;
 }
 
