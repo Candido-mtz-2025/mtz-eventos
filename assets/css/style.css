@@ -19126,6 +19126,336 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
 
+/* Propostas: assistente guiado */
+.proposta-mode-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 14px 0;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-muted);
+}
+
+.proposta-mode-options {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.proposta-draft-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-weight: 800;
+}
+
+.proposta-guided-stepper {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.proposta-guided-stepper .proposta-form-tab {
+    min-height: 64px;
+    justify-content: flex-start;
+    text-align: left;
+    padding: 10px 12px;
+}
+
+.proposta-step-index {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    color: var(--primary);
+    font-weight: 900;
+    flex: 0 0 auto;
+}
+
+.proposta-form-tab.is-active .proposta-step-index {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.proposta-step-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.proposta-step-text strong,
+.proposta-step-text small {
+    white-space: normal;
+    line-height: 1.15;
+}
+
+.proposta-step-status {
+    margin-left: auto;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 900;
+}
+
+.proposta-step-status[data-status="completo"] {
+    color: #0f8a4b;
+    background: #dcfce7;
+}
+
+.proposta-step-status[data-status="atencao"] {
+    color: #a16207;
+    background: #fef3c7;
+}
+
+.proposta-guided-layout {
+    display: grid;
+    grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.proposta-guided-summary {
+    position: sticky;
+    top: 92px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    background: linear-gradient(180deg, var(--surface), var(--surface-muted));
+    box-shadow: var(--shadow-soft);
+}
+
+.proposta-guided-summary-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.proposta-guided-summary-head strong {
+    font-size: 1rem;
+}
+
+.proposta-guided-summary dl {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+}
+
+.proposta-guided-summary dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.proposta-guided-summary dt {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.proposta-guided-summary dd {
+    margin: 0;
+    color: var(--text);
+    font-weight: 900;
+    text-align: right;
+    max-width: 58%;
+    overflow-wrap: anywhere;
+}
+
+.proposta-guided-summary p,
+.proposta-guided-warning {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.proposta-guided-main {
+    min-width: 0;
+}
+
+#tab-propostas[data-modo-proposta="guiado"] #propostaSecaoDados .proposta-data-card {
+    display: none;
+}
+
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="cliente"],
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="evento"] #propostaSecaoDados [data-proposta-grupo="evento"] {
+    display: block;
+}
+
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento [data-proposta-grupo="comercial"],
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propFiscalPrepCard,
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > h5,
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > .form-row,
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento > .proposta-internal-details,
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="comercial"] #propostaSecaoFechamento [data-proposta-grupo="logistica"] {
+    display: none;
+}
+
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento .proposta-closing-grid,
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="comercial"] #propostaSecaoFechamento .proposta-closing-grid {
+    grid-template-columns: 1fr;
+}
+
+#tab-propostas[data-modo-proposta="avancado"] .proposta-guided-layout {
+    display: block;
+}
+
+#tab-propostas[data-modo-proposta="avancado"] .proposta-guided-summary,
+#tab-propostas[data-modo-proposta="avancado"] .proposta-guided-footer,
+#tab-propostas[data-modo-proposta="avancado"] .proposta-step-status {
+    display: none;
+}
+
+#tab-propostas[data-modo-proposta="avancado"] .proposta-form-section {
+    display: block !important;
+}
+
+.proposta-final-review {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.proposta-review-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.proposta-review-card {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface-muted);
+}
+
+.proposta-review-card small,
+.proposta-review-card span {
+    color: var(--muted);
+    font-weight: 800;
+}
+
+.proposta-review-card strong {
+    color: var(--text);
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.proposta-review-card-total {
+    border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+    background: color-mix(in srgb, var(--primary) 8%, var(--surface-muted));
+}
+
+.proposta-review-checklist {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+.proposta-review-checklist > i {
+    font-size: 1.2rem;
+}
+
+.proposta-review-checklist.is-ok {
+    border-color: color-mix(in srgb, #22c55e 42%, var(--border));
+    background: color-mix(in srgb, #22c55e 9%, var(--surface));
+}
+
+.proposta-review-checklist.is-warning {
+    border-color: color-mix(in srgb, #f59e0b 42%, var(--border));
+    background: color-mix(in srgb, #f59e0b 9%, var(--surface));
+}
+
+.proposta-review-checklist ul,
+.proposta-review-checklist p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.proposta-guided-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+body[data-theme="dark"] #appArea :is(.proposta-guided-summary, .proposta-review-card, .proposta-review-checklist),
+body[data-theme="mtz-premium"] #appArea :is(.proposta-guided-summary, .proposta-review-card, .proposta-review-checklist),
+body[data-theme="mtz-gold"] #appArea :is(.proposta-guided-summary, .proposta-review-card, .proposta-review-checklist) {
+    background: var(--app-theme-panel-bg) !important;
+    border-color: var(--app-theme-border) !important;
+    color: var(--app-theme-text) !important;
+}
+
+body[data-theme="dark"] #appArea .proposta-step-status,
+body[data-theme="mtz-premium"] #appArea .proposta-step-status,
+body[data-theme="mtz-gold"] #appArea .proposta-step-status {
+    background: var(--app-theme-panel-muted);
+    color: var(--app-theme-text-soft);
+}
+
+@media (max-width: 1180px) {
+    .proposta-guided-stepper {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .proposta-guided-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .proposta-guided-summary {
+        position: static;
+    }
+
+    .proposta-review-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .proposta-mode-toolbar,
+    .proposta-guided-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .proposta-guided-stepper,
+    .proposta-review-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .proposta-guided-stepper .proposta-form-tab {
+        min-height: 56px;
+    }
+}
+
 #tab-propostas,
 #tab-propostas * {
     overflow-anchor: none;

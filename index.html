@@ -921,22 +921,48 @@
                     </div>
 
                     <input type="hidden" id="propostaIdAtual">
-                    <div class="proposta-form-nav" role="tablist" aria-label="Etapas do orçamento">
-                        <button type="button" class="proposta-form-tab is-active" id="propostaFormTabDados" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="dados" data-action="mostrarSecaoFormularioProposta" data-arg="dados">
+                    <div class="proposta-mode-toolbar" aria-label="Modo de preenchimento do orçamento">
+                        <div class="proposta-mode-options">
+                            <button type="button" class="btn btn-primary btn-sm is-active" data-proposta-modo="guiado" data-action="alterarModoUsoPropostas" data-arg="guiado">
+                                <i class="bi bi-signpost-split"></i> Modo guiado
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-proposta-modo="avancado" data-action="alterarModoUsoPropostas" data-arg="avancado">
+                                <i class="bi bi-sliders"></i> Modo avançado
+                            </button>
+                        </div>
+                        <span id="propDraftStatus" class="proposta-draft-status"><i class="bi bi-dot"></i> Alterações pendentes de salvamento</span>
+                    </div>
+
+                    <div class="proposta-form-nav proposta-guided-stepper" role="tablist" aria-label="Etapas do orçamento">
+                        <button type="button" class="proposta-form-tab is-active" id="propostaFormTabCliente" role="tab" aria-selected="true" aria-controls="propostaSecaoDados" data-proposta-form-tab="cliente" data-action="mostrarSecaoFormularioProposta" data-arg="cliente">
                             <span class="proposta-step-index">1</span>
-                            <span class="proposta-step-text"><strong>Dados do orçamento</strong><small>Informações gerais</small></span>
+                            <span class="proposta-step-text"><strong>Cliente</strong><small>Contato e faturamento</small></span>
+                            <span class="proposta-step-status" id="propStepStatusCliente">Pendente</span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabEvento" role="tab" aria-selected="false" aria-controls="propostaSecaoDados" data-proposta-form-tab="evento" data-action="mostrarSecaoFormularioProposta" data-arg="evento">
+                            <span class="proposta-step-index">2</span>
+                            <span class="proposta-step-text"><strong>Evento</strong><small>Local e agenda</small></span>
+                            <span class="proposta-step-status" id="propStepStatusEvento">Pendente</span>
                         </button>
                         <button type="button" class="proposta-form-tab" id="propostaFormTabItens" role="tab" aria-selected="false" aria-controls="propostaSecaoItens" data-proposta-form-tab="itens" data-action="mostrarSecaoFormularioProposta" data-arg="itens">
-                            <span class="proposta-step-index">2</span>
-                            <span class="proposta-step-text"><strong>Itens e composição</strong><small>Produtos e serviços</small></span>
-                        </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabFechamento" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="fechamento" data-action="mostrarSecaoFormularioProposta" data-arg="fechamento">
                             <span class="proposta-step-index">3</span>
-                            <span class="proposta-step-text"><strong>Fechamento comercial</strong><small>Custos, descontos e notas</small></span>
+                            <span class="proposta-step-text"><strong>Itens</strong><small>Produtos e serviços</small></span>
+                            <span class="proposta-step-status" id="propStepStatusItens">Pendente</span>
                         </button>
-                        <button type="button" class="proposta-form-tab" id="propostaFormTabPdf" role="tab" aria-selected="false" aria-controls="propostaSecaoPdf" data-proposta-form-tab="pdf" data-action="mostrarSecaoFormularioProposta" data-arg="pdf">
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabLogistica" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="logistica" data-action="mostrarSecaoFormularioProposta" data-arg="logistica">
                             <span class="proposta-step-index">4</span>
-                            <span class="proposta-step-text"><strong>PDF e observações</strong><small>Documentos e envio</small></span>
+                            <span class="proposta-step-text"><strong>Logística e custos</strong><small>Custos internos</small></span>
+                            <span class="proposta-step-status" id="propStepStatusLogistica">Pendente</span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabComercial" role="tab" aria-selected="false" aria-controls="propostaSecaoFechamento" data-proposta-form-tab="comercial" data-action="mostrarSecaoFormularioProposta" data-arg="comercial">
+                            <span class="proposta-step-index">5</span>
+                            <span class="proposta-step-text"><strong>Comercial</strong><small>Valores e condições</small></span>
+                            <span class="proposta-step-status" id="propStepStatusComercial">Pendente</span>
+                        </button>
+                        <button type="button" class="proposta-form-tab" id="propostaFormTabRevisao" role="tab" aria-selected="false" aria-controls="propostaSecaoPdf" data-proposta-form-tab="revisao" data-action="mostrarSecaoFormularioProposta" data-arg="revisao">
+                            <span class="proposta-step-index">6</span>
+                            <span class="proposta-step-text"><strong>Revisão e PDF</strong><small>Conferência final</small></span>
+                            <span class="proposta-step-status" id="propStepStatusRevisao">Pendente</span>
                         </button>
                     </div>
 
@@ -957,9 +983,29 @@
                         </div>
                     </div>
 
-                    <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabDados" data-proposta-form-section="dados">
+                    <div class="proposta-guided-layout">
+                    <aside class="proposta-guided-summary" aria-label="Resumo lateral do orçamento guiado">
+                        <div class="proposta-guided-summary-head">
+                            <strong>Resumo do orçamento</strong>
+                            <small id="propGuidedCodigo">Novo rascunho</small>
+                        </div>
+                        <dl>
+                            <div><dt>Cliente</dt><dd id="propGuidedCliente">Pendente</dd></div>
+                            <div><dt>Evento</dt><dd id="propGuidedEvento">Pendente</dd></div>
+                            <div><dt>Total de itens</dt><dd id="propGuidedItens">0</dd></div>
+                            <div><dt>Custos internos</dt><dd id="propGuidedCustos">R$ 0,00</dd></div>
+                            <div><dt>Valor final</dt><dd id="propGuidedFinal">R$ 0,00</dd></div>
+                            <div><dt>Lucro</dt><dd id="propGuidedLucro">R$ 0,00</dd></div>
+                            <div><dt>Margem</dt><dd id="propGuidedMargem">0%</dd></div>
+                            <div><dt>Status</dt><dd id="propGuidedStatus">Rascunho</dd></div>
+                        </dl>
+                        <p>Use o passo a passo para reduzir erros e gerar uma proposta pronta para envio.</p>
+                    </aside>
+                    <div class="proposta-guided-main">
+
+                    <div id="propostaSecaoDados" class="proposta-form-section is-active" role="tabpanel" aria-labelledby="propostaFormTabCliente" data-proposta-form-section="dados">
                     <div class="proposta-data-grid">
-                        <section class="proposta-data-card">
+                        <section class="proposta-data-card" data-proposta-grupo="proposta">
                             <div class="proposta-data-card-head">
                                 <span><i class="bi bi-file-earmark-text"></i></span>
                                 <div>
@@ -1002,7 +1048,7 @@
                             </div>
                         </section>
 
-                        <section class="proposta-data-card">
+                        <section class="proposta-data-card" data-proposta-grupo="cliente">
                             <div class="proposta-data-card-head">
                                 <span><i class="bi bi-person-vcard"></i></span>
                                 <div>
@@ -1098,7 +1144,7 @@
                             </details>
                         </section>
 
-                        <section class="proposta-data-card">
+                        <section class="proposta-data-card" data-proposta-grupo="evento">
                             <div class="proposta-data-card-head">
                                 <span><i class="bi bi-geo-alt"></i></span>
                                 <div>
@@ -1138,7 +1184,7 @@
                             </div>
                         </section>
 
-                        <section class="proposta-data-card">
+                        <section class="proposta-data-card" data-proposta-grupo="evento">
                             <div class="proposta-data-card-head">
                                 <span><i class="bi bi-calendar2-week"></i></span>
                                 <div>
@@ -1182,7 +1228,7 @@
                             </div>
                         </section>
 
-                        <section class="proposta-data-card proposta-data-card-wide">
+                        <section class="proposta-data-card proposta-data-card-wide" data-proposta-grupo="evento">
                             <div class="proposta-data-card-head">
                                 <span><i class="bi bi-chat-left-text"></i></span>
                                 <div>
@@ -1203,7 +1249,7 @@
                     <div id="propostaSecaoItens" class="proposta-form-section proposta-items-section" role="tabpanel" aria-labelledby="propostaFormTabItens" data-proposta-form-section="itens" hidden>
                         <div class="proposta-items-header">
                             <div>
-                                <h4>Itens e composição</h4>
+                                <h4>Itens do orçamento</h4>
                                 <p>Organize produtos e serviços por categoria para deixar o orçamento mais claro.</p>
                             </div>
                             <div class="proposta-items-actions">
@@ -1258,11 +1304,12 @@
                         <div class="proposta-category-summary" id="propostaResumoCategorias" aria-live="polite"></div>
                     </div>
 
-                    <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabFechamento" data-proposta-form-section="fechamento" hidden>
-                    <h4>3. Fechamento comercial</h4>
+                    <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabComercial" data-proposta-form-section="fechamento" hidden>
+                    <h4>Valores e condições</h4>
                     <div class="proposta-closing-grid">
-                        <div class="proposta-closing-block">
-                            <h5>Custos adicionais</h5>
+                        <div class="proposta-closing-block" data-proposta-grupo="logistica">
+                            <h5>Custos internos e logística</h5>
+                            <p class="proposta-guided-warning">Estes valores entram no custo interno e lucro. Se forem cobrados do cliente, lance também como item da proposta com tipo fiscal próprio.</p>
                             <div class="form-row">
                                 <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
                                 <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
@@ -1285,8 +1332,8 @@
                             </div>
                         </div>
 
-                        <div class="proposta-closing-block">
-                            <h5>Resumo financeiro</h5>
+                        <div class="proposta-closing-block" data-proposta-grupo="comercial">
+                            <h5>Valores e condições</h5>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Subtotal dos itens</label>
@@ -1345,7 +1392,7 @@
                             <div>
                                 <span class="proposta-fiscal-prep-icon"><i class="bi bi-receipt-cutoff"></i></span>
                                 <div>
-                                    <h5>Preparação fiscal</h5>
+                                    <h5>Pré-nota para conferência</h5>
                                     <p>Dados estimados para conferência antes do faturamento.</p>
                                 </div>
                             </div>
@@ -1471,8 +1518,9 @@
                     </details>
                     </div>
 
-                    <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabPdf" data-proposta-form-section="pdf" hidden>
-                    <h4>4. PDF e observações</h4>
+                    <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabRevisao" data-proposta-form-section="pdf" hidden>
+                    <h4>Revisão e PDF</h4>
+                    <div id="propRevisaoFinalGuiada" class="proposta-final-review" aria-live="polite"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Incluso na proposta</label>
@@ -1506,6 +1554,16 @@
                         <button class="btn btn-secondary" data-action="criarNovaRevisaoPropostaAtual"><i class="bi bi-layers"></i> Nova revisão</button>
                         <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
                         <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
+                    </div>
+                    </div>
+                    <div class="proposta-guided-footer">
+                        <button type="button" class="btn btn-secondary" data-action="voltarEtapaPropostaGuiada">
+                            <i class="bi bi-arrow-left"></i> Voltar
+                        </button>
+                        <button type="button" class="btn btn-primary" id="propBtnContinuarGuiado" data-action="avancarEtapaPropostaGuiada">
+                            Salvar e continuar para Evento <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
                     </div>
                     </div>
                 </div>

@@ -136,14 +136,46 @@
     const TEXTO_PRE_NOTA_CONFERENCIA = 'Pré-nota para conferência. Emissão fiscal oficial deve ser validada pela contabilidade.';
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
+        'cliente',
+        'evento',
         'itens',
+        'logistica',
+        'comercial',
         'fechamento',
+        'revisao',
         'pdf'
     ]);
+    const ETAPAS_GUIADAS_PROPOSTA = ['cliente', 'evento', 'itens', 'logistica', 'comercial', 'revisao'];
+    const SECAO_REAL_POR_ETAPA_PROPOSTA = Object.freeze({
+        dados: 'dados',
+        cliente: 'dados',
+        evento: 'dados',
+        itens: 'itens',
+        fechamento: 'fechamento',
+        logistica: 'fechamento',
+        comercial: 'fechamento',
+        pdf: 'pdf',
+        revisao: 'pdf'
+    });
+    const ETAPA_PADRAO_POR_SECAO_PROPOSTA = Object.freeze({
+        dados: 'cliente',
+        itens: 'itens',
+        fechamento: 'logistica',
+        pdf: 'revisao'
+    });
+    const ROTULO_CONTINUAR_ETAPA_PROPOSTA = Object.freeze({
+        cliente: 'Continuar para Evento',
+        evento: 'Continuar para Itens',
+        itens: 'Continuar para Logística',
+        logistica: 'Continuar para Comercial',
+        comercial: 'Continuar para Revisão',
+        revisao: 'Salvar orçamento'
+    });
 
     let filtroPropostasAtual = 'todos';
     let subAbaPropostasAtual = 'formulario';
-    let secaoFormularioPropostaAtual = 'dados';
+    let secaoFormularioPropostaAtual = 'cliente';
+    let modoUsoPropostasAtual = 'guiado';
     let listenersRegistrados = false;
     let bloqueioSincronizacaoValidade = false;
     let categoriasOrcamentoTemporarias = null;
@@ -198,6 +230,166 @@
                 elemento.select();
             } catch (_) {}
         }
+    }
+
+    function normalizarEtapaFormularioProposta(alvo = 'cliente') {
+        const valor = String(alvo || '').trim();
+        if (ETAPAS_GUIADAS_PROPOSTA.includes(valor)) return valor;
+        if (ETAPA_PADRAO_POR_SECAO_PROPOSTA[valor]) return ETAPA_PADRAO_POR_SECAO_PROPOSTA[valor];
+        return 'cliente';
+    }
+
+    function obterSecaoRealFormularioProposta(etapa = 'cliente') {
+        return SECAO_REAL_POR_ETAPA_PROPOSTA[etapa] || 'dados';
+    }
+
+    function atualizarTextoProposta(id, valor) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor;
+    }
+
+    function atualizarStatusEtapaGuiadaProposta(etapa, estado, texto) {
+        const id = `propStepStatus${etapa.charAt(0).toUpperCase()}${etapa.slice(1)}`;
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        el.textContent = texto || (estado === 'completo' ? 'Completo' : estado === 'atencao' ? 'Atenção' : 'Pendente');
+        el.dataset.status = estado || 'pendente';
+
+        const botao = document.querySelector(`[data-proposta-form-tab="${etapa}"]`);
+        if (botao) {
+            botao.dataset.status = estado || 'pendente';
+        }
+    }
+
+    function obterResumoAtualFormularioProposta(itensInformados = null) {
+        const itens = Array.isArray(itensInformados) ? itensInformados : coletarItensFormulario();
+        const custos = obterCustosFormulario();
+        const controleInterno = obterControleInternoFormulario();
+        const resumo = calcularResumoProposta({
+            itens,
+            custos,
+            desconto: parseNumeroInput('propDesconto'),
+            acrescimo: parseNumeroInput('propAcrescimo'),
+            percentualNF: parsePercentualInput('propPercentualNF', 0, 99.99),
+            tipoCalculoNF: document.getElementById('propTipoCalculoNF')?.value || 'descontar',
+            percentualEntrada: parsePercentualInput('propPercentualEntrada', 50, 100),
+            controleInterno
+        });
+
+        return { itens, custos, controleInterno, resumo };
+    }
+
+    function montarResumoEventoGuiado() {
+        const dados = [
+            textoSeguro(document.getElementById('propEventoNome')?.value),
+            textoSeguro(document.getElementById('propEventoLocal')?.value),
+            formatarData(document.getElementById('propDataEvento')?.value)
+        ].filter((item) => item && item !== '-');
+
+        return dados.length ? dados.join(' • ') : 'Pendente';
+    }
+
+    function renderizarRevisaoGuiadaProposta({ itens = [], resumo = {} } = {}) {
+        const painel = document.getElementById('propRevisaoFinalGuiada');
+        if (!painel) return;
+
+        const cliente = textoSeguro(document.getElementById('propClienteNome')?.value, 'Cliente não informado');
+        const evento = textoSeguro(document.getElementById('propEventoNome')?.value, 'Evento não informado');
+        const local = textoSeguro(document.getElementById('propEventoLocal')?.value, 'Local não informado');
+        const dataEvento = formatarData(document.getElementById('propDataEvento')?.value);
+        const valorFinal = resumo.tipoCalculoNF === 'acrescentar'
+            ? numeroNaoNegativo(resumo.valorFinalComNF, 0)
+            : numeroNaoNegativo(resumo.valorFinalComercial ?? resumo.valorFinal, 0);
+        const itensSemTipo = itens.filter((item) => !textoSeguro(item.tipoFiscal));
+        const itensContador = itens.filter((item) => item.tipoFiscal === 'verificar_contador');
+        const prontoParaPdf = textoSeguro(document.getElementById('propClienteNome')?.value)
+            && itens.length > 0
+            && valorFinal > 0
+            && itensSemTipo.length === 0;
+
+        const avisos = [];
+        if (!textoSeguro(document.getElementById('propClienteNome')?.value)) avisos.push('Informe o cliente antes de enviar.');
+        if (!itens.length) avisos.push('Adicione ao menos um item ao orçamento.');
+        if (itensSemTipo.length) avisos.push('Existem itens sem classificação fiscal.');
+        if (itensContador.length) avisos.push('Há itens marcados para verificar com contador antes da pré-nota.');
+
+        painel.innerHTML = `
+            <div class="proposta-review-grid">
+                <article class="proposta-review-card">
+                    <small>Cliente</small>
+                    <strong>${sanitizar(cliente)}</strong>
+                    <span>${sanitizar(textoSeguro(document.getElementById('propClienteTelefone')?.value, 'Sem telefone'))}</span>
+                </article>
+                <article class="proposta-review-card">
+                    <small>Evento</small>
+                    <strong>${sanitizar(evento)}</strong>
+                    <span>${sanitizar(local)} • ${sanitizar(dataEvento)}</span>
+                </article>
+                <article class="proposta-review-card">
+                    <small>Itens</small>
+                    <strong>${itens.length}</strong>
+                    <span>${sanitizar(formatarMoeda(numeroNaoNegativo(resumo.subtotalItens, 0)))}</span>
+                </article>
+                <article class="proposta-review-card proposta-review-card-total">
+                    <small>Total da proposta</small>
+                    <strong>${sanitizar(formatarMoeda(valorFinal))}</strong>
+                    <span>${sanitizar(statusRotulo(document.getElementById('propStatus')?.value))}</span>
+                </article>
+            </div>
+            <div class="proposta-review-checklist ${prontoParaPdf ? 'is-ok' : 'is-warning'}">
+                <i class="bi ${prontoParaPdf ? 'bi-check2-circle' : 'bi-exclamation-triangle'}"></i>
+                <div>
+                    <strong>${prontoParaPdf ? 'Orçamento pronto para revisão final.' : 'Confira os pontos antes de enviar.'}</strong>
+                    ${avisos.length ? `<ul>${avisos.map((aviso) => `<li>${sanitizar(aviso)}</li>`).join('')}</ul>` : '<p>Cliente, itens e valores estão preenchidos.</p>'}
+                </div>
+            </div>
+        `;
+    }
+
+    function atualizarExperienciaGuiadaProposta(resumoCalculado = null, itensCalculados = null) {
+        const { itens, resumo } = resumoCalculado
+            ? { itens: Array.isArray(itensCalculados) ? itensCalculados : coletarItensFormulario(), resumo: resumoCalculado }
+            : obterResumoAtualFormularioProposta(itensCalculados);
+        const cliente = textoSeguro(document.getElementById('propClienteNome')?.value);
+        const evento = textoSeguro(document.getElementById('propEventoNome')?.value);
+        const local = textoSeguro(document.getElementById('propEventoLocal')?.value);
+        const dataEvento = textoSeguro(document.getElementById('propDataEvento')?.value);
+        const valorFinal = resumo.tipoCalculoNF === 'acrescentar'
+            ? numeroNaoNegativo(resumo.valorFinalComNF, 0)
+            : numeroNaoNegativo(resumo.valorFinalComercial ?? resumo.valorFinal, 0);
+        const totalCustos = numeroNaoNegativo(resumo.totalCustosAdicionais, 0);
+        const itensContador = itens.some((item) => item.tipoFiscal === 'verificar_contador');
+
+        atualizarTextoProposta('propGuidedCodigo', textoSeguro(document.getElementById('propCodigo')?.value, 'Novo rascunho'));
+        atualizarTextoProposta('propGuidedCliente', cliente || 'Pendente');
+        atualizarTextoProposta('propGuidedEvento', montarResumoEventoGuiado());
+        atualizarTextoProposta('propGuidedItens', String(itens.length));
+        atualizarTextoProposta('propGuidedCustos', formatarMoeda(totalCustos));
+        atualizarTextoProposta('propGuidedFinal', formatarMoeda(valorFinal));
+        atualizarTextoProposta('propGuidedLucro', formatarMoeda(resumo.lucroPrevisto || 0));
+        atualizarTextoProposta('propGuidedMargem', formatarPercentual(resumo.margemPrevista || 0));
+        atualizarTextoProposta('propGuidedStatus', statusRotulo(document.getElementById('propStatus')?.value));
+
+        atualizarStatusEtapaGuiadaProposta('cliente', cliente ? 'completo' : 'pendente', cliente ? 'Completo' : 'Pendente');
+        atualizarStatusEtapaGuiadaProposta('evento', evento && local && dataEvento ? 'completo' : (evento || local || dataEvento ? 'atencao' : 'pendente'), evento && local && dataEvento ? 'Completo' : 'Atenção');
+        atualizarStatusEtapaGuiadaProposta('itens', itens.length ? (itensContador ? 'atencao' : 'completo') : 'pendente', itens.length ? `${itens.length} item(ns)` : 'Pendente');
+        atualizarStatusEtapaGuiadaProposta('logistica', 'completo', totalCustos > 0 ? 'Custos ok' : 'Sem custos');
+        atualizarStatusEtapaGuiadaProposta('comercial', valorFinal > 0 ? 'completo' : 'pendente', valorFinal > 0 ? 'Completo' : 'Pendente');
+        atualizarStatusEtapaGuiadaProposta('revisao', cliente && itens.length && valorFinal > 0 ? (itensContador ? 'atencao' : 'completo') : 'pendente', cliente && itens.length && valorFinal > 0 ? 'Revisar' : 'Pendente');
+
+        atualizarTextoProposta('propDraftStatus', window.__mtzPropostaResumoPendente
+            ? 'Alterações pendentes de salvamento'
+            : 'Resumo atualizado');
+
+        const botaoContinuar = document.getElementById('propBtnContinuarGuiado');
+        if (botaoContinuar) {
+            const rotulo = ROTULO_CONTINUAR_ETAPA_PROPOSTA[secaoFormularioPropostaAtual] || 'Continuar';
+            const icone = secaoFormularioPropostaAtual === 'revisao' ? 'bi-check2-circle' : 'bi-arrow-right';
+            botaoContinuar.innerHTML = `${sanitizar(rotulo)} <i class="bi ${icone}"></i>`;
+        }
+
+        renderizarRevisaoGuiadaProposta({ itens, resumo });
     }
 
     function converterTextoMoedaParaNumero(valor, fallback = 0) {
@@ -1916,28 +2108,37 @@
         }, 80);
     }
 
-    function mostrarSecaoFormularioProposta(alvo = 'dados', opcoes = {}) {
-        const secao = SECOES_FORMULARIO_PROPOSTA.has(String(alvo)) ? String(alvo) : 'dados';
-        secaoFormularioPropostaAtual = secao;
+    function mostrarSecaoFormularioProposta(alvo = 'cliente', opcoes = {}) {
+        const etapa = normalizarEtapaFormularioProposta(alvo);
+        const secaoReal = obterSecaoRealFormularioProposta(etapa);
+        secaoFormularioPropostaAtual = etapa;
+
+        const raizPropostas = document.getElementById('tab-propostas');
+        if (raizPropostas) {
+            raizPropostas.dataset.etapaProposta = etapa;
+        }
 
         document.querySelectorAll('[data-proposta-form-tab]').forEach((botao) => {
-            const ativo = botao.getAttribute('data-proposta-form-tab') === secao;
+            const ativo = botao.getAttribute('data-proposta-form-tab') === etapa;
             botao.classList.toggle('is-active', ativo);
             botao.setAttribute('aria-selected', ativo ? 'true' : 'false');
         });
 
         document.querySelectorAll('[data-proposta-form-section]').forEach((painel) => {
-            const ativo = painel.getAttribute('data-proposta-form-section') === secao;
+            const ativo = modoUsoPropostasAtual === 'avancado'
+                || painel.getAttribute('data-proposta-form-section') === secaoReal;
             painel.hidden = !ativo;
             painel.classList.toggle('is-active', ativo);
         });
+
+        atualizarExperienciaGuiadaProposta();
 
         if (opcoes.semRolagem) return;
 
         setTimeout(() => {
             if (usuarioEditandoProposta()) return;
 
-            const painel = document.querySelector(`[data-proposta-form-section="${secao}"]`);
+            const painel = document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
             if (typeof window.rolarParaElementoAtalho === 'function') {
                 window.rolarParaElementoAtalho(painel, 'start', { forcar: true });
             } else {
@@ -1946,14 +2147,16 @@
 
             if (opcoes.foco === false) return;
 
-            const focoPorSecao = {
-                dados: 'propClienteNome',
+            const focoPorEtapa = {
+                cliente: 'propClienteNome',
+                evento: 'propEventoNome',
                 itens: null,
-                fechamento: 'propFreteDistanciaKm',
-                pdf: 'propIncluso'
+                logistica: 'propFreteDistanciaKm',
+                comercial: 'propDesconto',
+                revisao: 'propIncluso'
             };
 
-            const campoId = focoPorSecao[secao];
+            const campoId = focoPorEtapa[etapa];
             if (campoId) {
                 focarPropostaSemRolagem(document.getElementById(campoId));
                 return;
@@ -1961,6 +2164,79 @@
 
             focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
         }, 80);
+    }
+
+    function alterarModoUsoPropostas(modo = 'guiado') {
+        modoUsoPropostasAtual = modo === 'avancado' ? 'avancado' : 'guiado';
+        const raizPropostas = document.getElementById('tab-propostas');
+        if (raizPropostas) {
+            raizPropostas.dataset.modoProposta = modoUsoPropostasAtual;
+        }
+
+        document.querySelectorAll('[data-proposta-modo]').forEach((botao) => {
+            const ativo = botao.getAttribute('data-proposta-modo') === modoUsoPropostasAtual;
+            botao.classList.toggle('is-active', ativo);
+            botao.classList.toggle('btn-primary', ativo);
+            botao.classList.toggle('btn-secondary', !ativo);
+        });
+
+        if (modoUsoPropostasAtual === 'avancado') {
+            document.querySelectorAll('[data-proposta-form-section]').forEach((painel) => {
+                painel.hidden = false;
+                painel.classList.add('is-active');
+            });
+            atualizarExperienciaGuiadaProposta();
+            return;
+        }
+
+        mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
+    }
+
+    function validarEtapaGuiadaAntesDeAvancar(etapa) {
+        if (etapa === 'cliente' && !textoSeguro(document.getElementById('propClienteNome')?.value)) {
+            mostrarToast('Informe o cliente para continuar.', 'erro');
+            focarPropostaSemRolagem(document.getElementById('propClienteNome'));
+            return false;
+        }
+
+        if (etapa === 'evento') {
+            const local = textoSeguro(document.getElementById('propEventoLocal')?.value);
+            const data = textoSeguro(document.getElementById('propDataEvento')?.value);
+            if (!local || !data) {
+                mostrarToast('Confira local e data do evento antes de enviar.', 'info');
+            }
+        }
+
+        if (etapa === 'itens' && !coletarItensFormulario().length) {
+            mostrarToast('Adicione pelo menos um item ao orçamento.', 'erro');
+            focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
+            return false;
+        }
+
+        return true;
+    }
+
+    function avancarEtapaPropostaGuiada() {
+        if (modoUsoPropostasAtual === 'avancado') return;
+        const etapaAtual = normalizarEtapaFormularioProposta(secaoFormularioPropostaAtual);
+        if (!validarEtapaGuiadaAntesDeAvancar(etapaAtual)) return;
+
+        if (etapaAtual === 'revisao') {
+            salvarProposta();
+            return;
+        }
+
+        const indice = ETAPAS_GUIADAS_PROPOSTA.indexOf(etapaAtual);
+        const proxima = ETAPAS_GUIADAS_PROPOSTA[Math.min(indice + 1, ETAPAS_GUIADAS_PROPOSTA.length - 1)];
+        mostrarSecaoFormularioProposta(proxima);
+    }
+
+    function voltarEtapaPropostaGuiada() {
+        if (modoUsoPropostasAtual === 'avancado') return;
+        const etapaAtual = normalizarEtapaFormularioProposta(secaoFormularioPropostaAtual);
+        const indice = ETAPAS_GUIADAS_PROPOSTA.indexOf(etapaAtual);
+        const anterior = ETAPAS_GUIADAS_PROPOSTA[Math.max(indice - 1, 0)];
+        mostrarSecaoFormularioProposta(anterior);
     }
 
     function normalizarFormaPagamento(forma) {
@@ -2965,6 +3241,7 @@
             atualizarResumoCompactoProposta(resumo);
             atualizarResumoFiscalProposta(resumo.resumoFiscal);
             atualizarResumoRapidoItensProposta(resumo);
+            atualizarExperienciaGuiadaProposta(resumo, itens);
         });
     }
 
@@ -5606,6 +5883,8 @@
         mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
         mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
         renderPropostas();
+        alterarModoUsoPropostas(modoUsoPropostasAtual);
+        atualizarExperienciaGuiadaProposta();
     }
 
     inicializarPropostas();
@@ -5650,6 +5929,9 @@
     window.aplicarValorKmFretePadraoProposta = aplicarValorKmFretePadraoProposta;
     window.mostrarSubAbaPropostas = mostrarSubAbaPropostas;
     window.mostrarSecaoFormularioProposta = mostrarSecaoFormularioProposta;
+    window.alterarModoUsoPropostas = alterarModoUsoPropostas;
+    window.avancarEtapaPropostaGuiada = avancarEtapaPropostaGuiada;
+    window.voltarEtapaPropostaGuiada = voltarEtapaPropostaGuiada;
     window.abrirConfigOrcamentoProposta = abrirConfigOrcamentoProposta;
     window.fecharConfigOrcamentoProposta = fecharConfigOrcamentoProposta;
     window.aplicarConfigOrcamentoProposta = aplicarConfigOrcamentoProposta;
