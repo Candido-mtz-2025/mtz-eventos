@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.23">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.24">
 </head>
 <body>
 
@@ -1124,13 +1124,47 @@
                                     <input type="email" id="propClienteEmail" placeholder="E-mail">
                                 </div>
                             </div>
-                            <div class="form-row">
+                            <div id="propClienteCadastroAviso" class="proposta-client-loaded-alert" hidden>
+                                <i class="bi bi-check2-circle"></i>
+                                <span>Dados carregados do cadastro do cliente.</span>
+                            </div>
+                            <div class="proposta-address-grid">
                                 <div class="form-group">
-                                    <label>Endereço</label>
-                                    <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
+                                    <label>CEP</label>
+                                    <input type="text" id="propClienteCep" placeholder="CEP">
+                                </div>
+                                <div class="form-group proposta-address-street">
+                                    <label>Endereço/Rua</label>
+                                    <input type="text" id="propClienteRua" placeholder="Rua, avenida ou estrada">
+                                </div>
+                                <div class="form-group">
+                                    <label>Número</label>
+                                    <input type="text" id="propClienteNumero" placeholder="Nº">
+                                </div>
+                                <div class="form-group">
+                                    <label>Complemento</label>
+                                    <input type="text" id="propClienteComplemento" placeholder="Sala, bloco, referência">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bairro</label>
+                                    <input type="text" id="propClienteBairro" placeholder="Bairro">
+                                </div>
+                                <div class="form-group">
+                                    <label>Cidade</label>
+                                    <input type="text" id="propClienteCidade" placeholder="Cidade">
+                                </div>
+                                <div class="form-group form-group-compact">
+                                    <label>UF</label>
+                                    <input type="text" id="propClienteUf" maxlength="2" placeholder="UF">
                                 </div>
                             </div>
-                            <label class="checkbox-inline">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Endereço consolidado</label>
+                                    <input type="text" id="propClienteEndereco" placeholder="Gerado automaticamente ou ajustado manualmente">
+                                </div>
+                            </div>
+                            <label class="checkbox-inline proposta-nf-check">
                                 <input type="checkbox" id="propClientePrecisaNf">
                                 <span>Cliente precisa de nota fiscal</span>
                             </label>
@@ -1169,6 +1203,10 @@
                                         <input type="text" id="propFiscalEndereco" placeholder="Endereço fiscal completo">
                                     </div>
                                 </div>
+                                <label class="checkbox-inline proposta-nf-check proposta-fiscal-same-address">
+                                    <input type="checkbox" id="propFiscalUsarEnderecoCliente">
+                                    <span>Usar mesmo endereço do cliente</span>
+                                </label>
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label>Cidade fiscal</label>
@@ -2490,7 +2528,7 @@
     <script src="./assets/js/core/storage.js?v=12.5"></script>
     <script src="./assets/js/ui/pwa.js?v=1.2"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=3.6"></script>
+    <script src="./assets/js/modules/propostas.js?v=3.7"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>

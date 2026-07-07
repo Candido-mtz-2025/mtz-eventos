@@ -352,6 +352,17 @@
             ? { itens: Array.isArray(itensCalculados) ? itensCalculados : coletarItensFormulario(), resumo: resumoCalculado }
             : obterResumoAtualFormularioProposta(itensCalculados);
         const cliente = textoSeguro(document.getElementById('propClienteNome')?.value);
+        const clienteContatoOk = Boolean(
+            textoSeguro(document.getElementById('propClienteTelefone')?.value)
+            || textoSeguro(document.getElementById('propClienteEmail')?.value)
+        );
+        const clientePrecisaNf = document.getElementById('propClientePrecisaNf')?.checked === true;
+        const clienteDocumentoOk = Boolean(
+            textoSeguro(document.getElementById('propClienteDocumento')?.value)
+            || textoSeguro(document.getElementById('propFiscalCpfCnpj')?.value)
+        );
+        const clienteCompleto = Boolean(cliente && clienteContatoOk && (!clientePrecisaNf || clienteDocumentoOk));
+        const clienteParcial = Boolean(cliente || clienteContatoOk || clienteDocumentoOk);
         const evento = textoSeguro(document.getElementById('propEventoNome')?.value);
         const local = textoSeguro(document.getElementById('propEventoLocal')?.value);
         const dataEvento = textoSeguro(document.getElementById('propDataEvento')?.value);
@@ -371,12 +382,12 @@
         atualizarTextoProposta('propGuidedMargem', formatarPercentual(resumo.margemPrevista || 0));
         atualizarTextoProposta('propGuidedStatus', statusRotulo(document.getElementById('propStatus')?.value));
 
-        atualizarStatusEtapaGuiadaProposta('cliente', cliente ? 'completo' : 'pendente', cliente ? 'Completo' : 'Pendente');
+        atualizarStatusEtapaGuiadaProposta('cliente', clienteCompleto ? 'completo' : (clienteParcial ? 'atencao' : 'pendente'), clienteCompleto ? 'Completo' : (clienteParcial ? 'Atenção' : 'Pendente'));
         atualizarStatusEtapaGuiadaProposta('evento', evento && local && dataEvento ? 'completo' : (evento || local || dataEvento ? 'atencao' : 'pendente'), evento && local && dataEvento ? 'Completo' : 'Atenção');
         atualizarStatusEtapaGuiadaProposta('itens', itens.length ? (itensContador ? 'atencao' : 'completo') : 'pendente', itens.length ? `${itens.length} item(ns)` : 'Pendente');
         atualizarStatusEtapaGuiadaProposta('logistica', 'completo', totalCustos > 0 ? 'Custos ok' : 'Sem custos');
         atualizarStatusEtapaGuiadaProposta('comercial', valorFinal > 0 ? 'completo' : 'pendente', valorFinal > 0 ? 'Completo' : 'Pendente');
-        atualizarStatusEtapaGuiadaProposta('revisao', cliente && itens.length && valorFinal > 0 ? (itensContador ? 'atencao' : 'completo') : 'pendente', cliente && itens.length && valorFinal > 0 ? 'Revisar' : 'Pendente');
+        atualizarStatusEtapaGuiadaProposta('revisao', clienteCompleto && itens.length && valorFinal > 0 ? (itensContador ? 'atencao' : 'completo') : 'pendente', clienteCompleto && itens.length && valorFinal > 0 ? 'Revisar' : 'Pendente');
 
         atualizarTextoProposta('propDraftStatus', window.__mtzPropostaResumoPendente
             ? 'Alterações pendentes de salvamento'
@@ -3288,6 +3299,68 @@
             .join(' | ');
     }
 
+    function montarEnderecoClientePropostaPorCampos(dados = {}) {
+        const origem = dados && typeof dados === 'object' ? dados : {};
+        const rua = textoSeguro(origem.ruaEndereco ?? origem.rua, '');
+        const numero = textoSeguro(origem.numero, '');
+        const complemento = textoSeguro(origem.complemento, '');
+        const bairro = textoSeguro(origem.bairro, '');
+        const cidade = textoSeguro(origem.cidade, '');
+        const uf = textoSeguro(origem.uf, '').toUpperCase().slice(0, 2);
+        const cep = textoSeguro(origem.cep, '');
+        const linhaEndereco = [rua, numero].filter(Boolean).join(', ');
+        const linhaCidade = [bairro, cidade, uf].filter(Boolean).join(' - ');
+        return [linhaEndereco, complemento, linhaCidade, cep ? `CEP ${cep}` : '']
+            .filter(Boolean)
+            .join(' | ');
+    }
+
+    function sincronizarEnderecoClienteProposta() {
+        const campos = {
+            cep: textoSeguro(document.getElementById('propClienteCep')?.value),
+            ruaEndereco: textoSeguro(document.getElementById('propClienteRua')?.value),
+            numero: textoSeguro(document.getElementById('propClienteNumero')?.value),
+            complemento: textoSeguro(document.getElementById('propClienteComplemento')?.value),
+            bairro: textoSeguro(document.getElementById('propClienteBairro')?.value),
+            cidade: textoSeguro(document.getElementById('propClienteCidade')?.value),
+            uf: textoSeguro(document.getElementById('propClienteUf')?.value)
+        };
+        const temEnderecoSeparado = Object.values(campos).some(Boolean);
+        const enderecoEl = document.getElementById('propClienteEndereco');
+        if (enderecoEl && temEnderecoSeparado) {
+            enderecoEl.value = montarEnderecoClientePropostaPorCampos(campos);
+        }
+    }
+
+    function atualizarAvisoClienteCadastroProposta(exibir = false) {
+        const aviso = document.getElementById('propClienteCadastroAviso');
+        if (!aviso) return;
+        aviso.hidden = !exibir;
+    }
+
+    function sincronizarFiscalClienteProposta() {
+        const precisaNfEl = document.getElementById('propClientePrecisaNf');
+        const detalhes = document.querySelector('#tab-propostas .proposta-fiscal-details');
+        const precisaNf = precisaNfEl?.checked === true;
+
+        if (detalhes) {
+            if (precisaNf) detalhes.open = true;
+            detalhes.classList.toggle('is-highlighted', precisaNf);
+        }
+
+        const usarEnderecoEl = document.getElementById('propFiscalUsarEnderecoCliente');
+        if (usarEnderecoEl?.checked) {
+            const fiscalEndereco = document.getElementById('propFiscalEndereco');
+            const fiscalCidade = document.getElementById('propFiscalCidade');
+            const fiscalUf = document.getElementById('propFiscalUF');
+            const fiscalCep = document.getElementById('propFiscalCEP');
+            if (fiscalEndereco) fiscalEndereco.value = textoSeguro(document.getElementById('propClienteEndereco')?.value);
+            if (fiscalCidade) fiscalCidade.value = textoSeguro(document.getElementById('propClienteCidade')?.value);
+            if (fiscalUf) fiscalUf.value = textoSeguro(document.getElementById('propClienteUf')?.value).toUpperCase().slice(0, 2);
+            if (fiscalCep) fiscalCep.value = textoSeguro(document.getElementById('propClienteCep')?.value);
+        }
+    }
+
     function montarClientePropostaNormalizado(cliente = {}) {
         const origem = cliente && typeof cliente === 'object' ? cliente : {};
         const fiscalOrigem = origem.dadosFiscais && typeof origem.dadosFiscais === 'object'
@@ -3298,6 +3371,13 @@
         const documento = textoSeguro(origem.documento ?? origem.cpfCnpj ?? fiscalOrigem.cpfCnpj, '');
         const telefone = textoSeguro(origem.telefone ?? origem.whatsapp, '');
         const email = textoSeguro(origem.email, '');
+        const cep = textoSeguro(origem.cep, '');
+        const ruaEndereco = textoSeguro(origem.ruaEndereco ?? origem.rua, '');
+        const numero = textoSeguro(origem.numero, '');
+        const complemento = textoSeguro(origem.complemento, '');
+        const bairro = textoSeguro(origem.bairro, '');
+        const cidade = textoSeguro(origem.cidade, '');
+        const uf = textoSeguro(origem.uf, '').toUpperCase().slice(0, 2);
         const endereco = textoSeguro(origem.endereco, '') || montarEnderecoClienteCadastroProposta(origem);
         const precisaNotaFiscal = origem.precisaNotaFiscal === true || origem.clientePrecisaNotaFiscal === true;
         const usarMesmoEnderecoCliente = fiscalOrigem.usarMesmoEnderecoCliente === true;
@@ -3310,6 +3390,13 @@
             telefone,
             email,
             endereco,
+            cep,
+            ruaEndereco,
+            numero,
+            complemento,
+            bairro,
+            cidade,
+            uf,
             responsavelPedido: textoSeguro(origem.responsavelPedido, ''),
             precisaNotaFiscal,
             razaoSocial: textoSeguro(origem.razaoSocial ?? fiscalOrigem.razaoSocial, nome),
@@ -3348,6 +3435,13 @@
             telefone: c.telefone,
             email: c.email,
             endereco: c.endereco,
+            cep: c.cep,
+            ruaEndereco: c.ruaEndereco,
+            numero: c.numero,
+            complemento: c.complemento,
+            bairro: c.bairro,
+            cidade: c.cidade,
+            uf: c.uf,
             dadosFiscais: { ...(c.dadosFiscais || {}) }
         };
     }
@@ -3382,6 +3476,13 @@
             propClienteDocumento: c.documento,
             propClienteTelefone: c.telefone,
             propClienteEmail: c.email,
+            propClienteCep: c.cep,
+            propClienteRua: c.ruaEndereco,
+            propClienteNumero: c.numero,
+            propClienteComplemento: c.complemento,
+            propClienteBairro: c.bairro,
+            propClienteCidade: c.cidade,
+            propClienteUf: c.uf,
             propClienteEndereco: c.endereco,
             propFiscalRazaoSocial: c.razaoSocial,
             propFiscalNomeFantasia: c.nomeFantasia,
@@ -3405,7 +3506,11 @@
         if (precisaNfEl) {
             precisaNfEl.checked = c.precisaNotaFiscal || Boolean(c.cpfCnpj || c.razaoSocial || c.inscricaoEstadual || c.inscricaoMunicipal);
         }
+        const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
+        if (usarEnderecoFiscalEl) usarEnderecoFiscalEl.checked = c.dadosFiscais?.usarMesmoEnderecoCliente === true;
 
+        atualizarAvisoClienteCadastroProposta(Boolean(c.id));
+        sincronizarFiscalClienteProposta();
         atualizarExperienciaGuiadaProposta();
     }
 
@@ -3416,6 +3521,7 @@
 
         if (!cliente) {
             if (idEl) idEl.value = '';
+            atualizarAvisoClienteCadastroProposta(false);
             atualizarExperienciaGuiadaProposta();
             return;
         }
@@ -3759,6 +3865,7 @@
             : adicionarDiasDataIso(dataCriacao.slice(0, 10), validadeDias);
         const clienteId = textoSeguro(document.getElementById('propClienteId')?.value || document.getElementById('propClienteCadastrado')?.value);
         const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
+        sincronizarEnderecoClienteProposta();
         const clienteFormulario = montarClientePropostaNormalizado({
             id: clienteId,
             clienteId,
@@ -3767,6 +3874,13 @@
             documento: textoSeguro(document.getElementById('propClienteDocumento')?.value),
             telefone: textoSeguro(document.getElementById('propClienteTelefone')?.value),
             email: textoSeguro(document.getElementById('propClienteEmail')?.value),
+            cep: textoSeguro(document.getElementById('propClienteCep')?.value),
+            ruaEndereco: textoSeguro(document.getElementById('propClienteRua')?.value),
+            numero: textoSeguro(document.getElementById('propClienteNumero')?.value),
+            complemento: textoSeguro(document.getElementById('propClienteComplemento')?.value),
+            bairro: textoSeguro(document.getElementById('propClienteBairro')?.value),
+            cidade: textoSeguro(document.getElementById('propClienteCidade')?.value),
+            uf: textoSeguro(document.getElementById('propClienteUf')?.value),
             endereco: textoSeguro(document.getElementById('propClienteEndereco')?.value),
             razaoSocial: textoSeguro(document.getElementById('propFiscalRazaoSocial')?.value),
             nomeFantasia: textoSeguro(document.getElementById('propFiscalNomeFantasia')?.value),
@@ -3778,7 +3892,10 @@
             ufFiscal: textoSeguro(document.getElementById('propFiscalUF')?.value),
             cepFiscal: textoSeguro(document.getElementById('propFiscalCEP')?.value),
             emailFiscal: textoSeguro(document.getElementById('propFiscalEmail')?.value),
-            contatoFinanceiro: textoSeguro(document.getElementById('propFiscalContatoFinanceiro')?.value)
+            contatoFinanceiro: textoSeguro(document.getElementById('propFiscalContatoFinanceiro')?.value),
+            dadosFiscais: {
+                usarMesmoEnderecoCliente: document.getElementById('propFiscalUsarEnderecoCliente')?.checked === true
+            }
         });
         const clienteSnapshot = montarClienteSnapshotProposta(clienteFormulario);
         const fiscalFormulario = montarFiscalPropostaNormalizado({
@@ -3934,6 +4051,13 @@
             propClienteDocumento: p.cliente.documento,
             propClienteTelefone: p.cliente.telefone,
             propClienteEmail: p.cliente.email,
+            propClienteCep: p.cliente.cep,
+            propClienteRua: p.cliente.ruaEndereco,
+            propClienteNumero: p.cliente.numero,
+            propClienteComplemento: p.cliente.complemento,
+            propClienteBairro: p.cliente.bairro,
+            propClienteCidade: p.cliente.cidade,
+            propClienteUf: p.cliente.uf,
             propClienteEndereco: p.cliente.endereco,
             propFiscalRazaoSocial: p.cliente.razaoSocial,
             propFiscalNomeFantasia: p.cliente.nomeFantasia,
@@ -4001,6 +4125,10 @@
 
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = p.clientePrecisaNotaFiscal === true || p.cliente.precisaNotaFiscal === true;
+        const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
+        if (usarEnderecoFiscalEl) usarEnderecoFiscalEl.checked = p.cliente.dadosFiscais?.usarMesmoEnderecoCliente === true;
+        atualizarAvisoClienteCadastroProposta(Boolean(p.clienteId));
+        sincronizarFiscalClienteProposta();
 
         renderLinhasItensProposta(p.itens);
         sincronizarValidadePorData();
@@ -4013,6 +4141,7 @@
         categoriasOrcamentoTemporarias = null;
         const campos = [
             'propostaIdAtual', 'propCodigo', 'propClienteId', 'propClienteCadastrado', 'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail',
+            'propClienteCep', 'propClienteRua', 'propClienteNumero', 'propClienteComplemento', 'propClienteBairro', 'propClienteCidade', 'propClienteUf',
             'propClienteEndereco', 'propFiscalRazaoSocial', 'propFiscalNomeFantasia', 'propFiscalCpfCnpj', 'propFiscalIE', 'propFiscalIM',
             'propFiscalEndereco', 'propFiscalCidade', 'propFiscalUF', 'propFiscalCEP', 'propFiscalEmail', 'propFiscalContatoFinanceiro',
             'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
@@ -4067,6 +4196,14 @@
         if (chkInterno) chkInterno.checked = false;
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = false;
+        const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
+        if (usarEnderecoFiscalEl) usarEnderecoFiscalEl.checked = false;
+        const fiscalDetails = document.querySelector('#tab-propostas .proposta-fiscal-details');
+        if (fiscalDetails) {
+            fiscalDetails.open = false;
+            fiscalDetails.classList.remove('is-highlighted');
+        }
+        atualizarAvisoClienteCadastroProposta(false);
         renderizarSelectClientesProposta('');
         fecharPreNotaProposta();
 
@@ -6025,6 +6162,28 @@
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
             window.__mtzPropostaResumoPendente = true;
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoEndereco = event.target?.closest?.('#tab-propostas #propClienteCep, #tab-propostas #propClienteRua, #tab-propostas #propClienteNumero, #tab-propostas #propClienteComplemento, #tab-propostas #propClienteBairro, #tab-propostas #propClienteCidade, #tab-propostas #propClienteUf');
+            if (!campoEndereco || campoEndereco !== event.target) return;
+            sincronizarEnderecoClienteProposta();
+            sincronizarFiscalClienteProposta();
+            window.__mtzPropostaResumoPendente = true;
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoCliente = event.target?.closest?.('#tab-propostas [data-proposta-grupo="cliente"] input, #tab-propostas [data-proposta-grupo="cliente"] textarea');
+            if (!campoCliente || campoCliente !== event.target) return;
+            window.__mtzPropostaResumoPendente = true;
+        });
+
+        document.addEventListener('change', (event) => {
+            const precisaNf = event.target?.closest?.('#tab-propostas #propClientePrecisaNf');
+            const usarEndereco = event.target?.closest?.('#tab-propostas #propFiscalUsarEnderecoCliente');
+            if ((!precisaNf || precisaNf !== event.target) && (!usarEndereco || usarEndereco !== event.target)) return;
+            sincronizarFiscalClienteProposta();
+            executarPropostaMantendoScroll(() => atualizarExperienciaGuiadaProposta(), event.target);
         });
 
         document.addEventListener('focusout', (event) => {
