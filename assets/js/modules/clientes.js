@@ -29,6 +29,127 @@ function emailClienteValido(valor) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function valorCampoCliente(id) {
+    return limparTextoCliente(document.getElementById(id)?.value);
+}
+
+function checkboxClienteMarcado(id) {
+    return document.getElementById(id)?.checked === true;
+}
+
+function montarEnderecoCompletoCliente(dados = {}) {
+    const rua = limparTextoCliente(dados.rua || dados.endereco || dados.ruaEndereco);
+    const numero = limparTextoCliente(dados.numero);
+    const complemento = limparTextoCliente(dados.complemento);
+    const bairro = limparTextoCliente(dados.bairro);
+    const cidade = limparTextoCliente(dados.cidade);
+    const uf = limparTextoCliente(dados.uf).toUpperCase().slice(0, 2);
+    const cep = limparTextoCliente(dados.cep);
+
+    const linhaEndereco = [rua, numero].filter(Boolean).join(', ');
+    const linhaCidade = [bairro, cidade, uf].filter(Boolean).join(' - ');
+    return [linhaEndereco, complemento, linhaCidade, cep ? `CEP ${cep}` : '']
+        .filter(Boolean)
+        .join(' | ');
+}
+
+function obterDadosClienteFormulario(prefixo) {
+    const nome = valorCampoCliente(`${prefixo}Nome`);
+    const documento = valorCampoCliente(`${prefixo}Doc`);
+    const telefone = valorCampoCliente(`${prefixo}Tel`);
+    const email = valorCampoCliente(`${prefixo}Email`);
+    const cep = valorCampoCliente(`${prefixo}Cep`);
+    const ruaEndereco = valorCampoCliente(`${prefixo}End`);
+    const numero = valorCampoCliente(`${prefixo}Numero`);
+    const complemento = valorCampoCliente(`${prefixo}Complemento`);
+    const bairro = valorCampoCliente(`${prefixo}Bairro`);
+    const cidade = valorCampoCliente(`${prefixo}Cidade`);
+    const uf = valorCampoCliente(`${prefixo}Uf`).toUpperCase().slice(0, 2);
+    const responsavelPedido = valorCampoCliente(`${prefixo}Responsavel`);
+    const enderecoCompleto = montarEnderecoCompletoCliente({
+        rua: ruaEndereco,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        uf,
+        cep
+    });
+    const usarMesmoEnderecoCliente = checkboxClienteMarcado(`${prefixo}FiscalUsarEndereco`);
+    const enderecoFiscalDigitado = valorCampoCliente(`${prefixo}FiscalEndereco`);
+
+    return {
+        nome,
+        documento,
+        telefone,
+        whatsapp: telefone,
+        email,
+        endereco: enderecoCompleto || ruaEndereco,
+        cep,
+        ruaEndereco,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        uf,
+        responsavelPedido,
+        dadosFiscais: {
+            razaoSocial: valorCampoCliente(`${prefixo}FiscalRazaoSocial`),
+            cpfCnpj: valorCampoCliente(`${prefixo}FiscalCpfCnpj`) || documento,
+            inscricaoEstadual: valorCampoCliente(`${prefixo}FiscalIE`),
+            inscricaoMunicipal: valorCampoCliente(`${prefixo}FiscalIM`),
+            emailFiscal: valorCampoCliente(`${prefixo}FiscalEmail`) || email,
+            enderecoFiscal: usarMesmoEnderecoCliente ? (enderecoCompleto || ruaEndereco) : enderecoFiscalDigitado,
+            usarMesmoEnderecoCliente
+        }
+    };
+}
+
+function preencherFormularioCliente(prefixo, cliente = {}) {
+    const fiscal = cliente.dadosFiscais && typeof cliente.dadosFiscais === 'object' ? cliente.dadosFiscais : {};
+    const mapa = {
+        [`${prefixo}Nome`]: cliente.nome || '',
+        [`${prefixo}Doc`]: cliente.documento || '',
+        [`${prefixo}Tel`]: cliente.telefone || cliente.whatsapp || '',
+        [`${prefixo}Email`]: cliente.email || '',
+        [`${prefixo}Cep`]: cliente.cep || '',
+        [`${prefixo}End`]: cliente.ruaEndereco || cliente.rua || cliente.endereco || '',
+        [`${prefixo}Numero`]: cliente.numero || '',
+        [`${prefixo}Complemento`]: cliente.complemento || '',
+        [`${prefixo}Bairro`]: cliente.bairro || '',
+        [`${prefixo}Cidade`]: cliente.cidade || '',
+        [`${prefixo}Uf`]: cliente.uf || '',
+        [`${prefixo}Responsavel`]: cliente.responsavelPedido || '',
+        [`${prefixo}FiscalRazaoSocial`]: fiscal.razaoSocial || '',
+        [`${prefixo}FiscalCpfCnpj`]: fiscal.cpfCnpj || cliente.documento || '',
+        [`${prefixo}FiscalIE`]: fiscal.inscricaoEstadual || '',
+        [`${prefixo}FiscalIM`]: fiscal.inscricaoMunicipal || '',
+        [`${prefixo}FiscalEmail`]: fiscal.emailFiscal || cliente.email || '',
+        [`${prefixo}FiscalEndereco`]: fiscal.enderecoFiscal || ''
+    };
+
+    Object.entries(mapa).forEach(([id, valor]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = valor;
+    });
+
+    const usarEnderecoEl = document.getElementById(`${prefixo}FiscalUsarEndereco`);
+    if (usarEnderecoEl) usarEnderecoEl.checked = fiscal.usarMesmoEnderecoCliente !== false;
+}
+
+function limparFormularioCliente(prefixo) {
+    [
+        'Nome', 'Doc', 'Tel', 'Email', 'Cep', 'End', 'Numero', 'Complemento', 'Bairro', 'Cidade', 'Uf',
+        'Responsavel', 'FiscalRazaoSocial', 'FiscalCpfCnpj', 'FiscalIE', 'FiscalIM', 'FiscalEmail', 'FiscalEndereco'
+    ].forEach((campo) => {
+        const el = document.getElementById(`${prefixo}${campo}`);
+        if (el) el.value = '';
+    });
+
+    const usarEnderecoEl = document.getElementById(`${prefixo}FiscalUsarEndereco`);
+    if (usarEnderecoEl) usarEnderecoEl.checked = true;
+}
+
 function encontrarLocadorDuplicado(dados, idIgnorar = null) {
     const nome = normalizarTextoCliente(dados?.nome);
     const email = normalizarEmailCliente(dados?.email);
@@ -48,11 +169,8 @@ function encontrarLocadorDuplicado(dados, idIgnorar = null) {
 }
 
 function salvarLocador() {
-    const nome = limparTextoCliente(document.getElementById('locNome')?.value);
-    const documento = limparTextoCliente(document.getElementById('locDoc')?.value);
-    const endereco = limparTextoCliente(document.getElementById('locEnd')?.value);
-    const email = limparTextoCliente(document.getElementById('locEmail')?.value);
-    const telefone = limparTextoCliente(document.getElementById('locTel')?.value);
+    const dados = obterDadosClienteFormulario('loc');
+    const { nome, documento, email, telefone } = dados;
 
     if (!nome) {
         mostrarToast('Informe o nome do cliente.', 'erro');
@@ -76,11 +194,7 @@ function salvarLocador() {
     const novoId = Date.now();
     locadores.push({
         id: novoId,
-        nome,
-        email,
-        telefone,
-        documento,
-        endereco
+        ...dados
     });
 
     salvarLocal();
@@ -90,15 +204,7 @@ function salvarLocador() {
     }
     sincronizar('salvar');
 
-    document.getElementById('locNome').value = "";
-    const docEl = document.getElementById('locDoc');
-    const endEl = document.getElementById('locEnd');
-    const emailEl = document.getElementById('locEmail');
-    const telEl = document.getElementById('locTel');
-    if (docEl) docEl.value = "";
-    if (endEl) endEl.value = "";
-    if (emailEl) emailEl.value = "";
-    if (telEl) telEl.value = "";
+    limparFormularioCliente('loc');
 
     document.getElementById('locNome').focus();
     mostrarToast("Cliente Salvo!");
@@ -109,9 +215,7 @@ function abrirEditarLocador(id) {
     if (!c) return;
 
     document.getElementById('editLocId').value = c.id;
-    document.getElementById('editLocNome').value = c.nome;
-    document.getElementById('editLocEmail').value = c.email || '';
-    document.getElementById('editLocTel').value = c.telefone || '';
+    preencherFormularioCliente('editLoc', c);
     document.getElementById('modalEditarLocador').classList.add('active');
 }
 
@@ -120,9 +224,8 @@ function salvarEdicaoLocador() {
     const c = locadores.find((x) => String(x.id) === String(id));
     if (!c) return;
 
-    const nome = limparTextoCliente(document.getElementById('editLocNome')?.value);
-    const email = limparTextoCliente(document.getElementById('editLocEmail')?.value);
-    const telefone = limparTextoCliente(document.getElementById('editLocTel')?.value);
+    const dados = obterDadosClienteFormulario('editLoc');
+    const { nome, email, telefone, documento } = dados;
     if (!nome) {
         mostrarToast('Informe o nome do cliente.', 'erro');
         document.getElementById('editLocNome')?.focus();
@@ -140,7 +243,7 @@ function salvarEdicaoLocador() {
             nome,
             email,
             telefone,
-            documento: c.documento
+            documento
         },
         id
     );
@@ -150,9 +253,7 @@ function salvarEdicaoLocador() {
         return;
     }
 
-    c.nome = nome;
-    c.email = email;
-    c.telefone = telefone;
+    Object.assign(c, dados);
 
     salvarLocal();
     renderTudo();

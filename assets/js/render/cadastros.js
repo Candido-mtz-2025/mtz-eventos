@@ -13,12 +13,22 @@ function renderLocadores() {
     if (!tbody) return;
     
     const clientesFiltrados = locadores.filter((c) => {
+        const fiscal = c.dadosFiscais && typeof c.dadosFiscais === 'object' ? c.dadosFiscais : {};
         const alvo = [
             c.nome,
             c.documento,
             c.email,
             c.telefone,
-            c.endereco
+            c.endereco,
+            c.cep,
+            c.ruaEndereco,
+            c.bairro,
+            c.cidade,
+            c.uf,
+            c.responsavelPedido,
+            fiscal.razaoSocial,
+            fiscal.cpfCnpj,
+            fiscal.emailFiscal
         ].map(normalizar).join(' ');
         return alvo.includes(termo);
     });
@@ -58,12 +68,14 @@ function renderLocadores() {
         const documento = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.documento || '') : (c.documento || '');
         const email = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.email || '-') : (c.email || '-');
         const telefone = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.telefone || '-') : (c.telefone || '-');
+        const localidadeBruta = [c.cidade, c.uf].filter(Boolean).join(' / ');
+        const localidade = typeof sanitizarTexto === 'function' ? sanitizarTexto(localidadeBruta) : localidadeBruta;
         const tr = document.createElement('tr');
         tr.setAttribute('data-locador-id', String(c.id));
         tr.innerHTML = `
             <td>
                 <div class="table-cell-title">${nome}</div>
-                <div class="table-cell-sub">${documento || 'Sem documento'}</div>
+                <div class="table-cell-sub">${documento || 'Sem documento'}${localidade ? ` • ${localidade}` : ''}</div>
             </td>
             <td>${email}</td>
             <td>${telefone}</td>

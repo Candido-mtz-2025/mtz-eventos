@@ -407,16 +407,49 @@
                 <div class="card">
                     <h3>Novo Cliente</h3>
                     <div class="form-row">
-                        <div class="form-group"><label>Nome Completo</label><input type="text" id="locNome" placeholder="Ex: João Silva"></div>
+                        <div class="form-group"><label>Nome/empresa</label><input type="text" id="locNome" placeholder="Ex: João Silva"></div>
                         <div class="form-group"><label>CPF / CNPJ</label><input type="text" id="locDoc" placeholder="Documento"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Endereço</label><input type="text" id="locEnd"></div>
+                        <div class="form-group"><label>Telefone/WhatsApp</label><input type="tel" id="locTel"></div>
+                        <div class="form-group"><label>Email</label><input type="email" id="locEmail"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Email</label><input type="email" id="locEmail"></div>
-                        <div class="form-group"><label>Telefone</label><input type="tel" id="locTel"></div>
+                        <div class="form-group form-group-compact"><label>CEP</label><input type="text" id="locCep" placeholder="00000-000"></div>
+                        <div class="form-group"><label>Rua/endereço</label><input type="text" id="locEnd" placeholder="Rua, avenida ou estrada"></div>
+                        <div class="form-group form-group-compact"><label>Número</label><input type="text" id="locNumero"></div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Complemento</label><input type="text" id="locComplemento"></div>
+                        <div class="form-group"><label>Bairro</label><input type="text" id="locBairro"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Cidade</label><input type="text" id="locCidade"></div>
+                        <div class="form-group form-group-compact"><label>UF</label><input type="text" id="locUf" maxlength="2" placeholder="SP"></div>
+                        <div class="form-group"><label>Responsável pelo pedido</label><input type="text" id="locResponsavel"></div>
+                    </div>
+                    <details class="proposta-fiscal-details">
+                        <summary>
+                            <span><i class="bi bi-receipt"></i> Dados fiscais</span>
+                            <small>Usado em orçamentos e pré-faturamento</small>
+                        </summary>
+                        <div class="form-row">
+                            <div class="form-group"><label>Razão social</label><input type="text" id="locFiscalRazaoSocial"></div>
+                            <div class="form-group"><label>CNPJ/CPF para nota</label><input type="text" id="locFiscalCpfCnpj"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Inscrição Estadual</label><input type="text" id="locFiscalIE"></div>
+                            <div class="form-group"><label>Inscrição Municipal</label><input type="text" id="locFiscalIM"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>E-mail para envio de NF</label><input type="email" id="locFiscalEmail"></div>
+                            <div class="form-group"><label>Endereço fiscal</label><input type="text" id="locFiscalEndereco"></div>
+                        </div>
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="locFiscalUsarEndereco" checked>
+                            <span>Usar mesmo endereço do cliente</span>
+                        </label>
+                    </details>
                     <button class="btn btn-primary" data-action="salvarLocador"><i class="bi bi-plus-lg"></i> Cadastrar</button>
                 </div>
                 <div class="card" id="locadoresListaCard">
@@ -1053,7 +1086,22 @@
                                 <span><i class="bi bi-person-vcard"></i></span>
                                 <div>
                                     <h4>Dados do cliente</h4>
-                                    <p>Contato e identificação para proposta.</p>
+                                    <p>Busque no cadastro principal e confira os dados usados nesta proposta.</p>
+                                </div>
+                            </div>
+                            <input type="hidden" id="propClienteId">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Buscar cliente cadastrado</label>
+                                    <select id="propClienteCadastrado" data-change="selecionarClienteProposta">
+                                        <option value="">Selecione um cliente...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group form-group-action">
+                                    <label>&nbsp;</label>
+                                    <button type="button" class="btn btn-secondary" data-action="irParaClientesCadastro">
+                                        <i class="bi bi-person-plus"></i> Novo cliente
+                                    </button>
                                 </div>
                             </div>
                             <div class="form-row">
@@ -1068,7 +1116,7 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Telefone</label>
+                                    <label>Telefone/WhatsApp</label>
                                     <input type="text" id="propClienteTelefone" placeholder="Telefone">
                                 </div>
                                 <div class="form-group">
@@ -1082,6 +1130,10 @@
                                     <input type="text" id="propClienteEndereco" placeholder="Endereço completo">
                                 </div>
                             </div>
+                            <label class="checkbox-inline">
+                                <input type="checkbox" id="propClientePrecisaNf">
+                                <span>Cliente precisa de nota fiscal</span>
+                            </label>
                             <details class="proposta-fiscal-details">
                                 <summary>
                                     <span><i class="bi bi-receipt"></i> Dados fiscais do cliente</span>
@@ -2135,8 +2187,45 @@
 
     <input type="hidden" id="editLocId">
     <div class="form-group"><label>Nome</label><input type="text" id="editLocNome"></div>
+    <div class="form-group"><label>CPF / CNPJ</label><input type="text" id="editLocDoc"></div>
     <div class="form-group"><label>Email</label><input type="email" id="editLocEmail"></div>
-    <div class="form-group"><label>Telefone</label><input type="tel" id="editLocTel"></div>
+    <div class="form-group"><label>Telefone/WhatsApp</label><input type="tel" id="editLocTel"></div>
+    <div class="form-row">
+      <div class="form-group form-group-compact"><label>CEP</label><input type="text" id="editLocCep"></div>
+      <div class="form-group"><label>Rua/endereço</label><input type="text" id="editLocEnd"></div>
+      <div class="form-group form-group-compact"><label>Número</label><input type="text" id="editLocNumero"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Complemento</label><input type="text" id="editLocComplemento"></div>
+      <div class="form-group"><label>Bairro</label><input type="text" id="editLocBairro"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Cidade</label><input type="text" id="editLocCidade"></div>
+      <div class="form-group form-group-compact"><label>UF</label><input type="text" id="editLocUf" maxlength="2"></div>
+      <div class="form-group"><label>Responsável pelo pedido</label><input type="text" id="editLocResponsavel"></div>
+    </div>
+    <details class="proposta-fiscal-details">
+      <summary>
+        <span><i class="bi bi-receipt"></i> Dados fiscais</span>
+        <small>Pré-faturamento</small>
+      </summary>
+      <div class="form-row">
+        <div class="form-group"><label>Razão social</label><input type="text" id="editLocFiscalRazaoSocial"></div>
+        <div class="form-group"><label>CNPJ/CPF para nota</label><input type="text" id="editLocFiscalCpfCnpj"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Inscrição Estadual</label><input type="text" id="editLocFiscalIE"></div>
+        <div class="form-group"><label>Inscrição Municipal</label><input type="text" id="editLocFiscalIM"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>E-mail para envio de NF</label><input type="email" id="editLocFiscalEmail"></div>
+        <div class="form-group"><label>Endereço fiscal</label><input type="text" id="editLocFiscalEndereco"></div>
+      </div>
+      <label class="checkbox-inline">
+        <input type="checkbox" id="editLocFiscalUsarEndereco">
+        <span>Usar mesmo endereço do cliente</span>
+      </label>
+    </details>
 
     <div class="section-gap">
       <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoLocador">
@@ -2401,8 +2490,8 @@
     <script src="./assets/js/core/storage.js?v=12.5"></script>
     <script src="./assets/js/ui/pwa.js?v=1.2"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=3.5"></script>
-    <script src="./assets/js/modules/clientes.js?v=2.0"></script>
+    <script src="./assets/js/modules/propostas.js?v=3.6"></script>
+    <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>
     <script src="./assets/js/modules/checklist.js?v=1.1"></script>
@@ -2416,7 +2505,7 @@
     <script src="./assets/js/modules/transporte.js?v=1.1"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.1"></script>
     <script src="./assets/js/render/locacoes.js?v=15.1"></script>
-    <script src="./assets/js/render/cadastros.js?v=3.3"></script>
+    <script src="./assets/js/render/cadastros.js?v=3.4"></script>
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
