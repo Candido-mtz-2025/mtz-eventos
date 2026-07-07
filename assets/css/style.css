@@ -8906,6 +8906,7 @@ header {
     grid-column: 1 / -1;
 }
 
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="proposta"],
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="cliente"] {
     grid-column: 1 / -1;
 }
@@ -19385,9 +19386,15 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     display: none;
 }
 
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="proposta"],
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="cliente"],
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="evento"] #propostaSecaoDados [data-proposta-grupo="evento"] {
     display: block;
+}
+
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="proposta"],
+#tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="cliente"] #propostaSecaoDados [data-proposta-grupo="cliente"] {
+    grid-column: 1 / -1;
 }
 
 #tab-propostas[data-modo-proposta="guiado"][data-etapa-proposta="logistica"] #propostaSecaoFechamento [data-proposta-grupo="comercial"],
