@@ -183,6 +183,8 @@
     let mostrarCategoriasVaziasProposta = false;
     let ultimoAvisoPercentualInvalido = 0;
     let resumoCategoriasPropostaTimer = null;
+    let cepClientePropostaTimer = null;
+    let ultimoCepClientePropostaConsultado = '';
     const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
@@ -3332,6 +3334,74 @@
         }
     }
 
+    function limparCepClienteProposta(valor) {
+        return String(valor || '').replace(/\D+/g, '').slice(0, 8);
+    }
+
+    function formatarCepClienteProposta(valor) {
+        const cep = limparCepClienteProposta(valor);
+        if (cep.length !== 8) return textoSeguro(valor);
+        return `${cep.slice(0, 5)}-${cep.slice(5)}`;
+    }
+
+    async function buscarEnderecoClientePorCepProposta(cepInformado) {
+        const cep = limparCepClienteProposta(cepInformado);
+        if (cep.length !== 8 || cep === ultimoCepClientePropostaConsultado) return;
+
+        ultimoCepClientePropostaConsultado = cep;
+
+        try {
+            const resposta = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (!resposta.ok) throw new Error('Falha ao consultar CEP.');
+
+            const dados = await resposta.json();
+            if (dados?.erro) {
+                if (typeof mostrarToast === 'function') mostrarToast('CEP nao encontrado.', 'erro');
+                return;
+            }
+
+            const campos = {
+                propClienteCep: formatarCepClienteProposta(cep),
+                propClienteRua: textoSeguro(dados.logradouro),
+                propClienteBairro: textoSeguro(dados.bairro),
+                propClienteCidade: textoSeguro(dados.localidade),
+                propClienteUf: textoSeguro(dados.uf).toUpperCase().slice(0, 2)
+            };
+
+            Object.entries(campos).forEach(([id, valor]) => {
+                const campo = document.getElementById(id);
+                if (campo && valor) campo.value = valor;
+            });
+
+            sincronizarEnderecoClienteProposta();
+            sincronizarFiscalClienteProposta();
+            atualizarExperienciaGuiadaProposta();
+            window.__mtzPropostaResumoPendente = true;
+
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Endereco carregado pelo CEP.', 'ok', 1800);
+            }
+        } catch (erro) {
+            console.warn('Nao foi possivel consultar o CEP da proposta:', erro);
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('Nao foi possivel consultar o CEP agora.', 'erro');
+            }
+        }
+    }
+
+    function agendarBuscaEnderecoClientePorCepProposta(valor) {
+        clearTimeout(cepClientePropostaTimer);
+        const cep = limparCepClienteProposta(valor);
+        if (cep.length !== 8) {
+            ultimoCepClientePropostaConsultado = '';
+            return;
+        }
+
+        cepClientePropostaTimer = setTimeout(() => {
+            buscarEnderecoClientePorCepProposta(cep);
+        }, 450);
+    }
+
     function atualizarAvisoClienteCadastroProposta(exibir = false) {
         const aviso = document.getElementById('propClienteCadastroAviso');
         if (!aviso) return;
@@ -6167,6 +6237,11 @@
         document.addEventListener('input', (event) => {
             const campoEndereco = event.target?.closest?.('#tab-propostas #propClienteCep, #tab-propostas #propClienteRua, #tab-propostas #propClienteNumero, #tab-propostas #propClienteComplemento, #tab-propostas #propClienteBairro, #tab-propostas #propClienteCidade, #tab-propostas #propClienteUf');
             if (!campoEndereco || campoEndereco !== event.target) return;
+            if (campoEndereco.id === 'propClienteCep') {
+                agendarBuscaEnderecoClientePorCepProposta(campoEndereco.value);
+            } else {
+                ultimoCepClientePropostaConsultado = '';
+            }
             sincronizarEnderecoClienteProposta();
             sincronizarFiscalClienteProposta();
             window.__mtzPropostaResumoPendente = true;
@@ -6190,6 +6265,14 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             formatarValorMonetarioEditavel(campoMoeda);
+        });
+
+        document.addEventListener('focusout', (event) => {
+            const campoCep = event.target?.closest?.('#tab-propostas #propClienteCep');
+            if (!campoCep || campoCep !== event.target) return;
+            const cep = limparCepClienteProposta(campoCep.value);
+            campoCep.value = cep.length === 8 ? formatarCepClienteProposta(cep) : textoSeguro(campoCep.value);
+            agendarBuscaEnderecoClientePorCepProposta(cep);
         });
 
         document.addEventListener('focusout', (event) => {
