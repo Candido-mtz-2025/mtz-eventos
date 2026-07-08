@@ -2712,17 +2712,10 @@
                         ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
-                <td data-label="Tipo fiscal" class="proposta-item-col-fiscal">
-                    <select class="prop-item-tipo-fiscal" data-change="recalcularResumoProposta">
-                        ${montarOptionsTipoFiscalItem(itemCalculado.tipoFiscal)}
-                    </select>
-                </td>
                 <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
-                <td data-label="Medida"><input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta"></td>
-                <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
                 <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
+                <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
                 <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></td>
-                <td data-label="Subtotal"><input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly></td>
                 <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
                 <td class="col-actions proposta-item-actions-cell" data-label="Ações">
                     <div class="actions-cell proposta-item-actions">
@@ -2742,13 +2735,27 @@
                 </td>
             </tr>
             <tr class="proposta-item-details-row" hidden>
-                <td colspan="10">
+                <td colspan="7">
                     <div class="prop-item-details-panel">
                         <div class="prop-item-details-title">
                             <strong>Cálculos avançados</strong>
                             <span>Use estes campos apenas para exceções do item.</span>
                         </div>
                         <div class="prop-item-details-grid">
+                            <div class="form-group">
+                                <label>Tipo fiscal</label>
+                                <select class="prop-item-tipo-fiscal" data-change="recalcularResumoProposta">
+                                    ${montarOptionsTipoFiscalItem(itemCalculado.tipoFiscal)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Medida</label>
+                                <input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Subtotal</label>
+                                <input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly>
+                            </div>
                             <label class="prop-calc-toggle">
                                 <input type="checkbox" class="prop-item-aplicar-honorarios" data-change="recalcularResumoProposta"${checkedHonorarios}>
                                 Aplicar honorarios
@@ -2847,9 +2854,9 @@
             : null;
         const item = {
             categoria: normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value),
-            tipoFiscal: normalizarTipoFiscalItem(linha.querySelector('.prop-item-tipo-fiscal')?.value),
+            tipoFiscal: normalizarTipoFiscalItem((detalhes?.querySelector('.prop-item-tipo-fiscal') || linha.querySelector('.prop-item-tipo-fiscal'))?.value),
             descricao: textoSeguro(linha.querySelector('.prop-item-descricao')?.value),
-            medida: textoSeguro(linha.querySelector('.prop-item-medida')?.value),
+            medida: textoSeguro((detalhes?.querySelector('.prop-item-medida') || linha.querySelector('.prop-item-medida'))?.value),
             periodoDias: numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1,
             quantidade: numeroNaoNegativo(linha.querySelector('.prop-item-quantidade')?.value, 0),
             custoUnitario: numeroNaoNegativo(linha.querySelector('.prop-item-unitario')?.value, 0),
@@ -2879,7 +2886,7 @@
             : null;
 
         const campos = [
-            [linha.querySelector('.prop-item-custo-total'), formatarMoeda(item.custoTotal)],
+            [detalhes?.querySelector('.prop-item-custo-total') || linha.querySelector('.prop-item-custo-total'), formatarMoeda(item.custoTotal)],
             [linha.querySelector('.prop-item-total'), formatarMoeda(item.valorTotal)],
             [detalhes?.querySelector('.prop-item-valor-honorarios'), formatarMoeda(item.valorHonorarios)],
             [detalhes?.querySelector('.prop-item-valor-encargos'), formatarMoeda(item.valorEncargos)],

@@ -19218,6 +19218,77 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
 
+/* Itens da proposta: linha principal compacta e detalhes preservados. */
+#tab-propostas .proposta-items-table-wrap {
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain;
+}
+
+#tab-propostas .proposta-items-table,
+#tab-propostas .proposta-items-table tbody {
+    width: 100%;
+    min-width: 980px !important;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(1),
+#tab-propostas .proposta-items-table td:nth-child(1) {
+    width: 156px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(2),
+#tab-propostas .proposta-items-table td:nth-child(2) {
+    width: 260px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(3),
+#tab-propostas .proposta-items-table td:nth-child(3),
+#tab-propostas .proposta-items-table th:nth-child(4),
+#tab-propostas .proposta-items-table td:nth-child(4) {
+    width: 92px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(5),
+#tab-propostas .proposta-items-table td:nth-child(5),
+#tab-propostas .proposta-items-table th:nth-child(6),
+#tab-propostas .proposta-items-table td:nth-child(6) {
+    width: 126px;
+}
+
+#tab-propostas .proposta-items-table th:nth-child(7),
+#tab-propostas .proposta-items-table td:nth-child(7),
+#tab-propostas #propostaItensBody .proposta-item-actions-cell {
+    width: 164px !important;
+    min-width: 164px !important;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-action-btn:not(.prop-details-toggle-btn) {
+    width: 34px !important;
+    min-width: 34px !important;
+    padding-inline: 0 !important;
+}
+
+#tab-propostas #propostaItensBody .proposta-item-action-btn:not(.prop-details-toggle-btn) span {
+    display: none !important;
+}
+
+#tab-propostas #propostaItensBody .prop-details-toggle-btn {
+    min-width: 86px !important;
+}
+
+#tab-propostas .prop-item-details-grid .prop-item-tipo-fiscal,
+#tab-propostas .prop-item-details-grid .prop-item-medida,
+#tab-propostas .prop-item-details-grid .prop-item-custo-total {
+    width: 100%;
+    min-width: 0 !important;
+}
+
+@media (max-width: 860px) {
+    #tab-propostas .proposta-items-table,
+    #tab-propostas .proposta-items-table tbody {
+        min-width: 900px !important;
+    }
+}
+
 /* Propostas: assistente guiado */
 .proposta-mode-toolbar {
     display: flex;
