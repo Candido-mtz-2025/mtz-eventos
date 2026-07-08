@@ -8126,6 +8126,8 @@ header {
 #tab-propostas .proposta-config-categories {
     display: grid;
     gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
 }
 
 #tab-propostas .proposta-config-categories-toolbar {
@@ -8344,17 +8346,19 @@ header {
 #tab-propostas .proposta-config-category-list {
     display: grid;
     gap: 6px;
+    min-width: 1010px;
 }
 
 #tab-propostas .proposta-config-matrix-head {
-    grid-template-columns: 42px minmax(145px, 1.2fr) 70px repeat(3, minmax(72px, 0.7fr)) 132px;
+    grid-template-columns: 44px minmax(230px, 1.6fr) minmax(86px, 0.55fr) repeat(3, minmax(112px, 0.72fr)) minmax(214px, 0.9fr);
     gap: 7px;
     align-items: center;
+    min-width: 1010px;
     padding: 0 10px 5px;
 }
 
 #tab-propostas .proposta-config-matrix-row {
-    grid-template-columns: 42px minmax(145px, 1.2fr) 70px repeat(3, minmax(72px, 0.7fr)) 132px;
+    grid-template-columns: 44px minmax(230px, 1.6fr) minmax(86px, 0.55fr) repeat(3, minmax(112px, 0.72fr)) minmax(214px, 0.9fr);
     gap: 7px;
     align-items: center;
     min-height: 56px;
@@ -8412,13 +8416,15 @@ header {
 }
 
 #tab-propostas .proposta-config-category-title strong {
+    display: -webkit-box;
     overflow: hidden;
     color: var(--text);
     font-size: 0.82rem;
     font-weight: 950;
     line-height: 1.16;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
 }
 
 #tab-propostas .proposta-config-category-title small {
@@ -8434,6 +8440,7 @@ header {
     min-height: 24px;
     padding: 5px 8px;
     font-size: 0.66rem;
+    white-space: nowrap;
 }
 
 #tab-propostas .proposta-config-rule-summary {
@@ -8441,6 +8448,7 @@ header {
     gap: 2px;
     justify-items: start;
     min-width: 0;
+    overflow: hidden;
 }
 
 #tab-propostas .proposta-config-rule-summary small {
@@ -8474,14 +8482,25 @@ header {
     align-items: center;
     justify-content: flex-end;
     gap: 5px;
+    min-width: 0;
+    flex-wrap: nowrap;
 }
 
 #tab-propostas .proposta-config-row-actions .table-action-btn {
+    flex: 0 0 auto;
     min-width: 30px;
     height: 30px;
     padding: 0 8px;
     border-radius: 9px;
     font-size: 0.72rem;
+}
+
+#tab-propostas .proposta-config-row-actions .table-action-btn:first-child {
+    min-width: 74px;
+}
+
+#tab-propostas .proposta-config-row-actions .table-action-btn:last-child {
+    min-width: 38px;
 }
 
 #tab-propostas .proposta-config-row-actions .table-action-btn span {
@@ -9952,8 +9971,17 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
 }
 
 @media (max-width: 860px) {
+    #tab-propostas .proposta-config-categories {
+        overflow-x: visible;
+    }
+
+    #tab-propostas .proposta-config-category-list {
+        min-width: 0;
+    }
+
     #tab-propostas .proposta-config-matrix-head {
         display: none;
+        min-width: 0;
     }
 
     #tab-propostas .proposta-config-matrix-row,
@@ -9963,6 +9991,7 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
 
     #tab-propostas .proposta-config-matrix-row {
         gap: 9px;
+        min-width: 0;
         padding: 10px;
     }
 
