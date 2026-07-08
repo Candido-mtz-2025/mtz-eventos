@@ -1110,6 +1110,39 @@
             resumo.totaisPorTipoFiscal[tipo.id] = 0;
         });
 
+        const somarValorFiscal = ({
+            tipoFiscal,
+            valor,
+            regraFiscal = null,
+            valorINSS = 0,
+            semClassificacao = false,
+            verificarContador = false
+        } = {}) => {
+            const tipoFiscalNormalizado = normalizarTipoFiscalItem(tipoFiscal);
+            const regra = regraFiscal || obterRegraMatrizFiscal(tipoFiscalNormalizado, matrizFiscal);
+            const valorNormalizado = numeroNaoNegativo(valor, 0);
+            if (valorNormalizado <= 0) return;
+
+            resumo.totaisPorTipoFiscal[tipoFiscalNormalizado] = arredondarMoeda((resumo.totaisPorTipoFiscal[tipoFiscalNormalizado] || 0) + valorNormalizado);
+            if (tipoFiscalNormalizado === 'locacao_bem_movel') resumo.totalLocacao += valorNormalizado;
+            if (tipoFiscalNormalizado === 'servico') resumo.totalServicos += valorNormalizado;
+            if (tipoFiscalNormalizado === 'mao_de_obra') resumo.totalMaoObra += valorNormalizado;
+            if (tipoFiscalNormalizado === 'frete_logistica') resumo.totalFreteLogistica += valorNormalizado;
+            if (tipoFiscalNormalizado === 'impressao_producao') resumo.totalImpressaoProducao += valorNormalizado;
+            if (tipoFiscalNormalizado === 'art_projeto_documentacao') resumo.totalArtProjeto += valorNormalizado;
+            if (tipoFiscalNormalizado === 'produto_venda') resumo.totalProdutoVenda += valorNormalizado;
+            if (tipoFiscalNormalizado === 'reembolso_despesa') resumo.totalReembolso += valorNormalizado;
+            if (tipoFiscalNormalizado === TIPO_FISCAL_ITEM_PADRAO) resumo.totalVerificarContador += valorNormalizado;
+            if (regra.entraBaseNfse) resumo.baseEstimadaNfse += valorNormalizado;
+            if (semClassificacao) resumo.itensSemClassificacaoFiscal += 1;
+            if (verificarContador) resumo.itensVerificarContador += 1;
+            if (regra.exigeConferenciaContador) resumo.itensExigemConferencia += 1;
+
+            if (regra.permiteRetencaoINSS) {
+                resumo.retencoesPrevistas += numeroNaoNegativo(valorINSS, 0);
+            }
+        };
+
         (Array.isArray(itens) ? itens : []).forEach((itemOriginal) => {
             const item = calcularItemProposta(itemOriginal || {});
             const tipoFiscalOriginal = textoSeguro(itemOriginal?.tipoFiscal, '');
@@ -1117,25 +1150,35 @@
             const regraFiscal = obterRegraMatrizFiscal(tipoFiscal, matrizFiscal);
             const valor = numeroNaoNegativo(item.valorTotal ?? item.totalFinal, 0);
 
-            resumo.totaisPorTipoFiscal[tipoFiscal] = arredondarMoeda((resumo.totaisPorTipoFiscal[tipoFiscal] || 0) + valor);
-            if (tipoFiscal === 'locacao_bem_movel') resumo.totalLocacao += valor;
-            if (tipoFiscal === 'servico') resumo.totalServicos += valor;
-            if (tipoFiscal === 'mao_de_obra') resumo.totalMaoObra += valor;
-            if (tipoFiscal === 'frete_logistica') resumo.totalFreteLogistica += valor;
-            if (tipoFiscal === 'impressao_producao') resumo.totalImpressaoProducao += valor;
-            if (tipoFiscal === 'art_projeto_documentacao') resumo.totalArtProjeto += valor;
-            if (tipoFiscal === 'produto_venda') resumo.totalProdutoVenda += valor;
-            if (tipoFiscal === 'reembolso_despesa') resumo.totalReembolso += valor;
-            if (tipoFiscal === TIPO_FISCAL_ITEM_PADRAO) resumo.totalVerificarContador += valor;
-            if (regraFiscal.entraBaseNfse) resumo.baseEstimadaNfse += valor;
-            if (!tipoFiscalOriginal) resumo.itensSemClassificacaoFiscal += 1;
-            if (tipoFiscal === TIPO_FISCAL_ITEM_PADRAO) resumo.itensVerificarContador += 1;
-            if (regraFiscal.exigeConferenciaContador) resumo.itensExigemConferencia += 1;
-
-            if (regraFiscal.permiteRetencaoINSS) {
-                resumo.retencoesPrevistas += numeroNaoNegativo(item.valorINSS, 0);
-            }
+            somarValorFiscal({
+                tipoFiscal,
+                valor,
+                regraFiscal,
+                valorINSS: item.valorINSS,
+                semClassificacao: !tipoFiscalOriginal,
+                verificarContador: tipoFiscal === TIPO_FISCAL_ITEM_PADRAO
+            });
         });
+
+        const custosProposta = opcoes.custos && typeof opcoes.custos === 'object' ? opcoes.custos : {};
+        const maoObraCobrada = custosProposta.maoObraCobrada && typeof custosProposta.maoObraCobrada === 'object'
+            ? custosProposta.maoObraCobrada
+            : {};
+        const valorMaoObraCobrada = numeroNaoNegativo(maoObraCobrada.total ?? custosProposta.maoObra, 0);
+        if (valorMaoObraCobrada > 0) {
+            const regraMaoObra = obterRegraMatrizFiscal('mao_de_obra', matrizFiscal);
+            const regraCategoriaMaoObra = obterRegraCategoriaParaItem(CATEGORIA_MAO_OBRA_PROPOSTA);
+            const valorINSSMaoObra = regraMaoObra.permiteRetencaoINSS && regraCategoriaMaoObra.aplicarINSS
+                ? calcularValorPercentualTributo(valorMaoObraCobrada, regraCategoriaMaoObra.percentualINSS, regraCategoriaMaoObra.tipoCalculoINSS)
+                : 0;
+
+            somarValorFiscal({
+                tipoFiscal: 'mao_de_obra',
+                valor: valorMaoObraCobrada,
+                regraFiscal: regraMaoObra,
+                valorINSS: valorINSSMaoObra
+            });
+        }
 
         Object.keys(resumo).forEach((chave) => {
             if (typeof resumo[chave] === 'number') resumo[chave] = arredondarMoeda(resumo[chave]);
@@ -3181,7 +3224,8 @@
             percentualNF: percentualNFNormalizado,
             valorBrutoProposta: valorFinalComercial,
             valorLiquidoPrevisto,
-            tipoCalculoNF: tipoNF
+            tipoCalculoNF: tipoNF,
+            custos
         });
 
         return {
