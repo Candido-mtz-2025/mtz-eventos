@@ -3032,13 +3032,50 @@
         const freteKm = sincronizarFretePorKmFormulario();
         const freteInformado = parseNumeroInput('propCustoFrete');
         const freteFinal = freteKm.calculoAtivo ? freteKm.freteCalculado : freteInformado;
+        const montagemPessoas = inteiroNaoNegativo(document.getElementById('propMaoObraMontagemPessoas')?.value, 0);
+        const montagemValorPessoaDia = parseNumeroInput('propMaoObraMontagemValorPessoaDia');
+        const montagemDias = numeroNaoNegativo(document.getElementById('propMaoObraMontagemDias')?.value, 0);
+        const montagemTotal = calcularCustoMaoObraOperacional(montagemPessoas, montagemValorPessoaDia, montagemDias);
+        const desmontagemPessoas = inteiroNaoNegativo(document.getElementById('propMaoObraDesmontagemPessoas')?.value, 0);
+        const desmontagemValorPessoaDia = parseNumeroInput('propMaoObraDesmontagemValorPessoaDia');
+        const desmontagemDias = numeroNaoNegativo(document.getElementById('propMaoObraDesmontagemDias')?.value, 0);
+        const desmontagemTotal = calcularCustoMaoObraOperacional(desmontagemPessoas, desmontagemValorPessoaDia, desmontagemDias);
+        const indicadorDetalhado = document.getElementById('propMaoObraComercialDetalhadaAtiva');
+        const detalhamentoAtivo = indicadorDetalhado?.value === '1'
+            || [montagemPessoas, montagemValorPessoaDia, montagemDias, desmontagemPessoas, desmontagemValorPessoaDia, desmontagemDias]
+                .some((valor) => numeroNaoNegativo(valor, 0) > 0);
+        const totalDetalhado = arredondarMoeda(montagemTotal + desmontagemTotal);
+        const maoObraTotal = detalhamentoAtivo ? totalDetalhado : parseNumeroInput('propCustoMaoObra');
+
+        const montagemTotalEl = document.getElementById('propMaoObraMontagemTotal');
+        if (montagemTotalEl) montagemTotalEl.value = formatarMoeda(montagemTotal);
+        const desmontagemTotalEl = document.getElementById('propMaoObraDesmontagemTotal');
+        if (desmontagemTotalEl) desmontagemTotalEl.value = formatarMoeda(desmontagemTotal);
+        const maoObraTotalEl = document.getElementById('propCustoMaoObra');
+        if (maoObraTotalEl) maoObraTotalEl.value = formatarMoeda(maoObraTotal);
 
         return {
             frete: freteFinal,
             freteTrechos: freteKm.trechos,
             freteDistanciaKm: freteKm.distanciaKm,
             freteValorKm: freteKm.valorKm,
-            maoObra: parseNumeroInput('propCustoMaoObra'),
+            maoObra: maoObraTotal,
+            maoObraCobrada: {
+                detalhada: detalhamentoAtivo,
+                montagem: {
+                    pessoas: montagemPessoas,
+                    valorPessoaDia: montagemValorPessoaDia,
+                    dias: montagemDias,
+                    total: montagemTotal
+                },
+                desmontagem: {
+                    pessoas: desmontagemPessoas,
+                    valorPessoaDia: desmontagemValorPessoaDia,
+                    dias: desmontagemDias,
+                    total: desmontagemTotal
+                },
+                total: maoObraTotal
+            },
             operador: parseNumeroInput('propCustoOperador'),
             eletrica: parseNumeroInput('propCustoEletrica'),
             gerador: parseNumeroInput('propCustoGerador'),
@@ -3742,13 +3779,51 @@
         const freteTrechos = numeroNaoNegativo(custosOrig.freteTrechos ?? custosOrig.trechos, (freteDistanciaKm > 0 && freteValorKm > 0) ? 1 : 0);
         const freteKmNormalizado = calcularFretePorKm(freteDistanciaKm, freteValorKm, freteTrechos || 1);
         const freteManual = numeroNaoNegativo(custosOrig.frete, 0);
+        const maoObraCobradaOrig = custosOrig.maoObraCobrada && typeof custosOrig.maoObraCobrada === 'object'
+            ? custosOrig.maoObraCobrada
+            : {};
+        const montagemOrig = maoObraCobradaOrig.montagem && typeof maoObraCobradaOrig.montagem === 'object'
+            ? maoObraCobradaOrig.montagem
+            : {};
+        const desmontagemOrig = maoObraCobradaOrig.desmontagem && typeof maoObraCobradaOrig.desmontagem === 'object'
+            ? maoObraCobradaOrig.desmontagem
+            : {};
+        const montagem = {
+            pessoas: inteiroNaoNegativo(montagemOrig.pessoas, 0),
+            valorPessoaDia: numeroNaoNegativo(montagemOrig.valorPessoaDia, 0),
+            dias: numeroNaoNegativo(montagemOrig.dias, 0)
+        };
+        montagem.total = calcularCustoMaoObraOperacional(montagem.pessoas, montagem.valorPessoaDia, montagem.dias)
+            || numeroNaoNegativo(montagemOrig.total, 0);
+        const desmontagem = {
+            pessoas: inteiroNaoNegativo(desmontagemOrig.pessoas, 0),
+            valorPessoaDia: numeroNaoNegativo(desmontagemOrig.valorPessoaDia, 0),
+            dias: numeroNaoNegativo(desmontagemOrig.dias, 0)
+        };
+        desmontagem.total = calcularCustoMaoObraOperacional(desmontagem.pessoas, desmontagem.valorPessoaDia, desmontagem.dias)
+            || numeroNaoNegativo(desmontagemOrig.total, 0);
+        const temIndicadorDetalhada = Object.prototype.hasOwnProperty.call(maoObraCobradaOrig, 'detalhada');
+        const maoObraDetalhada = temIndicadorDetalhada
+            ? maoObraCobradaOrig.detalhada === true
+            : Object.keys(maoObraCobradaOrig).length > 0;
+        const maoObraLegada = numeroNaoNegativo(custosOrig.maoObra, 0);
+        const maoObraTotalDetalhado = arredondarMoeda(montagem.total + desmontagem.total);
+        const maoObraCobrada = {
+            detalhada: maoObraDetalhada,
+            montagem,
+            desmontagem,
+            total: maoObraDetalhada
+                ? (maoObraTotalDetalhado || numeroNaoNegativo(maoObraCobradaOrig.total, 0))
+                : maoObraLegada
+        };
 
         const custos = {
             frete: freteKmNormalizado.calculoAtivo ? freteKmNormalizado.freteCalculado : freteManual,
             freteTrechos: freteKmNormalizado.trechos,
             freteDistanciaKm,
             freteValorKm,
-            maoObra: numeroNaoNegativo(custosOrig.maoObra, 0),
+            maoObra: maoObraCobrada.total,
+            maoObraCobrada,
             operador: numeroNaoNegativo(custosOrig.operador, 0),
             eletrica: numeroNaoNegativo(custosOrig.eletrica, 0),
             gerador: numeroNaoNegativo(custosOrig.gerador, 0),
@@ -4304,6 +4379,15 @@
             propFreteValorKm: valorInputMonetario(p.custos.freteValorKm),
             propCustoFrete: valorInputMonetario(p.custos.frete),
             propCustoMaoObra: valorInputMonetario(p.custos.maoObra),
+            propMaoObraComercialDetalhadaAtiva: p.custos.maoObraCobrada?.detalhada ? '1' : '0',
+            propMaoObraMontagemPessoas: p.custos.maoObraCobrada?.montagem?.pessoas || '',
+            propMaoObraMontagemValorPessoaDia: valorInputMonetario(p.custos.maoObraCobrada?.montagem?.valorPessoaDia || 0),
+            propMaoObraMontagemDias: p.custos.maoObraCobrada?.montagem?.dias || '',
+            propMaoObraMontagemTotal: valorInputMonetario(p.custos.maoObraCobrada?.montagem?.total || 0),
+            propMaoObraDesmontagemPessoas: p.custos.maoObraCobrada?.desmontagem?.pessoas || '',
+            propMaoObraDesmontagemValorPessoaDia: valorInputMonetario(p.custos.maoObraCobrada?.desmontagem?.valorPessoaDia || 0),
+            propMaoObraDesmontagemDias: p.custos.maoObraCobrada?.desmontagem?.dias || '',
+            propMaoObraDesmontagemTotal: valorInputMonetario(p.custos.maoObraCobrada?.desmontagem?.total || 0),
             propCustoOperador: valorInputMonetario(p.custos.operador),
             propCustoEletrica: valorInputMonetario(p.custos.eletrica),
             propCustoGerador: valorInputMonetario(p.custos.gerador),
@@ -4370,7 +4454,10 @@
             'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
-            'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
+            'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra',
+            'propMaoObraComercialDetalhadaAtiva', 'propMaoObraMontagemPessoas', 'propMaoObraMontagemValorPessoaDia', 'propMaoObraMontagemDias', 'propMaoObraMontagemTotal',
+            'propMaoObraDesmontagemPessoas', 'propMaoObraDesmontagemValorPessoaDia', 'propMaoObraDesmontagemDias', 'propMaoObraDesmontagemTotal',
+            'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
             'propCustoOutros', 'propMaoObraPessoas', 'propMaoObraValorPessoaDia', 'propMaoObraDias', 'propMaoObraTotal',
             'propHospedagemPessoas', 'propHospedagemDiarias', 'propHospedagemValorDiariaPessoa', 'propHospedagemTotal',
             'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
@@ -4390,6 +4477,8 @@
 
         const statusEl = document.getElementById('propStatus');
         if (statusEl) statusEl.value = 'rascunho';
+        const maoObraDetalhadaEl = document.getElementById('propMaoObraComercialDetalhadaAtiva');
+        if (maoObraDetalhadaEl) maoObraDetalhadaEl.value = '0';
         const padroesOrcamento = obterPadroesOrcamento();
         const globaisOrcamento = padroesOrcamento.globais || criarGlobaisPadraoOrcamento();
         const aplicarFiscalPadrao = globaisOrcamento.aplicarFiscalAutomaticamente === true;
@@ -6412,6 +6501,14 @@
             const campoMoeda = event.target?.closest?.('#tab-propostas .input-money-br');
             if (!campoMoeda || campoMoeda !== event.target) return;
             campoMoeda.value = limparTextoCampoMoedaProposta(campoMoeda.value);
+            window.__mtzPropostaResumoPendente = true;
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoMaoObra = event.target?.closest?.('#tab-propostas [data-mao-obra-comercial-campo]');
+            if (!campoMaoObra || campoMaoObra !== event.target) return;
+            const indicador = document.getElementById('propMaoObraComercialDetalhadaAtiva');
+            if (indicador) indicador.value = '1';
             window.__mtzPropostaResumoPendente = true;
         });
 
