@@ -4412,7 +4412,7 @@
         preencherFormularioComProposta(proposta);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
-            focarRegistroRecemSalvo({ tabId: 'propostas', tabelaId: 'tblPropostas', attr: 'data-proposta-id', id: proposta.id });
+            focarRegistroRecemSalvo({ tipo: 'proposta', id: proposta.id });
         }
     }
 
@@ -4583,7 +4583,7 @@
         preencherFormularioComProposta(copia);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
-            focarRegistroRecemSalvo({ tabId: 'propostas', tabelaId: 'tblPropostas', attr: 'data-proposta-id', id: copia.id });
+            focarRegistroRecemSalvo({ tipo: 'proposta', id: copia.id });
         }
     }
 

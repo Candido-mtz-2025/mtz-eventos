@@ -998,6 +998,13 @@ function focarRegistroRecemSalvo(opcoes = {}) {
                     aplicarFiltroHistoricoDevolucoes('todos', false, false);
                 }
             }
+        },
+        proposta: {
+            tabId: 'propostas',
+            tabelaId: 'tblPropostas',
+            attr: 'data-proposta-id',
+            buscaId: 'buscaPropostas',
+            renderFn: 'renderPropostas'
         }
     };
 
