@@ -3901,6 +3901,54 @@
         return false;
     }
 
+    function obterPendenciasFiscaisObrigatoriasProposta(proposta) {
+        const p = normalizarProposta(proposta);
+        const cliente = p.cliente || {};
+        const precisaNf = p.clientePrecisaNotaFiscal === true || cliente.precisaNotaFiscal === true;
+        if (!precisaNf) return [];
+
+        const campos = [
+            {
+                rotulo: 'razão social ou nome fiscal',
+                campo: 'propFiscalRazaoSocial',
+                ok: Boolean(textoSeguro(cliente.razaoSocial) || textoSeguro(cliente.nomeFantasia))
+            },
+            { rotulo: 'CPF/CNPJ fiscal', campo: 'propFiscalCpfCnpj', ok: Boolean(textoSeguro(cliente.cpfCnpj)) },
+            { rotulo: 'e-mail fiscal', campo: 'propFiscalEmail', ok: Boolean(textoSeguro(cliente.emailFiscal)) },
+            { rotulo: 'CEP fiscal', campo: 'propFiscalCEP', ok: Boolean(textoSeguro(cliente.cepFiscal)) },
+            { rotulo: 'cidade fiscal', campo: 'propFiscalCidade', ok: Boolean(textoSeguro(cliente.cidadeFiscal)) },
+            { rotulo: 'UF fiscal', campo: 'propFiscalUF', ok: Boolean(textoSeguro(cliente.ufFiscal)) },
+            { rotulo: 'endereço fiscal', campo: 'propFiscalEndereco', ok: Boolean(textoSeguro(cliente.enderecoFiscal)) }
+        ];
+
+        return campos.filter((campo) => !campo.ok);
+    }
+
+    function validarDadosFiscaisObrigatoriosProposta(proposta, acao = 'concluir esta ação', opcoes = {}) {
+        const pendencias = obterPendenciasFiscaisObrigatoriasProposta(proposta);
+        if (!pendencias.length) return true;
+
+        const detalhes = pendencias.map((item) => item.rotulo).join(', ');
+        mostrarToast(`Complete os dados fiscais antes de ${acao}: ${detalhes}.`, 'erro', 6200);
+
+        const detalhesFiscais = document.querySelector('#tab-propostas .proposta-fiscal-details');
+        if (detalhesFiscais) {
+            detalhesFiscais.open = true;
+            detalhesFiscais.classList.add('is-highlighted');
+            setTimeout(() => detalhesFiscais.classList.remove('is-highlighted'), 2500);
+        }
+
+        if (opcoes.focar !== false) {
+            focarPendenciaProposta({
+                secao: 'dados',
+                campo: pendencias[0]?.campo || 'propFiscalRazaoSocial',
+                mensagem: 'Complete os dados fiscais antes de finalizar.'
+            });
+        }
+
+        return false;
+    }
+
     function coletarDadosFormulario(validar = true) {
         const idAtual = obterIdPropostaEmEdicao();
         const propostaAtual = idAtual ? localizarProposta(idAtual) : null;
@@ -5093,6 +5141,11 @@
         })) {
             return;
         }
+        if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'converter em locação', {
+            focar: String(obterIdPropostaEmEdicao()) === String(id)
+        })) {
+            return;
+        }
 
         const jaConvertida = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
         if (jaConvertida) {
@@ -5818,6 +5871,11 @@
         })) {
             return;
         }
+        if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'gerar o PDF', {
+            focar: String(obterIdPropostaEmEdicao()) === String(id)
+        })) {
+            return;
+        }
 
         const printArea = document.getElementById('printArea');
         const modal = document.getElementById('modalRelatorio');
@@ -5859,6 +5917,13 @@
         if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
             return;
         }
+        if (!validarDadosFiscaisObrigatoriosProposta(
+            propostaTemp,
+            exibirInterno ? 'gerar o PDF interno' : 'gerar o PDF do cliente',
+            { focar: true }
+        )) {
+            return;
+        }
         abrirPreviewPDFProposta(propostaTemp, exibirInterno);
     }
 
@@ -5877,11 +5942,17 @@
             if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
                 return;
             }
+            if (!validarDadosFiscaisObrigatoriosProposta(propostaTemp, 'gerar o PDF', { focar: true })) {
+                return;
+            }
             abrirPreviewPDFProposta(propostaTemp, propostaTemp.financeiro.exibirInformacoesInternasPDF === true);
             return;
         }
         const propostaTemp = coletarDadosFormulario(false);
         if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
+            return;
+        }
+        if (!validarDadosFiscaisObrigatoriosProposta(propostaTemp, 'gerar o PDF', { focar: true })) {
             return;
         }
         const printArea = document.getElementById('printArea');
@@ -6175,6 +6246,9 @@
     function gerarPreNotaPropostaAtual() {
         const proposta = coletarDadosFormulario(false);
         if (!proposta) return;
+        if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'gerar a pré-nota', { focar: true })) {
+            return;
+        }
 
         const painel = document.getElementById('propPreNotaPanel');
         const conteudo = document.getElementById('propPreNotaConteudo');
