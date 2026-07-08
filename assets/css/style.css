@@ -19560,6 +19560,51 @@ body[data-theme="mtz-gold"] #appArea .proposta-step-status {
     overflow-anchor: none;
 }
 
+#tab-propostas .proposta-operational-cost {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 12px;
+    background: rgba(248, 250, 252, 0.72);
+}
+
+#tab-propostas .proposta-operational-cost__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+#tab-propostas .proposta-operational-cost__head strong {
+    font-size: 0.95rem;
+}
+
+#tab-propostas .proposta-operational-cost__head small {
+    max-width: 360px;
+    color: var(--text-muted, #64748b);
+    text-align: right;
+}
+
+body[data-theme="dark"] #tab-propostas .proposta-operational-cost,
+body[data-theme="mtz-premium"] #tab-propostas .proposta-operational-cost,
+body[data-theme="mtz-gold"] #tab-propostas .proposta-operational-cost {
+    border-color: rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.72);
+}
+
+@media (max-width: 720px) {
+    #tab-propostas .proposta-operational-cost__head {
+        display: block;
+    }
+
+    #tab-propostas .proposta-operational-cost__head small {
+        display: block;
+        margin-top: 4px;
+        text-align: left;
+    }
+}
+
 #tab-propostas .proposta-fiscal-details,
 #tab-propostas .proposta-fiscal-prep-card {
     margin-top: 14px;

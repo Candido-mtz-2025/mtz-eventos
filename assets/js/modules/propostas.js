@@ -3040,11 +3040,45 @@
         };
     }
 
+    function calcularCustoMaoObraOperacional(pessoas = 0, valorPessoaDia = 0, dias = 0) {
+        return arredondarMoeda(numeroNaoNegativo(pessoas, 0) * numeroNaoNegativo(valorPessoaDia, 0) * numeroNaoNegativo(dias, 0));
+    }
+
+    function calcularCustoHospedagemOperacional(pessoas = 0, diarias = 0, valorDiariaPessoa = 0) {
+        return arredondarMoeda(numeroNaoNegativo(pessoas, 0) * numeroNaoNegativo(diarias, 0) * numeroNaoNegativo(valorDiariaPessoa, 0));
+    }
+
     function obterControleInternoFormulario() {
+        const maoObraPessoas = inteiroNaoNegativo(document.getElementById('propMaoObraPessoas')?.value, 0);
+        const maoObraValorPessoaDia = parseNumeroInput('propMaoObraValorPessoaDia');
+        const maoObraDias = numeroNaoNegativo(document.getElementById('propMaoObraDias')?.value, 0);
+        const maoObraTotal = calcularCustoMaoObraOperacional(maoObraPessoas, maoObraValorPessoaDia, maoObraDias);
+        const hospedagemPessoas = inteiroNaoNegativo(document.getElementById('propHospedagemPessoas')?.value, 0);
+        const hospedagemDiarias = numeroNaoNegativo(document.getElementById('propHospedagemDiarias')?.value, 0);
+        const hospedagemValorDiariaPessoa = parseNumeroInput('propHospedagemValorDiariaPessoa');
+        const hospedagemTotal = calcularCustoHospedagemOperacional(hospedagemPessoas, hospedagemDiarias, hospedagemValorDiariaPessoa);
+
+        const maoObraTotalEl = document.getElementById('propMaoObraTotal');
+        if (maoObraTotalEl) maoObraTotalEl.value = formatarMoeda(maoObraTotal);
+        const hospedagemTotalEl = document.getElementById('propHospedagemTotal');
+        if (hospedagemTotalEl) hospedagemTotalEl.value = formatarMoeda(hospedagemTotal);
+
         return {
             custoInternoTotal: parseNumeroInput('propCustoInternoTotal'),
             custoTerceirizadoTotal: parseNumeroInput('propCustoTerceirizadoTotal'),
-            outrosCustosInternos: parseNumeroInput('propOutrosCustosInternos')
+            outrosCustosInternos: parseNumeroInput('propOutrosCustosInternos'),
+            maoObraOperacional: {
+                pessoas: maoObraPessoas,
+                valorPessoaDia: maoObraValorPessoaDia,
+                dias: maoObraDias,
+                total: maoObraTotal
+            },
+            hospedagemOperacional: {
+                pessoas: hospedagemPessoas,
+                diarias: hospedagemDiarias,
+                valorDiariaPessoa: hospedagemValorDiariaPessoa,
+                total: hospedagemTotal
+            }
         };
     }
 
@@ -3085,10 +3119,18 @@
         const percentualSaldo = Math.max(0, 100 - percentualEntradaNormalizado);
         const valorSaldo = arredondarMoeda(Math.max(valorFinalComercial - valorEntrada, 0));
 
+        const maoObraOperacional = controleInterno?.maoObraOperacional && typeof controleInterno.maoObraOperacional === 'object'
+            ? controleInterno.maoObraOperacional
+            : {};
+        const hospedagemOperacional = controleInterno?.hospedagemOperacional && typeof controleInterno.hospedagemOperacional === 'object'
+            ? controleInterno.hospedagemOperacional
+            : {};
+        const custoMaoObraOperacional = arredondarMoeda(numeroNaoNegativo(maoObraOperacional.total, 0));
+        const custoHospedagemOperacional = arredondarMoeda(numeroNaoNegativo(hospedagemOperacional.total, 0));
         const custoInternoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoInternoTotal, 0));
         const custoTerceirizadoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0));
         const outrosCustosInternos = arredondarMoeda(numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0));
-        const custoTotalProposta = arredondarMoeda(custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos);
+        const custoTotalProposta = arredondarMoeda(custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos + custoMaoObraOperacional + custoHospedagemOperacional);
         const lucroPrevisto = arredondarMoeda(valorLiquidoPrevisto - custoTotalProposta);
         const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
         const resumoFiscal = calcularResumoFiscalProposta(itensCalculados, {
@@ -3122,6 +3164,10 @@
             custoInternoTotal,
             custoTerceirizadoTotal,
             outrosCustosInternos,
+            maoObraOperacional,
+            hospedagemOperacional,
+            custoMaoObraOperacional,
+            custoHospedagemOperacional,
             custoTotalProposta,
             lucroPrevisto,
             margemPrevista,
@@ -3703,10 +3749,47 @@
             outros: numeroNaoNegativo(custosOrig.outros, 0)
         };
 
+        const maoObraOperacionalOrig = controleOrig.maoObraOperacional && typeof controleOrig.maoObraOperacional === 'object'
+            ? controleOrig.maoObraOperacional
+            : {};
+        const maoObraOperacionalPessoas = inteiroNaoNegativo(maoObraOperacionalOrig.pessoas ?? controleOrig.maoObraOperacionalPessoas, 0);
+        const maoObraOperacionalValorPessoaDia = numeroNaoNegativo(maoObraOperacionalOrig.valorPessoaDia ?? controleOrig.maoObraOperacionalValorPessoaDia, 0);
+        const maoObraOperacionalDias = numeroNaoNegativo(maoObraOperacionalOrig.dias ?? controleOrig.maoObraOperacionalDias, 0);
+        const maoObraOperacionalCalculado = calcularCustoMaoObraOperacional(
+            maoObraOperacionalPessoas,
+            maoObraOperacionalValorPessoaDia,
+            maoObraOperacionalDias
+        );
+        const maoObraOperacional = {
+            pessoas: maoObraOperacionalPessoas,
+            valorPessoaDia: maoObraOperacionalValorPessoaDia,
+            dias: maoObraOperacionalDias,
+            total: maoObraOperacionalCalculado || numeroNaoNegativo(maoObraOperacionalOrig.total ?? controleOrig.maoObraOperacionalTotal, 0)
+        };
+        const hospedagemOperacionalOrig = controleOrig.hospedagemOperacional && typeof controleOrig.hospedagemOperacional === 'object'
+            ? controleOrig.hospedagemOperacional
+            : {};
+        const hospedagemOperacionalPessoas = inteiroNaoNegativo(hospedagemOperacionalOrig.pessoas ?? controleOrig.hospedagemOperacionalPessoas, 0);
+        const hospedagemOperacionalDiarias = numeroNaoNegativo(hospedagemOperacionalOrig.diarias ?? controleOrig.hospedagemOperacionalDiarias, 0);
+        const hospedagemOperacionalValorDiariaPessoa = numeroNaoNegativo(hospedagemOperacionalOrig.valorDiariaPessoa ?? controleOrig.hospedagemOperacionalValorDiariaPessoa, 0);
+        const hospedagemOperacionalCalculado = calcularCustoHospedagemOperacional(
+            hospedagemOperacionalPessoas,
+            hospedagemOperacionalDiarias,
+            hospedagemOperacionalValorDiariaPessoa
+        );
+        const hospedagemOperacional = {
+            pessoas: hospedagemOperacionalPessoas,
+            diarias: hospedagemOperacionalDiarias,
+            valorDiariaPessoa: hospedagemOperacionalValorDiariaPessoa,
+            total: hospedagemOperacionalCalculado || numeroNaoNegativo(hospedagemOperacionalOrig.total ?? controleOrig.hospedagemOperacionalTotal, 0)
+        };
+
         const controleInterno = {
             custoInternoTotal: numeroNaoNegativo(controleOrig.custoInternoTotal, 0),
             custoTerceirizadoTotal: numeroNaoNegativo(controleOrig.custoTerceirizadoTotal, 0),
-            outrosCustosInternos: numeroNaoNegativo(controleOrig.outrosCustosInternos, 0)
+            outrosCustosInternos: numeroNaoNegativo(controleOrig.outrosCustosInternos, 0),
+            maoObraOperacional,
+            hospedagemOperacional
         };
 
         const resumo = calcularResumoProposta({
@@ -4093,6 +4176,8 @@
                 custoInternoTotal: resumo.custoInternoTotal,
                 custoTerceirizadoTotal: resumo.custoTerceirizadoTotal,
                 outrosCustosInternos: resumo.outrosCustosInternos,
+                maoObraOperacional: resumo.maoObraOperacional,
+                hospedagemOperacional: resumo.hospedagemOperacional,
                 custoTotalProposta: resumo.custoTotalProposta,
                 lucroPrevisto: resumo.lucroPrevisto,
                 margemPrevista: resumo.margemPrevista
@@ -4217,6 +4302,14 @@
             propCustoGerador: valorInputMonetario(p.custos.gerador),
             propCustoTerceirizados: valorInputMonetario(p.custos.terceirizados),
             propCustoOutros: valorInputMonetario(p.custos.outros),
+            propMaoObraPessoas: p.controleInterno.maoObraOperacional?.pessoas || '',
+            propMaoObraValorPessoaDia: valorInputMonetario(p.controleInterno.maoObraOperacional?.valorPessoaDia || 0),
+            propMaoObraDias: p.controleInterno.maoObraOperacional?.dias || '',
+            propMaoObraTotal: valorInputMonetario(p.controleInterno.maoObraOperacional?.total || 0),
+            propHospedagemPessoas: p.controleInterno.hospedagemOperacional?.pessoas || '',
+            propHospedagemDiarias: p.controleInterno.hospedagemOperacional?.diarias || '',
+            propHospedagemValorDiariaPessoa: valorInputMonetario(p.controleInterno.hospedagemOperacional?.valorDiariaPessoa || 0),
+            propHospedagemTotal: valorInputMonetario(p.controleInterno.hospedagemOperacional?.total || 0),
             propDesconto: valorInputMonetario(p.financeiro.desconto),
             propAcrescimo: valorInputMonetario(p.financeiro.acrescimo),
             propPercentualNF: p.financeiro.percentualNF,
@@ -4271,7 +4364,9 @@
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
             'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra', 'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
-            'propCustoOutros', 'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
+            'propCustoOutros', 'propMaoObraPessoas', 'propMaoObraValorPessoaDia', 'propMaoObraDias', 'propMaoObraTotal',
+            'propHospedagemPessoas', 'propHospedagemDiarias', 'propHospedagemValorDiariaPessoa', 'propHospedagemTotal',
+            'propDesconto', 'propAcrescimo', 'propPercentualNF', 'propVencEntrada', 'propVencSaldo',
             'propCondicaoPagamento', 'propObsPagamento', 'propCustoInternoTotal', 'propCustoTerceirizadoTotal',
             'propOutrosCustosInternos', 'propIncluso', 'propNaoIncluso', 'propObsComerciais', 'propLocacaoVinculada'
         ];
