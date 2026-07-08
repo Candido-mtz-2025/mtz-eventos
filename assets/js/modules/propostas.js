@@ -582,6 +582,11 @@
         return Math.max(1, numero || Math.trunc(numeroNaoNegativo(fallback, 1)) || 1);
     }
 
+    function formatarNumeroRevisaoProposta(valor, fallback = 1) {
+        const numeroInterno = normalizarNumeroRevisaoProposta(valor, fallback);
+        return String(Math.max(0, numeroInterno - 1)).padStart(2, '0');
+    }
+
     function extrairRevisaoDoCodigo(codigo) {
         const match = textoSeguro(codigo).match(/\brev\.?\s*(\d+)$/i);
         return match ? normalizarNumeroRevisaoProposta(match[1], 1) : 1;
@@ -596,7 +601,7 @@
 
     function formatarCodigoRevisaoProposta(proposta) {
         const codigoBase = obterCodigoBaseProposta(proposta) || textoSeguro(proposta?.codigo, '');
-        const revisao = normalizarNumeroRevisaoProposta(proposta?.revisao ?? proposta?.numeroRevisao ?? extrairRevisaoDoCodigo(proposta?.codigo), 1);
+        const revisao = formatarNumeroRevisaoProposta(proposta?.revisao ?? proposta?.numeroRevisao ?? extrairRevisaoDoCodigo(proposta?.codigo), 1);
         return `${codigoBase || 'PROP'} Rev. ${revisao}`;
     }
 
@@ -2595,7 +2600,7 @@
         const historico = (Array.isArray(atual.historicoRevisoes) ? atual.historicoRevisoes : [])
             .map((item) => ({
                 id: item.id,
-                codigo: textoSeguro(item.codigo, `Rev. ${normalizarNumeroRevisaoProposta(item.revisao, 1)}`),
+                codigo: textoSeguro(item.codigo, `Rev. ${formatarNumeroRevisaoProposta(item.revisao, 1)}`),
                 revisao: normalizarNumeroRevisaoProposta(item.revisao, 1),
                 status: normalizarStatusProposta(item.status),
                 data: item.data || '',
@@ -2630,7 +2635,7 @@
         painel.innerHTML = `
             <div class="proposta-revision-card">
                 <div class="proposta-revision-main">
-                    <span class="proposta-revision-badge">Rev. ${revisaoAtual}</span>
+                    <span class="proposta-revision-badge">Rev. ${formatarNumeroRevisaoProposta(revisaoAtual)}</span>
                     <div>
                         <strong>${sanitizar(formatarCodigoRevisaoProposta(atual))}</strong>
                         <small>Base ${sanitizar(obterCodigoBaseProposta(atual) || atual.codigo || '-')}</small>
@@ -2646,7 +2651,7 @@
                 <div class="proposta-revision-timeline">
                     ${linhaTempo.map((item) => `
                         <button type="button" class="proposta-revision-step ${item.atual ? 'is-current' : ''}" data-action="editarProposta" data-arg="${item.id || atual.id}" title="Abrir ${sanitizar(item.codigo)}">
-                            <strong>Rev. ${item.revisao}</strong>
+                            <strong>Rev. ${formatarNumeroRevisaoProposta(item.revisao)}</strong>
                             <small>${item.atual ? 'Atual' : statusRotulo(item.status)}</small>
                         </button>
                     `).join('')}
@@ -6077,7 +6082,7 @@
                     <td>
                         <div class="proposta-list-code">
                             <strong>${sanitizar(formatarCodigoRevisaoProposta(proposta))}</strong>
-                            <span class="proposta-revision-mini-badge">Rev. ${revisao}</span>
+                            <span class="proposta-revision-mini-badge">Rev. ${formatarNumeroRevisaoProposta(revisao)}</span>
                             ${origem ? `<small>Origem ${sanitizar(formatarCodigoRevisaoProposta(origem))}</small>` : ''}
                         </div>
                     </td>
