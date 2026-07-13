@@ -1212,7 +1212,8 @@
             resumo.avisos.push('Existem tipos fiscais que exigem conferência do contador antes da emissão.');
         }
 
-        resumo.avisos.push('Custos adicionais do fechamento são tratados como custos internos. Se forem cobrados do cliente, lance como item da proposta com tipo fiscal próprio.');
+        resumo.avisos.push('Mão de obra cobrada do cliente entra na base fiscal estimada como mão de obra. Frete, operador, elétrica, gerador, terceirizados e outros adicionais só entram na base fiscal quando forem lançados como itens com tipo fiscal próprio.');
+        resumo.avisos.push('Custos internos de mão de obra e hospedagem não entram na base fiscal estimada.');
         resumo.avisos.push(TEXTO_PRE_NOTA_CONFERENCIA);
         return resumo;
     }
@@ -6455,7 +6456,8 @@
             percentualNF: p.financeiro.percentualNF,
             valorBrutoProposta: obterValorFinalComercial(p),
             valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
-            tipoCalculoNF: p.financeiro.tipoCalculoNF
+            tipoCalculoNF: p.financeiro.tipoCalculoNF,
+            custos: p.custos
         });
         const totalServicosSeparados = arredondarMoeda(
             numeroNaoNegativo(resumoFiscal.totalServicos, 0)
