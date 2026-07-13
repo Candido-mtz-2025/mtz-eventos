@@ -268,6 +268,7 @@
         const itens = Array.isArray(itensInformados) ? itensInformados : coletarItensFormulario();
         const custos = obterCustosFormulario();
         const controleInterno = obterControleInternoFormulario();
+        const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
         const resumo = calcularResumoProposta({
             itens,
             custos,
@@ -276,7 +277,8 @@
             percentualNF: parsePercentualInput('propPercentualNF', 0, 99.99),
             tipoCalculoNF: document.getElementById('propTipoCalculoNF')?.value || 'descontar',
             percentualEntrada: parsePercentualInput('propPercentualEntrada', 50, 100),
-            controleInterno
+            controleInterno,
+            clientePrecisaNotaFiscal
         });
 
         return { itens, custos, controleInterno, resumo };
@@ -1194,14 +1196,45 @@
         resumo.valorLiquidoPrevisto = numeroSeguro(opcoes.valorLiquidoPrevisto, resumo.valorBrutoProposta - resumo.impostosEstimados);
 
         const totalServicosFiscais = resumo.totalServicos + resumo.totalMaoObra + resumo.totalFreteLogistica + resumo.totalImpressaoProducao + resumo.totalArtProjeto;
+        const baseEstimadaNfse = numeroNaoNegativo(resumo.baseEstimadaNfse, 0);
+        const baseEstimadaNfe = obterBaseEstimadaNfeResumoFiscal(resumo);
+        const temBaseNfse = baseEstimadaNfse > 0;
+        const temBaseNfe = baseEstimadaNfe > 0;
+        const temLocacaoSeparada = numeroNaoNegativo(resumo.totalLocacao, 0) > 0;
+        const decisaoManualNf = typeof opcoes.precisaNotaFiscal === 'boolean'
+            ? opcoes.precisaNotaFiscal
+            : null;
         resumo.bloquearPreNota = resumo.itensSemClassificacaoFiscal > 0 || resumo.itensVerificarContador > 0;
-        if (resumo.totalLocacao > 0 && totalServicosFiscais > 0) {
-            resumo.tipoDocumentoSugerido = 'Locação + NFS-e separadas';
-            resumo.avisos.push('Este orçamento possui locação e prestação de serviço. Confira a separação fiscal antes da emissão.');
-        } else if (totalServicosFiscais > 0) {
+
+        if (temBaseNfe && temBaseNfse) {
+            resumo.tipoDocumentoSugerido = 'NF-e + NFS-e';
+            resumo.avisos.push('Este orçamento possui bases estimadas para NF-e e NFS-e. Confira a emissão separada antes do faturamento.');
+        } else if (temBaseNfe) {
+            resumo.tipoDocumentoSugerido = 'NF-e de produto/venda';
+        } else if (temBaseNfse) {
             resumo.tipoDocumentoSugerido = 'NFS-e de serviços';
-        } else if (resumo.totalLocacao > 0) {
-            resumo.tipoDocumentoSugerido = 'Contrato/recibo de locação';
+        } else {
+            resumo.tipoDocumentoSugerido = 'Sem NF-e/NFS-e estimada';
+        }
+
+        if (temLocacaoSeparada && totalServicosFiscais > 0) {
+            resumo.avisos.push('Este orçamento possui locação e prestação de serviço. Confira a separação fiscal antes da emissão.');
+        }
+
+        if (temLocacaoSeparada && temBaseNfe && !temBaseNfse) {
+            resumo.avisos.push('Este orçamento possui locação e produto/venda. Confira se a locação exigirá documento separado da NF-e.');
+        }
+
+        if (temLocacaoSeparada && !temBaseNfe && !temBaseNfse) {
+            resumo.avisos.push('Há valores de locação separados, sem base estimada de NF-e ou NFS-e. Conferir contrato, fatura ou recibo conforme orientação contábil.');
+        }
+
+        if (decisaoManualNf === true && !temBaseNfe && !temBaseNfse) {
+            resumo.avisos.push('Cliente marcou necessidade de nota fiscal, mas as bases estimadas de NF-e e NFS-e estão zeradas. Confira a classificação fiscal dos itens.');
+        }
+
+        if (decisaoManualNf === false && (temBaseNfe || temBaseNfse)) {
+            resumo.avisos.push('As bases estimadas indicam documento fiscal mesmo sem a opção "Cliente precisa de nota fiscal" marcada. Confira antes da emissão.');
         }
 
         if (resumo.itensSemClassificacaoFiscal > 0) {
@@ -3186,7 +3219,8 @@
         percentualNF = 0,
         tipoCalculoNF = 'descontar',
         percentualEntrada = 50,
-        controleInterno = {}
+        controleInterno = {},
+        clientePrecisaNotaFiscal = null
     } = {}) {
         const itensCalculados = (Array.isArray(itens) ? itens : []).map((item) => calcularItemProposta(item || {}));
         const subtotalItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0));
@@ -3234,7 +3268,8 @@
             valorBrutoProposta: valorFinalComercial,
             valorLiquidoPrevisto,
             tipoCalculoNF: tipoNF,
-            custos
+            custos,
+            precisaNotaFiscal: typeof clientePrecisaNotaFiscal === 'boolean' ? clientePrecisaNotaFiscal : null
         });
 
         return {
@@ -3371,6 +3406,7 @@
             const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
             const tipoCalculoNF = document.getElementById('propTipoCalculoNF')?.value || 'descontar';
             const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
+            const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
 
             const resumo = calcularResumoProposta({
                 itens,
@@ -3380,7 +3416,8 @@
                 percentualNF,
                 tipoCalculoNF,
                 percentualEntrada,
-                controleInterno
+                controleInterno,
+                clientePrecisaNotaFiscal
             });
 
             const mapaTexto = [
@@ -3806,7 +3843,7 @@
             municipioPrestacao: textoSeguro(fiscal.municipioPrestacao, evento.cidadeEvento || evento.cidade || cliente.cidadeFiscal),
             descricaoFiscalSugerida: textoSeguro(fiscal.descricaoFiscalSugerida, 'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.'),
             observacoesEmissao: textoSeguro(fiscal.observacoesEmissao, 'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'),
-            tipoDocumentoSugerido: textoSeguro(fiscal.tipoDocumentoSugerido, resumo.tipoDocumentoSugerido),
+            tipoDocumentoSugerido: textoSeguro(resumo.tipoDocumentoSugerido, fiscal.tipoDocumentoSugerido),
             resumo,
             avisos: Array.isArray(fiscal.avisos) && fiscal.avisos.length ? fiscal.avisos.slice() : (Array.isArray(resumo.avisos) ? resumo.avisos.slice() : [])
         };
@@ -3927,6 +3964,9 @@
             maoObraOperacional,
             hospedagemOperacional
         };
+        const clientePrecisaNotaFiscalOrigem = proposta.clientePrecisaNotaFiscal === true
+            || proposta.cliente?.precisaNotaFiscal === true
+            || proposta.clienteSnapshot?.precisaNotaFiscal === true;
 
         const resumo = calcularResumoProposta({
             itens,
@@ -3936,7 +3976,8 @@
             percentualNF: converterTextoPercentualParaNumero(financeiroOrig.percentualNF, 0),
             tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, 'descontar'),
             percentualEntrada: converterTextoPercentualParaNumero(financeiroOrig.percentualEntrada, 50, { maximo: 100 }),
-            controleInterno
+            controleInterno,
+            clientePrecisaNotaFiscal: clientePrecisaNotaFiscalOrigem
         });
 
         const financeiro = montarFinanceiroNormalizado(financeiroOrig, resumo);
@@ -3975,7 +4016,7 @@
             clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal
         });
         const clienteSnapshot = montarClienteSnapshotProposta(proposta.clienteSnapshot || cliente);
-        const clientePrecisaNotaFiscal = proposta.clientePrecisaNotaFiscal === true || cliente.precisaNotaFiscal === true;
+        const clientePrecisaNotaFiscal = clientePrecisaNotaFiscalOrigem || cliente.precisaNotaFiscal === true;
         const fiscal = montarFiscalPropostaNormalizado(proposta.fiscal || proposta.dadosFiscais || {}, cliente, evento, resumo.resumoFiscal);
         const id = proposta.id || Date.now();
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
@@ -4187,6 +4228,8 @@
         const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
         const tipoCalculoNF = normalizarTipoCalculoNF(document.getElementById('propTipoCalculoNF')?.value, 'descontar');
         const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
+        const clienteId = textoSeguro(document.getElementById('propClienteId')?.value || document.getElementById('propClienteCadastrado')?.value);
+        const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
 
         const resumo = calcularResumoProposta({
             itens,
@@ -4196,7 +4239,8 @@
             percentualNF,
             tipoCalculoNF,
             percentualEntrada,
-            controleInterno
+            controleInterno,
+            clientePrecisaNotaFiscal
         });
 
         const dataCriacao = textoSeguro(propostaAtual?.dataCriacao, agoraIso);
@@ -4205,8 +4249,6 @@
         const validadeData = parseDataIso(validadeDataDigitada)
             ? validadeDataDigitada
             : adicionarDiasDataIso(dataCriacao.slice(0, 10), validadeDias);
-        const clienteId = textoSeguro(document.getElementById('propClienteId')?.value || document.getElementById('propClienteCadastrado')?.value);
-        const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
         sincronizarEnderecoClienteProposta();
         const clienteFormulario = montarClientePropostaNormalizado({
             id: clienteId,
@@ -5758,6 +5800,7 @@
             montarDadoCompactoPdf('Base estimada NFS-e', formatarMoeda(resumoFiscalPdf.baseEstimadaNfse)),
             montarDadoCompactoPdf('Locacao separada', formatarMoeda(resumoFiscalPdf.totalLocacao)),
             montarDadoCompactoPdf('Servicos separados', formatarMoeda(totalServicosFiscalPdf)),
+            exibirInterno ? montarDadoCompactoPdf('Documento sugerido', textoSeguro(resumoFiscalPdf.tipoDocumentoSugerido, 'Conferir com contabilidade')) : '',
             exibirInterno ? montarDadoCompactoPdf('Base estimada NF-e', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscalPdf))) : '',
             exibirInterno ? montarDadoCompactoPdf('Calculo fiscal', rotuloTipoCalculoNF(tipoNF)) : '',
             exibirInterno ? montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto)) : ''
@@ -6467,7 +6510,8 @@
             valorBrutoProposta: obterValorFinalComercial(p),
             valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
             tipoCalculoNF: p.financeiro.tipoCalculoNF,
-            custos: p.custos
+            custos: p.custos,
+            precisaNotaFiscal: p.clientePrecisaNotaFiscal === true || p.cliente?.precisaNotaFiscal === true
         });
         const totalServicosSeparados = arredondarMoeda(
             numeroNaoNegativo(resumoFiscal.totalServicos, 0)
