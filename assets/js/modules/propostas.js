@@ -5619,13 +5619,67 @@
 
         const freteResumo = numeroNaoNegativo(p.custos.frete, 0);
         const custosAdicionaisResumo = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
-        const custosAdicionaisSemFrete = arredondarMoeda(Math.max(custosAdicionaisResumo - freteResumo, 0));
         const custoTotalInterno = numeroNaoNegativo(p.controleInterno.custoTotalProposta, 0);
+        const maoObraCobradaPdf = p.custos.maoObraCobrada && typeof p.custos.maoObraCobrada === 'object'
+            ? p.custos.maoObraCobrada
+            : {};
+        const maoObraMontagemPdf = maoObraCobradaPdf.montagem && typeof maoObraCobradaPdf.montagem === 'object'
+            ? maoObraCobradaPdf.montagem
+            : {};
+        const maoObraDesmontagemPdf = maoObraCobradaPdf.desmontagem && typeof maoObraCobradaPdf.desmontagem === 'object'
+            ? maoObraCobradaPdf.desmontagem
+            : {};
+        const maoObraResumoPdf = numeroNaoNegativo(maoObraCobradaPdf.total ?? p.custos.maoObra, 0);
+        const maoObraMontagemTotalPdf = numeroNaoNegativo(maoObraMontagemPdf.total, 0);
+        const maoObraDesmontagemTotalPdf = numeroNaoNegativo(maoObraDesmontagemPdf.total, 0);
+        const maoObraDetalhadaPdf = maoObraCobradaPdf.detalhada === true
+            || maoObraMontagemTotalPdf > 0
+            || maoObraDesmontagemTotalPdf > 0;
+        const formatarNumeroPdf = (valor) => numeroNaoNegativo(valor, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+        const descreverMaoObraPdf = (titulo, dados) => {
+            const partes = [];
+            const pessoas = numeroNaoNegativo(dados?.pessoas, 0);
+            const dias = numeroNaoNegativo(dados?.dias, 0);
+            const valorPessoaDia = numeroNaoNegativo(dados?.valorPessoaDia, 0);
+            if (pessoas > 0) partes.push(`${formatarNumeroPdf(pessoas)} pessoa${pessoas === 1 ? '' : 's'}`);
+            if (dias > 0) partes.push(`${formatarNumeroPdf(dias)} dia${dias === 1 ? '' : 's'}`);
+            if (valorPessoaDia > 0) partes.push(`${formatarMoeda(valorPessoaDia)}/pessoa-dia`);
+            return partes.length ? `${titulo} (${partes.join(' x ')})` : titulo;
+        };
+        const totalMaoObraDetalhadaPdf = arredondarMoeda(maoObraMontagemTotalPdf + maoObraDesmontagemTotalPdf);
+        const linhasMaoObraComercialPdf = maoObraDetalhadaPdf
+            ? [
+                maoObraMontagemTotalPdf > 0 ? linhaResumoPdf(descreverMaoObraPdf('Mao de obra - montagem', maoObraMontagemPdf), formatarMoeda(maoObraMontagemTotalPdf)) : '',
+                maoObraDesmontagemTotalPdf > 0 ? linhaResumoPdf(descreverMaoObraPdf('Mao de obra - desmontagem', maoObraDesmontagemPdf), formatarMoeda(maoObraDesmontagemTotalPdf)) : '',
+                maoObraResumoPdf > totalMaoObraDetalhadaPdf ? linhaResumoPdf('Mao de obra cobrada do cliente', formatarMoeda(arredondarMoeda(maoObraResumoPdf - totalMaoObraDetalhadaPdf))) : ''
+            ].join('')
+            : (maoObraResumoPdf > 0 ? linhaResumoPdf('Mao de obra cobrada do cliente', formatarMoeda(maoObraResumoPdf)) : '');
+        const custosAdicionaisSemFreteMaoObra = arredondarMoeda(Math.max(custosAdicionaisResumo - freteResumo - maoObraResumoPdf, 0));
+        const maoObraInternaPdf = p.controleInterno.maoObraOperacional && typeof p.controleInterno.maoObraOperacional === 'object'
+            ? p.controleInterno.maoObraOperacional
+            : {};
+        const hospedagemInternaPdf = p.controleInterno.hospedagemOperacional && typeof p.controleInterno.hospedagemOperacional === 'object'
+            ? p.controleInterno.hospedagemOperacional
+            : {};
+        const custoMaoObraInternaPdf = numeroNaoNegativo(maoObraInternaPdf.total, 0);
+        const custoHospedagemInternaPdf = numeroNaoNegativo(hospedagemInternaPdf.total, 0);
+        const descricaoMaoObraInternaPdf = descreverMaoObraPdf('Mao de obra operacional interna', maoObraInternaPdf);
+        const descricaoHospedagemInternaPdf = (() => {
+            const partes = [];
+            const pessoas = numeroNaoNegativo(hospedagemInternaPdf.pessoas, 0);
+            const diarias = numeroNaoNegativo(hospedagemInternaPdf.diarias, 0);
+            const valorDiariaPessoa = numeroNaoNegativo(hospedagemInternaPdf.valorDiariaPessoa, 0);
+            if (pessoas > 0) partes.push(`${formatarNumeroPdf(pessoas)} pessoa${pessoas === 1 ? '' : 's'}`);
+            if (diarias > 0) partes.push(`${formatarNumeroPdf(diarias)} diaria${diarias === 1 ? '' : 's'}`);
+            if (valorDiariaPessoa > 0) partes.push(`${formatarMoeda(valorDiariaPessoa)}/pessoa`);
+            return partes.length ? `Hospedagem operacional interna (${partes.join(' x ')})` : 'Hospedagem operacional interna';
+        })();
         const resumoFiscalPdf = p.fiscal?.resumo || calcularResumoFiscalProposta(p.itens, {
             percentualNF: p.financeiro.percentualNF,
             valorBrutoProposta: valorFinalComercial,
             valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
-            tipoCalculoNF: tipoNF
+            tipoCalculoNF: tipoNF,
+            custos: p.custos
         });
         const totalServicosFiscalPdf = arredondarMoeda(
             numeroNaoNegativo(resumoFiscalPdf.totalServicos, 0)
@@ -5645,7 +5699,8 @@
                             formatarMoeda(p.custos.frete)
                         )
                         : (freteResumo > 0 ? linhaResumoPdf('Frete', formatarMoeda(freteResumo)) : '')}
-                    ${(custosAdicionaisSemFrete > 0 || exibirInterno) ? linhaResumoPdf('Custos adicionais (sem frete)', formatarMoeda(custosAdicionaisSemFrete)) : ''}
+                    ${linhasMaoObraComercialPdf}
+                    ${(custosAdicionaisSemFreteMaoObra > 0 || exibirInterno) ? linhaResumoPdf('Outros custos comerciais', formatarMoeda(custosAdicionaisSemFreteMaoObra)) : ''}
                     ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
                     ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}
                     ${(tipoNF === 'acrescentar' || exibirInterno) ? linhaResumoPdf(`Percentual fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, formatarMoeda(p.financeiro.valorNF)) : ''}
@@ -5664,6 +5719,8 @@
                         ${linhaResumoPdf('Valor final com fiscal', formatarMoeda(p.financeiro.valorFinalComNF))}
                         ${linhaResumoPdf('Valor liquido previsto apos fiscal', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
                         ${linhaResumoPdf('Custo total interno', formatarMoeda(custoTotalInterno))}
+                        ${custoMaoObraInternaPdf > 0 ? linhaResumoPdf(descricaoMaoObraInternaPdf, formatarMoeda(custoMaoObraInternaPdf)) : ''}
+                        ${custoHospedagemInternaPdf > 0 ? linhaResumoPdf(descricaoHospedagemInternaPdf, formatarMoeda(custoHospedagemInternaPdf)) : ''}
                         ${linhaResumoPdf('Lucro previsto', formatarMoeda(p.controleInterno.lucroPrevisto))}
                         ${linhaResumoPdf('Margem prevista', formatarPercentual(p.controleInterno.margemPrevista))}
                     </tbody>
