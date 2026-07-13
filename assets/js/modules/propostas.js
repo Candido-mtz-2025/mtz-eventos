@@ -1093,6 +1093,7 @@
             totalReembolso: 0,
             totalVerificarContador: 0,
             baseEstimadaNfse: 0,
+            baseEstimadaNfe: 0,
             impostosEstimados: 0,
             retencoesPrevistas: 0,
             valorBrutoProposta: 0,
@@ -1130,7 +1131,10 @@
             if (tipoFiscalNormalizado === 'frete_logistica') resumo.totalFreteLogistica += valorNormalizado;
             if (tipoFiscalNormalizado === 'impressao_producao') resumo.totalImpressaoProducao += valorNormalizado;
             if (tipoFiscalNormalizado === 'art_projeto_documentacao') resumo.totalArtProjeto += valorNormalizado;
-            if (tipoFiscalNormalizado === 'produto_venda') resumo.totalProdutoVenda += valorNormalizado;
+            if (tipoFiscalNormalizado === 'produto_venda') {
+                resumo.totalProdutoVenda += valorNormalizado;
+                resumo.baseEstimadaNfe += valorNormalizado;
+            }
             if (tipoFiscalNormalizado === 'reembolso_despesa') resumo.totalReembolso += valorNormalizado;
             if (tipoFiscalNormalizado === TIPO_FISCAL_ITEM_PADRAO) resumo.totalVerificarContador += valorNormalizado;
             if (regra.entraBaseNfse) resumo.baseEstimadaNfse += valorNormalizado;
@@ -1216,6 +1220,10 @@
         resumo.avisos.push('Custos internos de mão de obra e hospedagem não entram na base fiscal estimada.');
         resumo.avisos.push(TEXTO_PRE_NOTA_CONFERENCIA);
         return resumo;
+    }
+
+    function obterBaseEstimadaNfeResumoFiscal(resumoFiscal = {}) {
+        return numeroNaoNegativo(resumoFiscal.baseEstimadaNfe ?? resumoFiscal.totalProdutoVenda, 0);
     }
 
     function montarOptionsCategoriaItemProposta(categoriaAtual) {
@@ -3301,6 +3309,7 @@
         const mapa = [
             ['propFiscalTipoDocumento', textoSeguro(resumo.tipoDocumentoSugerido, 'Conferir com contabilidade')],
             ['propFiscalBaseNfse', formatarMoeda(resumo.baseEstimadaNfse)],
+            ['propFiscalBaseNfe', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumo))],
             ['propFiscalTotalLocacao', formatarMoeda(resumo.totalLocacao)],
             ['propFiscalTotalServicos', formatarMoeda(totalServicosSeparados)],
             ['propFiscalRetencoes', formatarMoeda(resumo.retencoesPrevistas)]
@@ -5749,6 +5758,7 @@
             montarDadoCompactoPdf('Base estimada NFS-e', formatarMoeda(resumoFiscalPdf.baseEstimadaNfse)),
             montarDadoCompactoPdf('Locacao separada', formatarMoeda(resumoFiscalPdf.totalLocacao)),
             montarDadoCompactoPdf('Servicos separados', formatarMoeda(totalServicosFiscalPdf)),
+            exibirInterno ? montarDadoCompactoPdf('Base estimada NF-e', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscalPdf))) : '',
             exibirInterno ? montarDadoCompactoPdf('Calculo fiscal', rotuloTipoCalculoNF(tipoNF)) : '',
             exibirInterno ? montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto)) : ''
         ].filter(Boolean).join('');
@@ -6526,6 +6536,7 @@
                 ${item('Valor de serviços', formatarMoeda(totalServicosSeparados))}
                 ${item('Valor de locação separado', formatarMoeda(resumoFiscal.totalLocacao))}
                 ${item('Base estimada de NFS-e', formatarMoeda(resumoFiscal.baseEstimadaNfse))}
+                ${item('Base estimada de NF-e', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscal)))}
                 ${item('Retenções previstas', formatarMoeda(resumoFiscal.retencoesPrevistas))}
                 ${item('Documento sugerido', textoSeguro(resumoFiscal.tipoDocumentoSugerido, 'Conferir com contabilidade'))}
             </div>
