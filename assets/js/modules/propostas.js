@@ -577,19 +577,19 @@
             : 'rascunho';
     }
 
-    function normalizarNumeroRevisaoProposta(valor, fallback = 1) {
+    function normalizarNumeroRevisaoProposta(valor, fallback = 0) {
         const numero = Math.trunc(numeroNaoNegativo(valor, fallback));
-        return Math.max(1, numero || Math.trunc(numeroNaoNegativo(fallback, 1)) || 1);
+        return Math.max(0, numero || Math.trunc(numeroNaoNegativo(fallback, 0)) || 0);
     }
 
-    function formatarNumeroRevisaoProposta(valor, fallback = 1) {
+    function formatarNumeroRevisaoProposta(valor, fallback = 0) {
         const numeroInterno = normalizarNumeroRevisaoProposta(valor, fallback);
-        return String(Math.max(0, numeroInterno - 1)).padStart(2, '0');
+        return String(numeroInterno);
     }
 
     function extrairRevisaoDoCodigo(codigo) {
         const match = textoSeguro(codigo).match(/\brev\.?\s*(\d+)$/i);
-        return match ? normalizarNumeroRevisaoProposta(match[1], 1) : 1;
+        return match ? normalizarNumeroRevisaoProposta(match[1], 0) : 0;
     }
 
     function obterCodigoBaseProposta(propostaOuCodigo) {
@@ -601,7 +601,7 @@
 
     function formatarCodigoRevisaoProposta(proposta) {
         const codigoBase = obterCodigoBaseProposta(proposta) || textoSeguro(proposta?.codigo, '');
-        const revisao = formatarNumeroRevisaoProposta(proposta?.revisao ?? proposta?.numeroRevisao ?? extrairRevisaoDoCodigo(proposta?.codigo), 1);
+        const revisao = formatarNumeroRevisaoProposta(proposta?.revisao ?? proposta?.numeroRevisao ?? extrairRevisaoDoCodigo(proposta?.codigo), 0);
         return `${codigoBase || 'PROP'} Rev. ${revisao}`;
     }
 
@@ -609,9 +609,9 @@
         const base = obterCodigoBaseProposta(codigoBase);
         const maior = obterPropostasBase().reduce((acc, proposta) => {
             if (obterCodigoBaseProposta(proposta) !== base) return acc;
-            return Math.max(acc, normalizarNumeroRevisaoProposta(proposta.revisao, 1));
-        }, 0);
-        return Math.max(2, maior + 1);
+            return Math.max(acc, normalizarNumeroRevisaoProposta(proposta.revisao, 0));
+        }, -1);
+        return Math.max(1, maior + 1);
     }
 
     function normalizarTipoCalculoNF(tipo, fallback = 'descontar') {
@@ -2616,13 +2616,13 @@
             if (direta) return normalizarProposta(direta);
         }
         const codigoBase = obterCodigoBaseProposta(atual);
-        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 1);
+        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 0);
         const anterior = lista
             .map((item) => normalizarProposta(item))
             .filter((item) => String(item.id) !== String(atual.id))
             .filter((item) => obterCodigoBaseProposta(item) === codigoBase)
-            .filter((item) => normalizarNumeroRevisaoProposta(item.revisao, 1) < revisaoAtual)
-            .sort((a, b) => normalizarNumeroRevisaoProposta(b.revisao, 1) - normalizarNumeroRevisaoProposta(a.revisao, 1))[0];
+            .filter((item) => normalizarNumeroRevisaoProposta(item.revisao, 0) < revisaoAtual)
+            .sort((a, b) => normalizarNumeroRevisaoProposta(b.revisao, 0) - normalizarNumeroRevisaoProposta(a.revisao, 0))[0];
         return anterior || null;
     }
 
@@ -2635,7 +2635,7 @@
             .map((item) => ({
                 id: item.id,
                 codigo: formatarCodigoRevisaoProposta(item),
-                revisao: normalizarNumeroRevisaoProposta(item.revisao, 1),
+                revisao: normalizarNumeroRevisaoProposta(item.revisao, 0),
                 status: item.status,
                 data: item.dataCriacao || item.criadoEm || '',
                 atual: String(item.id) === String(atual.id)
@@ -2643,8 +2643,8 @@
         const historico = (Array.isArray(atual.historicoRevisoes) ? atual.historicoRevisoes : [])
             .map((item) => ({
                 id: item.id,
-                codigo: textoSeguro(item.codigo, `Rev. ${formatarNumeroRevisaoProposta(item.revisao, 1)}`),
-                revisao: normalizarNumeroRevisaoProposta(item.revisao, 1),
+                codigo: textoSeguro(item.codigo, `Rev. ${formatarNumeroRevisaoProposta(item.revisao, 0)}`),
+                revisao: normalizarNumeroRevisaoProposta(item.revisao, 0),
                 status: normalizarStatusProposta(item.status),
                 data: item.data || '',
                 atual: false
@@ -2674,7 +2674,7 @@
         const origem = localizarOrigemRevisaoProposta(atual);
         const diferencas = montarDiferencasRevisaoProposta(atual, origem);
         const linhaTempo = obterLinhaTempoRevisoesProposta(atual);
-        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 1);
+        const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 0);
         painel.innerHTML = `
             <div class="proposta-revision-card">
                 <div class="proposta-revision-main">
@@ -3970,7 +3970,7 @@
         const id = proposta.id || Date.now();
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
         const codigoBase = obterCodigoBaseProposta(proposta.codigoBase || codigo) || codigo;
-        const revisao = normalizarNumeroRevisaoProposta(proposta.revisao ?? proposta.numeroRevisao ?? extrairRevisaoDoCodigo(codigo), 1);
+        const revisao = normalizarNumeroRevisaoProposta(proposta.revisao ?? proposta.numeroRevisao ?? extrairRevisaoDoCodigo(codigo), 0);
         const status = normalizarStatusProposta(proposta.status || 'rascunho');
         const usuarioAtual = obterUsuarioAtualNomeOuEmail();
         const agoraIso = obterAgoraIso();
@@ -4245,8 +4245,8 @@
             id: idAtual || Date.now(),
             codigo: textoSeguro(document.getElementById('propCodigo')?.value, ''),
             codigoBase: textoSeguro(propostaAtual?.codigoBase || propostaAtual?.codigo, ''),
-            revisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
-            numeroRevisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 1),
+            revisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 0),
+            numeroRevisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 0),
             clienteId,
             clienteSnapshot,
             clientePrecisaNotaFiscal,
@@ -4793,8 +4793,8 @@
             id: novaId,
             codigo: novoCodigo,
             codigoBase: novoCodigo,
-            revisao: 1,
-            numeroRevisao: 1,
+            revisao: 0,
+            numeroRevisao: 0,
             status: 'rascunho',
             locacaoVinculadaId: '',
             locacaoId: '',
@@ -4841,11 +4841,12 @@
         const codigoBase = obterCodigoBaseProposta(base) || base.codigo || gerarCodigoProposta();
         const novaRevisao = obterProximaRevisaoProposta(codigoBase);
         const novaId = Date.now() + Math.floor(Math.random() * 500);
+        const propostaOrigemId = textoSeguro(base.propostaOrigemId) || String(base.id);
         const historicoBase = Array.isArray(base.historicoRevisoes) ? base.historicoRevisoes.slice() : [];
         const registroBase = {
             id: base.id,
             codigo: formatarCodigoRevisaoProposta(base),
-            revisao: normalizarNumeroRevisaoProposta(base.revisao, 1),
+            revisao: normalizarNumeroRevisaoProposta(base.revisao, 0),
             status: base.status,
             data: agoraIso,
             usuario: obterUsuarioAtualNomeOuEmail()
@@ -4872,7 +4873,7 @@
             dataAprovacao: '',
             dataCancelamento: '',
             dataConversaoLocacao: '',
-            propostaOrigemId: String(base.id),
+            propostaOrigemId,
             historicoRevisoes,
             motivoRevisao: `Revisao criada a partir de ${formatarCodigoRevisaoProposta(base)}`
         });
@@ -6309,7 +6310,7 @@
 
         tbody.innerHTML = filtradas.map((proposta) => {
             const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
-            const revisao = normalizarNumeroRevisaoProposta(proposta.revisao, 1);
+            const revisao = normalizarNumeroRevisaoProposta(proposta.revisao, 0);
             const origem = localizarOrigemRevisaoProposta(proposta);
             const dataStatus = obterDataStatusProposta(proposta);
             const motivoStatus = obterMotivoStatusProposta(proposta);
