@@ -4652,7 +4652,7 @@
         preencherFormularioComProposta(proposta);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
-            focarRegistroRecemSalvo({ tipo: 'proposta', id: proposta.id });
+            focarRegistroRecemSalvo({ tipo: 'proposta', id: proposta.id, limparBusca: true });
         }
     }
 
@@ -4754,6 +4754,9 @@
 
         if (opcoes.voltarLista !== false) {
             mostrarSubAbaPropostas('lista', { semRolagem: true, foco: false });
+            if (typeof focarRegistroRecemSalvo === 'function') {
+                focarRegistroRecemSalvo({ tipo: 'proposta', id, limparBusca: true });
+            }
         }
     }
 
@@ -4823,7 +4826,7 @@
         preencherFormularioComProposta(copia);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
-            focarRegistroRecemSalvo({ tipo: 'proposta', id: copia.id });
+            focarRegistroRecemSalvo({ tipo: 'proposta', id: copia.id, limparBusca: true });
         }
     }
 
@@ -4883,8 +4886,10 @@
         }
         mostrarToast(`${formatarCodigoRevisaoProposta(revisao)} criada para revisão.`);
         preencherFormularioComProposta(revisao);
-        mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
-        mostrarSecaoFormularioProposta('itens', { semRolagem: false, foco: false });
+        mostrarSubAbaPropostas('lista', { semRolagem: true, foco: false });
+        if (typeof focarRegistroRecemSalvo === 'function') {
+            focarRegistroRecemSalvo({ tipo: 'proposta', id: revisao.id, limparBusca: true });
+        }
     }
 
     function duplicarPropostaAtual() {
