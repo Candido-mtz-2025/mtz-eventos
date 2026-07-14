@@ -11,8 +11,9 @@ commits recentes e proximos passos recomendados.
 Repositorio GitHub:
 https://github.com/Candido-mtz-2025/mtz-eventos.git
 
-Caminho local usado no Windows:
-`C:\Users\Alan\Documents\Codex\2026-05-19\quero-melhorar-um-app-que-est\mtz-eventos`
+Observacao:
+o caminho local depende da maquina onde o projeto for clonado. Use a pasta do
+repositorio `mtz-eventos` como raiz de trabalho.
 
 ## Regras obrigatorias antes de mexer
 
@@ -46,7 +47,9 @@ Versoes de cache atuais no `index.html`:
 - `style.css?v=23.27`
 - `propostas.js?v=3.9`
 
-Antes deste arquivo ser criado, o `git status` estava limpo.
+Antes de continuar, rode `git status --short` para confirmar se ha arquivos
+pendentes. Se este relatorio ainda nao tiver sido commitado, ele aparecera como
+arquivo novo.
 
 ## Arquivos principais
 
@@ -234,10 +237,10 @@ Prioridade 1 - Estabilizar e revisar:
 
 Prioridade 2 - Orcamentos:
 
-- Fazer auditoria final dos cenarios fiscais com dados reais.
+- Validar os cenarios fiscais com dados reais do usuario antes de novas regras.
 - Melhorar PDF final do cliente sem mudar calculos.
 - Melhorar pre-nota/dados para faturamento, mantendo aviso de conferencia contabil.
-- Revisar se mao de obra/hospedagem aparecem para o cliente somente quando forem cobradas.
+- Conferir mao de obra/hospedagem em PDF cliente e interno antes de novos ajustes.
 
 Prioridade 3 - Estoque/Operacao:
 
@@ -306,4 +309,3 @@ Regras:
 Quero continuar a partir das pendencias recomendadas do relatorio,
 priorizando estabilidade, orcamentos/propostas, PDF e fluxo fiscal.
 ```
-
