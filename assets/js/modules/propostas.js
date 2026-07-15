@@ -534,6 +534,77 @@
             .trim();
     }
 
+    function textoComparacaoDuplicidadeProposta(item = {}) {
+        return normalizarTextoBusca([
+            item.descricao,
+            item.categoria,
+            item.medida,
+            item.observacoes
+        ].filter(Boolean).join(' '));
+    }
+
+    function itemCombinaPossivelDuplicidade(item = {}, { tiposFiscais = [], termos = [] } = {}) {
+        const tipoFiscal = normalizarTipoFiscalItem(item.tipoFiscal);
+        if (tiposFiscais.includes(tipoFiscal)) return true;
+
+        const texto = textoComparacaoDuplicidadeProposta(item);
+        return termos
+            .map((termo) => normalizarTextoBusca(termo))
+            .filter(Boolean)
+            .some((termo) => texto.includes(termo));
+    }
+
+    function montarAvisosPossivelDuplicidadeProposta(itens = [], custos = {}, controleInterno = {}) {
+        const listaItens = Array.isArray(itens) ? itens : [];
+        if (!listaItens.length) return [];
+
+        const avisos = [];
+        const maoObraCobrada = custos?.maoObraCobrada && typeof custos.maoObraCobrada === 'object'
+            ? custos.maoObraCobrada
+            : {};
+        const valorMaoObraCobrada = numeroNaoNegativo(maoObraCobrada.total ?? custos?.maoObra, 0);
+        const valorFreteComercial = numeroNaoNegativo(custos?.frete, 0);
+        const hospedagemInterna = controleInterno?.hospedagemOperacional && typeof controleInterno.hospedagemOperacional === 'object'
+            ? controleInterno.hospedagemOperacional
+            : {};
+        const valorHospedagemInterna = numeroNaoNegativo(hospedagemInterna.total, 0);
+
+        if (valorMaoObraCobrada > 0 && listaItens.some((item) => itemCombinaPossivelDuplicidade(item, {
+            tiposFiscais: ['mao_de_obra'],
+            termos: ['mão de obra', 'montagem', 'desmontagem', 'equipe', 'montador', 'montadores', 'diária de equipe']
+        }))) {
+            avisos.push('Possível lançamento duplicado: existe mão de obra preenchida nos campos próprios e também um item relacionado a mão de obra. Confira antes de finalizar.');
+        }
+
+        if (valorFreteComercial > 0 && listaItens.some((item) => itemCombinaPossivelDuplicidade(item, {
+            tiposFiscais: ['frete_logistica'],
+            termos: ['frete', 'transporte', 'logística', 'entrega', 'retirada', 'deslocamento']
+        }))) {
+            avisos.push('Possível lançamento duplicado: existe frete preenchido no campo próprio e também um item relacionado a frete/logística. Confira antes de finalizar.');
+        }
+
+        [
+            { chave: 'operador', rotulo: 'operador', termos: ['operador', 'operadores'] },
+            { chave: 'eletrica', rotulo: 'elétrica', termos: ['elétrica', 'eletrica', 'eletricista', 'instalação elétrica'] },
+            { chave: 'gerador', rotulo: 'gerador', termos: ['gerador', 'grupo gerador'] },
+            { chave: 'terceirizados', rotulo: 'terceirizados', termos: ['terceirizado', 'terceirizados', 'fornecedor externo'] }
+        ].forEach((regra) => {
+            const valorAdicional = numeroNaoNegativo(custos?.[regra.chave], 0);
+            if (valorAdicional <= 0) return;
+            if (!listaItens.some((item) => itemCombinaPossivelDuplicidade(item, { termos: regra.termos }))) return;
+
+            avisos.push(`Possível lançamento duplicado: existe ${regra.rotulo} preenchido nos custos comerciais e também um item semelhante na composição. Confira antes de finalizar.`);
+        });
+
+        if (valorHospedagemInterna > 0 && listaItens.some((item) => itemCombinaPossivelDuplicidade(item, {
+            termos: ['hospedagem', 'hotel', 'pousada', 'diária de hospedagem']
+        }))) {
+            avisos.push('Atenção: existe hospedagem operacional interna preenchida e também um item relacionado a hospedagem. Confira se o item é cobrança ao cliente ou apenas custo interno.');
+        }
+
+        return avisos;
+    }
+
     function formatarMoeda(valor) {
         return converterTextoMoedaParaNumero(valor, 0).toLocaleString('pt-BR', {
             style: 'currency',
@@ -1167,6 +1238,7 @@
         });
 
         const custosProposta = opcoes.custos && typeof opcoes.custos === 'object' ? opcoes.custos : {};
+        const controleInternoProposta = opcoes.controleInterno && typeof opcoes.controleInterno === 'object' ? opcoes.controleInterno : {};
         const maoObraCobrada = custosProposta.maoObraCobrada && typeof custosProposta.maoObraCobrada === 'object'
             ? custosProposta.maoObraCobrada
             : {};
@@ -1248,6 +1320,9 @@
         if (resumo.itensExigemConferencia > 0) {
             resumo.avisos.push('Existem tipos fiscais que exigem conferência do contador antes da emissão.');
         }
+
+        montarAvisosPossivelDuplicidadeProposta(itens, custosProposta, controleInternoProposta)
+            .forEach((aviso) => resumo.avisos.push(aviso));
 
         resumo.avisos.push('Mão de obra cobrada do cliente entra na base fiscal estimada como mão de obra. Frete, operador, elétrica, gerador, terceirizados e outros adicionais só entram na base fiscal quando forem lançados como itens com tipo fiscal próprio.');
         resumo.avisos.push('Custos internos de mão de obra e hospedagem não entram na base fiscal estimada.');
@@ -3269,6 +3344,7 @@
             valorLiquidoPrevisto,
             tipoCalculoNF: tipoNF,
             custos,
+            controleInterno,
             precisaNotaFiscal: typeof clientePrecisaNotaFiscal === 'boolean' ? clientePrecisaNotaFiscal : null
         });
 
@@ -5794,17 +5870,21 @@
             montarDadoCompactoPdf('Validade da proposta', formatarData(p.financeiro.validadePropostaData)),
             montarDadoCompactoPdf('Observacao de pagamento', p.financeiro.observacaoPagamento)
         ].filter(Boolean).join('');
-        const controleFiscal = [
+        const controleFiscal = exibirInterno ? [
             montarDadoCompactoPdf('Situacao fiscal', situacaoFiscal),
             montarDadoCompactoPdf('Imposto/encargo estimado', nfCliente),
             montarDadoCompactoPdf('Base estimada NFS-e', formatarMoeda(resumoFiscalPdf.baseEstimadaNfse)),
+            montarDadoCompactoPdf('Base estimada NF-e', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscalPdf))),
             montarDadoCompactoPdf('Locacao separada', formatarMoeda(resumoFiscalPdf.totalLocacao)),
+            montarDadoCompactoPdf('Produto/venda separado', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscalPdf))),
             montarDadoCompactoPdf('Servicos separados', formatarMoeda(totalServicosFiscalPdf)),
-            exibirInterno ? montarDadoCompactoPdf('Documento sugerido', textoSeguro(resumoFiscalPdf.tipoDocumentoSugerido, 'Conferir com contabilidade')) : '',
-            exibirInterno ? montarDadoCompactoPdf('Base estimada NF-e', formatarMoeda(obterBaseEstimadaNfeResumoFiscal(resumoFiscalPdf))) : '',
-            exibirInterno ? montarDadoCompactoPdf('Calculo fiscal', rotuloTipoCalculoNF(tipoNF)) : '',
-            exibirInterno ? montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto)) : ''
-        ].filter(Boolean).join('');
+            montarDadoCompactoPdf('Documento sugerido', textoSeguro(resumoFiscalPdf.tipoDocumentoSugerido, 'Conferir com contabilidade')),
+            montarDadoCompactoPdf('Calculo fiscal', rotuloTipoCalculoNF(tipoNF)),
+            montarDadoCompactoPdf('Liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto))
+        ].filter(Boolean).join('') : '';
+        const avisosControleFiscalPdf = exibirInterno && Array.isArray(resumoFiscalPdf.avisos) && resumoFiscalPdf.avisos.length
+            ? montarObservacaoPdf('Avisos de conferencia fiscal', resumoFiscalPdf.avisos.join('\n'))
+            : '';
         const observacoesEscopo = [
             montarObservacaoPdf('Incluso na proposta', p.escopo.inclusoProposta),
             montarObservacaoPdf('Nao incluso na proposta', p.escopo.naoInclusoProposta),
@@ -5813,7 +5893,7 @@
 
         return `
             <style>
-                @page { size: A4; margin: 10mm; }
+                @page { size: A4; margin: 0; }
                 .proposal-pdf-document {
                     background:#ffffff;
                     color:#0f172a;
@@ -5825,8 +5905,9 @@
                 .proposal-pdf-sheet {
                     max-width: 794px;
                     margin:0 auto;
-                    padding:18px 20px 16px;
+                    padding:10mm 11mm 9mm;
                     background:#ffffff;
+                    box-sizing:border-box;
                 }
                 .proposal-pdf-header {
                     display:grid;
@@ -6035,7 +6116,7 @@
                     letter-spacing:.04em;
                 }
                 .pdf-items-table th.desc { text-align:left; width:46%; }
-                .pdf-items-table th.money { text-align:right; }
+                .pdf-items-table th.money { text-align:right; white-space:nowrap; }
                 .pdf-item-row td {
                     padding:7px 8px;
                     border-bottom:1px solid #e5e7eb;
@@ -6066,12 +6147,15 @@
                     font-size:10px;
                     font-weight:900;
                     color:#0f172a;
+                    white-space:nowrap;
                 }
                 .proposal-bottom-grid {
                     display:grid;
                     grid-template-columns:1.05fr .95fr;
-                    gap:12px;
-                    margin-top:12px;
+                    gap:10px;
+                    margin-top:10px;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
                 }
                 .proposal-summary-box,
                 .proposal-terms-box,
@@ -6081,6 +6165,8 @@
                     border-radius:10px;
                     padding:10px;
                     background:#ffffff;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
                 }
                 .proposal-summary-box h3,
                 .proposal-terms-box h3 {
@@ -6091,11 +6177,31 @@
                 .proposal-note-box { margin-top:8px; font-size:10.5px; }
                 .proposal-note-box strong { display:block; margin-bottom:4px; color:#111827; }
                 .proposal-note-box p { margin:0; color:#475569; white-space:pre-wrap; }
+                .proposal-summary-box table,
+                .proposal-summary-box tr,
+                .proposal-terms-box .proposal-info-line {
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
+                .proposal-summary-box td:last-child,
+                .proposal-summary-box strong {
+                    white-space:nowrap;
+                }
+                .proposal-final-block {
+                    margin-top:10px;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
+                .proposal-responsavel {
+                    font-size:10px;
+                    color:#475569;
+                }
                 .proposal-signatures {
                     display:flex;
                     justify-content:space-between;
                     gap:30px;
-                    margin-top:34px;
+                    margin-top:24px;
+                    break-inside:avoid;
                     page-break-inside:avoid;
                 }
                 .proposal-signatures div {
@@ -6118,11 +6224,18 @@
                     color:#64748b;
                 }
                 @media print {
-                    .proposal-pdf-sheet { padding:0; max-width:none; }
+                    .proposal-pdf-sheet { max-width:none; }
+                    .proposal-pdf-document { margin:0; }
                     .proposal-info-box,
                     .proposal-summary-box,
                     .proposal-terms-box,
-                    .proposal-note-box { page-break-inside:avoid; }
+                    .proposal-note-box,
+                    .proposal-bottom-grid,
+                    .proposal-final-block,
+                    .proposal-signatures {
+                        break-inside:avoid;
+                        page-break-inside:avoid;
+                    }
                 }
                 @media (max-width: 720px) {
                     .proposal-pdf-header,
@@ -6184,8 +6297,11 @@
                         <section class="proposal-terms-box">
                             <h3>Condicoes comerciais</h3>
                             ${condicoesComerciais || '<div class="proposal-info-line"><span>Condicoes</span><strong>-</strong></div>'}
-                            <h3 style="margin-top:12px;">Controle fiscal</h3>
-                            ${controleFiscal || '<div class="proposal-info-line"><span>NF</span><strong>-</strong></div>'}
+                            ${exibirInterno ? `
+                                <h3 style="margin-top:12px;">Controle fiscal</h3>
+                                ${controleFiscal || '<div class="proposal-info-line"><span>NF</span><strong>-</strong></div>'}
+                                ${avisosControleFiscalPdf}
+                            ` : ''}
                         </section>
                         <section class="proposal-summary-box">
                             <h3>Resumo financeiro</h3>
@@ -6201,13 +6317,15 @@
                         ${observacoesEscopo}
                     ` : ''}
 
-                    <div style="margin-top:10px; font-size:10px; color:#475569;">
-                        <b>Responsavel pela proposta:</b> ${sanitizar(p.responsavelProposta || '-')}
-                    </div>
+                    <div class="proposal-final-block">
+                        <div class="proposal-responsavel">
+                            <b>Responsavel pela proposta:</b> ${sanitizar(p.responsavelProposta || '-')}
+                        </div>
 
-                    <div class="proposal-signatures">
-                        <div>MTZ EVENTOS</div>
-                        <div>CLIENTE</div>
+                        <div class="proposal-signatures">
+                            <div>MTZ EVENTOS</div>
+                            <div>CLIENTE</div>
+                        </div>
                     </div>
 
                     ${montarRodapePropostaPdf()}
