@@ -6359,6 +6359,7 @@
             return;
         }
 
+        printArea.dataset.pdfTipo = 'proposta-cliente';
         printArea.innerHTML = montarHtmlPdfProposta(proposta);
         modal.classList.add('active');
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
@@ -6380,6 +6381,7 @@
             }
         });
 
+        printArea.dataset.pdfTipo = exibirInterno === true ? 'proposta-interna' : 'proposta-cliente';
         printArea.innerHTML = montarHtmlPdfProposta(propostaPdf);
         modal.classList.add('active');
         mostrarToast(exibirInterno
@@ -6436,6 +6438,7 @@
             mostrarToast('Area de impressao nao encontrada.', 'erro');
             return;
         }
+        printArea.dataset.pdfTipo = 'proposta-cliente';
         printArea.innerHTML = montarHtmlPdfProposta(propostaTemp);
         modal.classList.add('active');
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');

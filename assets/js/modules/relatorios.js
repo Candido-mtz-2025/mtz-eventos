@@ -442,6 +442,21 @@ function gerarPDF() {
         return;
     }
 
+    const ehProposta = Boolean(elemento.querySelector('.proposal-pdf-document'));
+    const tipoPdf = String(elemento.dataset.pdfTipo || '');
+    const ehPropostaComercial = ehProposta
+        && (tipoPdf === 'proposta-cliente' || !elemento.querySelector('.proposal-internal-summary'));
+    const estiloOriginalPrintArea = ehPropostaComercial ? elemento.getAttribute('style') : null;
+    if (ehPropostaComercial) {
+        elemento.style.setProperty('padding', '0', 'important');
+        elemento.style.setProperty('min-height', 'auto', 'important');
+        elemento.style.setProperty('height', 'auto', 'important');
+        elemento.style.setProperty('overflow', 'visible', 'important');
+        elemento.style.setProperty('display', 'block', 'important');
+        elemento.style.setProperty('align-items', 'stretch', 'important');
+        elemento.style.setProperty('box-shadow', 'none', 'important');
+    }
+
     const botaoPDF = document.querySelector('#modalRelatorio [data-action="gerarPDF"]');
     const textoOriginalBotao = botaoPDF ? botaoPDF.innerHTML : '';
     if (botaoPDF) {
@@ -465,9 +480,9 @@ function gerarPDF() {
     html2canvas(elemento, opcoesCanvas)
         .then(canvas => {
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const margem = 6;
-            const alturaCabecalho = 8;
-            const alturaRodape = 8;
+            const margem = ehPropostaComercial ? 0 : 6;
+            const alturaCabecalho = ehPropostaComercial ? 0 : 8;
+            const alturaRodape = ehPropostaComercial ? 0 : 8;
             const larguraPagina = pdf.internal.pageSize.getWidth();
             const alturaPagina = pdf.internal.pageSize.getHeight();
             const larguraUtil = larguraPagina - (margem * 2);
@@ -479,6 +494,18 @@ function gerarPDF() {
             const pontosCorteSeguro = obterPontosDeCorteSeguroPDF(elemento, canvas);
             let origemY = 0;
             let paginaCriada = false;
+            const alturaNaturalMm = (canvas.height * imgLargura) / canvas.width;
+
+            if (ehPropostaComercial && alturaNaturalMm <= alturaUtil * 1.12) {
+                const escalaAjuste = Math.min(1, alturaUtil / alturaNaturalMm);
+                const imgLarguraAjustada = imgLargura * escalaAjuste;
+                const imgAlturaAjustada = alturaNaturalMm * escalaAjuste;
+                const posicaoX = margem + ((larguraUtil - imgLarguraAjustada) / 2);
+                const imgData = canvas.toDataURL('image/png');
+                pdf.addImage(imgData, 'PNG', posicaoX, topoConteudo, imgLarguraAjustada, imgAlturaAjustada, undefined, 'FAST');
+                paginaCriada = true;
+                origemY = canvas.height;
+            }
 
             while (origemY < canvas.height) {
                 const alturaAtualPx = ajustarCorteSeguroPDF(origemY, alturaFatiaPx, canvas.height, pontosCorteSeguro);
@@ -508,9 +535,11 @@ function gerarPDF() {
             }
 
             const totalPaginas = pdf.getNumberOfPages();
-            for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-                pdf.setPage(pagina);
-                aplicarCabecalhoRodapePDF(pdf, pagina, totalPaginas, tituloDoc, dataGeracao, margem, alturaCabecalho, alturaRodape);
+            if (!ehPropostaComercial) {
+                for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+                    pdf.setPage(pagina);
+                    aplicarCabecalhoRodapePDF(pdf, pagina, totalPaginas, tituloDoc, dataGeracao, margem, alturaCabecalho, alturaRodape);
+                }
             }
 
             pdf.save(gerarNomeArquivoPDF());
@@ -523,6 +552,13 @@ function gerarPDF() {
             if (botaoPDF) {
                 botaoPDF.disabled = false;
                 botaoPDF.innerHTML = textoOriginalBotao || '<i class="bi bi-printer"></i> Salvar PDF';
+            }
+            if (ehPropostaComercial) {
+                if (estiloOriginalPrintArea === null) {
+                    elemento.removeAttribute('style');
+                } else {
+                    elemento.setAttribute('style', estiloOriginalPrintArea);
+                }
             }
         });
 }
