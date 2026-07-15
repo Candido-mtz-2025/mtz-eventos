@@ -5603,7 +5603,7 @@
                     </div>
                     <div class="proposal-brand-copy">
                         <span class="proposal-doc-label">Proposta comercial</span>
-                        <h1>Orcamento para eventos</h1>
+                        <h1>Orçamento para eventos</h1>
                         <strong>${sanitizar(rodape)}</strong>
                         <span>${sanitizar(dadosContato || 'Gestao e locacao para eventos')}</span>
                     </div>
@@ -6428,9 +6428,9 @@
                     </div>
                 </div>
                 <div class="proposta-v2-meta">
-                    <div><span>Orcamento</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
+                    <div><span>Orçamento</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
                     <dl>
-                        <dt>Emissao</dt><dd>${formatarData(p.dataCriacao || new Date())}</dd>
+                        <dt>Emissão</dt><dd>${formatarData(p.dataCriacao || new Date())}</dd>
                         <dt>Validade</dt><dd>${validadeLabel}</dd>
                         ${totalPaginas > 1 ? `<dt>Pagina</dt><dd>${pagina}/${totalPaginas}</dd>` : ''}
                     </dl>
@@ -6452,14 +6452,14 @@
                     ${montarLinhaDadoV2('CPF / CNPJ', p.cliente.documento)}
                     ${montarLinhaDadoV2('Telefone', p.cliente.telefone)}
                     ${montarLinhaDadoV2('E-mail', p.cliente.email)}
-                    ${montarLinhaDadoV2('Endereco', p.cliente.endereco)}
+                    ${montarLinhaDadoV2('Endereço', p.cliente.endereco)}
                 </div>
                 <div>
                     <span class="proposta-v2-section-label">Evento</span>
                     <h2>${sanitizar(p.evento.nome || p.evento.local || 'Evento nao informado')}</h2>
                     ${montarLinhaDadoV2('Local', p.evento.local)}
                     ${montarLinhaDadoV2('Cidade / UF', [p.evento.cidadeEvento, p.evento.ufEvento].filter(Boolean).join(' / '))}
-                    ${montarLinhaDadoV2('Referencia', p.evento.pontoReferencia)}
+                    ${montarLinhaDadoV2('Referência', p.evento.pontoReferencia)}
                 </div>
             </section>
         `;
@@ -6482,11 +6482,11 @@
         const montarTabelaItensV2 = (itensPagina, pagina) => `
             <section class="proposta-v2-items">
                 <div class="proposta-v2-title-row">
-                    <div><span>Composicao</span><h2>${pagina > 1 ? 'Itens do orcamento - continuacao' : 'Itens do orcamento'}</h2></div>
+                    <div><span>Composição</span><h2>${pagina > 1 ? 'Itens do orçamento - continuação' : 'Itens do orçamento'}</h2></div>
                     <small>${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</small>
                 </div>
                 <table>
-                    <thead><tr><th>Qtd.</th><th>Descricao</th><th>Diarias</th><th>Valor unit.</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Qtd.</th><th>Descrição</th><th>Diárias</th><th>Valor unit.</th><th>Total</th></tr></thead>
                     <tbody>
                         ${itensPagina.length ? itensPagina.map((item) => {
                             const base = numeroNaoNegativo(item.periodoDias, 1) * numeroNaoNegativo(item.quantidade, 0);
@@ -6510,14 +6510,14 @@
         `;
 
         const linhasMaoObraV2 = [
-            totalMontagem > 0 ? ['Mao de obra - montagem', totalMontagem] : null,
-            totalDesmontagem > 0 ? ['Mao de obra - desmontagem', totalDesmontagem] : null,
+            totalMontagem > 0 ? ['Mão de obra - montagem', totalMontagem] : null,
+            totalDesmontagem > 0 ? ['Mão de obra - desmontagem', totalDesmontagem] : null,
             totalMaoObra > totalMaoObraDetalhada
-                ? ['Mao de obra cobrada do cliente', arredondarMoeda(totalMaoObra - totalMaoObraDetalhada)]
+                ? ['Mão de obra cobrada do cliente', arredondarMoeda(totalMaoObra - totalMaoObraDetalhada)]
                 : null
         ].filter(Boolean);
         if (!linhasMaoObraV2.length && totalMaoObra > 0) {
-            linhasMaoObraV2.push(['Mao de obra cobrada do cliente', totalMaoObra]);
+            linhasMaoObraV2.push(['Mão de obra cobrada do cliente', totalMaoObra]);
         }
 
         const montarLinhaResumoV2 = (rotulo, valor, classe = '') => `
@@ -6527,41 +6527,43 @@
         const montarFechamentoV2 = () => {
             const observacoes = [
                 p.escopo.inclusoProposta ? `<div><strong>Incluso</strong><p>${sanitizar(p.escopo.inclusoProposta)}</p></div>` : '',
-                p.escopo.naoInclusoProposta ? `<div><strong>Nao incluso</strong><p>${sanitizar(p.escopo.naoInclusoProposta)}</p></div>` : '',
-                p.escopo.observacoesComerciais ? `<div><strong>Observacoes comerciais</strong><p>${sanitizar(p.escopo.observacoesComerciais)}</p></div>` : ''
+                p.escopo.naoInclusoProposta ? `<div><strong>Não incluso</strong><p>${sanitizar(p.escopo.naoInclusoProposta)}</p></div>` : '',
+                p.escopo.observacoesComerciais ? `<div><strong>Observações comerciais</strong><p>${sanitizar(p.escopo.observacoesComerciais)}</p></div>` : ''
             ].filter(Boolean).join('');
             return `
-                <section class="proposta-v2-closing">
-                    <div class="proposta-v2-terms">
-                        <span class="proposta-v2-section-label">Condicoes comerciais</span>
-                        ${montarLinhaDadoV2('Forma de pagamento', rotuloFormaPagamento(p.financeiro.formaPagamento))}
-                        ${montarLinhaDadoV2('Condicao', p.financeiro.condicaoPagamento)}
-                        ${montarLinhaDadoV2('Entrada', `${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})`)}
-                        ${montarLinhaDadoV2('Saldo', `${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})`)}
-                        ${montarLinhaDadoV2('Prazo de aprovacao', `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`)}
-                    </div>
-                    <div class="proposta-v2-summary">
-                        <span class="proposta-v2-section-label">Resumo financeiro</span>
-                        ${montarLinhaResumoV2('Subtotal', p.financeiro.subtotal)}
-                        ${frete > 0 ? montarLinhaResumoV2('Frete', frete) : ''}
-                        ${linhasMaoObraV2.map(([rotulo, valor]) => montarLinhaResumoV2(rotulo, valor)).join('')}
-                        ${outrosCustosComerciais > 0 ? montarLinhaResumoV2('Outros custos comerciais', outrosCustosComerciais) : ''}
-                        ${numeroNaoNegativo(p.financeiro.desconto, 0) > 0 ? montarLinhaResumoV2('Desconto', p.financeiro.desconto) : ''}
-                        ${numeroNaoNegativo(p.financeiro.acrescimo, 0) > 0 ? montarLinhaResumoV2('Acrescimo', p.financeiro.acrescimo) : ''}
-                        ${tipoNF === 'acrescentar' && numeroNaoNegativo(p.financeiro.valorNF, 0) > 0
-                            ? montarLinhaResumoV2(`Fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, p.financeiro.valorNF)
-                            : ''}
-                    </div>
-                </section>
-                <section class="proposta-v2-total">
-                    <div><span>Investimento total</span><small>Valores expressos em reais</small></div>
-                    <strong>${formatarMoeda(valorFinalComercial)}</strong>
-                </section>
-                ${observacoes ? `<section class="proposta-v2-notes"><span class="proposta-v2-section-label">Observacoes importantes</span>${observacoes}</section>` : ''}
-                <section class="proposta-v2-acceptance">
-                    <div class="proposta-v2-responsible"><span>Responsavel pela proposta</span><strong>${sanitizar(p.responsavelProposta || '-')}</strong></div>
-                    <div class="proposta-v2-signatures"><div>MTZ EVENTOS</div><div>CLIENTE / ACEITE</div></div>
-                </section>
+                <div class="proposta-v2-final">
+                    <section class="proposta-v2-closing">
+                        <div class="proposta-v2-terms">
+                            <span class="proposta-v2-section-label">Condições comerciais</span>
+                            ${montarLinhaDadoV2('Forma de pagamento', rotuloFormaPagamento(p.financeiro.formaPagamento))}
+                            ${montarLinhaDadoV2('Condição', p.financeiro.condicaoPagamento)}
+                            ${montarLinhaDadoV2('Entrada', `${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})`)}
+                            ${montarLinhaDadoV2('Saldo', `${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})`)}
+                            ${montarLinhaDadoV2('Prazo de aprovação', `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`)}
+                        </div>
+                        <div class="proposta-v2-summary">
+                            <span class="proposta-v2-section-label">Resumo financeiro</span>
+                            ${montarLinhaResumoV2('Subtotal', p.financeiro.subtotal)}
+                            ${frete > 0 ? montarLinhaResumoV2('Frete', frete) : ''}
+                            ${linhasMaoObraV2.map(([rotulo, valor]) => montarLinhaResumoV2(rotulo, valor)).join('')}
+                            ${outrosCustosComerciais > 0 ? montarLinhaResumoV2('Outros custos comerciais', outrosCustosComerciais) : ''}
+                            ${numeroNaoNegativo(p.financeiro.desconto, 0) > 0 ? montarLinhaResumoV2('Desconto', p.financeiro.desconto) : ''}
+                            ${numeroNaoNegativo(p.financeiro.acrescimo, 0) > 0 ? montarLinhaResumoV2('Acréscimo', p.financeiro.acrescimo) : ''}
+                            ${tipoNF === 'acrescentar' && numeroNaoNegativo(p.financeiro.valorNF, 0) > 0
+                                ? montarLinhaResumoV2(`Fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, p.financeiro.valorNF)
+                                : ''}
+                        </div>
+                    </section>
+                    <section class="proposta-v2-total">
+                        <div><span>Investimento total</span><small>Valores expressos em reais</small></div>
+                        <strong>${formatarMoeda(valorFinalComercial)}</strong>
+                    </section>
+                    ${observacoes ? `<section class="proposta-v2-notes"><span class="proposta-v2-section-label">Observações importantes</span>${observacoes}</section>` : ''}
+                    <section class="proposta-v2-acceptance">
+                        <div class="proposta-v2-responsible"><span>Responsável pela proposta</span><strong>${sanitizar(p.responsavelProposta || '-')}</strong></div>
+                        <div class="proposta-v2-signatures"><div>MTZ EVENTOS</div><div>CLIENTE / APROVAÇÃO</div></div>
+                    </section>
+                </div>
             `;
         };
 
@@ -6581,7 +6583,7 @@
                     </main>
                     <footer class="proposta-v2-footer">
                         <span>${sanitizar([nomeEmpresa, contatoEmpresa].filter(Boolean).join(' | '))}</span>
-                        <span>Proposta sujeita a disponibilidade na data de aprovacao.</span>
+                        <span>Proposta sujeita a disponibilidade na data de aprovação.</span>
                     </footer>
                 </article>
             `;
@@ -6655,7 +6657,13 @@
                 .proposta-v2-meta dl { display:grid; grid-template-columns:auto 1fr; gap:1mm 3mm; margin:2mm 0 0; }
                 .proposta-v2-meta dt { color:#667085; font-size:7.5pt; }
                 .proposta-v2-meta dd { margin:0; color:#344054; font-size:8pt; font-weight:700; text-align:right; white-space:nowrap; }
-                .proposta-v2-content { flex:1 1 auto; padding-top:5mm; }
+                .proposta-v2-content {
+                    display:flex;
+                    flex:1 1 auto;
+                    flex-direction:column;
+                    min-height:0;
+                    padding-top:5mm;
+                }
                 .proposta-v2-identity { display:grid; grid-template-columns:1fr 1fr; gap:8mm; padding-bottom:4mm; }
                 .proposta-v2-identity > div { min-width:0; }
                 .proposta-v2-identity h2 { margin:1mm 0 2mm; font-size:12pt; line-height:1.15; color:#101828; overflow-wrap:anywhere; }
@@ -6704,11 +6712,17 @@
                 .proposta-v2-items td.description strong { display:block; color:#101828; font-size:8.5pt; overflow-wrap:anywhere; }
                 .proposta-v2-items td.description small { display:block; margin-top:.6mm; color:#667085; font-size:7pt; }
                 .proposta-v2-items td.empty { padding:6mm; text-align:center; color:#667085; }
+                .proposta-v2-final {
+                    margin-top:auto;
+                    padding-top:5mm;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
                 .proposta-v2-closing {
                     display:grid;
                     grid-template-columns:1.05fr .95fr;
                     gap:8mm;
-                    margin-top:5mm;
+                    margin-top:0;
                     padding-top:4mm;
                     border-top:1px solid #d9e1ec;
                     break-inside:avoid;
@@ -6749,7 +6763,7 @@
                     display:flex;
                     justify-content:space-between;
                     gap:8mm;
-                    margin-top:auto;
+                    margin-top:5mm;
                     padding-top:3mm;
                     border-top:1px solid #d9e1ec;
                     color:#7b8494;
