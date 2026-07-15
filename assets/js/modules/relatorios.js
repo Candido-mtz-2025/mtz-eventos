@@ -430,6 +430,59 @@ function ajustarCorteSeguroPDF(origemY, alturaPadraoPx, alturaTotalPx, pontosCor
     return candidato ? candidato - origemY : limitePadrao - origemY;
 }
 
+async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) {
+    const { jsPDF } = window.jspdf;
+
+    try {
+        if (document.fonts?.ready) await document.fonts.ready;
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        for (let indice = 0; indice < paginas.length; indice += 1) {
+            const pagina = paginas[indice];
+            const excessoVertical = pagina.scrollHeight - pagina.clientHeight;
+            if (excessoVertical > 2) {
+                throw new Error(`Pagina ${indice + 1} ultrapassou a altura A4 em ${excessoVertical}px.`);
+            }
+
+            const canvas = await html2canvas(pagina, {
+                scale: Math.min(window.devicePixelRatio || 2, 2),
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                width: pagina.offsetWidth,
+                height: pagina.offsetHeight,
+                windowWidth: pagina.offsetWidth,
+                windowHeight: pagina.offsetHeight
+            });
+
+            if (indice > 0) pdf.addPage('a4', 'p');
+            pdf.addImage(
+                canvas.toDataURL('image/png'),
+                'PNG',
+                0,
+                0,
+                210,
+                297,
+                undefined,
+                'FAST'
+            );
+        }
+
+        pdf.save(gerarNomeArquivoPDF());
+        mostrarToast('PDF gerado com sucesso!', 'ok');
+    } catch (erro) {
+        console.error('Erro ao gerar PDF comercial V2:', erro);
+        mostrarToast(erro?.message || 'Erro ao gerar PDF. Tente novamente.', 'erro');
+    } finally {
+        if (botaoPDF) {
+            botaoPDF.disabled = false;
+            botaoPDF.innerHTML = textoOriginalBotao || '<i class="bi bi-printer"></i> Salvar PDF';
+        }
+    }
+}
+
 function gerarPDF() {
     if (!window.jspdf || !window.html2canvas) {
         mostrarToast('Aguarde o carregamento das bibliotecas...', 'erro');
@@ -441,6 +494,10 @@ function gerarPDF() {
         mostrarToast('Nenhum conteúdo para exportar.', 'erro');
         return;
     }
+
+    const paginasPropostaV2 = Array.from(elemento.querySelectorAll('.proposta-cliente-page'));
+    const ehPropostaClienteV2 = elemento.dataset.pdfTipo === 'proposta-cliente-v2'
+        && paginasPropostaV2.length > 0;
 
     const ehProposta = Boolean(elemento.querySelector('.proposal-pdf-document'));
     const tipoPdf = String(elemento.dataset.pdfTipo || '');
@@ -462,6 +519,11 @@ function gerarPDF() {
     if (botaoPDF) {
         botaoPDF.disabled = true;
         botaoPDF.innerHTML = '<i class="bi bi-hourglass-split"></i> Gerando...';
+    }
+
+    if (ehPropostaClienteV2) {
+        gerarPDFPropostaClienteV2(paginasPropostaV2, botaoPDF, textoOriginalBotao);
+        return;
     }
 
     const { jsPDF } = window.jspdf;

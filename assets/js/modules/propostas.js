@@ -6334,6 +6334,455 @@
         `;
     }
 
+    function montarHtmlPdfPropostaClienteV2(proposta) {
+        const p = normalizarProposta(proposta);
+        const itens = Array.isArray(p.itens) ? p.itens : [];
+        const valorFinalComercial = obterValorFinalComercial(p);
+        const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
+        const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
+        const nomeEmpresa = textoSeguro(config?.rodape, 'MTZ Eventos e Marketing Promocional');
+        const telefoneEmpresa = textoSeguro(config?.tel, '');
+        const emailEmpresa = textoSeguro(config?.email, '');
+        const contatoEmpresa = [telefoneEmpresa, emailEmpresa].filter(Boolean).join(' | ');
+        const validadeData = formatarData(p.financeiro.validadePropostaData);
+        const validadeLabel = validadeData !== '-'
+            ? validadeData
+            : `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`;
+
+        const frete = numeroNaoNegativo(p.custos.frete, 0);
+        const totalCustosAdicionais = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
+        const maoObraCobrada = p.custos.maoObraCobrada && typeof p.custos.maoObraCobrada === 'object'
+            ? p.custos.maoObraCobrada
+            : {};
+        const maoObraMontagem = maoObraCobrada.montagem && typeof maoObraCobrada.montagem === 'object'
+            ? maoObraCobrada.montagem
+            : {};
+        const maoObraDesmontagem = maoObraCobrada.desmontagem && typeof maoObraCobrada.desmontagem === 'object'
+            ? maoObraCobrada.desmontagem
+            : {};
+        const totalMaoObra = numeroNaoNegativo(maoObraCobrada.total ?? p.custos.maoObra, 0);
+        const totalMontagem = numeroNaoNegativo(maoObraMontagem.total, 0);
+        const totalDesmontagem = numeroNaoNegativo(maoObraDesmontagem.total, 0);
+        const totalMaoObraDetalhada = arredondarMoeda(totalMontagem + totalDesmontagem);
+        const outrosCustosComerciais = arredondarMoeda(Math.max(
+            totalCustosAdicionais - frete - totalMaoObra,
+            0
+        ));
+
+        const pesoItem = (item) => {
+            const tamanho = String(item?.descricao || '').length + (String(item?.observacoes || '').length * 0.45);
+            return Math.max(1, Math.ceil(tamanho / 74));
+        };
+        const pesoTotalItens = itens.reduce((total, item) => total + pesoItem(item), 0);
+        const pesoObservacoes = [
+            p.escopo.inclusoProposta,
+            p.escopo.naoInclusoProposta,
+            p.escopo.observacoesComerciais
+        ].reduce((total, texto) => total + Math.ceil(String(texto || '').length / 180), 0);
+
+        const retirarAtePeso = (origem, capacidade) => {
+            const pagina = [];
+            let peso = 0;
+            while (origem.length) {
+                const proximo = origem[0];
+                const pesoProximo = pesoItem(proximo);
+                if (pagina.length && peso + pesoProximo > capacidade) break;
+                pagina.push(origem.shift());
+                peso += pesoProximo;
+            }
+            return pagina;
+        };
+
+        const paginasItens = [];
+        const cabeEmPaginaUnica = pesoTotalItens <= 6 && pesoObservacoes <= 3;
+        if (cabeEmPaginaUnica) {
+            paginasItens.push(itens);
+        } else {
+            const restantes = [...itens];
+            const ultimaPagina = [];
+            let pesoUltima = 0;
+            while (restantes.length) {
+                const candidato = restantes[restantes.length - 1];
+                const pesoCandidato = pesoItem(candidato);
+                if (ultimaPagina.length && pesoUltima + pesoCandidato > 4) break;
+                ultimaPagina.unshift(restantes.pop());
+                pesoUltima += pesoCandidato;
+            }
+
+            if (restantes.length) paginasItens.push(retirarAtePeso(restantes, 8));
+            while (restantes.length) paginasItens.push(retirarAtePeso(restantes, 13));
+            paginasItens.push(ultimaPagina);
+        }
+
+        if (!paginasItens.length) paginasItens.push([]);
+
+        const montarCabecalhoV2 = (pagina, totalPaginas) => `
+            <header class="proposta-v2-header">
+                <div class="proposta-v2-brand">
+                    <div class="proposta-v2-logo"><img src="${logoPdfSrc}" alt="MTZ Eventos"></div>
+                    <div>
+                        <span class="proposta-v2-kicker">Proposta comercial</span>
+                        <h1>Orcamento para eventos</h1>
+                        <strong>${sanitizar(nomeEmpresa)}</strong>
+                        ${contatoEmpresa ? `<small>${sanitizar(contatoEmpresa)}</small>` : ''}
+                    </div>
+                </div>
+                <div class="proposta-v2-meta">
+                    <div><span>Orcamento</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
+                    <dl>
+                        <dt>Emissao</dt><dd>${formatarData(p.dataCriacao || new Date())}</dd>
+                        <dt>Validade</dt><dd>${validadeLabel}</dd>
+                        ${totalPaginas > 1 ? `<dt>Pagina</dt><dd>${pagina}/${totalPaginas}</dd>` : ''}
+                    </dl>
+                </div>
+            </header>
+        `;
+
+        const montarLinhaDadoV2 = (rotulo, valor) => {
+            const texto = textoSeguro(valor, '');
+            if (!texto || texto === '-') return '';
+            return `<div class="proposta-v2-data-line"><span>${sanitizar(rotulo)}</span><strong>${sanitizar(texto)}</strong></div>`;
+        };
+
+        const montarIdentificacaoV2 = () => `
+            <section class="proposta-v2-identity">
+                <div>
+                    <span class="proposta-v2-section-label">Cliente</span>
+                    <h2>${sanitizar(p.cliente.nome || 'Cliente nao informado')}</h2>
+                    ${montarLinhaDadoV2('CPF / CNPJ', p.cliente.documento)}
+                    ${montarLinhaDadoV2('Telefone', p.cliente.telefone)}
+                    ${montarLinhaDadoV2('E-mail', p.cliente.email)}
+                    ${montarLinhaDadoV2('Endereco', p.cliente.endereco)}
+                </div>
+                <div>
+                    <span class="proposta-v2-section-label">Evento</span>
+                    <h2>${sanitizar(p.evento.nome || p.evento.local || 'Evento nao informado')}</h2>
+                    ${montarLinhaDadoV2('Local', p.evento.local)}
+                    ${montarLinhaDadoV2('Cidade / UF', [p.evento.cidadeEvento, p.evento.ufEvento].filter(Boolean).join(' / '))}
+                    ${montarLinhaDadoV2('Referencia', p.evento.pontoReferencia)}
+                </div>
+            </section>
+        `;
+
+        const montarCronogramaV2 = () => {
+            const marcos = [
+                ['Montagem', formatarData(p.evento.dataMontagem), textoSeguro(p.evento.horaMontagem, '')],
+                ['Evento', formatarData(p.evento.dataEvento), textoSeguro(p.evento.horaInicioEvento, '')],
+                ['Desmontagem', formatarData(p.evento.dataDesmontagem), textoSeguro(p.evento.horaDesmontagem, '')]
+            ];
+            return `
+                <section class="proposta-v2-schedule">
+                    ${marcos.map(([rotulo, data, hora]) => `
+                        <div><span>${rotulo}</span><strong>${data}</strong>${hora ? `<small>${sanitizar(hora)}</small>` : ''}</div>
+                    `).join('')}
+                </section>
+            `;
+        };
+
+        const montarTabelaItensV2 = (itensPagina, pagina) => `
+            <section class="proposta-v2-items">
+                <div class="proposta-v2-title-row">
+                    <div><span>Composicao</span><h2>${pagina > 1 ? 'Itens do orcamento - continuacao' : 'Itens do orcamento'}</h2></div>
+                    <small>${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</small>
+                </div>
+                <table>
+                    <thead><tr><th>Qtd.</th><th>Descricao</th><th>Diarias</th><th>Valor unit.</th><th>Total</th></tr></thead>
+                    <tbody>
+                        ${itensPagina.length ? itensPagina.map((item) => {
+                            const base = numeroNaoNegativo(item.periodoDias, 1) * numeroNaoNegativo(item.quantidade, 0);
+                            const unitario = base > 0 ? numeroNaoNegativo(item.valorTotal, 0) / base : numeroNaoNegativo(item.valorTotal, 0);
+                            return `
+                                <tr>
+                                    <td class="center">${numeroNaoNegativo(item.quantidade, 0)}</td>
+                                    <td class="description">
+                                        <strong>${sanitizar(item.descricao || '-')}</strong>
+                                        <small>${sanitizar(rotuloCategoriaOrcamento(item.categoria))}${item.medida ? ` | ${sanitizar(item.medida)}` : ''}</small>
+                                    </td>
+                                    <td class="center">${numeroNaoNegativo(item.periodoDias, 1)}</td>
+                                    <td class="money">${formatarMoeda(unitario)}</td>
+                                    <td class="money total">${formatarMoeda(item.valorTotal)}</td>
+                                </tr>
+                            `;
+                        }).join('') : '<tr><td colspan="5" class="empty">Sem itens informados</td></tr>'}
+                    </tbody>
+                </table>
+            </section>
+        `;
+
+        const linhasMaoObraV2 = [
+            totalMontagem > 0 ? ['Mao de obra - montagem', totalMontagem] : null,
+            totalDesmontagem > 0 ? ['Mao de obra - desmontagem', totalDesmontagem] : null,
+            totalMaoObra > totalMaoObraDetalhada
+                ? ['Mao de obra cobrada do cliente', arredondarMoeda(totalMaoObra - totalMaoObraDetalhada)]
+                : null
+        ].filter(Boolean);
+        if (!linhasMaoObraV2.length && totalMaoObra > 0) {
+            linhasMaoObraV2.push(['Mao de obra cobrada do cliente', totalMaoObra]);
+        }
+
+        const montarLinhaResumoV2 = (rotulo, valor, classe = '') => `
+            <div class="proposta-v2-summary-line ${classe}"><span>${sanitizar(rotulo)}</span><strong>${formatarMoeda(valor)}</strong></div>
+        `;
+
+        const montarFechamentoV2 = () => {
+            const observacoes = [
+                p.escopo.inclusoProposta ? `<div><strong>Incluso</strong><p>${sanitizar(p.escopo.inclusoProposta)}</p></div>` : '',
+                p.escopo.naoInclusoProposta ? `<div><strong>Nao incluso</strong><p>${sanitizar(p.escopo.naoInclusoProposta)}</p></div>` : '',
+                p.escopo.observacoesComerciais ? `<div><strong>Observacoes comerciais</strong><p>${sanitizar(p.escopo.observacoesComerciais)}</p></div>` : ''
+            ].filter(Boolean).join('');
+            return `
+                <section class="proposta-v2-closing">
+                    <div class="proposta-v2-terms">
+                        <span class="proposta-v2-section-label">Condicoes comerciais</span>
+                        ${montarLinhaDadoV2('Forma de pagamento', rotuloFormaPagamento(p.financeiro.formaPagamento))}
+                        ${montarLinhaDadoV2('Condicao', p.financeiro.condicaoPagamento)}
+                        ${montarLinhaDadoV2('Entrada', `${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})`)}
+                        ${montarLinhaDadoV2('Saldo', `${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})`)}
+                        ${montarLinhaDadoV2('Prazo de aprovacao', `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`)}
+                    </div>
+                    <div class="proposta-v2-summary">
+                        <span class="proposta-v2-section-label">Resumo financeiro</span>
+                        ${montarLinhaResumoV2('Subtotal', p.financeiro.subtotal)}
+                        ${frete > 0 ? montarLinhaResumoV2('Frete', frete) : ''}
+                        ${linhasMaoObraV2.map(([rotulo, valor]) => montarLinhaResumoV2(rotulo, valor)).join('')}
+                        ${outrosCustosComerciais > 0 ? montarLinhaResumoV2('Outros custos comerciais', outrosCustosComerciais) : ''}
+                        ${numeroNaoNegativo(p.financeiro.desconto, 0) > 0 ? montarLinhaResumoV2('Desconto', p.financeiro.desconto) : ''}
+                        ${numeroNaoNegativo(p.financeiro.acrescimo, 0) > 0 ? montarLinhaResumoV2('Acrescimo', p.financeiro.acrescimo) : ''}
+                        ${tipoNF === 'acrescentar' && numeroNaoNegativo(p.financeiro.valorNF, 0) > 0
+                            ? montarLinhaResumoV2(`Fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, p.financeiro.valorNF)
+                            : ''}
+                    </div>
+                </section>
+                <section class="proposta-v2-total">
+                    <div><span>Investimento total</span><small>Valores expressos em reais</small></div>
+                    <strong>${formatarMoeda(valorFinalComercial)}</strong>
+                </section>
+                ${observacoes ? `<section class="proposta-v2-notes"><span class="proposta-v2-section-label">Observacoes importantes</span>${observacoes}</section>` : ''}
+                <section class="proposta-v2-acceptance">
+                    <div class="proposta-v2-responsible"><span>Responsavel pela proposta</span><strong>${sanitizar(p.responsavelProposta || '-')}</strong></div>
+                    <div class="proposta-v2-signatures"><div>MTZ EVENTOS</div><div>CLIENTE / ACEITE</div></div>
+                </section>
+            `;
+        };
+
+        const totalPaginas = paginasItens.length;
+        const paginasHtml = paginasItens.map((itensPagina, indice) => {
+            const numeroPagina = indice + 1;
+            const primeira = indice === 0;
+            const ultima = indice === totalPaginas - 1;
+            return `
+                <article class="proposta-cliente-page" data-proposta-pagina="${numeroPagina}">
+                    ${montarCabecalhoV2(numeroPagina, totalPaginas)}
+                    <main class="proposta-v2-content">
+                        ${primeira ? montarIdentificacaoV2() : ''}
+                        ${primeira ? montarCronogramaV2() : ''}
+                        ${montarTabelaItensV2(itensPagina, numeroPagina)}
+                        ${ultima ? montarFechamentoV2() : ''}
+                    </main>
+                    <footer class="proposta-v2-footer">
+                        <span>${sanitizar([nomeEmpresa, contatoEmpresa].filter(Boolean).join(' | '))}</span>
+                        <span>Proposta sujeita a disponibilidade na data de aprovacao.</span>
+                    </footer>
+                </article>
+            `;
+        }).join('');
+
+        return `
+            <style>
+                @page { size:A4; margin:0; }
+                .proposta-cliente-v2-document {
+                    display:grid;
+                    justify-content:center;
+                    gap:24px;
+                    padding:24px;
+                    background:#e9edf3;
+                    box-sizing:border-box;
+                }
+                .proposta-cliente-page,
+                .proposta-cliente-page * { box-sizing:border-box; }
+                .proposta-cliente-page {
+                    width:210mm;
+                    height:297mm;
+                    min-height:297mm;
+                    margin:0 auto;
+                    padding:12mm 14mm;
+                    display:flex;
+                    flex-direction:column;
+                    background:#ffffff;
+                    color:#172033;
+                    font-family:Arial, Helvetica, sans-serif;
+                    font-size:9.5pt;
+                    line-height:1.3;
+                    box-shadow:0 12px 32px rgba(15, 23, 42, .16);
+                    break-after:page;
+                    page-break-after:always;
+                }
+                .proposta-cliente-page:last-child { break-after:auto; page-break-after:auto; }
+                .proposta-v2-header {
+                    display:grid;
+                    grid-template-columns:1fr 53mm;
+                    gap:8mm;
+                    align-items:center;
+                    padding-bottom:5mm;
+                    border-bottom:1px solid #d9e1ec;
+                }
+                .proposta-v2-brand { display:flex; align-items:center; gap:4mm; min-width:0; }
+                .proposta-v2-logo {
+                    width:28mm;
+                    height:17mm;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    flex:0 0 auto;
+                }
+                .proposta-v2-logo img { max-width:27mm; max-height:16mm; object-fit:contain; }
+                .proposta-v2-brand h1 { margin:1mm 0 .5mm; font-size:17pt; line-height:1.05; color:#101828; }
+                .proposta-v2-brand strong { display:block; font-size:9pt; color:#344054; }
+                .proposta-v2-brand small { display:block; margin-top:.7mm; color:#667085; font-size:7.5pt; }
+                .proposta-v2-kicker,
+                .proposta-v2-section-label {
+                    display:block;
+                    color:#1f5fc4;
+                    font-size:7.5pt;
+                    font-weight:800;
+                    letter-spacing:.08em;
+                    text-transform:uppercase;
+                }
+                .proposta-v2-meta { padding-left:5mm; border-left:2px solid #1f5fc4; }
+                .proposta-v2-meta > div { display:flex; justify-content:space-between; align-items:baseline; gap:3mm; }
+                .proposta-v2-meta > div span { color:#667085; font-size:7.5pt; text-transform:uppercase; }
+                .proposta-v2-meta > div strong { color:#101828; font-size:12pt; white-space:nowrap; }
+                .proposta-v2-meta dl { display:grid; grid-template-columns:auto 1fr; gap:1mm 3mm; margin:2mm 0 0; }
+                .proposta-v2-meta dt { color:#667085; font-size:7.5pt; }
+                .proposta-v2-meta dd { margin:0; color:#344054; font-size:8pt; font-weight:700; text-align:right; white-space:nowrap; }
+                .proposta-v2-content { flex:1 1 auto; padding-top:5mm; }
+                .proposta-v2-identity { display:grid; grid-template-columns:1fr 1fr; gap:8mm; padding-bottom:4mm; }
+                .proposta-v2-identity > div { min-width:0; }
+                .proposta-v2-identity h2 { margin:1mm 0 2mm; font-size:12pt; line-height:1.15; color:#101828; overflow-wrap:anywhere; }
+                .proposta-v2-data-line { display:grid; grid-template-columns:24mm 1fr; gap:2mm; padding:.7mm 0; border-bottom:1px solid #eef1f5; }
+                .proposta-v2-data-line span { color:#667085; font-size:7.5pt; }
+                .proposta-v2-data-line strong { color:#344054; font-size:8pt; font-weight:700; overflow-wrap:anywhere; }
+                .proposta-v2-schedule {
+                    display:grid;
+                    grid-template-columns:repeat(3, 1fr);
+                    gap:3mm;
+                    margin:0 0 4mm;
+                    padding:3mm 4mm;
+                    border-radius:3mm;
+                    background:#f4f7fb;
+                }
+                .proposta-v2-schedule div { padding-left:3mm; border-left:2px solid #8fb6ec; }
+                .proposta-v2-schedule span { display:block; color:#667085; font-size:7pt; text-transform:uppercase; }
+                .proposta-v2-schedule strong { display:block; margin-top:.5mm; color:#101828; font-size:9pt; }
+                .proposta-v2-schedule small { color:#475467; font-size:7.5pt; }
+                .proposta-v2-title-row { display:flex; justify-content:space-between; align-items:end; gap:4mm; margin-bottom:2mm; }
+                .proposta-v2-title-row span { color:#1f5fc4; font-size:7pt; font-weight:800; text-transform:uppercase; }
+                .proposta-v2-title-row h2 { margin:.5mm 0 0; color:#101828; font-size:12pt; }
+                .proposta-v2-title-row small { color:#667085; font-size:7.5pt; }
+                .proposta-v2-items table { width:100%; border-collapse:collapse; table-layout:fixed; }
+                .proposta-v2-items thead { display:table-header-group; }
+                .proposta-v2-items th {
+                    padding:2.2mm 2.4mm;
+                    background:#173d75;
+                    color:#ffffff;
+                    font-size:7pt;
+                    letter-spacing:.04em;
+                    text-align:right;
+                    text-transform:uppercase;
+                    white-space:nowrap;
+                }
+                .proposta-v2-items th:first-child { width:13mm; text-align:center; border-radius:2mm 0 0 0; }
+                .proposta-v2-items th:nth-child(2) { width:auto; text-align:left; }
+                .proposta-v2-items th:nth-child(3) { width:17mm; text-align:center; }
+                .proposta-v2-items th:nth-child(4) { width:29mm; }
+                .proposta-v2-items th:last-child { width:29mm; border-radius:0 2mm 0 0; }
+                .proposta-v2-items tr { break-inside:avoid; page-break-inside:avoid; }
+                .proposta-v2-items td { padding:2.4mm; border-bottom:1px solid #e6eaf0; color:#344054; vertical-align:top; }
+                .proposta-v2-items td.center { text-align:center; white-space:nowrap; }
+                .proposta-v2-items td.money { text-align:right; white-space:nowrap; }
+                .proposta-v2-items td.total { color:#101828; font-weight:800; }
+                .proposta-v2-items td.description strong { display:block; color:#101828; font-size:8.5pt; overflow-wrap:anywhere; }
+                .proposta-v2-items td.description small { display:block; margin-top:.6mm; color:#667085; font-size:7pt; }
+                .proposta-v2-items td.empty { padding:6mm; text-align:center; color:#667085; }
+                .proposta-v2-closing {
+                    display:grid;
+                    grid-template-columns:1.05fr .95fr;
+                    gap:8mm;
+                    margin-top:5mm;
+                    padding-top:4mm;
+                    border-top:1px solid #d9e1ec;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
+                .proposta-v2-terms,
+                .proposta-v2-summary { min-width:0; }
+                .proposta-v2-terms .proposta-v2-data-line { grid-template-columns:29mm 1fr; }
+                .proposta-v2-summary-line { display:flex; justify-content:space-between; gap:4mm; padding:1mm 0; border-bottom:1px solid #eef1f5; }
+                .proposta-v2-summary-line span { color:#667085; font-size:7.5pt; }
+                .proposta-v2-summary-line strong { color:#101828; font-size:8pt; white-space:nowrap; }
+                .proposta-v2-total {
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    gap:8mm;
+                    margin-top:4mm;
+                    padding:3.5mm 5mm;
+                    border-radius:3mm;
+                    background:#173d75;
+                    color:#ffffff;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
+                .proposta-v2-total span { display:block; font-size:9pt; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+                .proposta-v2-total small { display:block; margin-top:.5mm; color:#d8e6f8; font-size:7pt; }
+                .proposta-v2-total strong { font-size:18pt; line-height:1; white-space:nowrap; }
+                .proposta-v2-notes { margin-top:4mm; padding:3mm 4mm; border-left:2px solid #8fb6ec; background:#f8fafc; break-inside:avoid; }
+                .proposta-v2-notes > div { margin-top:2mm; }
+                .proposta-v2-notes strong { display:block; color:#344054; font-size:7.5pt; }
+                .proposta-v2-notes p { margin:.5mm 0 0; color:#667085; font-size:7.5pt; white-space:pre-wrap; overflow-wrap:anywhere; }
+                .proposta-v2-acceptance { margin-top:5mm; break-inside:avoid; page-break-inside:avoid; }
+                .proposta-v2-responsible { display:flex; justify-content:space-between; gap:5mm; color:#667085; font-size:7.5pt; }
+                .proposta-v2-responsible strong { color:#344054; }
+                .proposta-v2-signatures { display:grid; grid-template-columns:1fr 1fr; gap:18mm; margin-top:9mm; }
+                .proposta-v2-signatures div { padding-top:2mm; border-top:1px solid #667085; color:#475467; font-size:7.5pt; font-weight:700; text-align:center; }
+                .proposta-v2-footer {
+                    display:flex;
+                    justify-content:space-between;
+                    gap:8mm;
+                    margin-top:auto;
+                    padding-top:3mm;
+                    border-top:1px solid #d9e1ec;
+                    color:#7b8494;
+                    font-size:6.8pt;
+                }
+                .proposta-v2-footer span:last-child { text-align:right; }
+                @media print {
+                    html, body { margin:0 !important; padding:0 !important; background:#ffffff !important; }
+                    .proposta-cliente-v2-document { display:block; padding:0; background:#ffffff; }
+                    .proposta-cliente-page { margin:0; box-shadow:none; }
+                }
+            </style>
+            <div class="proposta-cliente-v2-document" data-template="proposta-cliente-v2">
+                ${paginasHtml}
+            </div>
+        `;
+    }
+
+    function prepararHtmlPdfPropostaCliente(proposta) {
+        try {
+            return {
+                tipo: 'proposta-cliente-v2',
+                html: montarHtmlPdfPropostaClienteV2(proposta)
+            };
+        } catch (erro) {
+            console.error('Falha ao montar proposta-cliente-v2. Usando template comercial anterior.', erro);
+            return {
+                tipo: 'proposta-cliente',
+                html: montarHtmlPdfProposta(proposta)
+            };
+        }
+    }
+
     function gerarPDFProposta(id) {
         const proposta = localizarProposta(id);
         if (!proposta) {
@@ -6359,8 +6808,9 @@
             return;
         }
 
-        printArea.dataset.pdfTipo = 'proposta-cliente';
-        printArea.innerHTML = montarHtmlPdfProposta(proposta);
+        const previewCliente = prepararHtmlPdfPropostaCliente(proposta);
+        printArea.dataset.pdfTipo = previewCliente.tipo;
+        printArea.innerHTML = previewCliente.html;
         modal.classList.add('active');
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
     }
@@ -6381,8 +6831,14 @@
             }
         });
 
-        printArea.dataset.pdfTipo = exibirInterno === true ? 'proposta-interna' : 'proposta-cliente';
-        printArea.innerHTML = montarHtmlPdfProposta(propostaPdf);
+        if (exibirInterno === true) {
+            printArea.dataset.pdfTipo = 'proposta-interna';
+            printArea.innerHTML = montarHtmlPdfProposta(propostaPdf);
+        } else {
+            const previewCliente = prepararHtmlPdfPropostaCliente(propostaPdf);
+            printArea.dataset.pdfTipo = previewCliente.tipo;
+            printArea.innerHTML = previewCliente.html;
+        }
         modal.classList.add('active');
         mostrarToast(exibirInterno
             ? 'PDF interno pronto. Clique em "Salvar PDF".'
@@ -6438,8 +6894,9 @@
             mostrarToast('Area de impressao nao encontrada.', 'erro');
             return;
         }
-        printArea.dataset.pdfTipo = 'proposta-cliente';
-        printArea.innerHTML = montarHtmlPdfProposta(propostaTemp);
+        const previewCliente = prepararHtmlPdfPropostaCliente(propostaTemp);
+        printArea.dataset.pdfTipo = previewCliente.tipo;
+        printArea.innerHTML = previewCliente.html;
         modal.classList.add('active');
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
     }
