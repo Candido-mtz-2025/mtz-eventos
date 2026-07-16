@@ -6752,8 +6752,11 @@
                     padding-top:0;
                 }
                 .proposta-cliente-page--unica .proposta-v2-acceptance {
-                    margin-top:auto;
-                    padding-top:5mm;
+                    margin-top:8mm;
+                    padding-top:0;
+                }
+                .proposta-cliente-page--unica .proposta-v2-signatures {
+                    margin-top:5mm;
                 }
                 .proposta-v2-closing {
                     display:grid;
