@@ -2846,7 +2846,7 @@ function executarAtalhoRapido(atalhoId) {
         @media print { @page { margin: 0; } body { background: white; } }
         
        /* CONFIGURAÇÃO DA FOLHA A4 CHEIA */
-        #printArea { 
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) {
             position: relative !important;
             background-color: #ffffff !important;
             color: #000000 !important; 
@@ -2858,10 +2858,11 @@ function executarAtalhoRapido(atalhoId) {
             display: flex;
             flex-direction: column;
         }
-        #printArea * { color: #000000 !important; border-color: #000000 !important; }
-        #printArea thead { background-color: #000000 !important; }
-        #printArea thead th { color: #ffffff !important; background-color: #000000 !important; }
-        #printArea .footer-bar, #printArea .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) * { color: #000000 !important; border-color: #000000 !important; }
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) thead { background-color: #000000 !important; }
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) thead th { color: #ffffff !important; background-color: #000000 !important; }
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) .footer-bar,
+        #printArea:not([data-pdf-tipo="proposta-cliente-v2"]) .footer-bar div { background-color: #000000 !important; color: #ffffff !important; }
     `;
     document.head.appendChild(style);
     

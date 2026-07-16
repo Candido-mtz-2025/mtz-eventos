@@ -439,23 +439,59 @@ async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) 
         const pdf = new jsPDF('p', 'mm', 'a4');
         for (let indice = 0; indice < paginas.length; indice += 1) {
             const pagina = paginas[indice];
-            const excessoVertical = pagina.scrollHeight - pagina.clientHeight;
-            if (excessoVertical > 2) {
-                throw new Error(`Pagina ${indice + 1} ultrapassou a altura A4 em ${excessoVertical}px.`);
-            }
+            const areaCaptura = document.createElement('div');
+            areaCaptura.setAttribute('aria-hidden', 'true');
+            areaCaptura.style.cssText = [
+                'position:fixed',
+                'left:-10000px',
+                'top:0',
+                'width:210mm',
+                'height:297mm',
+                'margin:0',
+                'padding:0',
+                'overflow:visible',
+                'background:#ffffff',
+                'border:0',
+                'box-shadow:none',
+                'pointer-events:none'
+            ].join(';');
 
-            const canvas = await html2canvas(pagina, {
-                scale: Math.min(window.devicePixelRatio || 2, 2),
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                logging: false,
-                scrollX: 0,
-                scrollY: 0,
-                width: pagina.offsetWidth,
-                height: pagina.offsetHeight,
-                windowWidth: pagina.offsetWidth,
-                windowHeight: pagina.offsetHeight
-            });
+            const paginaCaptura = pagina.cloneNode(true);
+            paginaCaptura.classList.add('proposta-cliente-page--exportando');
+            areaCaptura.appendChild(paginaCaptura);
+            document.body.appendChild(areaCaptura);
+
+            let canvas;
+            try {
+                const imagens = Array.from(paginaCaptura.querySelectorAll('img'));
+                await Promise.all(imagens.map((imagem) => {
+                    if (imagem.complete) return Promise.resolve();
+                    return new Promise((resolve) => {
+                        imagem.addEventListener('load', resolve, { once: true });
+                        imagem.addEventListener('error', resolve, { once: true });
+                    });
+                }));
+
+                const excessoVertical = paginaCaptura.scrollHeight - paginaCaptura.clientHeight;
+                if (excessoVertical > 2) {
+                    throw new Error(`Pagina ${indice + 1} ultrapassou a altura A4 em ${excessoVertical}px.`);
+                }
+
+                canvas = await html2canvas(paginaCaptura, {
+                    scale: Math.min(window.devicePixelRatio || 2, 2),
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0,
+                    width: paginaCaptura.offsetWidth,
+                    height: paginaCaptura.offsetHeight,
+                    windowWidth: paginaCaptura.offsetWidth,
+                    windowHeight: paginaCaptura.offsetHeight
+                });
+            } finally {
+                areaCaptura.remove();
+            }
 
             if (indice > 0) pdf.addPage('a4', 'p');
             pdf.addImage(

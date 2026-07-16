@@ -6617,6 +6617,17 @@
         return `
             <style>
                 @page { size:A4; margin:0; }
+                #printArea[data-pdf-tipo="proposta-cliente-v2"] {
+                    width:auto !important;
+                    height:auto !important;
+                    min-height:0 !important;
+                    margin:0 !important;
+                    padding:0 !important;
+                    display:block !important;
+                    background:transparent !important;
+                    box-shadow:none !important;
+                    overflow:visible !important;
+                }
                 .proposta-cliente-v2-document {
                     display:grid;
                     justify-content:center;
@@ -6641,11 +6652,24 @@
                     font-size:9.5pt;
                     line-height:1.3;
                     box-shadow:0 12px 32px rgba(15, 23, 42, .16);
+                    border:0;
+                    outline:0;
+                    transform:none;
                     break-after:page;
                     page-break-after:always;
                 }
+                .proposta-cliente-page--exportando {
+                    margin:0 !important;
+                    background:#ffffff !important;
+                    box-shadow:none !important;
+                    border:0 !important;
+                    outline:0 !important;
+                    transform:none !important;
+                }
                 .proposta-cliente-page:last-child { break-after:auto; page-break-after:auto; }
                 .proposta-v2-header {
+                    order:1;
+                    flex:0 0 auto;
                     display:grid;
                     grid-template-columns:1fr 53mm;
                     gap:8mm;
@@ -6683,6 +6707,7 @@
                 .proposta-v2-meta dt { color:#667085; font-size:7.5pt; }
                 .proposta-v2-meta dd { margin:0; color:#344054; font-size:8pt; font-weight:700; text-align:right; white-space:nowrap; }
                 .proposta-v2-content {
+                    order:2;
                     display:flex;
                     flex:1 1 auto;
                     flex-direction:column;
@@ -6744,7 +6769,7 @@
                     page-break-inside:avoid;
                 }
                 .proposta-cliente-page--unica .proposta-v2-final {
-                    flex:1 1 auto;
+                    flex:0 0 auto;
                     display:flex;
                     flex-direction:column;
                     min-height:0;
@@ -6752,11 +6777,11 @@
                     padding-top:0;
                 }
                 .proposta-cliente-page--unica .proposta-v2-acceptance {
-                    margin-top:8mm;
+                    margin-top:10mm;
                     padding-top:0;
                 }
                 .proposta-cliente-page--unica .proposta-v2-signatures {
-                    margin-top:5mm;
+                    margin-top:3mm;
                 }
                 .proposta-v2-closing {
                     display:grid;
@@ -6794,12 +6819,20 @@
                 .proposta-v2-notes > div { margin-top:2mm; }
                 .proposta-v2-notes strong { display:block; color:#344054; font-size:7.5pt; }
                 .proposta-v2-notes p { margin:.5mm 0 0; color:#667085; font-size:7.5pt; white-space:pre-wrap; overflow-wrap:anywhere; }
-                .proposta-v2-acceptance { margin-top:5mm; break-inside:avoid; page-break-inside:avoid; }
+                .proposta-v2-acceptance {
+                    margin-top:9mm;
+                    padding:0;
+                    background:#ffffff;
+                    break-inside:avoid;
+                    page-break-inside:avoid;
+                }
                 .proposta-v2-responsible { display:flex; justify-content:space-between; gap:5mm; color:#667085; font-size:7.5pt; }
                 .proposta-v2-responsible strong { color:#344054; }
-                .proposta-v2-signatures { display:grid; grid-template-columns:1fr 1fr; gap:18mm; margin-top:9mm; }
+                .proposta-v2-signatures { display:grid; grid-template-columns:1fr 1fr; gap:18mm; margin-top:4mm; }
                 .proposta-v2-signatures div { padding-top:2mm; border-top:1px solid #667085; color:#475467; font-size:7.5pt; font-weight:700; text-align:center; }
                 .proposta-v2-footer {
+                    order:3;
+                    flex:0 0 auto;
                     display:flex;
                     justify-content:space-between;
                     gap:8mm;
@@ -6812,8 +6845,9 @@
                 .proposta-v2-footer span:last-child { text-align:right; }
                 @media print {
                     html, body { margin:0 !important; padding:0 !important; background:#ffffff !important; }
-                    .proposta-cliente-v2-document { display:block; padding:0; background:#ffffff; }
-                    .proposta-cliente-page { margin:0; box-shadow:none; }
+                    #printArea[data-pdf-tipo="proposta-cliente-v2"] { margin:0 !important; padding:0 !important; background:#ffffff !important; }
+                    .proposta-cliente-v2-document { display:block; margin:0; padding:0; background:#ffffff; }
+                    .proposta-cliente-page { margin:0; box-shadow:none; border:0; outline:0; }
                 }
             </style>
             <div class="proposta-cliente-v2-document" data-template="proposta-cliente-v2">
