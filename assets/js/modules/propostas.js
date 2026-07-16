@@ -6344,10 +6344,35 @@
         const telefoneEmpresa = textoSeguro(config?.tel, '');
         const emailEmpresa = textoSeguro(config?.email, '');
         const contatoEmpresa = [telefoneEmpresa, emailEmpresa].filter(Boolean).join(' | ');
-        const validadeData = formatarData(p.financeiro.validadePropostaData);
-        const validadeLabel = validadeData !== '-'
-            ? validadeData
-            : `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`;
+        const emissaoInformadaIso = textoSeguro(p.dataCriacao || '').slice(0, 10);
+        const emissaoIso = parseDataIso(emissaoInformadaIso) ? emissaoInformadaIso : obterHojeIso();
+        const validadeDias = inteiroNaoNegativo(p.financeiro.validadePropostaDias, 7);
+        const validadeInformadaIso = textoSeguro(p.financeiro.validadePropostaData || '').slice(0, 10);
+        const validadeInformadaValida = Boolean(
+            parseDataIso(validadeInformadaIso)
+            && validadeInformadaIso >= emissaoIso
+        );
+        const validadeIso = validadeDias === 7 || !validadeInformadaValida
+            ? adicionarDiasDataIso(emissaoIso, validadeDias)
+            : validadeInformadaIso;
+        const emissaoLabel = formatarData(emissaoIso);
+        const validadeLabel = formatarData(validadeIso);
+
+        const percentualEntrada = converterTextoPercentualParaNumero(
+            p.financeiro.percentualEntrada,
+            0,
+            { maximo: 100, avisar: false }
+        );
+        const percentualSaldo = converterTextoPercentualParaNumero(
+            p.financeiro.percentualSaldo,
+            Math.max(0, 100 - percentualEntrada),
+            { maximo: 100, avisar: false }
+        );
+        const pagamentoDividido = percentualEntrada > 0 && percentualSaldo > 0;
+        const formaPagamentoLabel = rotuloFormaPagamento(p.financeiro.formaPagamento);
+        const condicaoPagamentoLabel = pagamentoDividido
+            ? `${formatarPercentual(percentualEntrada)} no fechamento e ${formatarPercentual(percentualSaldo)} conforme condição acordada`
+            : p.financeiro.condicaoPagamento;
 
         const frete = numeroNaoNegativo(p.custos.frete, 0);
         const totalCustosAdicionais = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
@@ -6422,7 +6447,7 @@
                     <div class="proposta-v2-logo"><img src="${logoPdfSrc}" alt="MTZ Eventos"></div>
                     <div>
                         <span class="proposta-v2-kicker">Proposta comercial</span>
-                        <h1>Orcamento para eventos</h1>
+                        <h1>Orçamento para eventos</h1>
                         <strong>${sanitizar(nomeEmpresa)}</strong>
                         ${contatoEmpresa ? `<small>${sanitizar(contatoEmpresa)}</small>` : ''}
                     </div>
@@ -6430,7 +6455,7 @@
                 <div class="proposta-v2-meta">
                     <div><span>Orçamento</span><strong>${sanitizar(p.codigo || formatarCodigoRevisaoProposta(p))}</strong></div>
                     <dl>
-                        <dt>Emissão</dt><dd>${formatarData(p.dataCriacao || new Date())}</dd>
+                        <dt>Emissão</dt><dd>${emissaoLabel}</dd>
                         <dt>Validade</dt><dd>${validadeLabel}</dd>
                         ${totalPaginas > 1 ? `<dt>Pagina</dt><dd>${pagina}/${totalPaginas}</dd>` : ''}
                     </dl>
@@ -6535,11 +6560,11 @@
                     <section class="proposta-v2-closing">
                         <div class="proposta-v2-terms">
                             <span class="proposta-v2-section-label">Condições comerciais</span>
-                            ${montarLinhaDadoV2('Forma de pagamento', rotuloFormaPagamento(p.financeiro.formaPagamento))}
-                            ${montarLinhaDadoV2('Condição', p.financeiro.condicaoPagamento)}
+                            ${montarLinhaDadoV2('Forma de pagamento', formaPagamentoLabel)}
+                            ${montarLinhaDadoV2('Condição', condicaoPagamentoLabel)}
                             ${montarLinhaDadoV2('Entrada', `${formatarPercentual(p.financeiro.percentualEntrada)} (${formatarMoeda(p.financeiro.valorEntrada)})`)}
                             ${montarLinhaDadoV2('Saldo', `${formatarPercentual(p.financeiro.percentualSaldo)} (${formatarMoeda(p.financeiro.valorSaldo)})`)}
-                            ${montarLinhaDadoV2('Prazo de aprovação', `${numeroNaoNegativo(p.financeiro.validadeDias, 7)} dias`)}
+                            ${montarLinhaDadoV2('Prazo de aprovação', `${validadeDias} dias`)}
                         </div>
                         <div class="proposta-v2-summary">
                             <span class="proposta-v2-section-label">Resumo financeiro</span>
@@ -6573,7 +6598,7 @@
             const primeira = indice === 0;
             const ultima = indice === totalPaginas - 1;
             return `
-                <article class="proposta-cliente-page" data-proposta-pagina="${numeroPagina}">
+                <article class="proposta-cliente-page${totalPaginas === 1 ? ' proposta-cliente-page--unica' : ''}" data-proposta-pagina="${numeroPagina}">
                     ${montarCabecalhoV2(numeroPagina, totalPaginas)}
                     <main class="proposta-v2-content">
                         ${primeira ? montarIdentificacaoV2() : ''}
@@ -6717,6 +6742,18 @@
                     padding-top:5mm;
                     break-inside:avoid;
                     page-break-inside:avoid;
+                }
+                .proposta-cliente-page--unica .proposta-v2-final {
+                    flex:1 1 auto;
+                    display:flex;
+                    flex-direction:column;
+                    min-height:0;
+                    margin-top:20mm;
+                    padding-top:0;
+                }
+                .proposta-cliente-page--unica .proposta-v2-acceptance {
+                    margin-top:auto;
+                    padding-top:5mm;
                 }
                 .proposta-v2-closing {
                     display:grid;
