@@ -430,6 +430,251 @@ function ajustarCorteSeguroPDF(origemY, alturaPadraoPx, alturaTotalPx, pontosCor
     return candidato ? candidato - origemY : limitePadrao - origemY;
 }
 
+const PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2 = /\b(?:color|color-mix|oklch|oklab|lab|lch)\s*\(/i;
+
+function converterCorCssParaRgbaPDFV2(valor, contextoCanvas) {
+    const contexto = contextoCanvas;
+    if (!contexto || !valor) return '';
+
+    contexto.clearRect(0, 0, 1, 1);
+    contexto.fillStyle = 'rgba(1, 2, 3, 0.5)';
+    const sentinela = contexto.fillStyle;
+
+    try {
+        contexto.fillStyle = valor;
+        if (contexto.fillStyle === sentinela && !/rgba?\(\s*1\s*[, ]\s*2\s*[, ]\s*3/i.test(valor)) {
+            return '';
+        }
+
+        contexto.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = contexto.getImageData(0, 0, 1, 1).data;
+        const alfa = Math.round((a / 255) * 1000) / 1000;
+        return alfa >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alfa})`;
+    } catch (erro) {
+        return '';
+    }
+}
+
+function substituirFuncoesCoresIncompativeisPDFV2(valor, contextoCanvas) {
+    let resultado = String(valor || '');
+    let limite = 0;
+
+    while (PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(resultado) && limite < 20) {
+        const correspondencia = PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.exec(resultado);
+        if (!correspondencia) break;
+
+        const inicio = correspondencia.index;
+        const abertura = resultado.indexOf('(', inicio);
+        let profundidade = 0;
+        let fim = -1;
+
+        for (let indice = abertura; indice < resultado.length; indice += 1) {
+            if (resultado[indice] === '(') profundidade += 1;
+            if (resultado[indice] === ')') profundidade -= 1;
+            if (profundidade === 0) {
+                fim = indice + 1;
+                break;
+            }
+        }
+
+        if (fim < 0) break;
+
+        const funcaoCor = resultado.slice(inicio, fim);
+        const corCompativel = converterCorCssParaRgbaPDFV2(funcaoCor, contextoCanvas);
+        if (!corCompativel) break;
+
+        resultado = `${resultado.slice(0, inicio)}${corCompativel}${resultado.slice(fim)}`;
+        limite += 1;
+    }
+
+    return resultado;
+}
+
+function sanitizarCoresClonePDFV2(paginaCaptura) {
+    if (!paginaCaptura || paginaCaptura.nodeType !== Node.ELEMENT_NODE) return;
+
+    const documentoClone = paginaCaptura.ownerDocument || document;
+    const janelaClone = documentoClone.defaultView || window;
+
+    const canvasCor = documentoClone.createElement('canvas');
+    canvasCor.width = 1;
+    canvasCor.height = 1;
+    const contextoCanvas = canvasCor.getContext('2d', { willReadFrequently: true });
+    if (!contextoCanvas) return;
+
+    const diagnosticoAtivo = window.__mtzDiagnosticoCoresPdfV2 === true;
+    const propriedadesCor = [
+        'color',
+        'background-color',
+        'border-top-color',
+        'border-right-color',
+        'border-bottom-color',
+        'border-left-color',
+        'outline-color',
+        'text-decoration-color',
+        'fill',
+        'stroke'
+    ];
+    const propriedadesSombra = ['box-shadow', 'text-shadow'];
+    const propriedadesCompostas = ['background-image'];
+    const propriedadesTratadas = new Set([
+        ...propriedadesCor,
+        ...propriedadesSombra,
+        ...propriedadesCompostas
+    ]);
+    const elementos = [paginaCaptura, ...paginaCaptura.querySelectorAll('*')];
+    let totalAjustes = 0;
+    const regrasPseudoElementos = [];
+
+    elementos.forEach((elemento) => {
+        const estiloCalculado = janelaClone.getComputedStyle(elemento);
+        const registrarDiagnostico = (propriedade, valor, acao) => {
+            if (!diagnosticoAtivo) return;
+            console.warn('[PDF V2] Cor CSS incompatível no clone de exportação', {
+                elemento: elemento.tagName?.toLowerCase() || '',
+                classe: elemento.className?.baseVal ?? elemento.className ?? '',
+                propriedade,
+                valor,
+                acao
+            });
+        };
+
+        propriedadesCor.forEach((propriedade) => {
+            const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+            if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+            const corCompativel = converterCorCssParaRgbaPDFV2(valor, contextoCanvas);
+            if (!corCompativel) return;
+
+            elemento.style.setProperty(propriedade, corCompativel, 'important');
+            totalAjustes += 1;
+            registrarDiagnostico(propriedade, valor, corCompativel);
+        });
+
+        propriedadesSombra.forEach((propriedade) => {
+            const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+            if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+            elemento.style.setProperty(propriedade, 'none', 'important');
+            totalAjustes += 1;
+            registrarDiagnostico(propriedade, valor, 'none');
+        });
+
+        propriedadesCompostas.forEach((propriedade) => {
+            const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+            if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+            const valorCompativel = substituirFuncoesCoresIncompativeisPDFV2(valor, contextoCanvas);
+            if (PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valorCompativel)) {
+                elemento.style.setProperty(propriedade, 'none', 'important');
+                registrarDiagnostico(propriedade, valor, 'none');
+            } else {
+                elemento.style.setProperty(propriedade, valorCompativel, 'important');
+                registrarDiagnostico(propriedade, valor, valorCompativel);
+            }
+            totalAjustes += 1;
+        });
+
+        Array.from(estiloCalculado).forEach((propriedade) => {
+            if (propriedadesTratadas.has(propriedade)) return;
+
+            const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+            if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+            if (propriedade.startsWith('--')) {
+                const valorCompativel = substituirFuncoesCoresIncompativeisPDFV2(valor, contextoCanvas);
+                if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valorCompativel)) {
+                    elemento.style.setProperty(propriedade, valorCompativel, 'important');
+                    totalAjustes += 1;
+                    registrarDiagnostico(propriedade, valor, valorCompativel);
+                }
+                return;
+            }
+
+            const corCompativel = converterCorCssParaRgbaPDFV2(valor, contextoCanvas);
+            if (corCompativel) {
+                elemento.style.setProperty(propriedade, corCompativel, 'important');
+                totalAjustes += 1;
+                registrarDiagnostico(propriedade, valor, corCompativel);
+                return;
+            }
+
+            const valorCompativel = substituirFuncoesCoresIncompativeisPDFV2(valor, contextoCanvas);
+            if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valorCompativel)) {
+                elemento.style.setProperty(propriedade, valorCompativel, 'important');
+                totalAjustes += 1;
+                registrarDiagnostico(propriedade, valor, valorCompativel);
+            }
+        });
+    });
+
+    elementos.forEach((elemento, indiceElemento) => {
+        ['::before', '::after'].forEach((pseudoElemento) => {
+            const estiloCalculado = janelaClone.getComputedStyle(elemento, pseudoElemento);
+            const declaracoes = [];
+
+            propriedadesCor.forEach((propriedade) => {
+                const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+                if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+                const corCompativel = converterCorCssParaRgbaPDFV2(valor, contextoCanvas);
+                if (!corCompativel) return;
+
+                declaracoes.push(`${propriedade}:${corCompativel} !important`);
+                totalAjustes += 1;
+                if (diagnosticoAtivo) {
+                    console.warn('[PDF V2] Cor CSS incompatível em pseudo-elemento do clone', {
+                        elemento: elemento.tagName?.toLowerCase() || '',
+                        classe: elemento.className?.baseVal ?? elemento.className ?? '',
+                        pseudoElemento,
+                        propriedade,
+                        valor,
+                        acao: corCompativel
+                    });
+                }
+            });
+
+            propriedadesSombra.forEach((propriedade) => {
+                const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+                if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+                declaracoes.push(`${propriedade}:none !important`);
+                totalAjustes += 1;
+            });
+
+            propriedadesCompostas.forEach((propriedade) => {
+                const valor = estiloCalculado.getPropertyValue(propriedade).trim();
+                if (!PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valor)) return;
+
+                const valorCompativel = substituirFuncoesCoresIncompativeisPDFV2(valor, contextoCanvas);
+                declaracoes.push(
+                    `${propriedade}:${PADRAO_COR_CSS_INCOMPATIVEL_PDF_V2.test(valorCompativel) ? 'none' : valorCompativel} !important`
+                );
+                totalAjustes += 1;
+            });
+
+            if (!declaracoes.length) return;
+
+            const identificador = `pdf-v2-cor-${indiceElemento}`;
+            elemento.setAttribute('data-pdf-v2-color-node', identificador);
+            regrasPseudoElementos.push(
+                `[data-pdf-v2-color-node="${identificador}"]${pseudoElemento}{${declaracoes.join(';')}}`
+            );
+        });
+    });
+
+    if (regrasPseudoElementos.length) {
+        const estilosPseudoElementos = documentoClone.createElement('style');
+        estilosPseudoElementos.setAttribute('data-pdf-v2-pseudo-colors', 'true');
+        estilosPseudoElementos.textContent = regrasPseudoElementos.join('\n');
+        paginaCaptura.appendChild(estilosPseudoElementos);
+    }
+
+    if (diagnosticoAtivo) {
+        console.info(`[PDF V2] Sanitização de cores concluída: ${totalAjustes} ajuste(s).`);
+    }
+}
+
 async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) {
     const { jsPDF } = window.jspdf;
 
@@ -458,6 +703,8 @@ async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) 
 
             const paginaCaptura = pagina.cloneNode(true);
             paginaCaptura.classList.add('proposta-cliente-page--exportando');
+            const idCaptura = `mtz-pdf-v2-${Date.now()}-${indice}`;
+            paginaCaptura.setAttribute('data-pdf-v2-capture-id', idCaptura);
             areaCaptura.appendChild(paginaCaptura);
             document.body.appendChild(areaCaptura);
 
@@ -477,6 +724,8 @@ async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) 
                     throw new Error(`Pagina ${indice + 1} ultrapassou a altura A4 em ${excessoVertical}px.`);
                 }
 
+                sanitizarCoresClonePDFV2(paginaCaptura);
+
                 canvas = await html2canvas(paginaCaptura, {
                     scale: Math.min(window.devicePixelRatio || 2, 2),
                     useCORS: true,
@@ -487,7 +736,13 @@ async function gerarPDFPropostaClienteV2(paginas, botaoPDF, textoOriginalBotao) 
                     width: paginaCaptura.offsetWidth,
                     height: paginaCaptura.offsetHeight,
                     windowWidth: paginaCaptura.offsetWidth,
-                    windowHeight: paginaCaptura.offsetHeight
+                    windowHeight: paginaCaptura.offsetHeight,
+                    onclone: (documentoHtml2Canvas) => {
+                        const paginaInterna = documentoHtml2Canvas.querySelector(
+                            `[data-pdf-v2-capture-id="${idCaptura}"]`
+                        );
+                        sanitizarCoresClonePDFV2(paginaInterna);
+                    }
                 });
             } finally {
                 areaCaptura.remove();
