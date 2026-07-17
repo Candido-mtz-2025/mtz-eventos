@@ -6677,6 +6677,19 @@
                     padding-bottom:5mm;
                     border-bottom:1px solid #d9e1ec;
                 }
+                @media screen {
+                    #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-header {
+                        position:sticky;
+                        top:0;
+                        z-index:20;
+                        background:#ffffff;
+                    }
+                    #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-cliente-page--exportando .proposta-v2-header {
+                        position:static !important;
+                        top:auto !important;
+                        z-index:auto !important;
+                    }
+                }
                 .proposta-v2-brand { display:flex; align-items:center; gap:4mm; min-width:0; }
                 .proposta-v2-logo {
                     width:28mm;
@@ -6848,6 +6861,7 @@
                     #printArea[data-pdf-tipo="proposta-cliente-v2"] { margin:0 !important; padding:0 !important; background:#ffffff !important; }
                     .proposta-cliente-v2-document { display:block; margin:0; padding:0; background:#ffffff; }
                     .proposta-cliente-page { margin:0; box-shadow:none; border:0; outline:0; }
+                    .proposta-v2-header { position:static !important; top:auto !important; z-index:auto !important; }
                 }
             </style>
             <div class="proposta-cliente-v2-document" data-template="proposta-cliente-v2">
