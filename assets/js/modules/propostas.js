@@ -55,6 +55,13 @@
         { id: CATEGORIA_ITEM_PROPOSTA_PADRAO, nome: CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME, cor: '#64748b', icone: 'bi-box-seam' }
     ]);
     const CATEGORIAS_ITEM_PROPOSTA = Object.freeze(CATEGORIAS_ORCAMENTO_PADRAO.map((categoria) => categoria.nome));
+    const ORIGENS_CUSTO_ITEM_PROPOSTA = Object.freeze([
+        { id: 'proprio', rotulo: 'Próprio' },
+        { id: 'terceirizado', rotulo: 'Terceirizado' },
+        { id: 'misto', rotulo: 'Misto' },
+        { id: 'nao_informado', rotulo: 'Não informado' }
+    ]);
+    const MENSAGEM_QUANTIDADE_MISTA_INVALIDA = 'A soma das quantidades própria e terceirizada deve ser igual à quantidade total do item.';
     const TIPOS_CALCULO_TRIBUTO_PROPOSTA = new Set(['simples', 'por_dentro']);
     const TIPO_FISCAL_ITEM_PADRAO = 'verificar_contador';
     const TIPOS_FISCAIS_ITEM_PROPOSTA = Object.freeze([
@@ -1067,6 +1074,18 @@
         return arredondarMoeda((baseNormalizada * percentualNormalizado) / 100);
     }
 
+    function normalizarOrigemCustoItemProposta(item = {}) {
+        const origemInformada = Object.prototype.hasOwnProperty.call(item, 'origemCusto');
+        const origem = textoSeguro(item.origemCusto, '');
+        if (ORIGENS_CUSTO_ITEM_PROPOSTA.some((opcao) => opcao.id === origem)) return origem;
+
+        // Uma linha realmente nova nasce como própria. Itens antigos, que já possuem
+        // dados comerciais mas não possuem origem, permanecem neutros financeiramente.
+        return !origemInformada && Object.keys(item || {}).length === 0
+            ? 'proprio'
+            : 'nao_informado';
+    }
+
     function calcularItemProposta(item = {}) {
         const categoria = normalizarCategoriaItemProposta(item.categoria);
         const regra = obterRegraCategoriaParaItem(categoria);
@@ -1124,6 +1143,38 @@
             : 0;
 
         const valorTotal = arredondarMoeda(custoTotal + valorHonorarios + valorEncargos + valorINSS);
+        const origemCusto = normalizarOrigemCustoItemProposta(item);
+        const percentualCustoProprio = converterTextoPercentualParaNumero(item.percentualCustoProprio, 20, { maximo: 100 });
+        const ehMaoObra = categoria === CATEGORIA_MAO_OBRA_PROPOSTA || normalizarTipoFiscalItem(item.tipoFiscal) === 'mao_de_obra';
+        let quantidadePropria = numeroNaoNegativo(item.quantidadePropria, 0);
+        let quantidadeTerceirizada = numeroNaoNegativo(item.quantidadeTerceirizada, 0);
+
+        if (origemCusto === 'proprio') {
+            quantidadePropria = quantidade;
+            quantidadeTerceirizada = 0;
+        } else if (origemCusto === 'terceirizado') {
+            quantidadePropria = 0;
+            quantidadeTerceirizada = quantidade;
+        } else if (origemCusto === 'misto') {
+            quantidadePropria = Math.min(quantidadePropria, quantidade);
+            quantidadeTerceirizada = Math.min(quantidadeTerceirizada, Math.max(quantidade - quantidadePropria, 0));
+        } else {
+            quantidadePropria = 0;
+            quantidadeTerceirizada = 0;
+        }
+
+        const baseCustoProprio = origemCusto === 'proprio'
+            ? custoTotal
+            : arredondarMoeda(periodoDias * quantidadePropria * custoUnitario);
+        const custoProprio = (origemCusto === 'proprio' || origemCusto === 'misto') && !ehMaoObra
+            ? arredondarMoeda((baseCustoProprio * percentualCustoProprio) / 100)
+            : 0;
+        const custoTerceirizado = origemCusto === 'terceirizado' || origemCusto === 'misto'
+            ? arredondarMoeda(numeroNaoNegativo(item.custoTerceirizadoReal ?? item.custoTerceirizado, 0))
+            : 0;
+        const custoInternoItemTotal = arredondarMoeda(custoProprio + custoTerceirizado);
+        const lucroItem = arredondarMoeda(valorTotal - custoInternoItemTotal);
+        const margemItem = valorTotal > 0 ? (lucroItem / valorTotal) * 100 : 0;
 
         return {
             categoria,
@@ -1148,6 +1199,17 @@
             valorINSS,
             valorTotal,
             totalFinal: valorTotal,
+            origemCusto,
+            percentualCustoProprio,
+            fornecedorCusto: textoSeguro(item.fornecedorCusto, ''),
+            quantidadePropria,
+            quantidadeTerceirizada,
+            custoTerceirizadoReal: custoTerceirizado,
+            custoProprio,
+            custoTerceirizado,
+            custoInternoItemTotal,
+            lucroItem,
+            margemItem,
             observacoes: textoSeguro(item.observacoes, ''),
             usarPadraoCalculo: false
         };
@@ -2391,6 +2453,10 @@
             return false;
         }
 
+        if (etapa === 'itens' && !validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })) {
+            return false;
+        }
+
         return true;
     }
 
@@ -2856,11 +2922,22 @@
         }).join('');
     }
 
+    function montarOptionsOrigemCustoItemProposta(origemAtual) {
+        const atual = ORIGENS_CUSTO_ITEM_PROPOSTA.some((opcao) => opcao.id === origemAtual)
+            ? origemAtual
+            : 'nao_informado';
+        return ORIGENS_CUSTO_ITEM_PROPOSTA.map((opcao) => {
+            const selected = opcao.id === atual ? ' selected' : '';
+            return `<option value="${opcao.id}"${selected}>${opcao.rotulo}</option>`;
+        }).join('');
+    }
+
     function criarLinhaItemProposta(item = {}) {
         const itemCalculado = calcularItemProposta(item);
         const descricao = sanitizar(itemCalculado.descricao);
         const medida = sanitizar(itemCalculado.medida);
         const observacoes = sanitizar(itemCalculado.observacoes);
+        const fornecedorCusto = sanitizar(itemCalculado.fornecedorCusto);
         const checkedHonorarios = itemCalculado.aplicarHonorarios ? ' checked' : '';
         const checkedEncargos = itemCalculado.aplicarEncargos ? ' checked' : '';
         const checkedINSS = itemCalculado.aplicarINSS ? ' checked' : '';
@@ -2969,6 +3046,64 @@
                                 <input type="text" class="prop-item-obs" value="${observacoes}" placeholder="Observacoes internas ou comerciais" data-input="recalcularResumoProposta">
                             </div>
                         </div>
+                        <div class="prop-item-details-title">
+                            <strong>Origem e custo interno</strong>
+                            <span>Controle interno para apuração de lucro e margem. Não altera o valor cobrado.</span>
+                        </div>
+                        <div class="prop-item-details-grid prop-item-cost-details-grid">
+                            <div class="form-group">
+                                <label>Origem do item</label>
+                                <select class="prop-item-origem-custo" data-change="recalcularResumoProposta">
+                                    ${montarOptionsOrigemCustoItemProposta(itemCalculado.origemCusto)}
+                                </select>
+                            </div>
+                            <div class="form-group prop-item-custo-proprio-config">
+                                <label>Custo operacional próprio (%)</label>
+                                <input type="text" class="prop-item-percentual-custo-proprio" inputmode="decimal" value="${itemCalculado.percentualCustoProprio}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-divisao-mista-config">
+                                <label>Quantidade própria</label>
+                                <input type="number" class="prop-item-quantidade-propria" min="0" step="1" value="${itemCalculado.quantidadePropria}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-divisao-mista-config">
+                                <label>Quantidade terceirizada</label>
+                                <input type="number" class="prop-item-quantidade-terceirizada" min="0" step="1" value="${itemCalculado.quantidadeTerceirizada}" data-input="recalcularResumoProposta">
+                            </div>
+                            <small class="prop-item-divisao-mista-erro" role="alert" hidden style="grid-column:1/-1;color:#b42318;font-weight:700;">
+                                ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}
+                            </small>
+                            <div class="form-group prop-item-custo-terceiro-config">
+                                <label>Fornecedor</label>
+                                <input type="text" class="prop-item-fornecedor-custo" value="${fornecedorCusto}" placeholder="Nome do fornecedor" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-custo-terceiro-config">
+                                <label>Custo real terceirizado</label>
+                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Custo próprio</label>
+                                <input type="text" class="prop-item-custo-proprio" value="${formatarMoeda(itemCalculado.custoProprio)}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Custo terceirizado</label>
+                                <input type="text" class="prop-item-custo-terceirizado" value="${formatarMoeda(itemCalculado.custoTerceirizado)}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Custo total do item</label>
+                                <input type="text" class="prop-item-custo-interno-total" value="${formatarMoeda(itemCalculado.custoInternoItemTotal)}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Lucro do item</label>
+                                <input type="text" class="prop-item-lucro" value="${formatarMoeda(itemCalculado.lucroItem)}" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Margem do item</label>
+                                <input type="text" class="prop-item-margem" value="${formatarPercentual(itemCalculado.margemItem)}" readonly>
+                            </div>
+                            <div class="form-group prop-item-custo-proprio-aviso">
+                                <small>Custo próprio de mão de obra é considerado zero.</small>
+                            </div>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -3028,9 +3163,118 @@
             tipoCalculoEncargos: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-encargos')?.value),
             aplicarINSS: detalhes?.querySelector('.prop-item-aplicar-inss')?.checked === true,
             percentualINSS: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-inss'), 0),
-            tipoCalculoINSS: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-inss')?.value)
+            tipoCalculoINSS: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-inss')?.value),
+            origemCusto: textoSeguro(detalhes?.querySelector('.prop-item-origem-custo')?.value, 'nao_informado'),
+            percentualCustoProprio: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-custo-proprio'), 20),
+            fornecedorCusto: textoSeguro(detalhes?.querySelector('.prop-item-fornecedor-custo')?.value),
+            quantidadePropria: numeroNaoNegativo(detalhes?.querySelector('.prop-item-quantidade-propria')?.value, 0),
+            quantidadeTerceirizada: numeroNaoNegativo(detalhes?.querySelector('.prop-item-quantidade-terceirizada')?.value, 0),
+            custoTerceirizadoReal: numeroNaoNegativo(detalhes?.querySelector('.prop-item-custo-terceirizado-real')?.value, 0)
         };
         return calcularItemProposta(item);
+    }
+
+    function validarQuantidadeMistaLinhaProposta(linha, opcoes = {}) {
+        const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        if (!linha || !detalhes) return true;
+
+        const campoTotal = linha.querySelector('.prop-item-quantidade');
+        const campoPropria = detalhes.querySelector('.prop-item-quantidade-propria');
+        const campoTerceirizada = detalhes.querySelector('.prop-item-quantidade-terceirizada');
+        const campoOrigem = detalhes.querySelector('.prop-item-origem-custo');
+        const aviso = detalhes.querySelector('.prop-item-divisao-mista-erro');
+        const ehMisto = textoSeguro(campoOrigem?.value) === 'misto';
+
+        const limparEstado = () => {
+            [campoTotal, campoPropria, campoTerceirizada].forEach((campo) => {
+                campo?.setCustomValidity('');
+                campo?.removeAttribute('aria-invalid');
+            });
+            if (aviso) aviso.hidden = true;
+            linha.removeAttribute('data-quantidade-mista-invalida');
+        };
+
+        if (!ehMisto) {
+            limparEstado();
+            return true;
+        }
+
+        const numeroDigitado = (campo) => {
+            const texto = String(campo?.value ?? '').trim().replace(',', '.');
+            if (!texto) return 0;
+            const numero = Number(texto);
+            return Number.isFinite(numero) ? numero : Number.NaN;
+        };
+        const quantidadeTotal = numeroDigitado(campoTotal);
+        const quantidadePropria = numeroDigitado(campoPropria);
+        const quantidadeTerceirizada = numeroDigitado(campoTerceirizada);
+        const valores = [quantidadeTotal, quantidadePropria, quantidadeTerceirizada];
+        const valoresValidos = valores.every((valor) => Number.isFinite(valor) && valor >= 0);
+        const somaExata = valoresValidos
+            && Math.abs((quantidadePropria + quantidadeTerceirizada) - quantidadeTotal) < 0.000001;
+
+        if (somaExata) {
+            limparEstado();
+            return true;
+        }
+
+        [campoTotal, campoPropria, campoTerceirizada].forEach((campo) => {
+            campo?.setCustomValidity(MENSAGEM_QUANTIDADE_MISTA_INVALIDA);
+            campo?.setAttribute('aria-invalid', 'true');
+        });
+        if (aviso) aviso.hidden = false;
+        linha.dataset.quantidadeMistaInvalida = 'true';
+
+        if (opcoes.exibirMensagem === true) {
+            detalhes.hidden = false;
+            atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), true);
+            mostrarToast(MENSAGEM_QUANTIDADE_MISTA_INVALIDA, 'erro', 5200);
+        }
+        if (opcoes.focar === true) {
+            const campoAlvo = !Number.isFinite(quantidadePropria) || quantidadePropria < 0
+                ? campoPropria
+                : (!Number.isFinite(quantidadeTerceirizada) || quantidadeTerceirizada < 0 ? campoTerceirizada : campoPropria);
+            focarPropostaSemRolagem(campoAlvo);
+            campoAlvo?.reportValidity?.();
+        }
+
+        return false;
+    }
+
+    function validarQuantidadesMistasProposta(opcoes = {}) {
+        const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+        let linhaInvalida = null;
+        linhas.forEach((linha) => {
+            const valida = validarQuantidadeMistaLinhaProposta(linha);
+            if (!valida && !linhaInvalida) linhaInvalida = linha;
+        });
+        if (!linhaInvalida) return true;
+        validarQuantidadeMistaLinhaProposta(linhaInvalida, opcoes);
+        return false;
+    }
+
+    function atualizarEstadoCamposCustoItemProposta(detalhes, item) {
+        if (!detalhes) return;
+        const origem = item.origemCusto;
+        const permiteProprio = origem === 'proprio' || origem === 'misto';
+        const permiteTerceiro = origem === 'terceirizado' || origem === 'misto';
+        const ehMisto = origem === 'misto';
+        const ehMaoObra = item.categoria === CATEGORIA_MAO_OBRA_PROPOSTA || item.tipoFiscal === 'mao_de_obra';
+
+        detalhes.querySelectorAll('.prop-item-custo-proprio-config').forEach((el) => {
+            el.hidden = !permiteProprio;
+        });
+        detalhes.querySelectorAll('.prop-item-custo-terceiro-config').forEach((el) => {
+            el.hidden = !permiteTerceiro;
+        });
+        detalhes.querySelectorAll('.prop-item-divisao-mista-config').forEach((el) => {
+            el.hidden = !ehMisto;
+        });
+        detalhes.querySelectorAll('.prop-item-custo-proprio-aviso').forEach((el) => {
+            el.hidden = !(permiteProprio && ehMaoObra);
+        });
     }
 
     function atualizarLinhaItemProposta(linha) {
@@ -3050,11 +3294,18 @@
             [linha.querySelector('.prop-item-total'), formatarMoeda(item.valorTotal)],
             [detalhes?.querySelector('.prop-item-valor-honorarios'), formatarMoeda(item.valorHonorarios)],
             [detalhes?.querySelector('.prop-item-valor-encargos'), formatarMoeda(item.valorEncargos)],
-            [detalhes?.querySelector('.prop-item-valor-inss'), formatarMoeda(item.valorINSS)]
+            [detalhes?.querySelector('.prop-item-valor-inss'), formatarMoeda(item.valorINSS)],
+            [detalhes?.querySelector('.prop-item-custo-proprio'), formatarMoeda(item.custoProprio)],
+            [detalhes?.querySelector('.prop-item-custo-terceirizado'), formatarMoeda(item.custoTerceirizado)],
+            [detalhes?.querySelector('.prop-item-custo-interno-total'), formatarMoeda(item.custoInternoItemTotal)],
+            [detalhes?.querySelector('.prop-item-lucro'), formatarMoeda(item.lucroItem)],
+            [detalhes?.querySelector('.prop-item-margem'), formatarPercentual(item.margemItem)]
         ];
         campos.forEach(([campo, valor]) => {
             if (campo) campo.value = valor;
         });
+        atualizarEstadoCamposCustoItemProposta(detalhes, item);
+        validarQuantidadeMistaLinhaProposta(linha);
 
         return item;
     }
@@ -3303,6 +3554,7 @@
         const subtotalHonorariosItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorHonorarios, 0), 0));
         const subtotalEncargosItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorEncargos, 0), 0));
         const subtotalINSSItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorINSS, 0), 0));
+        const custoInternoItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.custoInternoItemTotal, 0), 0));
 
         const totalCustosAdicionais = arredondarMoeda(CHAVES_CUSTOS_ADICIONAIS.reduce((acc, chave) => {
             return acc + numeroNaoNegativo(custos?.[chave], 0);
@@ -3335,7 +3587,7 @@
         const custoInternoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoInternoTotal, 0));
         const custoTerceirizadoTotal = arredondarMoeda(numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0));
         const outrosCustosInternos = arredondarMoeda(numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0));
-        const custoTotalProposta = arredondarMoeda(custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos + custoMaoObraOperacional + custoHospedagemOperacional);
+        const custoTotalProposta = arredondarMoeda(custoInternoItens + custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos + custoMaoObraOperacional + custoHospedagemOperacional);
         const lucroPrevisto = arredondarMoeda(valorLiquidoPrevisto - custoTotalProposta);
         const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
         const resumoFiscal = calcularResumoFiscalProposta(itensCalculados, {
@@ -3354,6 +3606,7 @@
             subtotalHonorariosItens,
             subtotalEncargosItens,
             subtotalINSSItens,
+            custoInternoItens,
             totalCustosAdicionais,
             desconto: descontoNormalizado,
             acrescimo: acrescimoNormalizado,
@@ -4291,6 +4544,10 @@
     }
 
     function coletarDadosFormulario(validar = true) {
+        if (validar && !validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })) {
+            return null;
+        }
+
         const idAtual = obterIdPropostaEmEdicao();
         const propostaAtual = idAtual ? localizarProposta(idAtual) : null;
         const usuarioAtual = obterUsuarioAtualNomeOuEmail();
@@ -7373,6 +7630,21 @@
             const campoCliente = event.target?.closest?.('#tab-propostas [data-proposta-grupo="cliente"] input, #tab-propostas [data-proposta-grupo="cliente"] textarea');
             if (!campoCliente || campoCliente !== event.target) return;
             window.__mtzPropostaResumoPendente = true;
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoQuantidade = event.target?.closest?.('#propostaItensBody .prop-item-quantidade, #propostaItensBody .prop-item-quantidade-propria, #propostaItensBody .prop-item-quantidade-terceirizada');
+            if (!campoQuantidade || campoQuantidade !== event.target) return;
+            const linha = campoQuantidade.closest('.proposta-item-row')
+                || campoQuantidade.closest('.proposta-item-details-row')?.previousElementSibling;
+            validarQuantidadeMistaLinhaProposta(linha);
+        });
+
+        document.addEventListener('change', (event) => {
+            const campoOrigem = event.target?.closest?.('#propostaItensBody .prop-item-origem-custo');
+            if (!campoOrigem || campoOrigem !== event.target) return;
+            const linha = campoOrigem.closest('.proposta-item-details-row')?.previousElementSibling;
+            validarQuantidadeMistaLinhaProposta(linha);
         });
 
         document.addEventListener('change', (event) => {
