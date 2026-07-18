@@ -46,6 +46,41 @@
         return quantidadeTotal;
     }
 
+    function obterComposicaoOperacionalItem(item = {}) {
+        const quantidadeTotal = inteiroNaoNegativo(item?.quantidade, 0);
+        const possuiOrigemCusto = Object.prototype.hasOwnProperty.call(item || {}, 'origemCusto');
+        const origemCusto = textoSeguro(item?.origemCusto, '').trim().toLowerCase();
+        const origensClassificadas = new Set(['proprio', 'terceirizado', 'misto']);
+        const possuiClassificacao = possuiOrigemCusto && origensClassificadas.has(origemCusto);
+
+        if (!possuiClassificacao) {
+            return {
+                quantidadeTotal,
+                quantidadePropria: quantidadeTotal,
+                quantidadeTerceirizada: 0,
+                origemCusto: origemCusto || 'nao_informado',
+                possuiClassificacao: false,
+                necessitaFornecedor: false
+            };
+        }
+
+        const quantidadePropria = obterQuantidadePropriaOperacional(item);
+        const quantidadeTerceirizada = origemCusto === 'terceirizado'
+            ? quantidadeTotal
+            : (origemCusto === 'misto'
+                ? Math.min(inteiroNaoNegativo(item?.quantidadeTerceirizada, 0), quantidadeTotal)
+                : 0);
+
+        return {
+            quantidadeTotal,
+            quantidadePropria,
+            quantidadeTerceirizada,
+            origemCusto,
+            possuiClassificacao: true,
+            necessitaFornecedor: quantidadeTerceirizada > 0
+        };
+    }
+
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
         return String(valor);
@@ -408,6 +443,7 @@
 
     window.calcularValorLocacaoDominio = calcularValorLocacaoDominio;
     window.obterQuantidadePropriaOperacional = obterQuantidadePropriaOperacional;
+    window.obterComposicaoOperacionalItem = obterComposicaoOperacionalItem;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;

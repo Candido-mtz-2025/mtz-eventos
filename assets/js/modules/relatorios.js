@@ -87,10 +87,27 @@ function prepararModalRelatorio(id, titulo) {
         totalQtd += quantidade;
 
         if (isRomaneio) {
+            const composicao = typeof obterComposicaoOperacionalItem === 'function'
+                ? obterComposicaoOperacionalItem(item)
+                : null;
+            const resumoComposicao = !composicao || !composicao.possuiClassificacao
+                ? `Total: ${quantidade} • Origem não informada`
+                : [
+                    `Total: ${composicao.quantidadeTotal}`,
+                    `Próprio MTZ: ${composicao.quantidadePropria}`,
+                    composicao.quantidadeTerceirizada > 0 ? `Terceirizado: ${composicao.quantidadeTerceirizada}` : ''
+                ].filter(Boolean).join(' • ');
+            const conferenciaOperacional = composicao?.quantidadeTerceirizada > 0
+                ? `${composicao.quantidadePropria > 0 ? '[ ___ ] MTZ<br>' : ''}[ ___ ] FORNECEDOR`
+                : '[ ___ ] MTZ';
+
             return `<tr style="border-bottom:1px solid #e5e7eb;">
-                <td style="padding:10px; font-size:12px; color:#000000 !important;">${escaparHTMLPDF(item.nome)}</td>
+                <td style="padding:10px; font-size:12px; color:#000000 !important;">
+                    <strong>${escaparHTMLPDF(item.nome)}</strong>
+                    <small style="display:block;margin-top:3px;color:#475569 !important;line-height:1.35;">${escaparHTMLPDF(resumoComposicao)}</small>
+                </td>
                 <td style="padding:10px; text-align:center; font-size:12px; color:#000000 !important;">${quantidade}</td>
-                <td style="padding:10px; text-align:center; font-size:12px; color:#cccccc !important;">[ ___ ]</td>
+                <td style="padding:10px; text-align:center; font-size:10px; line-height:1.8; color:#475569 !important;">${conferenciaOperacional}</td>
             </tr>`;
         }
 

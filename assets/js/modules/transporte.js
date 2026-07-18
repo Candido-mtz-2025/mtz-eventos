@@ -110,6 +110,82 @@
         );
     }
 
+    function renderizarComposicaoOperacionalTransporte(locacao = null) {
+        const container = document.getElementById('transporteComposicaoOperacional');
+        if (!container) return;
+
+        const itens = Array.isArray(locacao?.items) ? locacao.items : [];
+        if (!locacao || !itens.length) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
+
+        const composicoes = itens.map((item) => ({
+            item,
+            composicao: typeof obterComposicaoOperacionalItem === 'function'
+                ? obterComposicaoOperacionalItem(item)
+                : null
+        }));
+        const totais = composicoes.reduce((acc, entrada) => {
+            const composicao = entrada.composicao;
+            if (!composicao?.possuiClassificacao) {
+                acc.naoInformado += Math.max(parseInt(entrada.item?.quantidade, 10) || 0, 0);
+                return acc;
+            }
+            acc.proprio += composicao.quantidadePropria;
+            acc.terceirizado += composicao.quantidadeTerceirizada;
+            return acc;
+        }, { proprio: 0, terceirizado: 0, naoInformado: 0 });
+
+        container.hidden = false;
+        container.innerHTML = `
+            <div style="margin:4px 0 18px;padding:14px;border:1px solid var(--border-color, #d9e2f0);border-radius:8px;background:var(--card-bg, #fff);">
+                <div class="section-toolbar" style="margin-bottom:10px;">
+                    <div>
+                        <strong>Composição operacional da carga</strong>
+                        <small style="display:block;margin-top:2px;color:var(--text-light);">Total do evento separado entre estoque MTZ e fornecedor.</small>
+                    </div>
+                    <div class="inline-chip-row">
+                        <span class="badge badge-info">MTZ: ${totais.proprio}</span>
+                        <span class="badge badge-warning">Fornecedor: ${totais.terceirizado}</span>
+                        ${totais.naoInformado > 0 ? `<span class="badge badge-secondary">Sem origem: ${totais.naoInformado}</span>` : ''}
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table" style="margin:0;">
+                        <thead>
+                            <tr><th>Item</th><th>Total</th><th>Próprio MTZ</th><th>Terceirizado</th><th>Origem / ação</th></tr>
+                        </thead>
+                        <tbody>
+                            ${composicoes.map(({ item, composicao }) => {
+                                if (!composicao?.possuiClassificacao) {
+                                    return `<tr>
+                                        <td><strong>${html(item?.nome || 'Item')}</strong></td>
+                                        <td>${Math.max(parseInt(item?.quantidade, 10) || 0, 0)}</td>
+                                        <td>—</td><td>—</td>
+                                        <td><span class="badge badge-secondary">Origem não informada</span></td>
+                                    </tr>`;
+                                }
+                                const rotuloOrigem = composicao.origemCusto === 'proprio'
+                                    ? 'Estoque MTZ'
+                                    : (composicao.origemCusto === 'terceirizado' ? 'Fornecedor obrigatório' : 'Fornecedor parcial');
+                                const badgeOrigem = composicao.origemCusto === 'proprio' ? 'badge-success' : 'badge-warning';
+                                return `<tr>
+                                    <td><strong>${html(item?.nome || 'Item')}</strong></td>
+                                    <td>${composicao.quantidadeTotal}</td>
+                                    <td>${composicao.quantidadePropria}</td>
+                                    <td>${composicao.quantidadeTerceirizada}</td>
+                                    <td><span class="badge ${badgeOrigem}">${rotuloOrigem}</span></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
     function obterValorKmPadrao() {
         return numero(config?.valorKmFretePadrao, 0);
     }
@@ -237,6 +313,7 @@
     function preencherTransporteDaLocacao() {
         const locacaoId = lerCampo('transporteLocacao');
         const locacao = obterLocacaoPorId(locacaoId);
+        renderizarComposicaoOperacionalTransporte(locacao);
         if (!locacao) return;
 
         const cliente = obterClientePorLocacao(locacao);
@@ -422,6 +499,7 @@
         preencherCampo('transporteStatus', 'pendente');
         preencherCampo('transporteTrechos', 1);
         preencherCampo('transporteValorKm', obterValorKmPadrao() || '');
+        renderizarComposicaoOperacionalTransporte(null);
         calcularCustoTransporte();
 
         if (!opcoes.semRender && typeof renderTransporteOperacional === 'function') {
@@ -459,6 +537,7 @@
             preencherCampo('transporteTrechos', item.trechos || 1);
             preencherCampo('transporteStatus', item.status);
             preencherCampo('transporteObservacoes', item.observacoes);
+            renderizarComposicaoOperacionalTransporte(obterLocacaoPorId(item.locacaoId));
             calcularCustoTransporte();
             const card = document.getElementById('transporteFormularioCard');
             if (card && typeof rolarParaElementoAtalho === 'function') {
@@ -585,6 +664,7 @@
 
         popularSelectLocacaoTransporte();
         calcularCustoTransporte();
+        renderizarComposicaoOperacionalTransporte(obterLocacaoPorId(lerCampo('transporteLocacao')));
 
         const buscaRaw = String(document.getElementById('buscaTransporte')?.value || '').trim();
         const base = (Array.isArray(transportes) ? transportes : []).map(normalizarTransporte);

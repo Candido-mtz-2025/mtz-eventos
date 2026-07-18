@@ -5916,6 +5916,32 @@
         `;
     }
 
+    function montarComposicaoOperacionalItemPdfInterno(item = {}) {
+        if (typeof obterComposicaoOperacionalItem !== 'function') return '';
+
+        const composicao = obterComposicaoOperacionalItem(item);
+        if (!composicao.possuiClassificacao) {
+            return `<small>Origem: não informada • Total: ${composicao.quantidadeTotal}</small>`;
+        }
+
+        const rotulosOrigem = {
+            proprio: 'Próprio',
+            terceirizado: 'Terceirizado',
+            misto: 'Misto'
+        };
+        const partes = [
+            `Origem: ${rotulosOrigem[composicao.origemCusto] || 'Não informada'}`,
+            `Total: ${composicao.quantidadeTotal}`,
+            `Próprio MTZ: ${composicao.quantidadePropria}`
+        ];
+        if (composicao.quantidadeTerceirizada > 0) {
+            partes.push(`Terceirizado: ${composicao.quantidadeTerceirizada}`);
+            partes.push('Fornecedor: providenciar/conferir');
+        }
+
+        return `<small>${sanitizar(partes.join(' • '))}</small>`;
+    }
+
     function montarLinhasItensPdfPorCategoria(itens = [], exibirInterno = false) {
         const grupos = agruparItensPropostaPorCategoria(itens);
         const totalColunas = exibirInterno ? 8 : 5;
@@ -5931,6 +5957,7 @@
                     `<strong>${numeroGrupo}.${indiceItem + 1} ${sanitizar(item.descricao || '-')}</strong>`,
                     item.medida ? `<small>Medida: ${sanitizar(item.medida)}</small>` : '',
                     exibirInterno ? `<small>Tipo fiscal: ${sanitizar(rotuloTipoFiscalItem(item.tipoFiscal))}</small>` : '',
+                    exibirInterno ? montarComposicaoOperacionalItemPdfInterno(item) : '',
                     item.observacoes ? `<small>Obs.: ${sanitizar(item.observacoes)}</small>` : ''
                 ].filter(Boolean).join('');
 
