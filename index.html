@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.27">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.28">
 </head>
 <body>
 
@@ -1394,76 +1394,118 @@
                     <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabComercial" data-proposta-form-section="fechamento" hidden>
                     <h4>Valores e condições</h4>
                     <div class="proposta-closing-grid">
-                        <div class="proposta-closing-block" data-proposta-grupo="logistica">
-                            <h5>Custos internos e logística</h5>
-                            <p class="proposta-guided-warning">Estes valores entram no custo interno e lucro. Se forem cobrados do cliente, lance também como item da proposta com tipo fiscal próprio.</p>
-                            <div class="form-row">
-                                <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Valor por km (R$)</label><input type="text" id="propFreteValorKm" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group"><label>Frete (R$)</label><input type="text" id="propCustoFrete" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group"><label>Operador</label><input type="text" id="propCustoOperador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Elétrica</label><input type="text" id="propCustoEletrica" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group"><label>Gerador</label><input type="text" id="propCustoGerador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                                <div class="form-group"><label>Terceirizados</label><input type="text" id="propCustoTerceirizados" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group"><label>Outros custos</label><input type="text" id="propCustoOutros" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                            </div>
-                            <div class="proposta-operational-cost">
-                                <div class="proposta-operational-cost__head">
-                                    <strong>Mão de obra cobrada do cliente</strong>
-                                    <small>Valor comercial somado à proposta. Não entra como custo interno.</small>
-                                </div>
-                                <input type="hidden" id="propMaoObraComercialDetalhadaAtiva" value="0">
-                                <h6>Montagem</h6>
-                                <div class="form-row">
-                                    <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraMontagemPessoas" min="0" step="1" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraMontagemValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraMontagemDias" min="0" step="0.5" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Total montagem</label><input type="text" id="propMaoObraMontagemTotal" value="R$ 0,00" readonly></div>
-                                </div>
-                                <h6>Desmontagem</h6>
-                                <div class="form-row">
-                                    <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraDesmontagemPessoas" min="0" step="1" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraDesmontagemValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraDesmontagemDias" min="0" step="0.5" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Total desmontagem</label><input type="text" id="propMaoObraDesmontagemTotal" value="R$ 0,00" readonly></div>
+                        <div class="proposta-closing-block proposta-cost-organization" data-proposta-grupo="logistica">
+                            <h5>Logística e custos</h5>
+
+                            <section class="proposta-cost-section proposta-cost-section--commercial" aria-labelledby="propostaCustosComerciaisTitulo">
+                                <div class="proposta-cost-section__head">
+                                    <span class="proposta-cost-section__icon"><i class="bi bi-receipt"></i></span>
+                                    <div>
+                                        <h6 id="propostaCustosComerciaisTitulo">Valores cobrados do cliente</h6>
+                                        <p>Estes valores fazem parte do total cobrado do cliente.</p>
+                                    </div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-group"><label>Total mão de obra cobrada</label><input type="text" id="propCustoMaoObra" value="R$ 0,00" readonly></div>
-                                </div>
-                            </div>
-                            <div class="proposta-operational-cost">
-                                <div class="proposta-operational-cost__head">
-                                    <strong>Mão de obra operacional interna</strong>
-                                    <small>Custo interno: não aumenta o valor final do cliente.</small>
+                                    <div class="form-group"><label>Trechos/viagens</label><input type="number" id="propFreteTrechos" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Distância (km)</label><input type="number" id="propFreteDistanciaKm" min="0" step="0.01" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Valor por km (R$)</label><input type="text" id="propFreteValorKm" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraPessoas" min="0" step="1" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraDias" min="0" step="0.5" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Total mão de obra</label><input type="text" id="propMaoObraTotal" value="R$ 0,00" readonly></div>
+                                    <div class="form-group"><label>Frete comercial (R$)</label><input type="text" id="propCustoFrete" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                 </div>
-                            </div>
-                            <div class="proposta-operational-cost">
-                                <div class="proposta-operational-cost__head">
-                                    <strong>Hospedagem</strong>
-                                    <small>Custo interno opcional para equipe em viagem.</small>
+                                <div class="proposta-operational-cost">
+                                    <div class="proposta-operational-cost__head">
+                                        <strong>Mão de obra cobrada do cliente</strong>
+                                        <small>Montagem e desmontagem somadas ao valor comercial da proposta.</small>
+                                    </div>
+                                    <input type="hidden" id="propMaoObraComercialDetalhadaAtiva" value="0">
+                                    <h6>Montagem</h6>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraMontagemPessoas" min="0" step="1" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraMontagemValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraMontagemDias" min="0" step="0.5" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Total montagem</label><input type="text" id="propMaoObraMontagemTotal" value="R$ 0,00" readonly></div>
+                                    </div>
+                                    <h6>Desmontagem</h6>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraDesmontagemPessoas" min="0" step="1" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraDesmontagemValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraDesmontagemDias" min="0" step="0.5" data-mao-obra-comercial-campo data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Total desmontagem</label><input type="text" id="propMaoObraDesmontagemTotal" value="R$ 0,00" readonly></div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Total mão de obra cobrada</label><input type="text" id="propCustoMaoObra" value="R$ 0,00" readonly></div>
+                                    </div>
+                                </div>
+                                <div class="proposta-cost-subgroup">
+                                    <strong>Outros valores comerciais</strong>
+                                    <small>Preencha somente quando o valor será repassado ao cliente.</small>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-group"><label>Pessoas</label><input type="number" id="propHospedagemPessoas" min="0" step="1" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Diárias</label><input type="number" id="propHospedagemDiarias" min="0" step="0.5" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Valor por diária/pessoa</label><input type="text" id="propHospedagemValorDiariaPessoa" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
-                                    <div class="form-group"><label>Total hospedagem</label><input type="text" id="propHospedagemTotal" value="R$ 0,00" readonly></div>
+                                    <div class="form-group"><label>Operador cobrado do cliente</label><input type="text" id="propCustoOperador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Elétrica cobrada do cliente</label><input type="text" id="propCustoEletrica" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                 </div>
-                            </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Gerador cobrado do cliente</label><input type="text" id="propCustoGerador" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Terceirizados cobrados do cliente</label><input type="text" id="propCustoTerceirizados" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Outros valores cobrados</label><input type="text" id="propCustoOutros" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                </div>
+                            </section>
+
+                            <section class="proposta-cost-section proposta-cost-section--internal" aria-labelledby="propostaCustosInternosTitulo">
+                                <div class="proposta-cost-section__head">
+                                    <span class="proposta-cost-section__icon"><i class="bi bi-building-gear"></i></span>
+                                    <div>
+                                        <h6 id="propostaCustosInternosTitulo">Custos internos da MTZ</h6>
+                                        <p>Estes valores não aumentam o total do cliente e são usados somente no cálculo de lucro e margem.</p>
+                                    </div>
+                                </div>
+                                <div class="proposta-operational-cost">
+                                    <div class="proposta-operational-cost__head">
+                                        <strong>Mão de obra operacional interna</strong>
+                                        <small>Equipe própria utilizada na execução do evento.</small>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Pessoas</label><input type="number" id="propMaoObraPessoas" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Valor por pessoa/dia</label><input type="text" id="propMaoObraValorPessoaDia" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Dias</label><input type="number" id="propMaoObraDias" min="0" step="0.5" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Total mão de obra</label><input type="text" id="propMaoObraTotal" value="R$ 0,00" readonly></div>
+                                    </div>
+                                </div>
+                                <div class="proposta-operational-cost">
+                                    <div class="proposta-operational-cost__head">
+                                        <strong>Hospedagem operacional interna</strong>
+                                        <small>Custo opcional da equipe em viagem.</small>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Pessoas</label><input type="number" id="propHospedagemPessoas" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Diárias</label><input type="number" id="propHospedagemDiarias" min="0" step="0.5" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Valor por diária/pessoa</label><input type="text" id="propHospedagemValorDiariaPessoa" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Total hospedagem</label><input type="text" id="propHospedagemTotal" value="R$ 0,00" readonly></div>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Custo interno total</label><input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Outros custos internos</label><input type="text" id="propOutrosCustosInternos" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                </div>
+                                <p class="proposta-cost-section__note">Depreciação e custo operacional de material próprio permanecem configurados nos detalhes de cada item.</p>
+                            </section>
+
+                            <section class="proposta-cost-section proposta-cost-section--supplier" aria-labelledby="propostaCustosFornecedoresTitulo">
+                                <div class="proposta-cost-section__head">
+                                    <span class="proposta-cost-section__icon"><i class="bi bi-truck"></i></span>
+                                    <div>
+                                        <h6 id="propostaCustosFornecedoresTitulo">Fornecedores e terceirizados</h6>
+                                        <p>Estes valores representam custos externos e reduzem o lucro da proposta.</p>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group"><label>Custo externo/terceirizado total</label><input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                </div>
+                                <p class="proposta-cost-section__note">Materiais, gerador, elétrica, operador e demais fornecedores podem ser consolidados aqui. Custos específicos por item continuam nos detalhes da composição.</p>
+                            </section>
                         </div>
 
                         <div class="proposta-closing-block" data-proposta-grupo="comercial">
@@ -1588,20 +1630,6 @@
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group">
-                                <label>Custo interno total</label>
-                                <input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
-                            </div>
-                            <div class="form-group">
-                                <label>Custo terceirizado total</label>
-                                <input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Outros custos internos</label>
-                                <input type="text" id="propOutrosCustosInternos" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta">
-                            </div>
                             <div class="form-group">
                                 <label>Custo total da proposta</label>
                                 <input type="text" id="propCustoTotalProposta" value="R$ 0,00" readonly>

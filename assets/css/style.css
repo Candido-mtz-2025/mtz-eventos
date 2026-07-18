@@ -9736,6 +9736,100 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     font-size: 1rem;
 }
 
+#tab-propostas .proposta-cost-organization {
+    display: grid;
+    gap: 14px;
+}
+
+#tab-propostas .proposta-cost-organization > h5 {
+    margin-bottom: 0;
+}
+
+#tab-propostas .proposta-cost-section {
+    --cost-accent: #2563eb;
+    min-width: 0;
+    padding: 14px 14px 10px;
+    border-inline-start: 3px solid var(--cost-accent);
+    border-top: 1px solid color-mix(in srgb, var(--cost-accent) 24%, var(--border));
+    background: color-mix(in srgb, var(--cost-accent) 5%, transparent);
+}
+
+#tab-propostas .proposta-cost-section--internal {
+    --cost-accent: #059669;
+}
+
+#tab-propostas .proposta-cost-section--supplier {
+    --cost-accent: #d97706;
+}
+
+#tab-propostas .proposta-cost-section__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+#tab-propostas .proposta-cost-section__icon {
+    display: inline-grid;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 6px;
+    color: var(--cost-accent);
+    background: color-mix(in srgb, var(--cost-accent) 12%, var(--surface));
+}
+
+#tab-propostas .proposta-cost-section__head h6 {
+    margin: 0;
+    color: var(--text);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+#tab-propostas .proposta-cost-section__head p,
+#tab-propostas .proposta-cost-section__note {
+    margin: 3px 0 0;
+    color: var(--text-light);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+#tab-propostas .proposta-cost-subgroup {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 14px 0 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-cost-subgroup strong {
+    color: var(--text);
+    font-size: 0.84rem;
+}
+
+#tab-propostas .proposta-cost-subgroup small {
+    color: var(--text-light);
+}
+
+#tab-propostas .proposta-cost-section .proposta-operational-cost {
+    margin-top: 12px;
+    padding: 12px 0 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+}
+
+#tab-propostas .proposta-cost-section .proposta-operational-cost__head {
+    margin-bottom: 10px;
+}
+
+#tab-propostas .proposta-cost-section .form-row:last-of-type {
+    margin-bottom: 0;
+}
+
 #tab-propostas .proposta-internal-details {
     margin-top: 14px;
     padding: 0;
@@ -19694,6 +19788,23 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-operational-cost {
 }
 
 @media (max-width: 720px) {
+    #tab-propostas .proposta-cost-section {
+        padding: 12px 10px 8px;
+    }
+
+    #tab-propostas .proposta-cost-section__head {
+        align-items: center;
+    }
+
+    #tab-propostas .proposta-cost-subgroup {
+        display: block;
+    }
+
+    #tab-propostas .proposta-cost-subgroup small {
+        display: block;
+        margin-top: 3px;
+    }
+
     #tab-propostas .proposta-operational-cost__head {
         display: block;
     }
