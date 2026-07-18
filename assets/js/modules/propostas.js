@@ -5423,8 +5423,22 @@
         (Array.isArray(proposta?.itens) ? proposta.itens : []).forEach((item) => {
             const calculado = calcularItemProposta(item || {});
             const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(calculado.quantidade, 1)));
+            const quantidadeEstoque = typeof obterQuantidadePropriaOperacional === 'function'
+                ? obterQuantidadePropriaOperacional(calculado)
+                : quantidade;
             const descricao = textoSeguro(calculado.descricao || item?.descricao, 'Item sem descrição');
             const peca = encontrarPecaPorDescricao(calculado);
+
+            if (calculado.origemCusto === 'misto') {
+                const propria = numeroNaoNegativo(item?.quantidadePropria, 0);
+                const terceirizada = numeroNaoNegativo(item?.quantidadeTerceirizada, 0);
+                if (Math.abs((propria + terceirizada) - quantidade) >= 0.000001) {
+                    bloqueios.push(`${descricao}: ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}`);
+                    return;
+                }
+            }
+
+            if (quantidadeEstoque <= 0) return;
 
             if (!peca) {
                 if (!itemPropostaDispensaReservaEstoque(item)) {
@@ -5434,8 +5448,8 @@
             }
 
             const disponivel = obterDisponivelPecaProposta(peca);
-            if (quantidade > disponivel) {
-                bloqueios.push(`${descricao}: pedido ${quantidade}, disponível ${disponivel}.`);
+            if (quantidadeEstoque > disponivel) {
+                bloqueios.push(`${descricao}: estoque próprio necessário ${quantidadeEstoque}, disponível ${disponivel}.`);
             }
         });
 
@@ -5531,6 +5545,9 @@
                 pecaId: peca?.id || '',
                 nome: itemCalculado.descricao || item.descricao,
                 quantidade,
+                origemCusto: itemCalculado.origemCusto || item.origemCusto || 'nao_informado',
+                quantidadePropria: Math.max(0, Math.trunc(numeroNaoNegativo(itemCalculado.quantidadePropria ?? item.quantidadePropria, 0))),
+                quantidadeTerceirizada: Math.max(0, Math.trunc(numeroNaoNegativo(itemCalculado.quantidadeTerceirizada ?? item.quantidadeTerceirizada, 0))),
                 valor: valorUnitarioComercial,
                 periodoDias,
                 categoria: itemCalculado.categoria || item.categoria || '',
@@ -5663,7 +5680,9 @@
         if (typeof registrarMovimentacaoEstoque === 'function') {
             const propostaIdMov = String(proposta.id || proposta.codigo || '');
             itensLocacao.forEach((item) => {
-                const quantidadeMov = Math.max(0, Math.trunc(numeroNaoNegativo(item.quantidade, 0)));
+                const quantidadeMov = typeof obterQuantidadePropriaOperacional === 'function'
+                    ? obterQuantidadePropriaOperacional(item)
+                    : Math.max(0, Math.trunc(numeroNaoNegativo(item.quantidade, 0)));
                 const pecaIdMov = String(item.pecaId || '');
                 if (!pecaIdMov || quantidadeMov <= 0) return;
 

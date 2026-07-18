@@ -16,7 +16,12 @@ function recalcularDisponibilidade(forcar = false) {
             const statusVisual = String(locacaoNormalizada?.statusVisual || locacaoNormalizada?.status || '').toLowerCase();
             if (statusVisual !== 'devolvido' && statusVisual !== 'cancelado') {
                 (l.items || []).forEach(i => {
-                    const qtdAlugada = Math.max((i.quantidade || 0) - (i.devolvidos || 0), 0);
+                    const quantidadeEstoque = typeof obterQuantidadePropriaOperacional === 'function'
+                        ? obterQuantidadePropriaOperacional(i)
+                        : Math.max(parseInt(i.quantidade, 10) || 0, 0);
+                    const qtdDevolvida = Math.max(parseInt(i.devolvidos, 10) || 0, 0);
+                    const qtdAvariada = Math.max(parseInt(i.avariadosEstoqueProprio, 10) || 0, 0);
+                    const qtdAlugada = Math.max(quantidadeEstoque - qtdDevolvida - qtdAvariada, 0);
                     const atual = aluguelPorPeca.get(i.pecaId) || 0;
                     aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
                 });

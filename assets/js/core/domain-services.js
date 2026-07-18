@@ -24,6 +24,28 @@
         return Math.max(0, Math.trunc(numeroSeguro(valor, fallback)));
     }
 
+    function obterQuantidadePropriaOperacional(item = {}) {
+        const quantidadeTotal = inteiroNaoNegativo(item?.quantidade, 0);
+        const possuiOrigemCusto = Object.prototype.hasOwnProperty.call(item || {}, 'origemCusto');
+        const origemCusto = textoSeguro(item?.origemCusto, '').trim().toLowerCase();
+
+        // Dados legados e itens sem classificacao preservam o comportamento anterior.
+        if (!possuiOrigemCusto || !origemCusto || origemCusto === 'nao_informado') {
+            return quantidadeTotal;
+        }
+
+        if (origemCusto === 'terceirizado') return 0;
+        if (origemCusto === 'proprio') return quantidadeTotal;
+
+        if (origemCusto === 'misto') {
+            // Nao deduz a parcela ausente: a divisao mista deve ser validada na proposta.
+            const quantidadePropria = inteiroNaoNegativo(item?.quantidadePropria, 0);
+            return Math.min(quantidadePropria, quantidadeTotal);
+        }
+
+        return quantidadeTotal;
+    }
+
     function textoSeguro(valor, fallback = '') {
         if (valor == null) return fallback;
         return String(valor);
@@ -385,6 +407,7 @@
     }
 
     window.calcularValorLocacaoDominio = calcularValorLocacaoDominio;
+    window.obterQuantidadePropriaOperacional = obterQuantidadePropriaOperacional;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;

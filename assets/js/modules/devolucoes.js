@@ -1,8 +1,11 @@
 // Devoluções: conferência total ou parcial por item
 function getQtdPendenteItem(item) {
-    const quantidade = parseInt(item.quantidade) || 0;
+    const quantidade = typeof obterQuantidadePropriaOperacional === 'function'
+        ? obterQuantidadePropriaOperacional(item)
+        : Math.max(parseInt(item.quantidade, 10) || 0, 0);
     const devolvidos = parseInt(item.devolvidos) || 0;
-    return Math.max(quantidade - devolvidos, 0);
+    const avariados = parseInt(item.avariadosEstoqueProprio, 10) || 0;
+    return Math.max(quantidade - devolvidos - avariados, 0);
 }
 
 function locacaoEstaTotalmenteDevolvida(locacao) {
@@ -271,11 +274,15 @@ function confirmarDevolucao() {
         const inputAvaria = document.querySelector(`.dev-avaria[data-peca-id="${item.pecaId}"]`);
         const inputObs = document.querySelector(`.dev-obs[data-peca-id="${item.pecaId}"]`);
 
-        const qtdDevolvida = Math.max(0, Math.min(parseInt(inputQtd?.value, 10) || 0, pendenteAntes));
-        const qtdAvaria = Math.max(0, Math.min(parseInt(inputAvaria?.value, 10) || 0, pendenteAntes));
+        const qtdDevolvidaInformada = Math.max(0, parseInt(inputQtd?.value, 10) || 0);
+        const qtdAvariaInformada = Math.max(0, parseInt(inputAvaria?.value, 10) || 0);
+        const qtdDevolvida = Math.min(qtdDevolvidaInformada, pendenteAntes);
+        const qtdAvaria = Math.min(qtdAvariaInformada, pendenteAntes);
         const obs = (inputObs?.value || '').trim();
 
-        if ((qtdDevolvida + qtdAvaria) > pendenteAntes) {
+        if (qtdDevolvidaInformada > pendenteAntes
+            || qtdAvariaInformada > pendenteAntes
+            || (qtdDevolvidaInformada + qtdAvariaInformada) > pendenteAntes) {
             mostrarToast(`"${item.nome}" excedeu a quantidade pendente (${pendenteAntes}).`, "erro");
             const primeiroCampoInvalido = inputQtd || inputAvaria;
             if (primeiroCampoInvalido instanceof HTMLElement) primeiroCampoInvalido.focus();
@@ -312,7 +319,7 @@ function confirmarDevolucao() {
             quantidadeDevolvida: qtdDevolvida,
             quantidadeAvaria: qtdAvaria,
             quantidadePendenteAntes: pendenteAntes,
-            quantidadePendenteApos: Math.max(pendenteAntes - qtdDevolvida, 0),
+            quantidadePendenteApos: Math.max(pendenteAntes - qtdDevolvida - qtdAvaria, 0),
             valorUnitario: parseFloat(item.valor) || 0,
             observacao: obs
         });
@@ -320,10 +327,9 @@ function confirmarDevolucao() {
 
     const devolucaoTotal = (l.items || []).every((item) => {
         const reg = pendencias.find((p) => String(p.item?.pecaId) === String(item?.pecaId));
-        const devolvidosAtuais = parseInt(item?.devolvidos, 10) || 0;
         const qtdDevolvida = reg?.qtdDevolvida || 0;
-        const quantidadeLocada = parseInt(item?.quantidade, 10) || 0;
-        const pendenteApos = Math.max(quantidadeLocada - (devolvidosAtuais + qtdDevolvida), 0);
+        const qtdAvaria = reg?.qtdAvaria || 0;
+        const pendenteApos = Math.max(getQtdPendenteItem(item) - qtdDevolvida - qtdAvaria, 0);
         return pendenteApos === 0;
     });
 
@@ -339,8 +345,16 @@ function confirmarDevolucao() {
 
     const concluirRegistroDevolucao = () => {
         pendencias.forEach((registro) => {
-            const { item, qtdDevolvida } = registro;
+            const { item, qtdDevolvida, qtdAvaria } = registro;
             item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
+            item.avariadosEstoqueProprio = (parseInt(item.avariadosEstoqueProprio, 10) || 0) + qtdAvaria;
+
+            if (qtdAvaria > 0 && Array.isArray(pecas)) {
+                const peca = pecas.find((registroPeca) => String(registroPeca?.id || '') === String(item.pecaId || ''));
+                if (peca) {
+                    peca.avariado = (parseInt(peca.avariado, 10) || 0) + qtdAvaria;
+                }
+            }
         });
 
         if (typeof registrarMovimentacaoEstoque === 'function') {

@@ -183,6 +183,74 @@ function obterOrigemChecklistAtual() {
     };
 }
 
+function obterDetalhesQuantidadeOperacionalChecklist(itemChecklist, locacao = null) {
+    const quantidadeTotal = Math.max(parseInt(itemChecklist?.quantidade, 10) || 0, 0);
+    const itensLocacao = Array.isArray(locacao?.items) ? locacao.items : [];
+    const pecaId = String(itemChecklist?.pecaId || '');
+    const nomeItem = String(itemChecklist?.nome || '').trim().toLowerCase();
+    const itemLocacao = itensLocacao.find((item) => (
+        (pecaId && String(item?.pecaId || '') === pecaId)
+        || (!pecaId && nomeItem && String(item?.nome || '').trim().toLowerCase() === nomeItem)
+    ));
+
+    const possuiOrigem = itemLocacao
+        && Object.prototype.hasOwnProperty.call(itemLocacao, 'origemCusto');
+    const origemCusto = String(itemLocacao?.origemCusto || '').trim().toLowerCase();
+    const possuiClassificacao = possuiOrigem
+        && origemCusto
+        && origemCusto !== 'nao_informado';
+
+    if (!possuiClassificacao) {
+        return {
+            quantidadeTotal,
+            quantidadePropria: quantidadeTotal,
+            quantidadeTerceirizada: 0,
+            possuiClassificacao: false
+        };
+    }
+
+    const quantidadePropria = typeof obterQuantidadePropriaOperacional === 'function'
+        ? obterQuantidadePropriaOperacional(itemLocacao)
+        : quantidadeTotal;
+    let quantidadeTerceirizada = 0;
+
+    if (origemCusto === 'terceirizado') {
+        quantidadeTerceirizada = quantidadeTotal;
+    } else if (origemCusto === 'misto') {
+        quantidadeTerceirizada = Math.max(
+            0,
+            Math.min(parseInt(itemLocacao?.quantidadeTerceirizada, 10) || 0, quantidadeTotal)
+        );
+    }
+
+    return {
+        quantidadeTotal,
+        quantidadePropria: Math.max(0, Math.min(quantidadePropria, quantidadeTotal)),
+        quantidadeTerceirizada,
+        possuiClassificacao: true
+    };
+}
+
+function montarResumoQuantidadeOperacionalChecklist(item, opcoes = {}) {
+    if (!item?.possuiClassificacaoOperacional) return '';
+
+    const compacto = opcoes.compacto === true;
+    const separador = compacto ? ' • ' : '<br>';
+    const partes = [`Total necessário: <strong>${item.quantidade}</strong>`];
+
+    if (item.quantidadePropriaOperacional > 0 && item.quantidadeTerceirizada > 0) {
+        partes.push(`Separar no estoque próprio: <strong>${item.quantidadePropriaOperacional}</strong>`);
+        partes.push(`Material terceirizado: <strong>${item.quantidadeTerceirizada}</strong>`);
+    } else if (item.quantidadeTerceirizada > 0) {
+        partes.push(`Material terceirizado: <strong>${item.quantidadeTerceirizada}</strong>`);
+        partes.push('Separar no estoque: <strong>0</strong>');
+    } else {
+        partes.push(`Separar no estoque: <strong>${item.quantidadePropriaOperacional}</strong>`);
+    }
+
+    return partes.join(separador);
+}
+
 function obterPecaChecklistPorId(id) {
     if (!id || !Array.isArray(pecas)) return null;
     return pecas.find((peca) => String(peca.id) === String(id)) || null;
@@ -493,6 +561,7 @@ function sincronizarConferenciaChecklist(grupos) {
 
 function obterGruposChecklist() {
     const gruposMap = {};
+    const locacaoOrigem = obterOrigemChecklistAtual()?.locacao || null;
 
     (checklistMontagem || []).forEach(item => {
         const grupo = normalizarGrupoChecklist(item.grupoChecklist || item.grupo || item.categoriaChecklist || item.categoria);
@@ -511,13 +580,21 @@ function obterGruposChecklist() {
         const chaveConferencia = chaveConferenciaChecklist(grupo, referencia);
 
         const qtd = Number(item.quantidade) || 0;
+        const detalhesQuantidade = obterDetalhesQuantidadeOperacionalChecklist(item, locacaoOrigem);
         const linhaAtual = gruposMap[grupo].itens.get(referencia) || {
             nome: referencia,
             quantidade: 0,
+            quantidadePropriaOperacional: 0,
+            quantidadeTerceirizada: 0,
+            possuiClassificacaoOperacional: false,
             chaveConferencia
         };
 
         linhaAtual.quantidade += qtd;
+        linhaAtual.quantidadePropriaOperacional += detalhesQuantidade.quantidadePropria;
+        linhaAtual.quantidadeTerceirizada += detalhesQuantidade.quantidadeTerceirizada;
+        linhaAtual.possuiClassificacaoOperacional = linhaAtual.possuiClassificacaoOperacional
+            || detalhesQuantidade.possuiClassificacao;
         gruposMap[grupo].itens.set(referencia, linhaAtual);
         gruposMap[grupo].total += qtd;
 
@@ -547,10 +624,24 @@ function obterGruposChecklist() {
         .map(chave => ({
             ...gruposMap[chave],
             modelos: Array.from(gruposMap[chave].modelos),
-            itens: Array.from(gruposMap[chave].itens.values()).map(item => ({
-                ...item,
-                conferencia: obterConferenciaItemChecklist(item.chaveConferencia, item.quantidade)
-            }))
+            itens: Array.from(gruposMap[chave].itens.values()).map(item => {
+                const quantidadeConferencia = item.possuiClassificacaoOperacional
+                    ? item.quantidadePropriaOperacional
+                    : item.quantidade;
+                const conferencia = obterConferenciaItemChecklist(item.chaveConferencia, quantidadeConferencia);
+
+                // Item totalmente terceirizado não é pendência do estoque próprio.
+                if (item.possuiClassificacaoOperacional && quantidadeConferencia === 0) {
+                    conferencia.retorno = 0;
+                    conferencia.status = 'ok';
+                }
+
+                return {
+                    ...item,
+                    quantidadeConferencia,
+                    conferencia
+                };
+            })
         }));
 }
 
@@ -656,34 +747,45 @@ function renderChecklistMontagem() {
                         <tbody>
                             ${grupo.itens.map(item => `
                                 <tr>
-                                    <td>${escaparHTMLChecklist(item.nome)}</td>
+                                    <td>
+                                        <strong>${escaparHTMLChecklist(item.nome)}</strong>
+                                        ${item.possuiClassificacaoOperacional ? `
+                                            <div style="margin-top:5px;font-size:0.76rem;line-height:1.45;color:var(--text-light);">
+                                                ${montarResumoQuantidadeOperacionalChecklist(item)}
+                                            </div>
+                                        ` : ''}
+                                    </td>
                                     <td>${item.quantidade}</td>
                                     <td>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="${item.quantidade}"
-                                            class="checklist-input-retorno"
-                                            value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
-                                            data-change="atualizarConferenciaChecklist"
-                                            data-arg="${item.chaveConferencia}"
-                                            data-arg2="retorno"
-                                            data-arg3="__value__"
-                                            data-arg4="${item.quantidade}">
+                                        ${item.quantidadeConferencia > 0 ? `
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="${item.quantidadeConferencia}"
+                                                class="checklist-input-retorno"
+                                                value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
+                                                data-change="atualizarConferenciaChecklist"
+                                                data-arg="${item.chaveConferencia}"
+                                                data-arg2="retorno"
+                                                data-arg3="__value__"
+                                                data-arg4="${item.quantidadeConferencia}">
+                                        ` : '<span class="badge badge-info">Sem separação interna</span>'}
                                     </td>
                                     <td>
-                                        <select
-                                            class="checklist-select-status"
-                                            data-change="atualizarConferenciaChecklist"
-                                            data-arg="${item.chaveConferencia}"
-                                            data-arg2="status"
-                                            data-arg3="__value__"
-                                            data-arg4="${item.quantidade}">
-                                            <option value="pendente" ${item.conferencia.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-                                            <option value="ok" ${item.conferencia.status === 'ok' ? 'selected' : ''}>Conferido</option>
-                                            <option value="faltando" ${item.conferencia.status === 'faltando' ? 'selected' : ''}>Faltando</option>
-                                            <option value="avaria" ${item.conferencia.status === 'avaria' ? 'selected' : ''}>Avaria</option>
-                                        </select>
+                                        ${item.quantidadeConferencia > 0 ? `
+                                            <select
+                                                class="checklist-select-status"
+                                                data-change="atualizarConferenciaChecklist"
+                                                data-arg="${item.chaveConferencia}"
+                                                data-arg2="status"
+                                                data-arg3="__value__"
+                                                data-arg4="${item.quantidadeConferencia}">
+                                                <option value="pendente" ${item.conferencia.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                                                <option value="ok" ${item.conferencia.status === 'ok' ? 'selected' : ''}>Conferido</option>
+                                                <option value="faltando" ${item.conferencia.status === 'faltando' ? 'selected' : ''}>Faltando</option>
+                                                <option value="avaria" ${item.conferencia.status === 'avaria' ? 'selected' : ''}>Avaria</option>
+                                            </select>
+                                        ` : '<span class="badge badge-success">Estoque próprio OK</span>'}
                                     </td>
                                     <td>
                                         <input
@@ -696,7 +798,7 @@ function renderChecklistMontagem() {
                                             data-arg="${item.chaveConferencia}"
                                             data-arg2="observacao"
                                             data-arg3="__value__"
-                                            data-arg4="${item.quantidade}">
+                                            data-arg4="${item.quantidadeConferencia}">
                                     </td>
                                 </tr>
                             `).join('')}
@@ -810,10 +912,19 @@ function gerarPDFChecklistMontagem(opcoes = {}) {
 
                         return `
                             <tr style="background:${linhaIndex % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">${escaparHTMLChecklist(item.nome)}</td>
+                                <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-weight:700;">
+                                    ${escaparHTMLChecklist(item.nome)}
+                                    ${item.possuiClassificacaoOperacional ? `
+                                        <div style="margin-top:4px;font-size:8.5px;line-height:1.45;color:#475569;font-weight:600;">
+                                            ${montarResumoQuantidadeOperacionalChecklist(item)}
+                                        </div>
+                                    ` : ''}
+                                </td>
                                 <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#111827;font-weight:800;">${item.quantidade}</td>
                                 <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;color:#0f172a;font-weight:800;">
-                                    ${retorno || '<span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>'}
+                                    ${item.quantidadeConferencia > 0
+                                        ? (retorno || '<span style="display:inline-block;width:82px;border-bottom:1.8px solid #111827;height:14px;"></span>')
+                                        : '<span style="color:#64748b;font-size:9px;">N/A estoque próprio</span>'}
                                 </td>
                                 <td style="padding:10px 12px;border-bottom:1px solid #e5e7eb;color:#475569;">
                                     ${observacoes ? escaparHTMLChecklist(observacoes) : '<span style="display:block;border-bottom:1px solid #cbd5e1;height:14px;"></span>'}
@@ -976,6 +1087,31 @@ function renderChecklistEtapasMontagem() {
     `;
 
     checklistEtapasMontagem.forEach((linha, index) => {
+        const itemChecklistOrigem = checklistMontagem[index];
+        const referenciaOrigem = String(
+            itemChecklistOrigem?.medida
+            || itemChecklistOrigem?.subtipoEstrutural
+            || itemChecklistOrigem?.nome
+            || ''
+        );
+        const correspondeAoItemOrigem = itemChecklistOrigem
+            && referenciaOrigem === String(linha.peca || '')
+            && Number(itemChecklistOrigem.quantidade || 0) === Number(linha.quantidade || 0);
+        const detalhesMontagem = correspondeAoItemOrigem
+            ? obterDetalhesQuantidadeOperacionalChecklist(
+                itemChecklistOrigem,
+                obterOrigemChecklistAtual()?.locacao || null
+            )
+            : null;
+        const resumoMontagem = detalhesMontagem?.possuiClassificacao
+            ? montarResumoQuantidadeOperacionalChecklist({
+                quantidade: detalhesMontagem.quantidadeTotal,
+                quantidadePropriaOperacional: detalhesMontagem.quantidadePropria,
+                quantidadeTerceirizada: detalhesMontagem.quantidadeTerceirizada,
+                possuiClassificacaoOperacional: true
+            }, { compacto: true })
+            : '';
+
         html += `
             <tr>
     <td>
@@ -1010,6 +1146,7 @@ function renderChecklistEtapasMontagem() {
                data-arg="${index}"
                data-arg2="quantidade"
                data-arg3="__value__">
+        ${resumoMontagem ? `<div style="margin-top:5px;font-size:0.72rem;line-height:1.35;color:var(--text-light);">${resumoMontagem}</div>` : ''}
     </td>
     <td>
         <textarea
