@@ -2372,6 +2372,7 @@
         });
 
         atualizarExperienciaGuiadaProposta();
+        if (etapa === 'revisao') renderizarHistoricoProposta();
 
         if (opcoes.semRolagem) return;
 
@@ -2737,6 +2738,122 @@
 
     function statusRotulo(status) {
         return STATUS_LABELS[normalizarStatusProposta(status)] || STATUS_LABELS.rascunho;
+    }
+
+    function obterMetadadosAtividadeProposta(proposta, extras = {}) {
+        const revisao = normalizarNumeroRevisaoProposta(proposta?.revisao, 0);
+        return {
+            entidade: 'proposta',
+            propostaId: String(proposta?.id || ''),
+            codigo: textoSeguro(proposta?.codigo),
+            codigoBase: obterCodigoBaseProposta(proposta),
+            revisao,
+            propostaOrigemId: textoSeguro(proposta?.propostaOrigemId),
+            usuarioNome: obterUsuarioAtualNomeOuEmail(),
+            ...extras
+        };
+    }
+
+    function registrarAtividadeProposta(proposta, acao, descricao, extras = {}) {
+        if (!proposta?.id || typeof registrarLog !== 'function') return false;
+        registrarLog(
+            'proposta',
+            acao,
+            descricao,
+            obterMetadadosAtividadeProposta(proposta, extras)
+        );
+        return true;
+    }
+
+    function obterAtividadesProposta(propostaId) {
+        if (!propostaId || typeof logsAuditoria === 'undefined' || !Array.isArray(logsAuditoria)) return [];
+        const id = String(propostaId);
+        return logsAuditoria
+            .filter((log) => (
+                log?.tipo === 'proposta'
+                && String(log?.dados?.propostaId || '') === id
+            ))
+            .slice()
+            .sort((a, b) => {
+                const dataA = Date.parse(a?.timestamp || '') || Number(a?.id || 0);
+                const dataB = Date.parse(b?.timestamp || '') || Number(b?.id || 0);
+                return dataB - dataA;
+            });
+    }
+
+    function obterIconeAtividadeProposta(log) {
+        const acao = textoSeguro(log?.acao).toLowerCase();
+        const statusNovo = textoSeguro(log?.dados?.statusNovo).toLowerCase();
+        if (acao === 'pdf_cliente') return 'bi-file-earmark-pdf';
+        if (acao === 'pdf_interno') return 'bi-file-earmark-lock';
+        if (acao === 'duplicar') return 'bi-files';
+        if (acao === 'revisao') return 'bi-layers';
+        if (acao === 'converter') return 'bi-arrow-repeat';
+        if (acao === 'excluir') return 'bi-trash';
+        if (acao === 'criar') return 'bi-plus-circle';
+        if (acao === 'editar' || acao === 'salvar') return 'bi-pencil-square';
+        if (acao === 'status' && statusNovo === 'enviada') return 'bi-send';
+        if (acao === 'status' && statusNovo === 'aprovada') return 'bi-hand-thumbs-up';
+        if (acao === 'status' && statusNovo === 'recusada') return 'bi-hand-thumbs-down';
+        return 'bi-clock-history';
+    }
+
+    function formatarDataHoraAtividadeProposta(log) {
+        const data = new Date(log?.timestamp || '');
+        if (Number.isNaN(data.getTime())) return textoSeguro(log?.data, 'Data não informada');
+        return `${data.toLocaleDateString('pt-BR')} às ${data.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        })}`;
+    }
+
+    function renderizarHistoricoProposta(propostaId = obterIdPropostaEmEdicao()) {
+        const lista = document.getElementById('propHistoricoLista');
+        const contador = document.getElementById('propHistoricoContador');
+        if (!lista || !contador) return;
+
+        const atividades = obterAtividadesProposta(propostaId);
+        contador.textContent = atividades.length === 1
+            ? '1 atividade'
+            : `${atividades.length} atividades`;
+
+        if (!atividades.length) {
+            lista.innerHTML = `
+                <div class="proposta-history-empty">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Nenhuma atividade registrada para esta proposta.</span>
+                </div>
+            `;
+            return;
+        }
+
+        lista.innerHTML = atividades.map((log) => {
+            const usuario = textoSeguro(log?.dados?.usuarioNome || log?.usuario, 'Offline');
+            return `
+                <article class="proposta-history-item">
+                    <span class="proposta-history-icon" aria-hidden="true"><i class="bi ${obterIconeAtividadeProposta(log)}"></i></span>
+                    <div>
+                        <strong>${sanitizar(log?.descricao || 'Atividade registrada.')}</strong>
+                        <small><span>${sanitizar(usuario)}</span><time datetime="${sanitizar(log?.timestamp || '')}">${sanitizar(formatarDataHoraAtividadeProposta(log))}</time></small>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function registrarGeracaoPdfProposta(proposta, exibirInterno = false) {
+        const propostaSalva = localizarProposta(proposta?.id);
+        if (!propostaSalva) return;
+        const tipo = exibirInterno ? 'pdf_interno' : 'pdf_cliente';
+        const rotulo = exibirInterno ? 'PDF interno' : 'PDF do cliente';
+        registrarAtividadeProposta(
+            propostaSalva,
+            tipo,
+            `${rotulo} da ${formatarCodigoRevisaoProposta(propostaSalva)} gerado.`
+        );
+        salvarLocal();
+        sincronizar('salvar');
+        renderizarHistoricoProposta(propostaSalva.id);
     }
 
     function obterDataStatusProposta(proposta) {
@@ -4870,6 +4987,7 @@
         sincronizarValidadePorData();
         atualizarModoFormulario(`Editando ${formatarCodigoRevisaoProposta(p)}`);
         atualizarPainelRevisaoProposta(p);
+        renderizarHistoricoProposta(p.id);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
     }
 
@@ -4965,6 +5083,7 @@
         sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
         atualizarPainelRevisaoProposta(null);
+        renderizarHistoricoProposta('');
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         focarPropostaSemRolagem(document.getElementById('propClienteNome'));
@@ -4989,9 +5108,7 @@
         if (atual === 'cancelada' && !propostaNova.dataCancelamento) propostaNova.dataCancelamento = agoraIso;
         if (atual === 'convertida' && !propostaNova.dataConversaoLocacao) propostaNova.dataConversaoLocacao = agoraIso;
 
-        if (anterior !== atual && typeof registrarLog === 'function') {
-            registrarLog('proposta', 'status', `Status da proposta ${propostaNova.codigo} alterado: ${statusRotulo(anterior)} -> ${statusRotulo(atual)}.`);
-        }
+        return { anterior, atual, alterado: anterior !== atual };
     }
 
     function salvarProposta() {
@@ -5001,9 +5118,10 @@
         const lista = obterPropostasBase();
         const indice = lista.findIndex((item) => String(item.id) === String(proposta.id));
         const agoraIso = obterAgoraIso();
+        const propostaAnteriorSalva = indice >= 0 ? lista[indice] : null;
 
         if (indice >= 0) {
-            const anterior = lista[indice];
+            const anterior = propostaAnteriorSalva;
             proposta.dataCriacao = anterior.dataCriacao || proposta.dataCriacao || agoraIso;
             proposta.criadoPor = anterior.criadoPor || proposta.criadoPor || obterUsuarioAtualNomeOuEmail();
             proposta.locacaoVinculadaId = anterior.locacaoVinculadaId || proposta.locacaoVinculadaId || '';
@@ -5026,13 +5144,30 @@
         }
 
         propostas = lista;
+        const propostaSalva = localizarProposta(proposta.id) || normalizarProposta(proposta);
+        registrarAtividadeProposta(
+            propostaSalva,
+            indice >= 0 ? 'editar' : 'criar',
+            indice >= 0
+                ? `Proposta ${formatarCodigoRevisaoProposta(propostaSalva)} editada e salva.`
+                : `Proposta ${formatarCodigoRevisaoProposta(propostaSalva)} criada.`
+        );
+
+        if (indice >= 0) {
+            const statusAtual = normalizarStatusProposta(propostaSalva.status);
+            const statusOriginal = normalizarStatusProposta(propostaAnteriorSalva?.status || proposta.status);
+            if (statusOriginal !== statusAtual) {
+                registrarAtividadeProposta(
+                    propostaSalva,
+                    'status',
+                    `Status alterado de ${statusRotulo(statusOriginal)} para ${statusRotulo(statusAtual)}.`,
+                    { statusAnterior: statusOriginal, statusNovo: statusAtual }
+                );
+            }
+        }
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-
-        if (typeof registrarLog === 'function') {
-            registrarLog('proposta', indice >= 0 ? 'editar' : 'criar', `Proposta ${proposta.codigo} salva para ${proposta.cliente.nome}.`);
-        }
         mostrarToast(indice >= 0 ? 'Proposta atualizada!' : 'Proposta salva!');
         preencherFormularioComProposta(proposta);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
@@ -5123,13 +5258,18 @@
         atualizada.atualizadoEm = atualizada.dataUltimaAlteracao;
         lista[indice] = normalizarProposta(atualizada);
         propostas = lista;
+        const statusAnterior = normalizarStatusProposta(anterior.status);
+        if (statusAnterior !== status) {
+            registrarAtividadeProposta(
+                lista[indice],
+                'status',
+                `Status alterado de ${statusRotulo(statusAnterior)} para ${statusRotulo(status)}.`,
+                { statusAnterior, statusNovo: status }
+            );
+        }
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-
-        if (typeof registrarLog === 'function') {
-            registrarLog('proposta', 'status', `Proposta ${anterior.codigo} marcada como ${statusRotulo(status)}.`);
-        }
         mostrarToast(`Proposta marcada como ${statusRotulo(status)}.`);
 
         const idEmEdicao = obterIdPropostaEmEdicao();
@@ -5201,12 +5341,18 @@
         });
 
         propostas = [...obterPropostasBase(), copia];
+        registrarAtividadeProposta(
+            copia,
+            'duplicar',
+            `Proposta ${formatarCodigoRevisaoProposta(copia)} criada por duplicação de ${formatarCodigoRevisaoProposta(base)}.`,
+            {
+                propostaDuplicadaDeId: String(base.id),
+                propostaDuplicadaDeCodigo: formatarCodigoRevisaoProposta(base)
+            }
+        );
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        if (typeof registrarLog === 'function') {
-            registrarLog('proposta', 'duplicar', `Proposta ${base.codigo} duplicada para ${copia.codigo}.`);
-        }
         mostrarToast('Proposta duplicada com sucesso.');
         preencherFormularioComProposta(copia);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
@@ -5264,12 +5410,18 @@
         });
 
         propostas = [...obterPropostasBase(), revisao];
+        registrarAtividadeProposta(
+            revisao,
+            'revisao',
+            `Nova revisão Rev. ${formatarNumeroRevisaoProposta(revisao.revisao)} criada a partir de ${formatarCodigoRevisaoProposta(base)}.`,
+            {
+                revisaoOrigemId: String(base.id),
+                revisaoOrigemCodigo: formatarCodigoRevisaoProposta(base)
+            }
+        );
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        if (typeof registrarLog === 'function') {
-            registrarLog('proposta', 'revisao', `Nova revisao criada: ${formatarCodigoRevisaoProposta(revisao)} a partir de ${formatarCodigoRevisaoProposta(base)}.`);
-        }
         mostrarToast(`${formatarCodigoRevisaoProposta(revisao)} criada para revisão.`);
         preencherFormularioComProposta(revisao);
         mostrarSubAbaPropostas('lista', { semRolagem: true, foco: false });
@@ -5304,13 +5456,15 @@
         }
 
         const executar = () => {
+            registrarAtividadeProposta(
+                proposta,
+                'excluir',
+                `Proposta ${formatarCodigoRevisaoProposta(proposta)} excluída.`
+            );
             propostas = obterPropostasBase().filter((item) => String(item.id) !== String(id));
             salvarLocal();
             renderTudo();
             sincronizar('salvar');
-            if (typeof registrarLog === 'function') {
-                registrarLog('proposta', 'excluir', `Proposta ${proposta.codigo} excluida.`);
-            }
             mostrarToast('Proposta excluida.');
             if (String(obterIdPropostaEmEdicao()) === String(id)) limparFormularioProposta();
         };
@@ -5767,12 +5921,16 @@
             return normalizarProposta(atualizada);
         });
 
+        const propostaConvertida = propostas.find((item) => String(item.id) === String(proposta.id)) || proposta;
+        registrarAtividadeProposta(
+            propostaConvertida,
+            'converter',
+            `Proposta ${formatarCodigoRevisaoProposta(propostaConvertida)} convertida na locação #${String(novaLocacaoId).slice(-4)}.`,
+            { locacaoId: String(novaLocacaoId) }
+        );
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        if (typeof registrarLog === 'function') {
-            registrarLog('proposta', 'converter', `Proposta ${proposta.codigo} convertida na locacao #${String(novaLocacaoId).slice(-4)}.`);
-        }
         mostrarToast('Proposta convertida em locacao fechada!');
         if (typeof irParaLocacaoPorCodigo === 'function') {
             setTimeout(() => irParaLocacaoPorCodigo(String(novaLocacaoId)), 120);
@@ -7217,6 +7375,7 @@
         printArea.dataset.pdfTipo = previewCliente.tipo;
         printArea.innerHTML = previewCliente.html;
         modal.classList.add('active');
+        registrarGeracaoPdfProposta(proposta, false);
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
     }
 
@@ -7245,6 +7404,7 @@
             printArea.innerHTML = previewCliente.html;
         }
         modal.classList.add('active');
+        registrarGeracaoPdfProposta(propostaPdf, exibirInterno);
         mostrarToast(exibirInterno
             ? 'PDF interno pronto. Clique em "Salvar PDF".'
             : 'PDF do cliente pronto. Clique em "Salvar PDF".');
@@ -7303,6 +7463,7 @@
         printArea.dataset.pdfTipo = previewCliente.tipo;
         printArea.innerHTML = previewCliente.html;
         modal.classList.add('active');
+        registrarGeracaoPdfProposta(propostaTemp, false);
         mostrarToast('Pre-visualizacao pronta. Clique em "Salvar PDF".');
     }
 
@@ -7350,6 +7511,7 @@
         const tbody = document.getElementById('tblPropostas');
         if (!tbody) return;
         renderizarSelectClientesProposta();
+        renderizarHistoricoProposta();
 
         const base = obterPropostasBase();
         const termoRaw = textoSeguro(document.getElementById('buscaPropostas')?.value);

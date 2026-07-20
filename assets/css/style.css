@@ -9865,6 +9865,118 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     padding-inline: 14px;
 }
 
+#tab-propostas .proposta-history {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    overflow: hidden;
+}
+
+#tab-propostas .proposta-history > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+}
+
+#tab-propostas .proposta-history > summary::-webkit-details-marker {
+    display: none;
+}
+
+#tab-propostas .proposta-history > summary > span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#tab-propostas .proposta-history > summary > span:first-child i {
+    color: var(--primary);
+}
+
+#tab-propostas .proposta-history-count {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-light);
+    background: var(--surface);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+#tab-propostas .proposta-history-caret {
+    color: var(--text-light);
+    transition: transform 160ms ease;
+}
+
+#tab-propostas .proposta-history[open] .proposta-history-caret {
+    transform: rotate(180deg);
+}
+
+#tab-propostas .proposta-history-list {
+    display: grid;
+    max-height: 320px;
+    padding: 0 14px 14px;
+    overflow-y: auto;
+}
+
+#tab-propostas .proposta-history-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 0;
+    border-top: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-history-icon {
+    display: inline-grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+
+#tab-propostas .proposta-history-item strong {
+    display: block;
+    color: var(--text);
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
+#tab-propostas .proposta-history-item small {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-top: 4px;
+    color: var(--text-light);
+    font-size: 0.74rem;
+}
+
+#tab-propostas .proposta-history-item small span {
+    font-weight: 700;
+}
+
+#tab-propostas .proposta-history-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 72px;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-light);
+    text-align: center;
+}
+
 #tab-propostas .proposta-action-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -10186,6 +10298,20 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
 
     #tab-propostas .proposta-closing-grid {
         grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-history > summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    #tab-propostas .proposta-history-count {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    #tab-propostas .proposta-history-caret {
+        grid-column: 2;
+        grid-row: 1;
     }
 
     #tab-propostas .proposta-action-panel {
