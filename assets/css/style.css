@@ -20341,6 +20341,50 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-operational-cost {
     background: rgba(15, 23, 42, 0.72);
 }
 
+#tab-propostas .proposta-config-cost-policy-note,
+#tab-propostas .proposta-commercial-lodging-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, #d97706 42%, var(--border));
+    border-radius: 8px;
+    color: var(--text);
+    background: color-mix(in srgb, #f59e0b 10%, var(--surface));
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+#tab-propostas .proposta-config-cost-policy-note[hidden],
+#tab-propostas .proposta-commercial-lodging-alert[hidden] {
+    display: none;
+}
+
+#tab-propostas .proposta-config-cost-policy-note i,
+#tab-propostas .proposta-commercial-lodging-alert i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #d97706;
+}
+
+#tab-propostas .prop-item-custo-manual-config small,
+#tab-propostas .prop-item-policy-warning small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-light);
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+#tab-propostas .prop-item-policy-warning {
+    grid-column: 1 / -1;
+    padding: 9px 11px;
+    border: 1px solid color-mix(in srgb, #d97706 36%, var(--border));
+    border-radius: 8px;
+    background: color-mix(in srgb, #f59e0b 8%, var(--surface));
+}
+
 @media (max-width: 720px) {
     #tab-propostas .proposta-cost-section {
         padding: 12px 10px 8px;

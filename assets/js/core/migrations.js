@@ -1,5 +1,7 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.3';
+const SCHEMA_VERSION_V12 = '12.4';
+const VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS = 1;
+const MODOS_CUSTO_PROPRIO_V12 = new Set(['percentual', 'manual', 'nao_calcular']);
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
 const STATUS_FLUXO_LOCACAO_V12 = new Set([
@@ -187,7 +189,14 @@ function criarCategoriasOrcamentoV12(valor = null, regrasLegadas = {}, globais =
 function criarPadroesOrcamentoV12(valor = {}) {
     const origem = valor && typeof valor === 'object' ? valor : {};
     const origemGlobais = origem.globais && typeof origem.globais === 'object' ? origem.globais : origem;
+    const politicaOrigem = origemGlobais.politicaCustosProprios && typeof origemGlobais.politicaCustosProprios === 'object'
+        ? origemGlobais.politicaCustosProprios
+        : {};
+    const modoPolitica = MODOS_CUSTO_PROPRIO_V12.has(String(politicaOrigem.modo || '').trim())
+        ? String(politicaOrigem.modo).trim()
+        : 'nao_calcular';
     const globais = {
+        ...origemGlobais,
         percentualHonorariosPadrao: numeroNaoNegativo(origemGlobais.percentualHonorariosPadrao ?? origemGlobais.honorariosPadrao, 0),
         percentualEncargosPadrao: numeroNaoNegativo(origemGlobais.percentualEncargosPadrao ?? origemGlobais.encargosPadrao, 0),
         percentualINSSPadrao: numeroNaoNegativo(origemGlobais.percentualINSSPadrao ?? origemGlobais.inssPadrao, 0),
@@ -197,7 +206,14 @@ function criarPadroesOrcamentoV12(valor = {}) {
         tipoCalculoINSSPadrao: normalizarTipoTributoPropostaV12(origemGlobais.tipoCalculoINSSPadrao, 'simples'),
         aplicarHonorariosAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarHonorariosAutomaticamente, true),
         aplicarEncargosAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarEncargosAutomaticamente, true),
-        aplicarINSSAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarINSSAutomaticamente, true)
+        aplicarINSSAutomaticamente: normalizarBooleanoPropostaV12(origemGlobais.aplicarINSSAutomaticamente, true),
+        politicaCustosProprios: {
+            modo: modoPolitica,
+            percentual: Math.min(100, numeroNaoNegativo(politicaOrigem.percentual, 0)),
+            configurada: normalizarBooleanoPropostaV12(politicaOrigem.configurada, false),
+            origem: textoSeguro(politicaOrigem.origem, 'instalacao_nova'),
+            versao: inteiroNaoNegativo(politicaOrigem.versao, VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS)
+        }
     };
     const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
     const categoriasOrcamento = criarCategoriasOrcamentoV12(origem.categoriasOrcamento, origemCategorias, globais);
@@ -220,7 +236,7 @@ function criarPadroesOrcamentoV12(valor = {}) {
             tipoCalculoINSS: categoria.tipoCalculoINSS
         };
     });
-    return { globais, categorias, categoriasOrcamento };
+    return { ...origem, globais, categorias, categoriasOrcamento };
 }
 
 function criarPermissoesPadraoV12(perfil) {
@@ -495,7 +511,7 @@ function migrarLocadorParaV12(locadorOriginal, contexto) {
     return migrado;
 }
 
-function migrarItemPropostaParaV12(itemOriginal) {
+function migrarItemPropostaParaV12(itemOriginal, contexto = {}) {
     const item = clonarObjetoSeguro(itemOriginal);
     const periodoDias = numeroNaoNegativo(item.periodoDias ?? item.periodo, 1) || 1;
     const quantidade = numeroNaoNegativo(item.quantidade, 0);
@@ -528,7 +544,20 @@ function migrarItemPropostaParaV12(itemOriginal) {
         ? Math.round((custoTotal + valorHonorarios + valorEncargos + valorINSS + Number.EPSILON) * 100) / 100
         : custoTotal;
 
+    const politicaOriginal = item.politicaCustoProprioAplicada && typeof item.politicaCustoProprioAplicada === 'object'
+        ? item.politicaCustoProprioAplicada
+        : {};
+    const modoPoliticaOriginal = String(politicaOriginal.modo || '').trim();
+    const modoPolitica = MODOS_CUSTO_PROPRIO_V12.has(modoPoliticaOriginal)
+        ? modoPoliticaOriginal
+        : (numeroNaoNegativo(item.custoProprioManualTotal, 0) > 0 ? 'manual' : 'percentual');
+    const percentualLegado = Math.min(100, numeroNaoNegativo(
+        politicaOriginal.percentual ?? item.percentualCustoProprio,
+        20
+    ));
+
     return {
+        ...item,
         categoria,
         descricao: textoSeguro(item.descricao, ''),
         medida: textoSeguro(item.medida, ''),
@@ -550,6 +579,17 @@ function migrarItemPropostaParaV12(itemOriginal) {
         valorINSS,
         valorTotal,
         totalFinal: valorTotal,
+        percentualCustoProprio: Math.min(100, numeroNaoNegativo(item.percentualCustoProprio, percentualLegado)),
+        custoProprioManualTotal: numeroNaoNegativo(item.custoProprioManualTotal, 0),
+        politicaCustoProprioAplicada: {
+            modo: modoPolitica,
+            percentual: percentualLegado,
+            origem: textoSeguro(politicaOriginal.origem, 'migracao_legado'),
+            aplicadaEm: textoSeguro(
+                politicaOriginal.aplicadaEm ?? item.dataCriacao,
+                textoSeguro(contexto.dataMigracaoIso, '')
+            )
+        },
         usarPadraoCalculo: !temCalculoSalvo,
         observacoes: textoSeguro(item.observacoes, '')
     };
@@ -557,7 +597,7 @@ function migrarItemPropostaParaV12(itemOriginal) {
 
 function migrarPropostaParaV12(propostaOriginal, contexto) {
     const proposta = clonarObjetoSeguro(propostaOriginal);
-    const itens = clonarArraySeguro(proposta.itens).map((item) => migrarItemPropostaParaV12(item));
+    const itens = clonarArraySeguro(proposta.itens).map((item) => migrarItemPropostaParaV12(item, contexto));
     const custosOriginal = clonarObjetoSeguro(proposta.custos, {});
 
     const custos = clonarObjetoSeguro(custosOriginal, {
@@ -566,6 +606,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         freteDistanciaKm: 0,
         freteValorKm: 0,
         maoObra: 0,
+        hospedagem: 0,
         operador: 0,
         eletrica: 0,
         gerador: 0,
@@ -583,6 +624,17 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         custos.frete = Math.round((trechos * custos.freteDistanciaKm * custos.freteValorKm + Number.EPSILON) * 100) / 100;
     }
     custos.maoObra = numeroNaoNegativo(custos.maoObra, 0);
+    const hospedagemCobradaOriginal = custos.hospedagemCobrada && typeof custos.hospedagemCobrada === 'object'
+        ? custos.hospedagemCobrada
+        : {};
+    custos.hospedagemCobrada = {
+        ...hospedagemCobradaOriginal,
+        pessoas: inteiroNaoNegativo(hospedagemCobradaOriginal.pessoas, 0),
+        diarias: numeroNaoNegativo(hospedagemCobradaOriginal.diarias, 0),
+        valorDiariaPessoa: numeroNaoNegativo(hospedagemCobradaOriginal.valorDiariaPessoa, 0),
+        total: numeroNaoNegativo(hospedagemCobradaOriginal.total ?? custos.hospedagem, 0)
+    };
+    custos.hospedagem = custos.hospedagemCobrada.total;
     custos.operador = numeroNaoNegativo(custos.operador, 0);
     custos.eletrica = numeroNaoNegativo(custos.eletrica, 0);
     custos.gerador = numeroNaoNegativo(custos.gerador, 0);
@@ -593,6 +645,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const totalCustos = [
         custos.frete,
         custos.maoObra,
+        custos.hospedagem,
         custos.operador,
         custos.eletrica,
         custos.gerador,
@@ -648,6 +701,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const formaPagamento = formasValidas.has(formaPagamentoRaw) ? formaPagamentoRaw : '';
 
     const financeiro = {
+        ...financeiroOriginal,
         subtotal: numeroNaoNegativo(financeiroOriginal.subtotal, totalItens),
         totalCustosAdicionais: numeroNaoNegativo(financeiroOriginal.totalCustosAdicionais, totalCustos),
         desconto,
@@ -675,6 +729,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     };
 
     const evento = {
+        ...eventoOriginal,
         nome: textoSeguro(eventoOriginal.nome, ''),
         local: textoSeguro(eventoOriginal.local, ''),
         enderecoEvento: textoSeguro(eventoOriginal.enderecoEvento || eventoOriginal.enderecoCompleto, ''),
@@ -692,6 +747,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     };
 
     const escopo = {
+        ...escopoOriginal,
         inclusoProposta: textoSeguro(escopoOriginal.inclusoProposta, 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.'),
         naoInclusoProposta: textoSeguro(escopoOriginal.naoInclusoProposta, 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.'),
         observacoesComerciais: textoSeguro(escopoOriginal.observacoesComerciais, '')
@@ -718,6 +774,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const codigoExibicao = codigoBase ? `${codigoBase} Rev. ${revisao}` : codigoOriginal;
 
     const propostaMigrada = {
+        ...proposta,
         id: proposta.id || Date.now(),
         codigo: codigoOriginal,
         codigoBase,
@@ -739,6 +796,7 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
         custos,
         financeiro,
         controleInterno: {
+            ...controleInternoOriginal,
             custoInternoTotal,
             custoTerceirizadoTotal,
             outrosCustosInternos,
@@ -891,6 +949,62 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.houveMudanca = true;
     }
 
+    const migracoesConfig = clonarObjetoSeguro(dadosMigrados.config.migracoes, {});
+    const politicaJaMigrada = inteiroNaoNegativo(
+        migracoesConfig.politicaCustosProprios,
+        0
+    ) >= VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS;
+    const possuiRegistros = [
+        dadosBase.propostas,
+        dadosBase.locacoes,
+        dadosBase.pecas,
+        dadosBase.locadores,
+        dadosBase.tipos,
+        dadosBase.devolucoes
+    ].some((colecao) => Array.isArray(colecao) && colecao.length > 0);
+    const possuiConfigAnterior = !!dadosBase.config
+        && typeof dadosBase.config === 'object'
+        && Object.keys(dadosBase.config).length > 0;
+    const baseJaInicializada = possuiRegistros
+        || possuiConfigAnterior
+        || Object.prototype.hasOwnProperty.call(dadosBase, 'versao');
+
+    if (!politicaJaMigrada) {
+        const padroesExistentes = dadosMigrados.config.padroesOrcamento && typeof dadosMigrados.config.padroesOrcamento === 'object'
+            ? dadosMigrados.config.padroesOrcamento
+            : {};
+        const globaisExistentes = padroesExistentes.globais && typeof padroesExistentes.globais === 'object'
+            ? padroesExistentes.globais
+            : padroesExistentes;
+        dadosMigrados.config.padroesOrcamento = {
+            ...padroesExistentes,
+            globais: {
+                ...globaisExistentes,
+                politicaCustosProprios: baseJaInicializada
+                    ? {
+                        modo: 'percentual',
+                        percentual: 20,
+                        configurada: true,
+                        origem: 'migracao_legado',
+                        versao: VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS
+                    }
+                    : {
+                        modo: 'nao_calcular',
+                        percentual: 0,
+                        configurada: false,
+                        origem: 'instalacao_nova',
+                        versao: VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS
+                    }
+            }
+        };
+        migracoesConfig.politicaCustosProprios = VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS;
+        contexto.houveMudanca = true;
+        contexto.logs.push(baseJaInicializada
+            ? 'Política de custos próprios preservada em 20% para a base existente.'
+            : 'Política de custos próprios criada sem cálculo automático para a instalação vazia.');
+    }
+
+    dadosMigrados.config.migracoes = migracoesConfig;
     dadosMigrados.config.schemaVersion = SCHEMA_VERSION_V12;
     dadosMigrados.config.valorKmFretePadrao = numeroNaoNegativo(dadosMigrados.config.valorKmFretePadrao, 0);
     dadosMigrados.config.padroesOrcamento = criarPadroesOrcamentoV12({

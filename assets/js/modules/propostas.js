@@ -141,6 +141,8 @@
         }
     });
     const TEXTO_PRE_NOTA_CONFERENCIA = 'Pré-nota para conferência. Emissão fiscal oficial deve ser validada pela contabilidade.';
+    const MODOS_CUSTO_PROPRIO = Object.freeze(['percentual', 'manual', 'nao_calcular']);
+    const VERSAO_POLITICA_CUSTOS_PROPRIOS = 1;
     const CATEGORIAS_ANEXO_PROPOSTA = Object.freeze([
         'Briefing',
         'Arte',
@@ -581,10 +583,15 @@
             : {};
         const valorMaoObraCobrada = numeroNaoNegativo(maoObraCobrada.total ?? custos?.maoObra, 0);
         const valorFreteComercial = numeroNaoNegativo(custos?.frete, 0);
+        const hospedagemCobrada = custos?.hospedagemCobrada && typeof custos.hospedagemCobrada === 'object'
+            ? custos.hospedagemCobrada
+            : {};
+        const valorHospedagemCobrada = numeroNaoNegativo(hospedagemCobrada.total ?? custos?.hospedagem, 0);
         const hospedagemInterna = controleInterno?.hospedagemOperacional && typeof controleInterno.hospedagemOperacional === 'object'
             ? controleInterno.hospedagemOperacional
             : {};
         const valorHospedagemInterna = numeroNaoNegativo(hospedagemInterna.total, 0);
+        const custoTerceirizadoConsolidado = numeroNaoNegativo(controleInterno?.custoTerceirizadoTotal, 0);
 
         if (valorMaoObraCobrada > 0 && listaItens.some((item) => itemCombinaPossivelDuplicidade(item, {
             tiposFiscais: ['mao_de_obra'],
@@ -598,6 +605,12 @@
             termos: ['frete', 'transporte', 'logística', 'entrega', 'retirada', 'deslocamento']
         }))) {
             avisos.push('Possível lançamento duplicado: existe frete preenchido no campo próprio e também um item relacionado a frete/logística. Confira antes de finalizar.');
+        }
+
+        if (valorHospedagemCobrada > 0 && listaItens.some((item) => itemCombinaPossivelDuplicidade(item, {
+            termos: ['hospedagem', 'hotel', 'pousada', 'diária de hospedagem']
+        }))) {
+            avisos.push('Possível lançamento duplicado: existe hospedagem cobrada no campo próprio e também um item relacionado a hospedagem. Confira antes de finalizar.');
         }
 
         [
@@ -617,6 +630,25 @@
             termos: ['hospedagem', 'hotel', 'pousada', 'diária de hospedagem']
         }))) {
             avisos.push('Atenção: existe hospedagem operacional interna preenchida e também um item relacionado a hospedagem. Confira se o item é cobrança ao cliente ou apenas custo interno.');
+        }
+
+        if (valorHospedagemInterna > 0 && numeroNaoNegativo(controleInterno?.outrosCustosInternos, 0) > 0) {
+            avisos.push('Possível lançamento duplicado: existe hospedagem operacional detalhada e também valor consolidado em outros custos internos. Confira se a hospedagem já está incluída no consolidado.');
+        }
+
+        if (custoTerceirizadoConsolidado > 0 && listaItens.some((item) => (
+            numeroNaoNegativo(item?.custoTerceirizadoReal ?? item?.custoTerceirizado, 0) > 0
+        ))) {
+            avisos.push('Possível lançamento duplicado: existem custos terceirizados informados por item e também no campo consolidado de fornecedores/terceiros. Confira antes de finalizar.');
+        }
+
+        if (listaItens.some((item) => {
+            const politica = normalizarPoliticaCustoProprioItem(item);
+            return politica.modo === 'manual'
+                && numeroNaoNegativo(item?.custoProprioManualTotal, 0) > 0
+                && numeroNaoNegativo(item?.percentualCustoProprio ?? politica.percentual, 0) > 0;
+        })) {
+            avisos.push('Conferência de custo próprio: há item em modo manual com percentual também preenchido. Somente o custo manual total está sendo usado no cálculo.');
         }
 
         return avisos;
@@ -747,7 +779,33 @@
             aplicarHonorariosAutomaticamente: true,
             aplicarEncargosAutomaticamente: true,
             aplicarINSSAutomaticamente: true,
-            aplicarFiscalAutomaticamente: false
+            aplicarFiscalAutomaticamente: false,
+            politicaCustosProprios: {
+                modo: 'nao_calcular',
+                percentual: 0,
+                configurada: false,
+                origem: 'instalacao_nova',
+                versao: VERSAO_POLITICA_CUSTOS_PROPRIOS
+            }
+        };
+    }
+
+    function normalizarModoCustoProprio(valor, fallback = 'nao_calcular') {
+        const modo = textoSeguro(valor, '').trim();
+        return MODOS_CUSTO_PROPRIO.includes(modo) ? modo : fallback;
+    }
+
+    function normalizarPoliticaCustosPropriosGlobal(valor = {}, fallback = null) {
+        const base = fallback && typeof fallback === 'object'
+            ? fallback
+            : criarGlobaisPadraoOrcamento().politicaCustosProprios;
+        const origem = valor && typeof valor === 'object' ? valor : {};
+        return {
+            modo: normalizarModoCustoProprio(origem.modo, base.modo),
+            percentual: converterTextoPercentualParaNumero(origem.percentual, base.percentual, { maximo: 100 }),
+            configurada: normalizarBooleanoProposta(origem.configurada, base.configurada),
+            origem: textoSeguro(origem.origem, base.origem),
+            versao: inteiroNaoNegativo(origem.versao, VERSAO_POLITICA_CUSTOS_PROPRIOS)
         };
     }
 
@@ -1031,7 +1089,11 @@
             aplicarHonorariosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarHonorariosAutomaticamente, padrao.globais.aplicarHonorariosAutomaticamente),
             aplicarEncargosAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarEncargosAutomaticamente, padrao.globais.aplicarEncargosAutomaticamente),
             aplicarINSSAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarINSSAutomaticamente, padrao.globais.aplicarINSSAutomaticamente),
-            aplicarFiscalAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarFiscalAutomaticamente, padrao.globais.aplicarFiscalAutomaticamente)
+            aplicarFiscalAutomaticamente: normalizarBooleanoProposta(origemGlobais.aplicarFiscalAutomaticamente, padrao.globais.aplicarFiscalAutomaticamente),
+            politicaCustosProprios: normalizarPoliticaCustosPropriosGlobal(
+                origemGlobais.politicaCustosProprios,
+                padrao.globais.politicaCustosProprios
+            )
         };
 
         const origemCategorias = origem.categorias && typeof origem.categorias === 'object' ? origem.categorias : {};
@@ -1096,6 +1158,47 @@
             : 'nao_informado';
     }
 
+    function obterPoliticaCustosPropriosGlobal() {
+        return normalizarPoliticaCustosPropriosGlobal(
+            obterPadroesOrcamento()?.globais?.politicaCustosProprios
+        );
+    }
+
+    function normalizarPoliticaCustoProprioItem(item = {}) {
+        const politicaSalva = item.politicaCustoProprioAplicada && typeof item.politicaCustoProprioAplicada === 'object'
+            ? item.politicaCustoProprioAplicada
+            : null;
+        if (politicaSalva) {
+            return {
+                modo: normalizarModoCustoProprio(politicaSalva.modo, 'percentual'),
+                percentual: converterTextoPercentualParaNumero(
+                    politicaSalva.percentual ?? item.percentualCustoProprio,
+                    20,
+                    { maximo: 100 }
+                ),
+                origem: textoSeguro(politicaSalva.origem, 'item_salvo'),
+                aplicadaEm: textoSeguro(politicaSalva.aplicadaEm, '')
+            };
+        }
+
+        if (Object.keys(item || {}).length > 0) {
+            return {
+                modo: 'percentual',
+                percentual: converterTextoPercentualParaNumero(item.percentualCustoProprio, 20, { maximo: 100 }),
+                origem: 'migracao_legado',
+                aplicadaEm: ''
+            };
+        }
+
+        const politicaGlobal = obterPoliticaCustosPropriosGlobal();
+        return {
+            modo: politicaGlobal.modo,
+            percentual: politicaGlobal.percentual,
+            origem: politicaGlobal.configurada ? 'config_global' : 'configuracao_pendente',
+            aplicadaEm: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString()
+        };
+    }
+
     function calcularItemProposta(item = {}) {
         const categoria = normalizarCategoriaItemProposta(item.categoria);
         const regra = obterRegraCategoriaParaItem(categoria);
@@ -1154,7 +1257,9 @@
 
         const valorTotal = arredondarMoeda(custoTotal + valorHonorarios + valorEncargos + valorINSS);
         const origemCusto = normalizarOrigemCustoItemProposta(item);
-        const percentualCustoProprio = converterTextoPercentualParaNumero(item.percentualCustoProprio, 20, { maximo: 100 });
+        const politicaCustoProprioAplicada = normalizarPoliticaCustoProprioItem(item);
+        const percentualCustoProprio = politicaCustoProprioAplicada.percentual;
+        const custoProprioManualTotal = arredondarMoeda(numeroNaoNegativo(item.custoProprioManualTotal, 0));
         const ehMaoObra = categoria === CATEGORIA_MAO_OBRA_PROPOSTA || normalizarTipoFiscalItem(item.tipoFiscal) === 'mao_de_obra';
         let quantidadePropria = numeroNaoNegativo(item.quantidadePropria, 0);
         let quantidadeTerceirizada = numeroNaoNegativo(item.quantidadeTerceirizada, 0);
@@ -1176,9 +1281,16 @@
         const baseCustoProprio = origemCusto === 'proprio'
             ? custoTotal
             : arredondarMoeda(periodoDias * quantidadePropria * custoUnitario);
-        const custoProprio = (origemCusto === 'proprio' || origemCusto === 'misto') && !ehMaoObra
-            ? arredondarMoeda((baseCustoProprio * percentualCustoProprio) / 100)
-            : 0;
+        let custoProprio = 0;
+        if ((origemCusto === 'proprio' || origemCusto === 'misto') && !ehMaoObra) {
+            if (politicaCustoProprioAplicada.modo === 'manual') {
+                // O custo manual representa o custo interno TOTAL do item.
+                // Não multiplicar novamente por quantidade, período ou valor unitário.
+                custoProprio = custoProprioManualTotal;
+            } else if (politicaCustoProprioAplicada.modo === 'percentual') {
+                custoProprio = arredondarMoeda((baseCustoProprio * percentualCustoProprio) / 100);
+            }
+        }
         const custoTerceirizado = origemCusto === 'terceirizado' || origemCusto === 'misto'
             ? arredondarMoeda(numeroNaoNegativo(item.custoTerceirizadoReal ?? item.custoTerceirizado, 0))
             : 0;
@@ -1211,6 +1323,8 @@
             totalFinal: valorTotal,
             origemCusto,
             percentualCustoProprio,
+            custoProprioManualTotal,
+            politicaCustoProprioAplicada,
             fornecedorCusto: textoSeguro(item.fornecedorCusto, ''),
             quantidadePropria,
             quantidadeTerceirizada,
@@ -1330,6 +1444,20 @@
             });
         }
 
+        const hospedagemCobrada = custosProposta.hospedagemCobrada && typeof custosProposta.hospedagemCobrada === 'object'
+            ? custosProposta.hospedagemCobrada
+            : {};
+        const valorHospedagemCobrada = numeroNaoNegativo(hospedagemCobrada.total ?? custosProposta.hospedagem, 0);
+        const temItemFiscalHospedagem = (Array.isArray(itens) ? itens : []).some((item) => {
+            const tipoFiscalOriginal = textoSeguro(item?.tipoFiscal, '');
+            return tipoFiscalOriginal
+                && normalizarTipoFiscalItem(tipoFiscalOriginal) !== TIPO_FISCAL_ITEM_PADRAO
+                && itemCombinaPossivelDuplicidade(item, {
+                    termos: ['hospedagem', 'hotel', 'pousada', 'diária de hospedagem']
+                });
+        });
+        resumo.hospedagemComercialSemClassificacao = valorHospedagemCobrada > 0 && !temItemFiscalHospedagem;
+
         Object.keys(resumo).forEach((chave) => {
             if (typeof resumo[chave] === 'number') resumo[chave] = arredondarMoeda(resumo[chave]);
         });
@@ -1348,7 +1476,9 @@
         const decisaoManualNf = typeof opcoes.precisaNotaFiscal === 'boolean'
             ? opcoes.precisaNotaFiscal
             : null;
-        resumo.bloquearPreNota = resumo.itensSemClassificacaoFiscal > 0 || resumo.itensVerificarContador > 0;
+        resumo.bloquearPreNota = resumo.itensSemClassificacaoFiscal > 0
+            || resumo.itensVerificarContador > 0
+            || resumo.hospedagemComercialSemClassificacao;
 
         if (temBaseNfe && temBaseNfse) {
             resumo.tipoDocumentoSugerido = 'NF-e + NFS-e';
@@ -1387,6 +1517,10 @@
 
         if (resumo.itensVerificarContador > 0) {
             resumo.avisos.push('Existem itens marcados como "Verificar com contador". A pré-nota fica bloqueada até conferência.');
+        }
+
+        if (resumo.hospedagemComercialSemClassificacao) {
+            resumo.avisos.push('Hospedagem comercial sem item fiscal correspondente. A pré-nota fica bloqueada até a conferência e classificação fiscal.');
         }
 
         if (resumo.itensExigemConferencia > 0) {
@@ -1777,6 +1911,11 @@
         preencherValorConfigOrcamento('propOrcConfigINSSPadrao', globais.percentualINSSPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigPercentualFiscalPadrao', globais.percentualFiscalPadrao || 0);
         preencherValorConfigOrcamento('propOrcConfigValorKmPadrao', valorKmOrigem ?? obterValorKmFretePadrao());
+        const politicaCustosProprios = normalizarPoliticaCustosPropriosGlobal(globais.politicaCustosProprios);
+        const modoCustoProprio = document.getElementById('propOrcConfigModoCustoProprio');
+        if (modoCustoProprio) modoCustoProprio.value = politicaCustosProprios.modo;
+        preencherValorConfigOrcamento('propOrcConfigPercentualCustoProprio', politicaCustosProprios.percentual);
+        atualizarEstadoPoliticaCustosPropriosConfig(politicaCustosProprios);
 
         const tipoEncargos = document.getElementById('propOrcConfigTipoEncargosPadrao');
         if (tipoEncargos) tipoEncargos.value = globais.tipoCalculoEncargosPadrao || 'simples';
@@ -1941,6 +2080,27 @@
         }, 50);
     }
 
+    function atualizarEstadoPoliticaCustosPropriosConfig(politicaOverride = null) {
+        const modoEl = document.getElementById('propOrcConfigModoCustoProprio');
+        const percentualGrupo = document.getElementById('propOrcConfigPercentualCustoProprioGrupo');
+        const aviso = document.getElementById('propOrcConfigPoliticaCustoAviso');
+        const politicaRecebida = politicaOverride
+            && typeof politicaOverride === 'object'
+            && !(politicaOverride instanceof HTMLElement)
+            ? politicaOverride
+            : null;
+        const politica = politicaRecebida
+            ? normalizarPoliticaCustosPropriosGlobal(politicaRecebida)
+            : normalizarPoliticaCustosPropriosGlobal({
+                modo: modoEl?.value,
+                percentual: document.getElementById('propOrcConfigPercentualCustoProprio')?.value,
+                configurada: obterPoliticaCustosPropriosGlobal().configurada,
+                origem: obterPoliticaCustosPropriosGlobal().origem
+            });
+        if (percentualGrupo) percentualGrupo.hidden = politica.modo !== 'percentual';
+        if (aviso) aviso.hidden = politica.configurada === true;
+    }
+
     function fecharEditorCategoriaConfigOrcamento() {
         const host = document.getElementById('propOrcCategoriaEditor');
         if (!host) return;
@@ -2039,6 +2199,8 @@
     function coletarConfigOrcamentoProposta() {
         const atuais = obterPadroesOrcamento();
         const globaisAtuais = atuais.globais || {};
+        const politicaAtual = normalizarPoliticaCustosPropriosGlobal(globaisAtuais.politicaCustosProprios);
+        const modoPolitica = normalizarModoCustoProprio(document.getElementById('propOrcConfigModoCustoProprio')?.value);
         const globais = {
             percentualHonorariosPadrao: valorNumeroConfigOrcamento('propOrcConfigHonorariosPadrao'),
             percentualEncargosPadrao: valorNumeroConfigOrcamento('propOrcConfigEncargosPadrao'),
@@ -2052,7 +2214,16 @@
             aplicarHonorariosAutomaticamente: globaisAtuais.aplicarHonorariosAutomaticamente !== false,
             aplicarEncargosAutomaticamente: globaisAtuais.aplicarEncargosAutomaticamente !== false,
             aplicarINSSAutomaticamente: globaisAtuais.aplicarINSSAutomaticamente !== false,
-            aplicarFiscalAutomaticamente: document.getElementById('propOrcConfigAplicarFiscalAutomaticamente')?.value === 'sim'
+            aplicarFiscalAutomaticamente: document.getElementById('propOrcConfigAplicarFiscalAutomaticamente')?.value === 'sim',
+            politicaCustosProprios: {
+                modo: modoPolitica,
+                percentual: valorNumeroConfigOrcamento('propOrcConfigPercentualCustoProprio', 0, 100),
+                configurada: true,
+                origem: 'config_usuario',
+                versao: VERSAO_POLITICA_CUSTOS_PROPRIOS,
+                atualizadaEm: typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString(),
+                anterior: politicaAtual.origem
+            }
         };
 
         const categorias = {};
@@ -2566,6 +2737,7 @@
     const CHAVES_CUSTOS_ADICIONAIS = [
         'frete',
         'maoObra',
+        'hospedagem',
         'operador',
         'eletrica',
         'gerador',
@@ -3335,6 +3507,15 @@
         }).join('');
     }
 
+    function montarOptionsModoCustoProprio(modoAtual) {
+        const atual = normalizarModoCustoProprio(modoAtual);
+        return [
+            ['percentual', 'Percentual sobre itens próprios'],
+            ['manual', 'Custo manual por item'],
+            ['nao_calcular', 'Não calcular automaticamente']
+        ].map(([valor, rotulo]) => `<option value="${valor}"${valor === atual ? ' selected' : ''}>${rotulo}</option>`).join('');
+    }
+
     function criarLinhaItemProposta(item = {}) {
         const itemCalculado = calcularItemProposta(item);
         const descricao = sanitizar(itemCalculado.descricao);
@@ -3374,7 +3555,10 @@
                     </div>
                 </td>
             </tr>
-            <tr class="proposta-item-details-row" hidden>
+            <tr class="proposta-item-details-row" hidden
+                data-politica-custo-origem="${sanitizar(itemCalculado.politicaCustoProprioAplicada.origem)}"
+                data-politica-custo-aplicada-em="${sanitizar(itemCalculado.politicaCustoProprioAplicada.aplicadaEm)}"
+                data-politica-custo-modo-original="${sanitizar(itemCalculado.politicaCustoProprioAplicada.modo)}">
                 <td colspan="7">
                     <div class="prop-item-details-panel">
                         <div class="prop-item-details-title">
@@ -3451,7 +3635,7 @@
                         </div>
                         <div class="prop-item-details-title">
                             <strong>Origem e custo interno</strong>
-                            <span>Controle interno para apuração de lucro e margem. Não altera o valor cobrado.</span>
+                            <span>Controle interno para apuração do resultado estimado. Não altera o valor cobrado.</span>
                         </div>
                         <div class="prop-item-details-grid prop-item-cost-details-grid">
                             <div class="form-group">
@@ -3461,8 +3645,19 @@
                                 </select>
                             </div>
                             <div class="form-group prop-item-custo-proprio-config">
+                                <label>Política aplicada ao item</label>
+                                <select class="prop-item-modo-custo-proprio" data-change="recalcularResumoProposta">
+                                    ${montarOptionsModoCustoProprio(itemCalculado.politicaCustoProprioAplicada.modo)}
+                                </select>
+                            </div>
+                            <div class="form-group prop-item-custo-proprio-config">
                                 <label>Custo operacional próprio (%)</label>
                                 <input type="text" class="prop-item-percentual-custo-proprio" inputmode="decimal" value="${itemCalculado.percentualCustoProprio}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-custo-proprio-config prop-item-custo-manual-config">
+                                <label>Custo próprio manual total</label>
+                                <input type="text" class="prop-item-custo-proprio-manual-total input-money-br" inputmode="decimal" value="${valorInputMonetario(itemCalculado.custoProprioManualTotal)}" data-input="recalcularResumoProposta">
+                                <small>Valor total do item. Não será multiplicado por quantidade ou período.</small>
                             </div>
                             <div class="form-group prop-item-divisao-mista-config">
                                 <label>Quantidade própria</label>
@@ -3496,16 +3691,21 @@
                                 <input type="text" class="prop-item-custo-interno-total" value="${formatarMoeda(itemCalculado.custoInternoItemTotal)}" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Lucro do item</label>
+                                <label>Resultado estimado do item</label>
                                 <input type="text" class="prop-item-lucro" value="${formatarMoeda(itemCalculado.lucroItem)}" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Margem do item</label>
+                                <label>Margem de contribuição do item</label>
                                 <input type="text" class="prop-item-margem" value="${formatarPercentual(itemCalculado.margemItem)}" readonly>
                             </div>
                             <div class="form-group prop-item-custo-proprio-aviso">
                                 <small>Custo próprio de mão de obra é considerado zero.</small>
                             </div>
+                            ${itemCalculado.politicaCustoProprioAplicada.origem === 'configuracao_pendente' ? `
+                                <div class="form-group prop-item-policy-warning">
+                                    <small>Política de custos próprios pendente. Configure o padrão antes de usar custos automáticos.</small>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 </td>
@@ -3550,6 +3750,9 @@
         const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
             ? linha.nextElementSibling
             : null;
+        const modoCustoProprio = normalizarModoCustoProprio(detalhes?.querySelector('.prop-item-modo-custo-proprio')?.value);
+        const modoOriginal = normalizarModoCustoProprio(detalhes?.dataset?.politicaCustoModoOriginal, modoCustoProprio);
+        const politicaAlterada = modoCustoProprio !== modoOriginal;
         const item = {
             categoria: normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value),
             tipoFiscal: normalizarTipoFiscalItem((detalhes?.querySelector('.prop-item-tipo-fiscal') || linha.querySelector('.prop-item-tipo-fiscal'))?.value),
@@ -3569,6 +3772,15 @@
             tipoCalculoINSS: normalizarTipoCalculoTributo(detalhes?.querySelector('.prop-item-tipo-inss')?.value),
             origemCusto: textoSeguro(detalhes?.querySelector('.prop-item-origem-custo')?.value, 'nao_informado'),
             percentualCustoProprio: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-custo-proprio'), 20),
+            custoProprioManualTotal: converterTextoMoedaParaNumero(detalhes?.querySelector('.prop-item-custo-proprio-manual-total')?.value, 0),
+            politicaCustoProprioAplicada: {
+                modo: modoCustoProprio,
+                percentual: lerPercentualCampo(detalhes?.querySelector('.prop-item-percentual-custo-proprio'), 20),
+                origem: politicaAlterada ? 'ajuste_manual' : textoSeguro(detalhes?.dataset?.politicaCustoOrigem, 'item_salvo'),
+                aplicadaEm: politicaAlterada
+                    ? (typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString())
+                    : textoSeguro(detalhes?.dataset?.politicaCustoAplicadaEm, '')
+            },
             fornecedorCusto: textoSeguro(detalhes?.querySelector('.prop-item-fornecedor-custo')?.value),
             quantidadePropria: numeroNaoNegativo(detalhes?.querySelector('.prop-item-quantidade-propria')?.value, 0),
             quantidadeTerceirizada: numeroNaoNegativo(detalhes?.querySelector('.prop-item-quantidade-terceirizada')?.value, 0),
@@ -3665,9 +3877,16 @@
         const permiteTerceiro = origem === 'terceirizado' || origem === 'misto';
         const ehMisto = origem === 'misto';
         const ehMaoObra = item.categoria === CATEGORIA_MAO_OBRA_PROPOSTA || item.tipoFiscal === 'mao_de_obra';
+        const modoCustoProprio = normalizarModoCustoProprio(item.politicaCustoProprioAplicada?.modo);
 
         detalhes.querySelectorAll('.prop-item-custo-proprio-config').forEach((el) => {
             el.hidden = !permiteProprio;
+        });
+        detalhes.querySelectorAll('.prop-item-percentual-custo-proprio').forEach((el) => {
+            el.closest('.form-group').hidden = !permiteProprio || modoCustoProprio !== 'percentual';
+        });
+        detalhes.querySelectorAll('.prop-item-custo-manual-config').forEach((el) => {
+            el.hidden = !permiteProprio || modoCustoProprio !== 'manual';
         });
         detalhes.querySelectorAll('.prop-item-custo-terceiro-config').forEach((el) => {
             el.hidden = !permiteTerceiro;
@@ -3708,6 +3927,11 @@
             if (campo) campo.value = valor;
         });
         atualizarEstadoCamposCustoItemProposta(detalhes, item);
+        if (detalhes) {
+            detalhes.dataset.politicaCustoOrigem = item.politicaCustoProprioAplicada.origem;
+            detalhes.dataset.politicaCustoAplicadaEm = item.politicaCustoProprioAplicada.aplicadaEm;
+            detalhes.dataset.politicaCustoModoOriginal = item.politicaCustoProprioAplicada.modo;
+        }
         validarQuantidadeMistaLinhaProposta(linha);
 
         return item;
@@ -3867,6 +4091,16 @@
         if (desmontagemTotalEl) desmontagemTotalEl.value = formatarMoeda(desmontagemTotal);
         const maoObraTotalEl = document.getElementById('propCustoMaoObra');
         if (maoObraTotalEl) maoObraTotalEl.value = formatarMoeda(maoObraTotal);
+        const hospedagemPessoas = inteiroNaoNegativo(document.getElementById('propHospedagemComercialPessoas')?.value, 0);
+        const hospedagemDiarias = numeroNaoNegativo(document.getElementById('propHospedagemComercialDiarias')?.value, 0);
+        const hospedagemValorDiariaPessoa = parseNumeroInput('propHospedagemComercialValorDiariaPessoa');
+        const hospedagemTotal = calcularCustoHospedagemOperacional(
+            hospedagemPessoas,
+            hospedagemDiarias,
+            hospedagemValorDiariaPessoa
+        );
+        const hospedagemTotalEl = document.getElementById('propHospedagemComercialTotal');
+        if (hospedagemTotalEl) hospedagemTotalEl.value = formatarMoeda(hospedagemTotal);
 
         return {
             frete: freteFinal,
@@ -3889,6 +4123,13 @@
                     total: desmontagemTotal
                 },
                 total: maoObraTotal
+            },
+            hospedagem: hospedagemTotal,
+            hospedagemCobrada: {
+                pessoas: hospedagemPessoas,
+                diarias: hospedagemDiarias,
+                valorDiariaPessoa: hospedagemValorDiariaPessoa,
+                total: hospedagemTotal
             },
             operador: parseNumeroInput('propCustoOperador'),
             eletrica: parseNumeroInput('propCustoEletrica'),
@@ -4086,6 +4327,11 @@
             const el = document.getElementById(id);
             if (el) el.textContent = valor;
         });
+
+        const avisoHospedagemEl = document.getElementById('propHospedagemComercialFiscalAviso');
+        if (avisoHospedagemEl) {
+            avisoHospedagemEl.hidden = resumo.hospedagemComercialSemClassificacao !== true;
+        }
 
         const avisosEl = document.getElementById('propFiscalAvisos');
         if (avisosEl) {
@@ -4639,6 +4885,19 @@
                 ? (maoObraTotalDetalhado || numeroNaoNegativo(maoObraCobradaOrig.total, 0))
                 : maoObraLegada
         };
+        const hospedagemCobradaOrig = custosOrig.hospedagemCobrada && typeof custosOrig.hospedagemCobrada === 'object'
+            ? custosOrig.hospedagemCobrada
+            : {};
+        const hospedagemCobrada = {
+            pessoas: inteiroNaoNegativo(hospedagemCobradaOrig.pessoas, 0),
+            diarias: numeroNaoNegativo(hospedagemCobradaOrig.diarias, 0),
+            valorDiariaPessoa: numeroNaoNegativo(hospedagemCobradaOrig.valorDiariaPessoa, 0)
+        };
+        hospedagemCobrada.total = calcularCustoHospedagemOperacional(
+            hospedagemCobrada.pessoas,
+            hospedagemCobrada.diarias,
+            hospedagemCobrada.valorDiariaPessoa
+        ) || numeroNaoNegativo(hospedagemCobradaOrig.total ?? custosOrig.hospedagem, 0);
 
         const custos = {
             frete: freteKmNormalizado.calculoAtivo ? freteKmNormalizado.freteCalculado : freteManual,
@@ -4647,6 +4906,8 @@
             freteValorKm,
             maoObra: maoObraCobrada.total,
             maoObraCobrada,
+            hospedagem: hospedagemCobrada.total,
+            hospedagemCobrada,
             operador: numeroNaoNegativo(custosOrig.operador, 0),
             eletrica: numeroNaoNegativo(custosOrig.eletrica, 0),
             gerador: numeroNaoNegativo(custosOrig.gerador, 0),
@@ -5082,9 +5343,9 @@
                 observacaoPagamento: textoSeguro(document.getElementById('propObsPagamento')?.value, TEXTO_PADRAO_OBS_PAGAMENTO),
                 validadePropostaDias: validadeDias,
                 validadePropostaData: validadeData,
-                exibirInformacoesInternasPDF: document.getElementById('propExibirInformacoesInternasPDF')?.checked === true,
-                // compatibilidade legado
-                exibirCustosInternosPdf: document.getElementById('propExibirInformacoesInternasPDF')?.checked === true
+                // Flags legadas sao preservadas no dado, mas nunca controlam o PDF do cliente.
+                exibirInformacoesInternasPDF: propostaAtual?.financeiro?.exibirInformacoesInternasPDF === true,
+                exibirCustosInternosPdf: propostaAtual?.financeiro?.exibirCustosInternosPdf === true
             },
             fiscal: fiscalFormulario,
             dadosFiscais: fiscalFormulario,
@@ -5223,6 +5484,10 @@
             propMaoObraDesmontagemValorPessoaDia: valorInputMonetario(p.custos.maoObraCobrada?.desmontagem?.valorPessoaDia || 0),
             propMaoObraDesmontagemDias: p.custos.maoObraCobrada?.desmontagem?.dias || '',
             propMaoObraDesmontagemTotal: valorInputMonetario(p.custos.maoObraCobrada?.desmontagem?.total || 0),
+            propHospedagemComercialPessoas: p.custos.hospedagemCobrada?.pessoas || '',
+            propHospedagemComercialDiarias: p.custos.hospedagemCobrada?.diarias || '',
+            propHospedagemComercialValorDiariaPessoa: valorInputMonetario(p.custos.hospedagemCobrada?.valorDiariaPessoa || 0),
+            propHospedagemComercialTotal: valorInputMonetario(p.custos.hospedagemCobrada?.total || 0),
             propCustoOperador: valorInputMonetario(p.custos.operador),
             propCustoEletrica: valorInputMonetario(p.custos.eletrica),
             propCustoGerador: valorInputMonetario(p.custos.gerador),
@@ -5262,9 +5527,6 @@
         const hidden = document.getElementById('propostaIdAtual');
         if (hidden) hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
 
-        const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
-        if (chkInterno) chkInterno.checked = p.financeiro.exibirInformacoesInternasPDF === true;
-
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = p.clientePrecisaNotaFiscal === true || p.cliente.precisaNotaFiscal === true;
         const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
@@ -5295,6 +5557,7 @@
             'propFreteTrechos', 'propFreteDistanciaKm', 'propFreteValorKm', 'propCustoFrete', 'propCustoMaoObra',
             'propMaoObraComercialDetalhadaAtiva', 'propMaoObraMontagemPessoas', 'propMaoObraMontagemValorPessoaDia', 'propMaoObraMontagemDias', 'propMaoObraMontagemTotal',
             'propMaoObraDesmontagemPessoas', 'propMaoObraDesmontagemValorPessoaDia', 'propMaoObraDesmontagemDias', 'propMaoObraDesmontagemTotal',
+            'propHospedagemComercialPessoas', 'propHospedagemComercialDiarias', 'propHospedagemComercialValorDiariaPessoa', 'propHospedagemComercialTotal',
             'propCustoOperador', 'propCustoEletrica', 'propCustoGerador', 'propCustoTerceirizados',
             'propCustoOutros', 'propMaoObraPessoas', 'propMaoObraValorPessoaDia', 'propMaoObraDias', 'propMaoObraTotal',
             'propHospedagemPessoas', 'propHospedagemDiarias', 'propHospedagemValorDiariaPessoa', 'propHospedagemTotal',
@@ -5344,8 +5607,6 @@
             freteEl.readOnly = false;
             freteEl.removeAttribute('title');
         }
-        const chkInterno = document.getElementById('propExibirInformacoesInternasPDF');
-        if (chkInterno) chkInterno.checked = false;
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = false;
         const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
@@ -6523,6 +6784,10 @@
             ? maoObraCobradaPdf.desmontagem
             : {};
         const maoObraResumoPdf = numeroNaoNegativo(maoObraCobradaPdf.total ?? p.custos.maoObra, 0);
+        const hospedagemCobradaPdf = p.custos.hospedagemCobrada && typeof p.custos.hospedagemCobrada === 'object'
+            ? p.custos.hospedagemCobrada
+            : {};
+        const hospedagemResumoPdf = numeroNaoNegativo(hospedagemCobradaPdf.total ?? p.custos.hospedagem, 0);
         const maoObraMontagemTotalPdf = numeroNaoNegativo(maoObraMontagemPdf.total, 0);
         const maoObraDesmontagemTotalPdf = numeroNaoNegativo(maoObraDesmontagemPdf.total, 0);
         const maoObraDetalhadaPdf = maoObraCobradaPdf.detalhada === true
@@ -6547,7 +6812,20 @@
                 maoObraResumoPdf > totalMaoObraDetalhadaPdf ? linhaResumoPdf('Mao de obra cobrada do cliente', formatarMoeda(arredondarMoeda(maoObraResumoPdf - totalMaoObraDetalhadaPdf))) : ''
             ].join('')
             : (maoObraResumoPdf > 0 ? linhaResumoPdf('Mao de obra cobrada do cliente', formatarMoeda(maoObraResumoPdf)) : '');
-        const custosAdicionaisSemFreteMaoObra = arredondarMoeda(Math.max(custosAdicionaisResumo - freteResumo - maoObraResumoPdf, 0));
+        const descricaoHospedagemComercialPdf = (() => {
+            const partes = [];
+            const pessoas = numeroNaoNegativo(hospedagemCobradaPdf.pessoas, 0);
+            const diarias = numeroNaoNegativo(hospedagemCobradaPdf.diarias, 0);
+            const valorDiariaPessoa = numeroNaoNegativo(hospedagemCobradaPdf.valorDiariaPessoa, 0);
+            if (pessoas > 0) partes.push(`${formatarNumeroPdf(pessoas)} pessoa${pessoas === 1 ? '' : 's'}`);
+            if (diarias > 0) partes.push(`${formatarNumeroPdf(diarias)} diária${diarias === 1 ? '' : 's'}`);
+            if (valorDiariaPessoa > 0) partes.push(`${formatarMoeda(valorDiariaPessoa)}/pessoa`);
+            return partes.length ? `Hospedagem cobrada do cliente (${partes.join(' x ')})` : 'Hospedagem cobrada do cliente';
+        })();
+        const custosAdicionaisSemFreteMaoObra = arredondarMoeda(Math.max(
+            custosAdicionaisResumo - freteResumo - maoObraResumoPdf - hospedagemResumoPdf,
+            0
+        ));
         const maoObraInternaPdf = p.controleInterno.maoObraOperacional && typeof p.controleInterno.maoObraOperacional === 'object'
             ? p.controleInterno.maoObraOperacional
             : {};
@@ -6593,6 +6871,7 @@
                         )
                         : (freteResumo > 0 ? linhaResumoPdf('Frete', formatarMoeda(freteResumo)) : '')}
                     ${linhasMaoObraComercialPdf}
+                    ${hospedagemResumoPdf > 0 ? linhaResumoPdf(descricaoHospedagemComercialPdf, formatarMoeda(hospedagemResumoPdf)) : ''}
                     ${(custosAdicionaisSemFreteMaoObra > 0 || exibirInterno) ? linhaResumoPdf('Outros custos comerciais', formatarMoeda(custosAdicionaisSemFreteMaoObra)) : ''}
                     ${linhaResumoPdf('Desconto', formatarMoeda(p.financeiro.desconto))}
                     ${linhaResumoPdf('Acrescimo', formatarMoeda(p.financeiro.acrescimo))}
@@ -6614,8 +6893,8 @@
                         ${linhaResumoPdf('Custo total interno', formatarMoeda(custoTotalInterno))}
                         ${custoMaoObraInternaPdf > 0 ? linhaResumoPdf(descricaoMaoObraInternaPdf, formatarMoeda(custoMaoObraInternaPdf)) : ''}
                         ${custoHospedagemInternaPdf > 0 ? linhaResumoPdf(descricaoHospedagemInternaPdf, formatarMoeda(custoHospedagemInternaPdf)) : ''}
-                        ${linhaResumoPdf('Lucro previsto', formatarMoeda(p.controleInterno.lucroPrevisto))}
-                        ${linhaResumoPdf('Margem prevista', formatarPercentual(p.controleInterno.margemPrevista))}
+                        ${linhaResumoPdf('Resultado estimado da proposta', formatarMoeda(p.controleInterno.lucroPrevisto))}
+                        ${linhaResumoPdf('Margem de contribuição estimada', formatarPercentual(p.controleInterno.margemPrevista))}
                     </tbody>
                 </table>
             </div>
@@ -7151,11 +7430,15 @@
             ? maoObraCobrada.desmontagem
             : {};
         const totalMaoObra = numeroNaoNegativo(maoObraCobrada.total ?? p.custos.maoObra, 0);
+        const hospedagemCobrada = p.custos.hospedagemCobrada && typeof p.custos.hospedagemCobrada === 'object'
+            ? p.custos.hospedagemCobrada
+            : {};
+        const totalHospedagemCobrada = numeroNaoNegativo(hospedagemCobrada.total ?? p.custos.hospedagem, 0);
         const totalMontagem = numeroNaoNegativo(maoObraMontagem.total, 0);
         const totalDesmontagem = numeroNaoNegativo(maoObraDesmontagem.total, 0);
         const totalMaoObraDetalhada = arredondarMoeda(totalMontagem + totalDesmontagem);
         const outrosCustosComerciais = arredondarMoeda(Math.max(
-            totalCustosAdicionais - frete - totalMaoObra,
+            totalCustosAdicionais - frete - totalMaoObra - totalHospedagemCobrada,
             0
         ));
 
@@ -7336,6 +7619,7 @@
                             ${montarLinhaResumoV2('Subtotal', p.financeiro.subtotal)}
                             ${frete > 0 ? montarLinhaResumoV2('Frete', frete) : ''}
                             ${linhasMaoObraV2.map(([rotulo, valor]) => montarLinhaResumoV2(rotulo, valor)).join('')}
+                            ${totalHospedagemCobrada > 0 ? montarLinhaResumoV2('Hospedagem cobrada do cliente', totalHospedagemCobrada) : ''}
                             ${outrosCustosComerciais > 0 ? montarLinhaResumoV2('Outros custos comerciais', outrosCustosComerciais) : ''}
                             ${numeroNaoNegativo(p.financeiro.desconto, 0) > 0 ? montarLinhaResumoV2('Desconto', p.financeiro.desconto) : ''}
                             ${numeroNaoNegativo(p.financeiro.acrescimo, 0) > 0 ? montarLinhaResumoV2('Acréscimo', p.financeiro.acrescimo) : ''}
@@ -7636,16 +7920,27 @@
     }
 
     function prepararHtmlPdfPropostaCliente(proposta) {
+        const propostaCliente = normalizarProposta({
+            ...proposta,
+            financeiro: {
+                ...(proposta?.financeiro || {}),
+                exibirInformacoesInternasPDF: false,
+                exibirCustosInternosPdf: false,
+                exibirFornecedores: false,
+                exibirResultado: false,
+                exibirMargem: false
+            }
+        });
         try {
             return {
                 tipo: 'proposta-cliente-v2',
-                html: montarHtmlPdfPropostaClienteV2(proposta)
+                html: montarHtmlPdfPropostaClienteV2(propostaCliente)
             };
         } catch (erro) {
             console.error('Falha ao montar proposta-cliente-v2. Usando template comercial anterior.', erro);
             return {
                 tipo: 'proposta-cliente',
-                html: montarHtmlPdfProposta(proposta)
+                html: montarHtmlPdfProposta(propostaCliente)
             };
         }
     }
@@ -7695,7 +7990,11 @@
             ...proposta,
             financeiro: {
                 ...(proposta?.financeiro || {}),
-                exibirInformacoesInternasPDF: exibirInterno === true
+                exibirInformacoesInternasPDF: exibirInterno === true,
+                exibirCustosInternosPdf: exibirInterno === true,
+                exibirFornecedores: exibirInterno === true,
+                exibirResultado: exibirInterno === true,
+                exibirMargem: exibirInterno === true
             }
         });
 
@@ -7747,7 +8046,7 @@
             if (!validarDadosFiscaisObrigatoriosProposta(propostaTemp, 'gerar o PDF', { focar: true })) {
                 return;
             }
-            abrirPreviewPDFProposta(propostaTemp, propostaTemp.financeiro.exibirInformacoesInternasPDF === true);
+            abrirPreviewPDFProposta(propostaTemp, false);
             return;
         }
         const propostaTemp = coletarDadosFormulario(false);
@@ -8283,6 +8582,7 @@
     window.alternarCategoriaConfigOrcamento = alternarCategoriaConfigOrcamento;
     window.moverCategoriaConfigOrcamento = moverCategoriaConfigOrcamento;
     window.renderConfigOrcamentoProposta = renderConfigOrcamentoProposta;
+    window.atualizarEstadoPoliticaCustosPropriosConfig = atualizarEstadoPoliticaCustosPropriosConfig;
     window.obterCategoriasOrcamento = obterCategoriasOrcamento;
     window.normalizarCategoriasOrcamentoConfig = normalizarCategoriasOrcamentoConfig;
 })();

@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.32">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.33">
 </head>
 <body>
 
@@ -867,6 +867,31 @@
 
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
+                                <h4>Política de custos próprios</h4>
+                                <span>Define somente o padrão de novos itens. Itens já salvos mantêm sua política.</span>
+                            </div>
+                            <div class="proposta-config-grid">
+                                <div class="form-group">
+                                    <label>Modo padrão</label>
+                                    <select id="propOrcConfigModoCustoProprio" data-change="atualizarEstadoPoliticaCustosPropriosConfig">
+                                        <option value="percentual">Percentual sobre itens próprios</option>
+                                        <option value="manual">Custo manual por item</option>
+                                        <option value="nao_calcular">Não calcular automaticamente</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="propOrcConfigPercentualCustoProprioGrupo">
+                                    <label>Percentual padrão (%)</label>
+                                    <input type="number" id="propOrcConfigPercentualCustoProprio" min="0" max="100" step="0.01">
+                                </div>
+                            </div>
+                            <div id="propOrcConfigPoliticaCustoAviso" class="proposta-config-cost-policy-note" hidden>
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span>Configuração pendente. Novos itens não terão custo próprio automático até salvar um padrão.</span>
+                            </div>
+                        </div>
+
+                        <div class="proposta-config-section">
+                            <div class="proposta-config-section-title">
                                 <h4>Configuração fiscal / impostos</h4>
                                 <span>Estimativas usadas no fechamento comercial.</span>
                             </div>
@@ -1005,8 +1030,8 @@
                             <span><small>Custos</small><strong id="propStickyCustos">R$ 0,00</strong></span>
                             <span><small>Desconto</small><strong id="propStickyDesconto">R$ 0,00</strong></span>
                             <span class="proposta-sticky-final"><small>Final</small><strong id="propStickyFinal">R$ 0,00</strong></span>
-                            <span class="proposta-sticky-profit"><small>Lucro</small><strong id="propStickyLucro">R$ 0,00</strong></span>
-                            <span class="proposta-sticky-margin"><small>Margem</small><strong id="propStickyMargem">0%</strong></span>
+                            <span class="proposta-sticky-profit"><small>Resultado estimado</small><strong id="propStickyLucro">R$ 0,00</strong></span>
+                            <span class="proposta-sticky-margin"><small>Margem de contribuição</small><strong id="propStickyMargem">0%</strong></span>
                             <span class="proposta-sticky-status"><small>Status</small><strong id="propStickyStatus">Rascunho</strong></span>
                         </div>
                         <div class="proposta-sticky-actions">
@@ -1028,8 +1053,8 @@
                             <div><dt>Total de itens</dt><dd id="propGuidedItens">0</dd></div>
                             <div><dt>Custos internos</dt><dd id="propGuidedCustos">R$ 0,00</dd></div>
                             <div><dt>Valor final</dt><dd id="propGuidedFinal">R$ 0,00</dd></div>
-                            <div><dt>Lucro</dt><dd id="propGuidedLucro">R$ 0,00</dd></div>
-                            <div><dt>Margem</dt><dd id="propGuidedMargem">0%</dd></div>
+                            <div><dt>Resultado estimado</dt><dd id="propGuidedLucro">R$ 0,00</dd></div>
+                            <div><dt>Margem de contribuição</dt><dd id="propGuidedMargem">0%</dd></div>
                             <div><dt>Status</dt><dd id="propGuidedStatus">Rascunho</dd></div>
                         </dl>
                         <p>Use o passo a passo para reduzir erros e gerar uma proposta pronta para envio.</p>
@@ -1437,6 +1462,22 @@
                                         <div class="form-group"><label>Total mão de obra cobrada</label><input type="text" id="propCustoMaoObra" value="R$ 0,00" readonly></div>
                                     </div>
                                 </div>
+                                <div class="proposta-operational-cost proposta-operational-cost--commercial">
+                                    <div class="proposta-operational-cost__head">
+                                        <strong>Hospedagem cobrada do cliente</strong>
+                                        <small>Valor comercial somado à proposta. A classificação fiscal deve ser conferida separadamente.</small>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group"><label>Pessoas</label><input type="number" id="propHospedagemComercialPessoas" min="0" step="1" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Diárias</label><input type="number" id="propHospedagemComercialDiarias" min="0" step="0.5" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Valor cobrado por diária/pessoa</label><input type="text" id="propHospedagemComercialValorDiariaPessoa" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                        <div class="form-group"><label>Total cobrado</label><input type="text" id="propHospedagemComercialTotal" value="R$ 0,00" readonly></div>
+                                    </div>
+                                    <div id="propHospedagemComercialFiscalAviso" class="proposta-commercial-lodging-alert" hidden>
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <span>Hospedagem comercial sem item fiscal correspondente. É possível salvar e gerar o PDF comercial, mas a pré-nota ficará bloqueada até a conferência.</span>
+                                    </div>
+                                </div>
                                 <div class="proposta-cost-subgroup">
                                     <strong>Outros valores comerciais</strong>
                                     <small>Preencha somente quando o valor será repassado ao cliente.</small>
@@ -1458,8 +1499,8 @@
                                 <div class="proposta-cost-section__head">
                                     <span class="proposta-cost-section__icon"><i class="bi bi-building-gear"></i></span>
                                     <div>
-                                        <h6 id="propostaCustosInternosTitulo">Custos internos da MTZ</h6>
-                                        <p>Estes valores não aumentam o total do cliente e são usados somente no cálculo de lucro e margem.</p>
+                                        <h6 id="propostaCustosInternosTitulo">Custos próprios estimados</h6>
+                                        <p>Estes valores não aumentam o total do cliente e são usados somente no cálculo do resultado estimado.</p>
                                     </div>
                                 </div>
                                 <div class="proposta-operational-cost">
@@ -1497,8 +1538,8 @@
                                 <div class="proposta-cost-section__head">
                                     <span class="proposta-cost-section__icon"><i class="bi bi-truck"></i></span>
                                     <div>
-                                        <h6 id="propostaCustosFornecedoresTitulo">Fornecedores e terceirizados</h6>
-                                        <p>Estes valores representam custos externos e reduzem o lucro da proposta.</p>
+                                        <h6 id="propostaCustosFornecedoresTitulo">Custos reais de fornecedores e terceiros</h6>
+                                        <p>Estes valores representam custos externos e reduzem o resultado estimado da proposta.</p>
                                     </div>
                                 </div>
                                 <div class="form-row">
@@ -1620,15 +1661,7 @@
                     </div>
 
                     <details class="proposta-internal-details">
-                        <summary><i class="bi bi-shield-lock"></i> Informações internas</summary>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="prop-interno-toggle">
-                                    <input type="checkbox" id="propExibirInformacoesInternasPDF">
-                                    Exibir informações internas no PDF
-                                </label>
-                            </div>
-                        </div>
+                        <summary><i class="bi bi-shield-lock"></i> Resultado estimado</summary>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Custo total da proposta</label>
@@ -1637,11 +1670,11 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Lucro previsto</label>
+                                <label>Resultado estimado da proposta</label>
                                 <input type="text" id="propLucroPrevisto" value="R$ 0,00" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Margem prevista (%)</label>
+                                <label>Margem de contribuição estimada (%)</label>
                                 <input type="text" id="propMargemPrevista" value="0%" readonly>
                             </div>
                         </div>
@@ -2700,12 +2733,12 @@
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.4"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.6"></script>
+    <script src="./assets/js/core/migrations.js?v=12.7"></script>
     <script src="./assets/js/core/domain-services.js?v=12.2"></script>
     <script src="./assets/js/core/storage.js?v=12.5"></script>
     <script src="./assets/js/ui/pwa.js?v=1.2"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.4"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.5"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>
