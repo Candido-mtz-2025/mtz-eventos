@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.31">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.32">
 </head>
 <body>
 
@@ -1705,6 +1705,60 @@
                             <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
                         </div>
                     </div>
+                    <details class="proposta-attachments" id="propAnexosProposta">
+                        <summary>
+                            <span><i class="bi bi-paperclip"></i> Anexos da proposta</span>
+                            <span class="proposta-attachments-count" id="propAnexosContador">0 anexos</span>
+                            <i class="bi bi-chevron-down proposta-attachments-caret" aria-hidden="true"></i>
+                        </summary>
+                        <div class="proposta-attachments-content">
+                            <div class="proposta-attachments-toolbar">
+                                <p>Vincule documentos externos por URL. Nenhum arquivo é armazenado no navegador.</p>
+                                <button type="button" class="btn btn-secondary" id="propAnexoAdicionar" data-action="abrirFormularioAnexoProposta">
+                                    <i class="bi bi-plus-lg"></i> Adicionar anexo
+                                </button>
+                            </div>
+                            <div class="proposta-attachment-form" id="propAnexoFormulario" hidden>
+                                <strong id="propAnexoFormularioTitulo">Adicionar vínculo</strong>
+                                <div class="proposta-attachment-form-grid">
+                                    <div class="form-group">
+                                        <label for="propAnexoNome">Nome</label>
+                                        <input type="text" id="propAnexoNome" maxlength="120" placeholder="Ex.: Briefing aprovado">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="propAnexoCategoria">Categoria</label>
+                                        <select id="propAnexoCategoria">
+                                            <option>Briefing</option>
+                                            <option>Arte</option>
+                                            <option>Planta e medidas</option>
+                                            <option>Fornecedor</option>
+                                            <option>Aprovação</option>
+                                            <option selected>Documento</option>
+                                            <option>Outro</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group proposta-attachment-url-field">
+                                        <label for="propAnexoUrl">URL segura</label>
+                                        <input type="url" id="propAnexoUrl" inputmode="url" maxlength="2000" placeholder="https://...">
+                                    </div>
+                                    <div class="form-group proposta-attachment-description-field">
+                                        <label for="propAnexoDescricao">Observação</label>
+                                        <textarea id="propAnexoDescricao" rows="2" maxlength="500" placeholder="Contexto ou orientação sobre o documento"></textarea>
+                                    </div>
+                                </div>
+                                <div class="proposta-attachment-form-actions">
+                                    <button type="button" class="btn btn-primary" data-action="salvarAnexoProposta"><i class="bi bi-check2"></i> Salvar vínculo</button>
+                                    <button type="button" class="btn btn-secondary" data-action="cancelarEdicaoAnexoProposta">Cancelar</button>
+                                </div>
+                            </div>
+                            <div class="proposta-attachments-list" id="propAnexosLista" aria-live="polite">
+                                <div class="proposta-attachments-empty">
+                                    <i class="bi bi-paperclip"></i>
+                                    <span>Salve a proposta antes de adicionar anexos.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
                     <details class="proposta-history" id="propHistoricoProposta">
                         <summary>
                             <span><i class="bi bi-clock-history"></i> Histórico da proposta</span>
@@ -2651,7 +2705,7 @@
     <script src="./assets/js/core/storage.js?v=12.5"></script>
     <script src="./assets/js/ui/pwa.js?v=1.2"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.3"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.4"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>

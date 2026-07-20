@@ -9865,6 +9865,215 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     padding-inline: 14px;
 }
 
+#tab-propostas .proposta-attachments {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    overflow: hidden;
+}
+
+#tab-propostas .proposta-attachments > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+}
+
+#tab-propostas .proposta-attachments > summary::-webkit-details-marker {
+    display: none;
+}
+
+#tab-propostas .proposta-attachments > summary > span:first-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#tab-propostas .proposta-attachments > summary > span:first-child i {
+    color: var(--primary);
+}
+
+#tab-propostas .proposta-attachments-count {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-light);
+    background: var(--surface);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+#tab-propostas .proposta-attachments-caret {
+    color: var(--text-light);
+    transition: transform 160ms ease;
+}
+
+#tab-propostas .proposta-attachments[open] .proposta-attachments-caret {
+    transform: rotate(180deg);
+}
+
+#tab-propostas .proposta-attachments-content {
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-attachments-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+#tab-propostas .proposta-attachments-toolbar p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 0.78rem;
+}
+
+#tab-propostas .proposta-attachment-form {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-attachment-form > strong {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--text);
+    font-size: 0.86rem;
+}
+
+#tab-propostas .proposta-attachment-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.6fr);
+    gap: 10px 12px;
+}
+
+#tab-propostas .proposta-attachment-url-field,
+#tab-propostas .proposta-attachment-description-field {
+    grid-column: 1 / -1;
+}
+
+#tab-propostas .proposta-attachment-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+#tab-propostas .proposta-attachments-list {
+    display: grid;
+}
+
+#tab-propostas .proposta-attachment-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 0;
+    border-top: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-attachment-icon {
+    display: inline-grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--primary);
+    background: var(--surface);
+}
+
+#tab-propostas .proposta-attachment-main {
+    min-width: 0;
+}
+
+#tab-propostas .proposta-attachment-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+
+#tab-propostas .proposta-attachment-title strong {
+    min-width: 0;
+    color: var(--text);
+    font-size: 0.84rem;
+    overflow-wrap: anywhere;
+}
+
+#tab-propostas .proposta-attachment-title span {
+    padding: 3px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-light);
+    background: var(--surface);
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+#tab-propostas .proposta-attachment-main p {
+    margin: 4px 0 0;
+    color: var(--text-light);
+    font-size: 0.76rem;
+    overflow-wrap: anywhere;
+}
+
+#tab-propostas .proposta-attachment-main small {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-light);
+    font-size: 0.7rem;
+}
+
+#tab-propostas .proposta-attachment-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#tab-propostas .proposta-attachment-actions .icon-btn {
+    display: inline-grid;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--surface);
+    text-decoration: none;
+}
+
+#tab-propostas .proposta-attachment-actions .icon-btn.danger {
+    color: var(--danger);
+}
+
+#tab-propostas .proposta-attachments-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 72px;
+    padding: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-light);
+    text-align: center;
+}
+
 #tab-propostas .proposta-history {
     margin-top: 16px;
     border: 1px solid var(--border);
@@ -10298,6 +10507,47 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
 
     #tab-propostas .proposta-closing-grid {
         grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-attachments > summary {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    #tab-propostas .proposta-attachments-count {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    #tab-propostas .proposta-attachments-caret {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #tab-propostas .proposta-attachments-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #tab-propostas .proposta-attachments-toolbar .btn {
+        width: 100%;
+    }
+
+    #tab-propostas .proposta-attachment-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-attachment-url-field,
+    #tab-propostas .proposta-attachment-description-field {
+        grid-column: auto;
+    }
+
+    #tab-propostas .proposta-attachment-item {
+        grid-template-columns: 34px minmax(0, 1fr);
+    }
+
+    #tab-propostas .proposta-attachment-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
     }
 
     #tab-propostas .proposta-history > summary {

@@ -141,6 +141,15 @@
         }
     });
     const TEXTO_PRE_NOTA_CONFERENCIA = 'Pré-nota para conferência. Emissão fiscal oficial deve ser validada pela contabilidade.';
+    const CATEGORIAS_ANEXO_PROPOSTA = Object.freeze([
+        'Briefing',
+        'Arte',
+        'Planta e medidas',
+        'Fornecedor',
+        'Aprovação',
+        'Documento',
+        'Outro'
+    ]);
     const SECOES_FORMULARIO_PROPOSTA = new Set([
         'dados',
         'cliente',
@@ -192,6 +201,7 @@
     let resumoCategoriasPropostaTimer = null;
     let cepClientePropostaTimer = null;
     let ultimoCepClientePropostaConsultado = '';
+    let anexoPropostaEmEdicaoId = '';
     const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
@@ -2372,7 +2382,10 @@
         });
 
         atualizarExperienciaGuiadaProposta();
-        if (etapa === 'revisao') renderizarHistoricoProposta();
+        if (etapa === 'revisao') {
+            renderizarAnexosProposta();
+            renderizarHistoricoProposta();
+        }
 
         if (opcoes.semRolagem) return;
 
@@ -2790,6 +2803,9 @@
         if (acao === 'revisao') return 'bi-layers';
         if (acao === 'converter') return 'bi-arrow-repeat';
         if (acao === 'excluir') return 'bi-trash';
+        if (acao === 'anexo_adicionar') return 'bi-paperclip';
+        if (acao === 'anexo_editar') return 'bi-pencil-square';
+        if (acao === 'anexo_remover') return 'bi-paperclip';
         if (acao === 'criar') return 'bi-plus-circle';
         if (acao === 'editar' || acao === 'salvar') return 'bi-pencil-square';
         if (acao === 'status' && statusNovo === 'enviada') return 'bi-send';
@@ -2839,6 +2855,276 @@
                 </article>
             `;
         }).join('');
+    }
+
+    function normalizarUrlAnexoProposta(valor) {
+        const urlTexto = textoSeguro(valor, '');
+        if (!urlTexto) return '';
+        try {
+            const url = new URL(urlTexto);
+            if (!['http:', 'https:'].includes(url.protocol)) return '';
+            if (url.username || url.password) return '';
+            return url.href;
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function normalizarAnexoProposta(anexoOriginal = {}, propostaId = '') {
+        const anexo = anexoOriginal && typeof anexoOriginal === 'object' ? anexoOriginal : {};
+        const categoriaOriginal = textoSeguro(anexo.categoria, 'Outro');
+        const categoria = CATEGORIAS_ANEXO_PROPOSTA.includes(categoriaOriginal) ? categoriaOriginal : 'Outro';
+        const data = textoSeguro(anexo.data ?? anexo.atualizadoEm ?? anexo.criadoEm, '');
+        return {
+            id: textoSeguro(anexo.id, ''),
+            propostaId: textoSeguro(propostaId || anexo.propostaId, ''),
+            nome: textoSeguro(anexo.nome ?? anexo.nomeArquivo, ''),
+            tipo: 'link',
+            tamanho: 0,
+            categoria,
+            descricao: textoSeguro(anexo.descricao ?? anexo.observacao, ''),
+            data,
+            usuario: textoSeguro(anexo.usuario, ''),
+            url: normalizarUrlAnexoProposta(anexo.url ?? anexo.referenciaExterna),
+            anexoOrigemId: textoSeguro(anexo.anexoOrigemId, ''),
+            criadoEm: textoSeguro(anexo.criadoEm, data),
+            atualizadoEm: textoSeguro(anexo.atualizadoEm, data),
+            copiadoEm: textoSeguro(anexo.copiadoEm, ''),
+            copiadoPor: textoSeguro(anexo.copiadoPor, '')
+        };
+    }
+
+    function normalizarAnexosProposta(anexos, propostaId = '') {
+        return (Array.isArray(anexos) ? anexos : [])
+            .map((anexo) => normalizarAnexoProposta(anexo, propostaId))
+            .filter((anexo) => anexo.id && anexo.nome && anexo.url);
+    }
+
+    function limparFormularioAnexoProposta() {
+        anexoPropostaEmEdicaoId = '';
+        const formulario = document.getElementById('propAnexoFormulario');
+        const titulo = document.getElementById('propAnexoFormularioTitulo');
+        const nome = document.getElementById('propAnexoNome');
+        const categoria = document.getElementById('propAnexoCategoria');
+        const url = document.getElementById('propAnexoUrl');
+        const descricao = document.getElementById('propAnexoDescricao');
+        if (formulario) formulario.hidden = true;
+        if (titulo) titulo.textContent = 'Adicionar vínculo';
+        if (nome) nome.value = '';
+        if (categoria) categoria.value = 'Documento';
+        if (url) url.value = '';
+        if (descricao) descricao.value = '';
+    }
+
+    function renderizarAnexosProposta(propostaId = obterIdPropostaEmEdicao()) {
+        const lista = document.getElementById('propAnexosLista');
+        const contador = document.getElementById('propAnexosContador');
+        const botaoAdicionar = document.getElementById('propAnexoAdicionar');
+        if (!lista || !contador) return;
+
+        const proposta = propostaId ? localizarProposta(propostaId) : null;
+        const anexos = proposta ? normalizarAnexosProposta(proposta.anexos, proposta.id) : [];
+        contador.textContent = anexos.length === 1 ? '1 anexo' : `${anexos.length} anexos`;
+        if (botaoAdicionar) {
+            botaoAdicionar.disabled = !proposta;
+            botaoAdicionar.title = proposta ? 'Adicionar anexo por link' : 'Salve a proposta antes de adicionar anexos';
+        }
+
+        if (!proposta) {
+            lista.innerHTML = `
+                <div class="proposta-attachments-empty">
+                    <i class="bi bi-paperclip"></i>
+                    <span>Salve a proposta antes de adicionar anexos.</span>
+                </div>
+            `;
+            return;
+        }
+
+        if (!anexos.length) {
+            lista.innerHTML = `
+                <div class="proposta-attachments-empty">
+                    <i class="bi bi-folder2-open"></i>
+                    <span>Nenhum anexo vinculado a esta proposta.</span>
+                </div>
+            `;
+            return;
+        }
+
+        lista.innerHTML = anexos.map((anexo) => `
+            <article class="proposta-attachment-item">
+                <span class="proposta-attachment-icon" aria-hidden="true"><i class="bi bi-link-45deg"></i></span>
+                <div class="proposta-attachment-main">
+                    <div class="proposta-attachment-title">
+                        <strong>${sanitizar(anexo.nome)}</strong>
+                        <span>${sanitizar(anexo.categoria)}</span>
+                    </div>
+                    ${anexo.descricao ? `<p>${sanitizar(anexo.descricao)}</p>` : ''}
+                    <small>${sanitizar(anexo.usuario || 'Usuário não informado')} • ${sanitizar(formatarDataHoraAtividadeProposta({ timestamp: anexo.data }))}</small>
+                </div>
+                <div class="proposta-attachment-actions" aria-label="Ações do anexo ${sanitizar(anexo.nome)}">
+                    <a class="icon-btn" href="${sanitizar(anexo.url)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir anexo" title="Abrir anexo"><i class="bi bi-box-arrow-up-right"></i></a>
+                    <button type="button" class="icon-btn" data-action="editarAnexoProposta" data-arg="${sanitizar(anexo.id)}" aria-label="Editar anexo" title="Editar"><i class="bi bi-pencil"></i></button>
+                    <button type="button" class="icon-btn danger" data-action="removerAnexoProposta" data-arg="${sanitizar(anexo.id)}" aria-label="Remover vínculo" title="Remover vínculo"><i class="bi bi-trash"></i></button>
+                </div>
+            </article>
+        `).join('');
+    }
+
+    function abrirFormularioAnexoProposta() {
+        const proposta = localizarProposta(obterIdPropostaEmEdicao());
+        if (!proposta) {
+            mostrarToast('Salve a proposta antes de adicionar anexos.', 'info');
+            return;
+        }
+        limparFormularioAnexoProposta();
+        const formulario = document.getElementById('propAnexoFormulario');
+        if (formulario) formulario.hidden = false;
+        focarPropostaSemRolagem(document.getElementById('propAnexoNome'));
+    }
+
+    function editarAnexoProposta(anexoId) {
+        const proposta = localizarProposta(obterIdPropostaEmEdicao());
+        const anexo = normalizarAnexosProposta(proposta?.anexos, proposta?.id)
+            .find((item) => String(item.id) === String(anexoId));
+        if (!proposta || !anexo) {
+            mostrarToast('Anexo não encontrado nesta proposta.', 'erro');
+            return;
+        }
+
+        anexoPropostaEmEdicaoId = String(anexo.id);
+        const formulario = document.getElementById('propAnexoFormulario');
+        const titulo = document.getElementById('propAnexoFormularioTitulo');
+        if (formulario) formulario.hidden = false;
+        if (titulo) titulo.textContent = 'Editar vínculo';
+        document.getElementById('propAnexoNome').value = anexo.nome;
+        document.getElementById('propAnexoCategoria').value = anexo.categoria;
+        document.getElementById('propAnexoUrl').value = anexo.url;
+        document.getElementById('propAnexoDescricao').value = anexo.descricao;
+        focarPropostaSemRolagem(document.getElementById('propAnexoNome'), true);
+    }
+
+    function cancelarEdicaoAnexoProposta() {
+        limparFormularioAnexoProposta();
+    }
+
+    function salvarAnexoProposta() {
+        const propostaId = obterIdPropostaEmEdicao();
+        const lista = obterPropostasBase();
+        const indiceProposta = lista.findIndex((item) => String(item.id) === String(propostaId));
+        if (indiceProposta < 0) {
+            mostrarToast('Salve a proposta antes de adicionar anexos.', 'erro');
+            return;
+        }
+
+        const nome = textoSeguro(document.getElementById('propAnexoNome')?.value);
+        const categoriaEntrada = textoSeguro(document.getElementById('propAnexoCategoria')?.value, 'Outro');
+        const categoria = CATEGORIAS_ANEXO_PROPOSTA.includes(categoriaEntrada) ? categoriaEntrada : 'Outro';
+        const urlEntrada = textoSeguro(document.getElementById('propAnexoUrl')?.value);
+        const url = normalizarUrlAnexoProposta(urlEntrada);
+        const descricao = textoSeguro(document.getElementById('propAnexoDescricao')?.value);
+        if (!nome) {
+            mostrarToast('Informe o nome do anexo.', 'erro');
+            focarPropostaSemRolagem(document.getElementById('propAnexoNome'));
+            return;
+        }
+        if (!url) {
+            mostrarToast('Informe uma URL completa e segura, iniciada por http:// ou https://.', 'erro');
+            focarPropostaSemRolagem(document.getElementById('propAnexoUrl'));
+            return;
+        }
+
+        const proposta = lista[indiceProposta];
+        const anexos = normalizarAnexosProposta(proposta.anexos, proposta.id);
+        const indiceAnexo = anexos.findIndex((item) => String(item.id) === String(anexoPropostaEmEdicaoId));
+        const agoraIso = obterAgoraIso();
+        const usuario = obterUsuarioAtualNomeOuEmail();
+        const anexoAnterior = indiceAnexo >= 0 ? anexos[indiceAnexo] : null;
+        const anexo = normalizarAnexoProposta({
+            ...anexoAnterior,
+            id: anexoAnterior?.id || `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            propostaId: proposta.id,
+            nome,
+            categoria,
+            url,
+            descricao,
+            data: agoraIso,
+            usuario,
+            criadoEm: anexoAnterior?.criadoEm || agoraIso,
+            atualizadoEm: agoraIso
+        }, proposta.id);
+
+        if (indiceAnexo >= 0) anexos[indiceAnexo] = anexo;
+        else anexos.push(anexo);
+        const propostaAtualizada = normalizarProposta({
+            ...proposta,
+            anexos,
+            dataUltimaAlteracao: agoraIso,
+            alteradoPor: usuario
+        });
+        lista[indiceProposta] = propostaAtualizada;
+        propostas = lista;
+        registrarAtividadeProposta(
+            propostaAtualizada,
+            indiceAnexo >= 0 ? 'anexo_editar' : 'anexo_adicionar',
+            indiceAnexo >= 0
+                ? `Anexo “${anexo.nome}” atualizado.`
+                : `Anexo “${anexo.nome}” adicionado.`,
+            { anexoId: anexo.id, anexoCategoria: anexo.categoria }
+        );
+        salvarLocal();
+        sincronizar('salvar');
+        limparFormularioAnexoProposta();
+        renderizarAnexosProposta(propostaAtualizada.id);
+        renderizarHistoricoProposta(propostaAtualizada.id);
+        mostrarToast(indiceAnexo >= 0 ? 'Anexo atualizado.' : 'Anexo adicionado.');
+    }
+
+    function removerAnexoProposta(anexoId) {
+        const propostaId = obterIdPropostaEmEdicao();
+        const lista = obterPropostasBase();
+        const indiceProposta = lista.findIndex((item) => String(item.id) === String(propostaId));
+        const proposta = indiceProposta >= 0 ? lista[indiceProposta] : null;
+        const anexos = normalizarAnexosProposta(proposta?.anexos, proposta?.id);
+        const anexo = anexos.find((item) => String(item.id) === String(anexoId));
+        if (!proposta || !anexo) {
+            mostrarToast('Anexo não encontrado nesta proposta.', 'erro');
+            return;
+        }
+
+        const executar = () => {
+            const agoraIso = obterAgoraIso();
+            const usuario = obterUsuarioAtualNomeOuEmail();
+            const propostaAtualizada = normalizarProposta({
+                ...proposta,
+                anexos: anexos.filter((item) => String(item.id) !== String(anexo.id)),
+                dataUltimaAlteracao: agoraIso,
+                alteradoPor: usuario
+            });
+            lista[indiceProposta] = propostaAtualizada;
+            propostas = lista;
+            registrarAtividadeProposta(
+                propostaAtualizada,
+                'anexo_remover',
+                `Vínculo do anexo “${anexo.nome}” removido.`,
+                { anexoId: anexo.id, anexoCategoria: anexo.categoria }
+            );
+            salvarLocal();
+            sincronizar('salvar');
+            limparFormularioAnexoProposta();
+            renderizarAnexosProposta(propostaAtualizada.id);
+            renderizarHistoricoProposta(propostaAtualizada.id);
+            mostrarToast('Vínculo do anexo removido.');
+        };
+
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(`Remover o vínculo “${anexo.nome}”? O arquivo externo não será excluído.`, executar, {
+                titulo: 'Remover anexo',
+                textoConfirmar: 'Remover vínculo',
+                classeConfirmar: 'btn-danger'
+            });
+            return;
+        }
+        if (confirm(`Remover o vínculo “${anexo.nome}”?`)) executar();
     }
 
     function registrarGeracaoPdfProposta(proposta, exibirInterno = false) {
@@ -4465,6 +4751,7 @@
         const clientePrecisaNotaFiscal = clientePrecisaNotaFiscalOrigem || cliente.precisaNotaFiscal === true;
         const fiscal = montarFiscalPropostaNormalizado(proposta.fiscal || proposta.dadosFiscais || {}, cliente, evento, resumo.resumoFiscal);
         const id = proposta.id || Date.now();
+        const anexos = normalizarAnexosProposta(proposta.anexos, id);
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
         const codigoBase = obterCodigoBaseProposta(proposta.codigoBase || codigo) || codigo;
         const revisao = normalizarNumeroRevisaoProposta(proposta.revisao ?? proposta.numeroRevisao ?? extrairRevisaoDoCodigo(codigo), 0);
@@ -4502,6 +4789,7 @@
                 margemPrevista: resumo.margemPrevista
             },
             escopo,
+            anexos,
             responsavelProposta: textoSeguro(proposta.responsavelProposta, usuarioAtual),
             status,
             locacaoVinculadaId,
@@ -4815,6 +5103,7 @@
                 naoInclusoProposta: textoSeguro(document.getElementById('propNaoIncluso')?.value, TEXTO_PADRAO_NAO_INCLUSO),
                 observacoesComerciais: textoSeguro(document.getElementById('propObsComerciais')?.value)
             },
+            anexos: normalizarAnexosProposta(propostaAtual?.anexos, idAtual),
             responsavelProposta: textoSeguro(document.getElementById('propResponsavel')?.value, usuarioAtual),
             status: obterStatusSelecionado(),
             locacaoVinculadaId: textoSeguro(propostaAtual?.locacaoVinculadaId ?? propostaAtual?.locacaoId, ''),
@@ -4987,6 +5276,8 @@
         sincronizarValidadePorData();
         atualizarModoFormulario(`Editando ${formatarCodigoRevisaoProposta(p)}`);
         atualizarPainelRevisaoProposta(p);
+        limparFormularioAnexoProposta();
+        renderizarAnexosProposta(p.id);
         renderizarHistoricoProposta(p.id);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
     }
@@ -5083,6 +5374,8 @@
         sincronizarValidadePorDias();
         atualizarModoFormulario('Nova proposta');
         atualizarPainelRevisaoProposta(null);
+        limparFormularioAnexoProposta();
+        renderizarAnexosProposta('');
         renderizarHistoricoProposta('');
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
@@ -5334,6 +5627,7 @@
             propostaOrigemId: '',
             historicoRevisoes: [],
             motivoRevisao: '',
+            anexos: [],
             evento: {
                 ...base.evento,
                 nome: `${base.evento.nome || 'Evento'} (copia)`
@@ -5344,7 +5638,7 @@
         registrarAtividadeProposta(
             copia,
             'duplicar',
-            `Proposta ${formatarCodigoRevisaoProposta(copia)} criada por duplicação de ${formatarCodigoRevisaoProposta(base)}.`,
+            `Proposta ${formatarCodigoRevisaoProposta(copia)} criada por duplicação de ${formatarCodigoRevisaoProposta(base)}, sem copiar anexos.`,
             {
                 propostaDuplicadaDeId: String(base.id),
                 propostaDuplicadaDeCodigo: formatarCodigoRevisaoProposta(base)
@@ -5353,7 +5647,7 @@
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        mostrarToast('Proposta duplicada com sucesso.');
+        mostrarToast('Proposta duplicada sem anexos, por segurança.');
         preencherFormularioComProposta(copia);
         mostrarSubAbaPropostas('lista', { semRolagem: true });
         if (typeof focarRegistroRecemSalvo === 'function') {
@@ -5385,6 +5679,14 @@
         const historicoRevisoes = historicoBase.some((item) => String(item.id) === String(base.id))
             ? historicoBase
             : [...historicoBase, registroBase];
+        const anexosRevisao = normalizarAnexosProposta(base.anexos, base.id).map((anexo, indice) => ({
+            ...anexo,
+            id: `${novaId}-anexo-${indice + 1}-${Math.floor(Math.random() * 1000)}`,
+            propostaId: String(novaId),
+            anexoOrigemId: anexo.id,
+            copiadoEm: agoraIso,
+            copiadoPor: obterUsuarioAtualNomeOuEmail()
+        }));
 
         const revisao = normalizarProposta({
             ...base,
@@ -5406,7 +5708,8 @@
             dataConversaoLocacao: '',
             propostaOrigemId,
             historicoRevisoes,
-            motivoRevisao: `Revisao criada a partir de ${formatarCodigoRevisaoProposta(base)}`
+            motivoRevisao: `Revisao criada a partir de ${formatarCodigoRevisaoProposta(base)}`,
+            anexos: anexosRevisao
         });
 
         propostas = [...obterPropostasBase(), revisao];
@@ -5416,13 +5719,14 @@
             `Nova revisão Rev. ${formatarNumeroRevisaoProposta(revisao.revisao)} criada a partir de ${formatarCodigoRevisaoProposta(base)}.`,
             {
                 revisaoOrigemId: String(base.id),
-                revisaoOrigemCodigo: formatarCodigoRevisaoProposta(base)
+                revisaoOrigemCodigo: formatarCodigoRevisaoProposta(base),
+                anexosReferenciados: anexosRevisao.length
             }
         );
         salvarLocal();
         renderTudo();
         sincronizar('salvar');
-        mostrarToast(`${formatarCodigoRevisaoProposta(revisao)} criada para revisão.`);
+        mostrarToast(`${formatarCodigoRevisaoProposta(revisao)} criada com ${anexosRevisao.length} anexo(s) referenciado(s).`);
         preencherFormularioComProposta(revisao);
         mostrarSubAbaPropostas('lista', { semRolagem: true, foco: false });
         if (typeof focarRegistroRecemSalvo === 'function') {
@@ -7511,6 +7815,7 @@
         const tbody = document.getElementById('tblPropostas');
         if (!tbody) return;
         renderizarSelectClientesProposta();
+        renderizarAnexosProposta();
         renderizarHistoricoProposta();
 
         const base = obterPropostasBase();
@@ -7941,6 +8246,11 @@
     window.duplicarPropostaAtual = duplicarPropostaAtual;
     window.criarNovaRevisaoProposta = criarNovaRevisaoProposta;
     window.criarNovaRevisaoPropostaAtual = criarNovaRevisaoPropostaAtual;
+    window.abrirFormularioAnexoProposta = abrirFormularioAnexoProposta;
+    window.editarAnexoProposta = editarAnexoProposta;
+    window.cancelarEdicaoAnexoProposta = cancelarEdicaoAnexoProposta;
+    window.salvarAnexoProposta = salvarAnexoProposta;
+    window.removerAnexoProposta = removerAnexoProposta;
     window.excluirProposta = excluirProposta;
     window.excluirPropostaAtual = excluirPropostaAtual;
     window.gerarPDFProposta = gerarPDFProposta;
