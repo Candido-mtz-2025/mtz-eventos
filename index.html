@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.28">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.30">
 </head>
 <body>
 
@@ -1705,17 +1705,53 @@
                             <input type="text" id="propLocacaoVinculada" placeholder="Preenchido automaticamente após conversão" readonly>
                         </div>
                     </div>
-                    <div class="proposta-action-panel">
-                        <button class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
-                        <button class="btn btn-info" data-action="alterarStatusPropostaAtual" data-arg="enviada"><i class="bi bi-send"></i> Marcar enviado</button>
-                        <button class="btn btn-success" data-action="alterarStatusPropostaAtual" data-arg="aprovada"><i class="bi bi-hand-thumbs-up"></i> Aprovar</button>
-                        <button class="btn btn-warning" data-action="alterarStatusPropostaAtual" data-arg="recusada"><i class="bi bi-hand-thumbs-down"></i> Recusar</button>
-                        <button class="btn btn-warning" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF cliente</button>
-                        <button class="btn btn-info" data-action="gerarPDFPropostaAtualInterno"><i class="bi bi-file-earmark-lock"></i> Gerar PDF interno</button>
-                        <button class="btn btn-secondary" data-action="duplicarPropostaAtual"><i class="bi bi-files"></i> Duplicar orçamento</button>
-                        <button class="btn btn-secondary" data-action="criarNovaRevisaoPropostaAtual"><i class="bi bi-layers"></i> Nova revisão</button>
-                        <button class="btn btn-success" data-action="converterPropostaAtual"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
-                        <button class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
+                    <div class="proposta-action-panel" aria-label="Ações do orçamento">
+                        <div class="proposta-action-primary">
+                            <span class="proposta-action-label">Ações principais</span>
+                            <div class="proposta-action-primary-buttons">
+                                <button type="button" class="btn btn-primary" data-action="salvarProposta"><i class="bi bi-check2-circle"></i> Salvar orçamento</button>
+                                <button type="button" class="btn btn-warning" data-action="gerarPDFPropostaAtualCliente"><i class="bi bi-printer"></i> Gerar PDF cliente</button>
+                                <button type="button" class="btn btn-info" data-action="alterarStatusPropostaAtual" data-arg="enviada"><i class="bi bi-send"></i> Marcar como enviado</button>
+                                <button type="button" class="btn btn-success" data-action="alterarStatusPropostaAtual" data-arg="aprovada"><i class="bi bi-hand-thumbs-up"></i> Aprovar</button>
+                            </div>
+                        </div>
+
+                        <div class="proposta-action-secondary">
+                            <button type="button" class="btn btn-secondary proposta-more-actions-trigger"
+                                popovertarget="propostaMaisAcoes" aria-haspopup="menu" aria-controls="propostaMaisAcoes">
+                                <i class="bi bi-three-dots"></i> Mais ações
+                            </button>
+                        </div>
+
+                        <details class="proposta-danger-zone">
+                            <summary>
+                                <span><i class="bi bi-shield-exclamation"></i> Área de risco</span>
+                                <i class="bi bi-chevron-down proposta-danger-caret" aria-hidden="true"></i>
+                            </summary>
+                            <div class="proposta-danger-zone-content">
+                                <span>Exclusões exigem confirmação e não podem ser desfeitas.</span>
+                                <button type="button" class="btn btn-danger" data-action="excluirPropostaAtual"><i class="bi bi-trash"></i> Excluir orçamento</button>
+                            </div>
+                        </details>
+
+                        <div id="propostaMaisAcoes" class="proposta-more-actions-menu" popover="auto" role="menu" aria-labelledby="propostaMaisAcoesTitulo">
+                            <div class="proposta-more-actions-head">
+                                <div>
+                                    <strong id="propostaMaisAcoesTitulo">Mais ações</strong>
+                                    <span>Operações complementares do orçamento</span>
+                                </div>
+                                <button type="button" class="icon-btn proposta-more-actions-close" popovertarget="propostaMaisAcoes" popovertargetaction="hide" aria-label="Fechar mais ações" title="Fechar">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="proposta-more-actions-list">
+                                <button type="button" class="btn btn-secondary" role="menuitem" data-action="gerarPDFPropostaAtualInterno" popovertarget="propostaMaisAcoes" popovertargetaction="hide"><i class="bi bi-file-earmark-lock"></i> Gerar PDF interno</button>
+                                <button type="button" class="btn btn-secondary" role="menuitem" data-action="duplicarPropostaAtual" popovertarget="propostaMaisAcoes" popovertargetaction="hide"><i class="bi bi-files"></i> Duplicar orçamento</button>
+                                <button type="button" class="btn btn-secondary" role="menuitem" data-action="criarNovaRevisaoPropostaAtual" popovertarget="propostaMaisAcoes" popovertargetaction="hide"><i class="bi bi-layers"></i> Criar nova revisão</button>
+                                <button type="button" class="btn btn-success" role="menuitem" data-action="converterPropostaAtual" popovertarget="propostaMaisAcoes" popovertargetaction="hide"><i class="bi bi-arrow-repeat"></i> Converter em locação</button>
+                                <button type="button" class="btn btn-warning" role="menuitem" data-action="alterarStatusPropostaAtual" data-arg="recusada" popovertarget="propostaMaisAcoes" popovertargetaction="hide"><i class="bi bi-hand-thumbs-down"></i> Recusar proposta</button>
+                            </div>
+                        </div>
                     </div>
                     </div>
                     <div class="proposta-guided-footer">
