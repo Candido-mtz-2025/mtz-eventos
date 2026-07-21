@@ -62,6 +62,7 @@
         { id: 'nao_informado', rotulo: 'Não informado' }
     ]);
     const MENSAGEM_QUANTIDADE_MISTA_INVALIDA = 'A soma das quantidades própria e terceirizada deve ser igual à quantidade total do item.';
+    const MENSAGEM_ORIGEM_CUSTO_NAO_INFORMADA = 'Defina a origem operacional do item como Próprio, Terceirizado ou Misto.';
     const TIPOS_CALCULO_TRIBUTO_PROPOSTA = new Set(['simples', 'por_dentro']);
     const TIPO_FISCAL_ITEM_PADRAO = 'verificar_contador';
     const TIPOS_FISCAIS_ITEM_PROPOSTA = Object.freeze([
@@ -392,7 +393,7 @@
         const valorFinal = resumo.tipoCalculoNF === 'acrescentar'
             ? numeroNaoNegativo(resumo.valorFinalComNF, 0)
             : numeroNaoNegativo(resumo.valorFinalComercial ?? resumo.valorFinal, 0);
-        const totalCustos = numeroNaoNegativo(resumo.totalCustosAdicionais, 0);
+        const totalCustos = numeroNaoNegativo(resumo.custoTotalProposta, 0);
         const itensContador = itens.some((item) => item.tipoFiscal === 'verificar_contador');
 
         atualizarTextoProposta('propGuidedCodigo', textoSeguro(document.getElementById('propCodigo')?.value, 'Novo rascunho'));
@@ -2531,6 +2532,14 @@
 
     function mostrarSecaoFormularioProposta(alvo = 'cliente', opcoes = {}) {
         const etapa = normalizarEtapaFormularioProposta(alvo);
+        if (
+            etapa === 'revisao'
+            && etapa !== secaoFormularioPropostaAtual
+            && opcoes.ignorarValidacao !== true
+            && !validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })
+        ) {
+            return;
+        }
         const secaoReal = obterSecaoRealFormularioProposta(etapa);
         secaoFormularioPropostaAtual = etapa;
 
@@ -3789,6 +3798,83 @@
         return calcularItemProposta(item);
     }
 
+    function numeroQuantidadeOperacional(valor) {
+        const texto = String(valor ?? '').trim().replace(',', '.');
+        if (!texto) return 0;
+        const numero = Number(texto);
+        return Number.isFinite(numero) ? numero : Number.NaN;
+    }
+
+    function obterInconsistenciaQuantidadeOperacionalItem(item = {}, indice = 0) {
+        const descricao = textoSeguro(item.descricao);
+        const quantidade = numeroQuantidadeOperacional(item.quantidade);
+        const quantidadePropria = numeroQuantidadeOperacional(item.quantidadePropria);
+        const quantidadeTerceirizada = numeroQuantidadeOperacional(item.quantidadeTerceirizada);
+        const origem = textoSeguro(item.origemCusto, 'nao_informado');
+        const identificacao = descricao
+            ? `Item ${indice + 1} (${descricao})`
+            : `Item ${indice + 1}`;
+
+        if (!descricao && quantidade <= 0) return null;
+
+        if (!Number.isFinite(quantidade) || quantidade < 0) {
+            return {
+                campo: 'quantidade',
+                mensagem: `${identificacao}: a quantidade total deve ser um número não negativo.`
+            };
+        }
+
+        if (quantidade > 0 && !['proprio', 'terceirizado', 'misto'].includes(origem)) {
+            return {
+                campo: 'origemCusto',
+                mensagem: `${identificacao}: ${MENSAGEM_ORIGEM_CUSTO_NAO_INFORMADA}`
+            };
+        }
+
+        if (origem !== 'misto') return null;
+
+        if (!Number.isFinite(quantidadePropria) || quantidadePropria < 0) {
+            return {
+                campo: 'quantidadePropria',
+                mensagem: `${identificacao}: a quantidade própria deve ser um número não negativo.`
+            };
+        }
+        if (!Number.isFinite(quantidadeTerceirizada) || quantidadeTerceirizada < 0) {
+            return {
+                campo: 'quantidadeTerceirizada',
+                mensagem: `${identificacao}: a quantidade terceirizada deve ser um número não negativo.`
+            };
+        }
+        if (Math.abs((quantidadePropria + quantidadeTerceirizada) - quantidade) >= 0.000001) {
+            return {
+                campo: 'quantidadePropria',
+                mensagem: `${identificacao}: ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}`
+            };
+        }
+
+        return null;
+    }
+
+    function sincronizarQuantidadesOperacionaisLinhaProposta(linha) {
+        const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+            ? linha.nextElementSibling
+            : null;
+        if (!linha || !detalhes) return;
+
+        const origem = textoSeguro(detalhes.querySelector('.prop-item-origem-custo')?.value, 'nao_informado');
+        const quantidade = Math.max(numeroQuantidadeOperacional(linha.querySelector('.prop-item-quantidade')?.value) || 0, 0);
+        const campoPropria = detalhes.querySelector('.prop-item-quantidade-propria');
+        const campoTerceirizada = detalhes.querySelector('.prop-item-quantidade-terceirizada');
+
+        if (origem === 'proprio') {
+            if (campoPropria) campoPropria.value = String(quantidade);
+            if (campoTerceirizada) campoTerceirizada.value = '0';
+        } else if (origem === 'terceirizado') {
+            if (campoPropria) campoPropria.value = '0';
+            if (campoTerceirizada) campoTerceirizada.value = String(quantidade);
+        }
+    }
+
     function validarQuantidadeMistaLinhaProposta(linha, opcoes = {}) {
         const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
             ? linha.nextElementSibling
@@ -3800,57 +3886,58 @@
         const campoTerceirizada = detalhes.querySelector('.prop-item-quantidade-terceirizada');
         const campoOrigem = detalhes.querySelector('.prop-item-origem-custo');
         const aviso = detalhes.querySelector('.prop-item-divisao-mista-erro');
-        const ehMisto = textoSeguro(campoOrigem?.value) === 'misto';
+        const indice = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row')).indexOf(linha);
 
         const limparEstado = () => {
-            [campoTotal, campoPropria, campoTerceirizada].forEach((campo) => {
+            [campoTotal, campoPropria, campoTerceirizada, campoOrigem].forEach((campo) => {
                 campo?.setCustomValidity('');
                 campo?.removeAttribute('aria-invalid');
             });
             if (aviso) aviso.hidden = true;
             linha.removeAttribute('data-quantidade-mista-invalida');
+            linha.removeAttribute('data-quantidade-operacional-invalida');
         };
 
-        if (!ehMisto) {
+        const inconsistencia = obterInconsistenciaQuantidadeOperacionalItem({
+            descricao: linha.querySelector('.prop-item-descricao')?.value,
+            quantidade: campoTotal?.value,
+            origemCusto: campoOrigem?.value,
+            quantidadePropria: campoPropria?.value,
+            quantidadeTerceirizada: campoTerceirizada?.value
+        }, Math.max(indice, 0));
+
+        if (!inconsistencia) {
             limparEstado();
             return true;
         }
 
-        const numeroDigitado = (campo) => {
-            const texto = String(campo?.value ?? '').trim().replace(',', '.');
-            if (!texto) return 0;
-            const numero = Number(texto);
-            return Number.isFinite(numero) ? numero : Number.NaN;
+        const camposPorChave = {
+            quantidade: campoTotal,
+            origemCusto: campoOrigem,
+            quantidadePropria: campoPropria,
+            quantidadeTerceirizada: campoTerceirizada
         };
-        const quantidadeTotal = numeroDigitado(campoTotal);
-        const quantidadePropria = numeroDigitado(campoPropria);
-        const quantidadeTerceirizada = numeroDigitado(campoTerceirizada);
-        const valores = [quantidadeTotal, quantidadePropria, quantidadeTerceirizada];
-        const valoresValidos = valores.every((valor) => Number.isFinite(valor) && valor >= 0);
-        const somaExata = valoresValidos
-            && Math.abs((quantidadePropria + quantidadeTerceirizada) - quantidadeTotal) < 0.000001;
-
-        if (somaExata) {
-            limparEstado();
-            return true;
+        const campoAlvo = camposPorChave[inconsistencia.campo] || campoOrigem || campoPropria;
+        campoAlvo?.setCustomValidity(inconsistencia.mensagem);
+        campoAlvo?.setAttribute('aria-invalid', 'true');
+        if (aviso) {
+            aviso.textContent = inconsistencia.mensagem;
+            aviso.hidden = false;
         }
-
-        [campoTotal, campoPropria, campoTerceirizada].forEach((campo) => {
-            campo?.setCustomValidity(MENSAGEM_QUANTIDADE_MISTA_INVALIDA);
-            campo?.setAttribute('aria-invalid', 'true');
-        });
-        if (aviso) aviso.hidden = false;
         linha.dataset.quantidadeMistaInvalida = 'true';
+        linha.dataset.quantidadeOperacionalInvalida = 'true';
 
         if (opcoes.exibirMensagem === true) {
+            mostrarSecaoFormularioProposta('itens', {
+                semRolagem: true,
+                foco: false,
+                ignorarValidacao: true
+            });
             detalhes.hidden = false;
             atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), true);
-            mostrarToast(MENSAGEM_QUANTIDADE_MISTA_INVALIDA, 'erro', 5200);
+            mostrarToast(inconsistencia.mensagem, 'erro', 5200);
         }
         if (opcoes.focar === true) {
-            const campoAlvo = !Number.isFinite(quantidadePropria) || quantidadePropria < 0
-                ? campoPropria
-                : (!Number.isFinite(quantidadeTerceirizada) || quantidadeTerceirizada < 0 ? campoTerceirizada : campoPropria);
             focarPropostaSemRolagem(campoAlvo);
             campoAlvo?.reportValidity?.();
         }
@@ -3859,6 +3946,23 @@
     }
 
     function validarQuantidadesMistasProposta(opcoes = {}) {
+        if (opcoes.usarFormulario === false) {
+            const itens = Array.isArray(opcoes.itens) ? opcoes.itens : [];
+            const indiceInvalido = itens.findIndex((item, indice) => Boolean(
+                obterInconsistenciaQuantidadeOperacionalItem(item || {}, indice)
+            ));
+            if (indiceInvalido < 0) return true;
+
+            const inconsistencia = obterInconsistenciaQuantidadeOperacionalItem(
+                itens[indiceInvalido] || {},
+                indiceInvalido
+            );
+            if (opcoes.exibirMensagem === true) {
+                mostrarToast(inconsistencia.mensagem, 'erro', 5200);
+            }
+            return false;
+        }
+
         const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
         let linhaInvalida = null;
         linhas.forEach((linha) => {
@@ -4284,7 +4388,7 @@
         const statusAtual = document.getElementById('propStatus')?.value || 'rascunho';
         const mapa = [
             ['propStickySubtotal', formatarMoeda(resumo.subtotalItens)],
-            ['propStickyCustos', formatarMoeda(resumo.totalCustosAdicionais)],
+            ['propStickyCustos', formatarMoeda(resumo.custoTotalProposta)],
             ['propStickyDesconto', formatarMoeda(resumo.desconto)],
             ['propStickyFinal', formatarMoeda(resumo.valorFinalComercial)],
             ['propStickyLucro', formatarMoeda(resumo.lucroPrevisto)],
@@ -5150,6 +5254,16 @@
     }
 
     function validarPropostaProntaParaUso(proposta, opcoes = {}) {
+        const usarFormulario = opcoes.usarFormulario === true || opcoes.focar === true;
+        if (!validarQuantidadesMistasProposta({
+            itens: proposta?.itens,
+            usarFormulario,
+            exibirMensagem: true,
+            focar: usarFormulario
+        })) {
+            return false;
+        }
+
         const pendencias = obterPendenciasPropostaPronta(proposta, opcoes);
         if (!pendencias.length) return true;
 
@@ -5922,6 +6036,13 @@
             mostrarToast('Proposta nao encontrada para revisar.', 'erro');
             return;
         }
+        if (!validarQuantidadesMistasProposta({
+            itens: base.itens,
+            usarFormulario: false,
+            exibirMensagem: true
+        })) {
+            return;
+        }
 
         const agoraIso = obterAgoraIso();
         const codigoBase = obterCodigoBaseProposta(base) || base.codigo || gerarCodigoProposta();
@@ -6147,15 +6268,6 @@
                 : quantidade;
             const descricao = textoSeguro(calculado.descricao || item?.descricao, 'Item sem descrição');
             const peca = encontrarPecaPorDescricao(calculado);
-
-            if (calculado.origemCusto === 'misto') {
-                const propria = numeroNaoNegativo(item?.quantidadePropria, 0);
-                const terceirizada = numeroNaoNegativo(item?.quantidadeTerceirizada, 0);
-                if (Math.abs((propria + terceirizada) - quantidade) >= 0.000001) {
-                    bloqueios.push(`${descricao}: ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}`);
-                    return;
-                }
-            }
 
             if (quantidadeEstoque <= 0) return;
 
@@ -8015,7 +8127,11 @@
 
     function gerarPDFPropostaAtualComTipo(exibirInterno = false) {
         const propostaTemp = coletarDadosFormulario(false);
-        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
+        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, {
+            modo: 'pdf',
+            focar: true,
+            usarFormulario: true
+        })) {
             return;
         }
         if (!validarDadosFiscaisObrigatoriosProposta(
@@ -8040,7 +8156,11 @@
         const id = obterIdPropostaEmEdicao();
         if (id) {
             const propostaTemp = coletarDadosFormulario(false);
-            if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
+            if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, {
+                modo: 'pdf',
+                focar: true,
+                usarFormulario: true
+            })) {
                 return;
             }
             if (!validarDadosFiscaisObrigatoriosProposta(propostaTemp, 'gerar o PDF', { focar: true })) {
@@ -8050,7 +8170,11 @@
             return;
         }
         const propostaTemp = coletarDadosFormulario(false);
-        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, { modo: 'pdf', focar: true })) {
+        if (!propostaTemp || !validarPropostaProntaParaUso(propostaTemp, {
+            modo: 'pdf',
+            focar: true,
+            usarFormulario: true
+        })) {
             return;
         }
         if (!validarDadosFiscaisObrigatoriosProposta(propostaTemp, 'gerar o PDF', { focar: true })) {
@@ -8353,6 +8477,9 @@
     }
 
     function gerarPreNotaPropostaAtual() {
+        if (!validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })) {
+            return;
+        }
         const proposta = coletarDadosFormulario(false);
         if (!proposta) return;
         if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'gerar a pré-nota', { focar: true })) {
@@ -8449,6 +8576,7 @@
             if (!campoQuantidade || campoQuantidade !== event.target) return;
             const linha = campoQuantidade.closest('.proposta-item-row')
                 || campoQuantidade.closest('.proposta-item-details-row')?.previousElementSibling;
+            sincronizarQuantidadesOperacionaisLinhaProposta(linha);
             validarQuantidadeMistaLinhaProposta(linha);
         });
 
@@ -8456,6 +8584,7 @@
             const campoOrigem = event.target?.closest?.('#propostaItensBody .prop-item-origem-custo');
             if (!campoOrigem || campoOrigem !== event.target) return;
             const linha = campoOrigem.closest('.proposta-item-details-row')?.previousElementSibling;
+            sincronizarQuantidadesOperacionaisLinhaProposta(linha);
             validarQuantidadeMistaLinhaProposta(linha);
         });
 
