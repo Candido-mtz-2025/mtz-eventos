@@ -20361,6 +20361,10 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-operational-cost {
     display: none;
 }
 
+#tab-propostas #propOrcConfigPercentualCustoProprioGrupo[hidden] {
+    display: none !important;
+}
+
 #tab-propostas .proposta-config-cost-policy-note i,
 #tab-propostas .proposta-commercial-lodging-alert i {
     flex: 0 0 auto;

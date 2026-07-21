@@ -498,7 +498,9 @@ function carregarLocal() {
     try {
         const json = localStorage.getItem(STORAGE_KEY);
         if (!json) {
-            console.log('📭 Nenhum dado local encontrado (primeira vez)');
+            aplicarDadosSistema({}, { manterConfigAtual: false, origem: 'primeira_instalacao' });
+            salvarLocal();
+            console.log('📭 Estado inicial criado e persistido (primeira vez)');
             return;
         }
 
