@@ -47,30 +47,125 @@ if ('serviceWorker' in navigator) {
 }
 
 let deferredPrompt;
+
+function pwaExecutandoComoAplicativo() {
+    return window.matchMedia?.('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+}
+
+function elementoPwaVisivel(elemento) {
+    if (!(elemento instanceof HTMLElement)) return false;
+    if (elemento.hidden || elemento.getAttribute('aria-hidden') === 'true') return false;
+
+    const estilo = window.getComputedStyle(elemento);
+    return estilo.display !== 'none'
+        && estilo.visibility !== 'hidden'
+        && elemento.getClientRects().length > 0;
+}
+
+function existeCamadaInterfaceAberta() {
+    const seletores = [
+        '.proposta-config-drawer.is-open',
+        '.modal.active',
+        'dialog[open]',
+        '[role="dialog"][aria-modal="true"]'
+    ].join(',');
+
+    return Array.from(document.querySelectorAll(seletores)).some(elementoPwaVisivel);
+}
+
+function atualizarVisibilidadeBotaoInstalacao() {
+    const btn = document.getElementById('pwaInstallButton');
+    if (!btn) return;
+
+    if (pwaExecutandoComoAplicativo()) {
+        btn.remove();
+        deferredPrompt = null;
+        return;
+    }
+
+    const suspenso = existeCamadaInterfaceAberta();
+    const estavaSuspenso = btn.classList.contains('is-suspended');
+    if (suspenso === estavaSuspenso) return;
+
+    btn.classList.toggle('is-suspended', suspenso);
+
+    if (suspenso) {
+        btn.setAttribute('aria-hidden', 'true');
+        btn.setAttribute('tabindex', '-1');
+    } else {
+        btn.removeAttribute('aria-hidden');
+        btn.removeAttribute('tabindex');
+    }
+}
+
+let atualizacaoVisualPwaAgendada = false;
+function agendarAtualizacaoVisualPwa() {
+    if (atualizacaoVisualPwaAgendada) return;
+    atualizacaoVisualPwaAgendada = true;
+
+    requestAnimationFrame(() => {
+        atualizacaoVisualPwaAgendada = false;
+        atualizarVisibilidadeBotaoInstalacao();
+    });
+}
+
+function observarCamadasInterfacePwa() {
+    if (!document.body || window.__mtzObservadorCamadasPwa) return;
+
+    const observador = new MutationObserver(agendarAtualizacaoVisualPwa);
+    observador.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class', 'hidden', 'open', 'aria-hidden', 'aria-modal', 'style']
+    });
+
+    window.__mtzObservadorCamadasPwa = observador;
+}
+
+if (document.body) {
+    observarCamadasInterfacePwa();
+} else {
+    document.addEventListener('DOMContentLoaded', observarCamadasInterfacePwa, { once: true });
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
 
-    const btn = document.createElement('div');
+    if (pwaExecutandoComoAplicativo()) {
+        deferredPrompt = null;
+        return;
+    }
+
+    const existente = document.getElementById('pwaInstallButton');
+    if (existente) existente.remove();
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'pwaInstallButton';
+    btn.className = 'pwa-install-button';
+    btn.setAttribute('aria-label', 'Instalar aplicativo MTZ Eventos');
     btn.innerHTML = '<i class="bi bi-phone"></i> INSTALAR APP';
-    btn.style.cssText = `
-        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-        background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white;
-        padding: 12px 30px; border-radius: 50px; font-weight: bold;
-        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5); cursor: pointer; z-index: 9999;
-        display: flex; align-items: center; gap: 10px; font-family: sans-serif;
-    `;
 
     document.body.appendChild(btn);
+    atualizarVisibilidadeBotaoInstalacao();
 
-    btn.onclick = () => {
+    btn.addEventListener('click', () => {
+        if (!deferredPrompt) return;
         deferredPrompt.prompt();
 
         deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                btn.style.display = 'none';
+                btn.remove();
             }
             deferredPrompt = null;
         });
-    };
+    });
+});
+
+window.addEventListener('appinstalled', () => {
+    document.getElementById('pwaInstallButton')?.remove();
+    deferredPrompt = null;
 });

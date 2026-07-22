@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.33">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.42">
 </head>
 <body>
 
@@ -810,61 +810,83 @@
 
                 <div id="propostaConfigDrawer" class="proposta-config-drawer" aria-hidden="true">
                     <button type="button" class="proposta-config-backdrop" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar configurações do orçamento"></button>
-                    <aside class="proposta-config-panel" role="dialog" aria-modal="true" aria-labelledby="propostaConfigTitle">
+                    <aside class="proposta-config-panel" role="dialog" aria-modal="true" aria-labelledby="propostaConfigTitle" aria-describedby="propostaConfigDescription">
                         <div class="proposta-config-head">
                             <div>
                                 <h3 id="propostaConfigTitle">Configurações do orçamento</h3>
-                                <p>Padrões que serão aplicados nesta proposta.</p>
+                                <p id="propostaConfigDescription">Padrões que serão aplicados nesta proposta.</p>
                             </div>
-                            <button type="button" class="btn btn-sm btn-secondary proposta-config-close" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar">
+                            <button type="button" class="btn btn-sm btn-secondary proposta-config-close" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar configurações do orçamento">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
 
-                        <div class="proposta-config-section">
-                            <h4>Regras gerais</h4>
-                            <div class="proposta-config-grid">
+                        <div class="proposta-config-tabs" role="tablist" aria-label="Seções das configurações do orçamento">
+                            <button type="button" id="propostaConfigTabGerais" class="proposta-config-tab is-active" role="tab" aria-selected="true" aria-controls="propostaConfigPanelGerais" tabindex="0" data-config-tab="gerais">
+                                <i class="bi bi-sliders" aria-hidden="true"></i><span>Regras gerais</span>
+                            </button>
+                            <button type="button" id="propostaConfigTabCustos" class="proposta-config-tab" role="tab" aria-selected="false" aria-controls="propostaConfigPanelCustos" tabindex="-1" data-config-tab="custos">
+                                <i class="bi bi-percent" aria-hidden="true"></i><span>Custos próprios</span>
+                            </button>
+                            <button type="button" id="propostaConfigTabFiscal" class="proposta-config-tab" role="tab" aria-selected="false" aria-controls="propostaConfigPanelFiscal" tabindex="-1" data-config-tab="fiscal">
+                                <i class="bi bi-receipt" aria-hidden="true"></i><span>Fiscal e impostos</span>
+                            </button>
+                            <button type="button" id="propostaConfigTabCategorias" class="proposta-config-tab" role="tab" aria-selected="false" aria-controls="propostaConfigPanelCategorias" tabindex="-1" data-config-tab="categorias">
+                                <i class="bi bi-tags" aria-hidden="true"></i><span>Categorias</span>
+                            </button>
+                        </div>
+
+                        <div class="proposta-config-content">
+                        <div id="propostaConfigPanelGerais" class="proposta-config-tabpanel is-active" role="tabpanel" aria-labelledby="propostaConfigTabGerais" data-config-panel="gerais">
+                            <div class="proposta-config-section">
+                                <div class="proposta-config-section-title">
+                                    <h4>Regras gerais</h4>
+                                    <span>Condições comerciais e padrões usados nos novos itens.</span>
+                                </div>
+                                <div class="proposta-config-grid">
                                 <div class="form-group">
-                                    <label>Entrada padrão (%)</label>
+                                    <label for="propOrcConfigEntradaPadrao">Entrada padrão (%)</label>
                                     <input type="text" id="propOrcConfigEntradaPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Desconto padrão (%)</label>
+                                    <label for="propOrcConfigDescontoPadrao">Desconto padrão (%)</label>
                                     <input type="text" id="propOrcConfigDescontoPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Honorários padrão (%)</label>
+                                    <label for="propOrcConfigHonorariosPadrao">Honorários padrão (%)</label>
                                     <input type="text" id="propOrcConfigHonorariosPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Acréscimo comercial / custo tributário estimado (%)</label>
+                                    <label for="propOrcConfigEncargosPadrao">Acréscimo comercial / custo tributário estimado (%)</label>
                                     <input type="text" id="propOrcConfigEncargosPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>INSS padrão (%)</label>
+                                    <label for="propOrcConfigINSSPadrao">INSS padrão (%)</label>
                                     <input type="text" id="propOrcConfigINSSPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Tipo de encargos</label>
+                                    <label for="propOrcConfigTipoEncargosPadrao">Tipo de encargos</label>
                                     <select id="propOrcConfigTipoEncargosPadrao">
                                         <option value="simples">Simples</option>
                                         <option value="por_dentro">Por dentro</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Tipo de INSS</label>
+                                    <label for="propOrcConfigTipoINSSPadrao">Tipo de INSS</label>
                                     <select id="propOrcConfigTipoINSSPadrao">
                                         <option value="simples">Simples</option>
                                         <option value="por_dentro">Por dentro</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Valor padrão do km (frete)</label>
+                                    <label for="propOrcConfigValorKmPadrao">Valor padrão do km (frete)</label>
                                     <input type="number" id="propOrcConfigValorKmPadrao" min="0" step="0.01">
                                 </div>
                             </div>
                         </div>
+                        </div>
 
+                        <div id="propostaConfigPanelCustos" class="proposta-config-tabpanel" role="tabpanel" aria-labelledby="propostaConfigTabCustos" data-config-panel="custos" hidden>
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
                                 <h4>Política de custos próprios</h4>
@@ -872,7 +894,7 @@
                             </div>
                             <div class="proposta-config-grid">
                                 <div class="form-group">
-                                    <label>Modo padrão</label>
+                                    <label for="propOrcConfigModoCustoProprio">Modo padrão</label>
                                     <select id="propOrcConfigModoCustoProprio" data-change="atualizarEstadoPoliticaCustosPropriosConfig">
                                         <option value="percentual">Percentual sobre itens próprios</option>
                                         <option value="manual">Custo manual por item</option>
@@ -880,16 +902,18 @@
                                     </select>
                                 </div>
                                 <div class="form-group" id="propOrcConfigPercentualCustoProprioGrupo">
-                                    <label>Percentual padrão (%)</label>
+                                    <label for="propOrcConfigPercentualCustoProprio">Percentual padrão (%)</label>
                                     <input type="number" id="propOrcConfigPercentualCustoProprio" min="0" max="100" step="0.01">
                                 </div>
                             </div>
-                            <div id="propOrcConfigPoliticaCustoAviso" class="proposta-config-cost-policy-note" hidden>
+                            <div id="propOrcConfigPoliticaCustoAviso" class="proposta-config-cost-policy-note" role="status" aria-live="polite" hidden>
                                 <i class="bi bi-exclamation-triangle"></i>
                                 <span>Configuração pendente. Novos itens não terão custo próprio automático até salvar um padrão.</span>
                             </div>
                         </div>
+                        </div>
 
+                        <div id="propostaConfigPanelFiscal" class="proposta-config-tabpanel" role="tabpanel" aria-labelledby="propostaConfigTabFiscal" data-config-panel="fiscal" hidden>
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
                                 <h4>Configuração fiscal / impostos</h4>
@@ -897,18 +921,18 @@
                             </div>
                             <div class="proposta-config-grid">
                                 <div class="form-group">
-                                    <label>Percentual fiscal padrão (%)</label>
+                                    <label for="propOrcConfigPercentualFiscalPadrao">Percentual fiscal padrão (%)</label>
                                     <input type="text" id="propOrcConfigPercentualFiscalPadrao" inputmode="decimal">
                                 </div>
                                 <div class="form-group">
-                                    <label>Tipo de cálculo fiscal padrão</label>
+                                    <label for="propOrcConfigTipoFiscalPadrao">Tipo de cálculo fiscal padrão</label>
                                     <select id="propOrcConfigTipoFiscalPadrao">
                                         <option value="descontar">Descontar do valor final</option>
                                         <option value="acrescentar">Acrescentar ao valor final</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Aplicar fiscal automaticamente?</label>
+                                    <label for="propOrcConfigAplicarFiscalAutomaticamente">Aplicar fiscal automaticamente?</label>
                                     <select id="propOrcConfigAplicarFiscalAutomaticamente">
                                         <option value="nao">Não</option>
                                         <option value="sim">Sim</option>
@@ -928,7 +952,9 @@
                             </div>
                             <div id="propOrcConfigMatrizFiscal" class="proposta-config-fiscal-matrix" aria-live="polite"></div>
                         </div>
+                        </div>
 
+                        <div id="propostaConfigPanelCategorias" class="proposta-config-tabpanel" role="tabpanel" aria-labelledby="propostaConfigTabCategorias" data-config-panel="categorias" hidden>
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
                                 <h4>Categorias da composição</h4>
@@ -936,32 +962,36 @@
                             </div>
                             <div id="propOrcConfigCategorias" class="proposta-config-categories" aria-live="polite"></div>
                         </div>
-
-                        <div class="proposta-config-section proposta-config-apply-mode">
-                            <h4>Aplicação</h4>
-                            <label class="proposta-config-mode-option">
-                                <input type="radio" name="propOrcConfigModoAplicacao" value="atual" checked>
-                                <span>
-                                    <strong>Aplicar somente nesta proposta</strong>
-                                    <small>Atualiza os itens e campos atuais sem alterar os próximos orçamentos.</small>
-                                </span>
-                            </label>
-                            <label class="proposta-config-mode-option">
-                                <input type="radio" name="propOrcConfigModoAplicacao" value="padrao">
-                                <span>
-                                    <strong>Salvar como padrão para próximos orçamentos</strong>
-                                    <small>Salva em configurações globais e aplica também nesta proposta.</small>
-                                </span>
-                            </label>
+                        </div>
                         </div>
 
-                        <div class="proposta-config-actions">
-                            <button type="button" class="btn btn-secondary" data-action="restaurarPadroesConfigOrcamentoProposta">
-                                <i class="bi bi-arrow-counterclockwise"></i> Restaurar padrões
-                            </button>
-                            <button type="button" class="btn btn-primary" data-action="aplicarConfigOrcamentoProposta">
-                                <i class="bi bi-check2-circle"></i> Aplicar configurações
-                            </button>
+                        <div class="proposta-config-footer">
+                            <div class="proposta-config-apply-mode" role="radiogroup" aria-labelledby="propostaConfigAplicacaoTitle">
+                                <h4 id="propostaConfigAplicacaoTitle">Aplicação</h4>
+                                <label class="proposta-config-mode-option">
+                                    <input type="radio" name="propOrcConfigModoAplicacao" value="atual" checked>
+                                    <span>
+                                        <strong>Aplicar somente nesta proposta</strong>
+                                        <small>Não altera os próximos orçamentos.</small>
+                                    </span>
+                                </label>
+                                <label class="proposta-config-mode-option">
+                                    <input type="radio" name="propOrcConfigModoAplicacao" value="padrao">
+                                    <span>
+                                        <strong>Salvar como padrão</strong>
+                                        <small>Usa também nos próximos orçamentos.</small>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="proposta-config-actions">
+                                <button type="button" class="btn btn-secondary" data-action="restaurarPadroesConfigOrcamentoProposta">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Restaurar padrões
+                                </button>
+                                <button type="button" class="btn btn-primary" data-action="aplicarConfigOrcamentoProposta">
+                                    <i class="bi bi-check2-circle"></i> Aplicar configurações
+                                </button>
+                            </div>
                         </div>
                     </aside>
                 </div>
@@ -1077,7 +1107,7 @@
                                     <input type="text" id="propCodigo" placeholder="Gerado automaticamente" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label>Status</label>
+                                    <label for="propStatus">Status</label>
                                     <select id="propStatus" data-change="recalcularResumoProposta">
                                         <option value="rascunho">Rascunho</option>
                                         <option value="enviada">Enviada</option>
@@ -1096,11 +1126,11 @@
                                     <input type="text" id="propResponsavel" placeholder="Nome do responsável">
                                 </div>
                                 <div class="form-group">
-                                    <label>Validade (dias)</label>
+                                    <label for="propValidadeDias">Validade (dias)</label>
                                     <input type="number" id="propValidadeDias" min="0" step="1" value="7">
                                 </div>
                                 <div class="form-group">
-                                    <label>Data de validade</label>
+                                    <label for="propValidadeData">Data de validade</label>
                                     <input type="date" id="propValidadeData">
                                 </div>
                             </div>
@@ -1117,7 +1147,7 @@
                             <input type="hidden" id="propClienteId">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Buscar cliente cadastrado</label>
+                                    <label for="propClienteCadastrado">Buscar cliente cadastrado</label>
                                     <select id="propClienteCadastrado" data-change="selecionarClienteProposta">
                                         <option value="">Selecione um cliente...</option>
                                     </select>
@@ -2736,9 +2766,9 @@
     <script src="./assets/js/core/migrations.js?v=12.7"></script>
     <script src="./assets/js/core/domain-services.js?v=12.2"></script>
     <script src="./assets/js/core/storage.js?v=12.5"></script>
-    <script src="./assets/js/ui/pwa.js?v=1.2"></script>
+    <script src="./assets/js/ui/pwa.js?v=1.5"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.5"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.10"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>

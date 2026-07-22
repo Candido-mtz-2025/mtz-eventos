@@ -15,7 +15,7 @@
     const STATUS_LABELS = {
         rascunho: 'Rascunho',
         enviada: 'Enviada',
-        em_negociacao: 'Em negociacao',
+        em_negociacao: 'Em negociação',
         aprovada: 'Aprovada',
         cancelada: 'Cancelada',
         recusada: 'Recusada',
@@ -205,6 +205,9 @@
     let cepClientePropostaTimer = null;
     let ultimoCepClientePropostaConsultado = '';
     let anexoPropostaEmEdicaoId = '';
+    let abaConfigOrcamentoAtual = 'gerais';
+    let tipoFiscalConfigOrcamentoAberto = '';
+    let acionadorConfigOrcamento = null;
     const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
@@ -403,7 +406,7 @@
         atualizarTextoProposta('propGuidedCustos', formatarMoeda(totalCustos));
         atualizarTextoProposta('propGuidedFinal', formatarMoeda(valorFinal));
         atualizarTextoProposta('propGuidedLucro', formatarMoeda(resumo.lucroPrevisto || 0));
-        atualizarTextoProposta('propGuidedMargem', formatarPercentual(resumo.margemPrevista || 0));
+        atualizarTextoProposta('propGuidedMargem', formatarMargemPercentual(resumo.margemPrevista || 0));
         atualizarTextoProposta('propGuidedStatus', statusRotulo(document.getElementById('propStatus')?.value));
 
         atualizarStatusEtapaGuiadaProposta('cliente', clienteCompleto ? 'completo' : (clienteParcial ? 'atencao' : 'pendente'), clienteCompleto ? 'Completo' : (clienteParcial ? 'Atenção' : 'Pendente'));
@@ -664,6 +667,15 @@
 
     function formatarPercentual(valor) {
         const numero = converterTextoPercentualParaNumero(valor, 0, { maximo: 100, avisar: false });
+        return `${numero.toLocaleString('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        })}%`;
+    }
+
+    function formatarMargemPercentual(valor) {
+        const numeroConvertido = converterTextoPercentualBrutoParaNumero(valor, 0);
+        const numero = Number.isFinite(numeroConvertido) ? numeroConvertido : 0;
         return `${numero.toLocaleString('pt-BR', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2
@@ -1798,7 +1810,7 @@
         const statusClasse = ativa ? 'badge-success' : 'badge-secondary';
         const statusTexto = ativa ? 'Ativa' : 'Inativa';
         return `
-            <div class="proposta-config-matrix-row${ativa ? '' : ' is-inactive'}" data-prop-orc-categoria="${idSeguro}" data-fixed="${fixa ? '1' : '0'}" style="--category-color: ${cor}">
+            <div class="proposta-config-matrix-row${ativa ? '' : ' is-inactive'}" data-prop-orc-categoria="${idSeguro}" data-fixed="${fixa ? '1' : '0'}" style="--category-color: ${cor}" role="group" aria-label="Categoria ${nomeSeguro}">
                 <input type="hidden" class="prop-orc-cat-ordem" value="${Number(normalizada.ordem || 1)}">
                 <input type="hidden" class="prop-orc-cat-cor" value="${cor}">
                 <input type="hidden" class="prop-orc-cat-icone" value="${icone}">
@@ -1822,7 +1834,7 @@
                 <div class="proposta-config-order-badge" data-label="Ordem">${Number(normalizada.ordem || 1)}</div>
                 <div class="proposta-config-matrix-category" data-label="Categoria">
                     <span class="proposta-config-color-dot" aria-hidden="true"></span>
-                    <span class="proposta-config-category-icon"><i class="bi ${icone}"></i></span>
+                    <span class="proposta-config-category-icon" aria-hidden="true"><i class="bi ${icone}"></i></span>
                     <span class="proposta-config-category-title">
                         <strong>${nomeSeguro}</strong>
                         <small>${fixa ? 'Categoria de segurança' : (ativa ? 'Disponível nos itens' : 'Oculta para novos itens')}</small>
@@ -1843,16 +1855,16 @@
                     ${normalizada.aplicarINSS === true ? `<small>${rotuloTipoCalculoConfig(tipoINSS)}</small>` : ''}
                 </div>
                 <div class="proposta-config-row-actions" data-label="Ações">
-                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="abrirEditorCategoriaConfigOrcamento" data-arg="${idSeguro}" title="Editar categoria">
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="abrirEditorCategoriaConfigOrcamento" data-arg="${idSeguro}" title="Editar categoria" aria-label="Editar categoria ${nomeSeguro}">
                         <i class="bi bi-pencil"></i><span>Editar</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:up" title="Subir categoria">
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:up" title="Mover categoria para cima" aria-label="Mover categoria ${nomeSeguro} para cima">
                         <i class="bi bi-arrow-up"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:down" title="Descer categoria">
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="moverCategoriaConfigOrcamento" data-arg="${idSeguro}:down" title="Mover categoria para baixo" aria-label="Mover categoria ${nomeSeguro} para baixo">
                         <i class="bi bi-arrow-down"></i>
                     </button>
-                    <button type="button" class="btn btn-sm ${ativa ? 'btn-warning' : 'btn-success'} table-action-btn" data-action="alternarCategoriaConfigOrcamento" data-arg="${idSeguro}" title="${ativa ? 'Desativar categoria' : 'Reativar categoria'}" ${fixa ? 'disabled' : ''}>
+                    <button type="button" class="btn btn-sm ${ativa ? 'btn-warning' : 'btn-success'} table-action-btn" data-action="alternarCategoriaConfigOrcamento" data-arg="${idSeguro}" title="${ativa ? 'Ocultar categoria' : 'Mostrar categoria'}" aria-label="${ativa ? 'Ocultar' : 'Mostrar'} categoria ${nomeSeguro}" ${fixa ? 'disabled' : ''}>
                         <i class="bi ${ativa ? 'bi-eye-slash' : 'bi-eye'}"></i><span>${ativa ? 'Desativar' : 'Ativar'}</span>
                     </button>
                 </div>
@@ -1860,33 +1872,49 @@
         `;
     }
 
-    function montarLinhaConfigMatrizFiscal(regra) {
+    function montarLinhaConfigMatrizFiscal(regra, indice = 0) {
         const normalizada = normalizarRegraMatrizFiscal(regra?.tipoFiscal, regra);
+        const tipoSeguro = sanitizar(normalizada.tipoFiscal);
+        const painelId = `propMatrizFiscalPainel-${tipoSeguro}`;
+        const aberta = tipoFiscalConfigOrcamentoAberto
+            ? tipoFiscalConfigOrcamentoAberto === normalizada.tipoFiscal
+            : indice === 0;
+        if (aberta) tipoFiscalConfigOrcamentoAberto = normalizada.tipoFiscal;
         return `
-            <div class="proposta-config-fiscal-row" data-prop-matriz-fiscal="${sanitizar(normalizada.tipoFiscal)}">
-                <div class="proposta-config-fiscal-type">
-                    <strong>${sanitizar(normalizada.rotulo)}</strong>
-                    <small>${sanitizar(normalizada.observacaoFiscalPadrao)}</small>
-                </div>
-                <div class="form-group">
-                    <label>Documento sugerido</label>
-                    <input type="text" class="prop-matriz-documento" value="${sanitizar(normalizada.documentoSugerido)}">
-                </div>
-                <label class="proposta-config-check-option">
-                    <input type="checkbox" class="prop-matriz-base-nfse" ${normalizada.entraBaseNfse ? 'checked' : ''}>
-                    <span>Entra na base estimada de NFS-e</span>
-                </label>
-                <label class="proposta-config-check-option">
-                    <input type="checkbox" class="prop-matriz-contador" ${normalizada.exigeConferenciaContador ? 'checked' : ''}>
-                    <span>Exige conferência do contador</span>
-                </label>
-                <label class="proposta-config-check-option">
-                    <input type="checkbox" class="prop-matriz-retencao" ${normalizada.permiteRetencaoINSS ? 'checked' : ''}>
-                    <span>Permite retenção/INSS</span>
-                </label>
-                <div class="form-group proposta-config-fiscal-observation">
-                    <label>Observação fiscal padrão</label>
-                    <textarea class="prop-matriz-observacao" rows="2">${sanitizar(normalizada.observacaoFiscalPadrao)}</textarea>
+            <div class="proposta-config-fiscal-row proposta-config-fiscal-accordion${aberta ? ' is-open' : ''}" data-prop-matriz-fiscal="${tipoSeguro}">
+                <button type="button" class="proposta-config-fiscal-trigger" data-config-fiscal-accordion="${tipoSeguro}" aria-expanded="${aberta ? 'true' : 'false'}" aria-controls="${painelId}">
+                    <span class="proposta-config-fiscal-type">
+                        <strong>${sanitizar(normalizada.rotulo)}</strong>
+                        <small>${sanitizar(normalizada.documentoSugerido || 'Documento a conferir')}</small>
+                    </span>
+                    <span class="proposta-config-fiscal-statuses" aria-label="Resumo das regras fiscais">
+                        <span class="proposta-config-fiscal-status ${normalizada.entraBaseNfse ? 'is-on' : 'is-off'}" data-fiscal-status="nfse">NFS-e: ${normalizada.entraBaseNfse ? 'Sim' : 'Não'}</span>
+                        <span class="proposta-config-fiscal-status ${normalizada.exigeConferenciaContador ? 'is-on' : 'is-off'}" data-fiscal-status="contador">Contador: ${normalizada.exigeConferenciaContador ? 'Sim' : 'Não'}</span>
+                        <span class="proposta-config-fiscal-status ${normalizada.permiteRetencaoINSS ? 'is-on' : 'is-off'}" data-fiscal-status="retencao">Retenção: ${normalizada.permiteRetencaoINSS ? 'Sim' : 'Não'}</span>
+                    </span>
+                    <i class="bi bi-chevron-down proposta-config-fiscal-chevron" aria-hidden="true"></i>
+                </button>
+                <div id="${painelId}" class="proposta-config-fiscal-content" data-config-fiscal-content ${aberta ? '' : 'hidden'}>
+                    <div class="form-group">
+                        <label for="propMatrizDocumento-${tipoSeguro}">Documento sugerido</label>
+                        <input type="text" id="propMatrizDocumento-${tipoSeguro}" class="prop-matriz-documento" value="${sanitizar(normalizada.documentoSugerido)}">
+                    </div>
+                    <label class="proposta-config-check-option">
+                        <input type="checkbox" class="prop-matriz-base-nfse" ${normalizada.entraBaseNfse ? 'checked' : ''}>
+                        <span>Entra na base estimada de NFS-e</span>
+                    </label>
+                    <label class="proposta-config-check-option">
+                        <input type="checkbox" class="prop-matriz-contador" ${normalizada.exigeConferenciaContador ? 'checked' : ''}>
+                        <span>Exige conferência do contador</span>
+                    </label>
+                    <label class="proposta-config-check-option">
+                        <input type="checkbox" class="prop-matriz-retencao" ${normalizada.permiteRetencaoINSS ? 'checked' : ''}>
+                        <span>Permite retenção/INSS</span>
+                    </label>
+                    <div class="form-group proposta-config-fiscal-observation">
+                        <label for="propMatrizObservacao-${tipoSeguro}">Observação fiscal padrão</label>
+                        <textarea id="propMatrizObservacao-${tipoSeguro}" class="prop-matriz-observacao" rows="2">${sanitizar(normalizada.observacaoFiscalPadrao)}</textarea>
+                    </div>
                 </div>
             </div>
         `;
@@ -1930,12 +1958,15 @@
         const matrizFiscalEl = document.getElementById('propOrcConfigMatrizFiscal');
         if (matrizFiscalEl) {
             const matrizFiscal = normalizarMatrizFiscalProposta(padroes.matrizFiscal);
+            if (!TIPOS_FISCAIS_ITEM_PROPOSTA.some((tipo) => tipo.id === tipoFiscalConfigOrcamentoAberto)) {
+                tipoFiscalConfigOrcamentoAberto = TIPOS_FISCAIS_ITEM_PROPOSTA[0]?.id || '';
+            }
             matrizFiscalEl.innerHTML = `
                 <div class="proposta-config-fiscal-matrix-note">
                     <i class="bi bi-shield-check"></i>
                     <span>Esta matriz prepara dados para conferência fiscal. Ela não emite nota e não substitui a contabilidade.</span>
                 </div>
-                ${TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo) => montarLinhaConfigMatrizFiscal(matrizFiscal[tipo.id])).join('')}
+                ${TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo, indice) => montarLinhaConfigMatrizFiscal(matrizFiscal[tipo.id], indice)).join('')}
             `;
         }
 
@@ -1996,22 +2027,22 @@
                         <strong>${nova ? 'Nova categoria' : 'Editar categoria'}</strong>
                         <small>${nova ? 'Crie uma categoria com as regras padrão do orçamento.' : 'Ajuste nome, status e regras desta categoria.'}</small>
                     </div>
-                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="fecharEditorCategoriaConfigOrcamento" title="Fechar editor">
+                    <button type="button" class="btn btn-sm btn-secondary table-action-btn" data-action="fecharEditorCategoriaConfigOrcamento" title="Fechar editor" aria-label="Fechar editor de categoria">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
                 <div class="proposta-config-category-editor-grid">
                     <div class="form-group">
-                        <label>Nome da categoria</label>
-                        <input type="text" class="prop-orc-editor-nome" value="${sanitizar(normalizada.nome)}" ${fixa ? 'readonly' : ''}>
+                        <label for="propOrcCategoriaEditorNome">Nome da categoria</label>
+                        <input type="text" id="propOrcCategoriaEditorNome" class="prop-orc-editor-nome" value="${sanitizar(normalizada.nome)}" ${fixa ? 'readonly' : ''}>
                     </div>
                     <div class="form-group">
-                        <label>Cor</label>
-                        <input type="color" class="prop-orc-editor-cor" value="${sanitizar(normalizada.cor || criarCorCategoriaOrcamento(normalizada.ordem))}">
+                        <label for="propOrcCategoriaEditorCor">Cor</label>
+                        <input type="color" id="propOrcCategoriaEditorCor" class="prop-orc-editor-cor" value="${sanitizar(normalizada.cor || criarCorCategoriaOrcamento(normalizada.ordem))}">
                     </div>
                     <div class="form-group">
-                        <label>Ícone</label>
-                        <input type="text" class="prop-orc-editor-icone" value="${sanitizar(normalizada.icone || 'bi-tag')}" placeholder="bi-tag">
+                        <label for="propOrcCategoriaEditorIcone">Ícone</label>
+                        <input type="text" id="propOrcCategoriaEditorIcone" class="prop-orc-editor-icone" value="${sanitizar(normalizada.icone || 'bi-tag')}" placeholder="bi-tag">
                     </div>
                     <label class="proposta-config-editor-switch">
                         <input type="checkbox" class="prop-orc-editor-ativa" ${ativa ? 'checked' : ''} ${fixa ? 'disabled' : ''}>
@@ -2294,18 +2325,128 @@
         };
     }
 
+    function mostrarAbaConfigOrcamentoProposta(aba = 'gerais', opcoes = {}) {
+        const drawer = document.getElementById('propostaConfigDrawer');
+        if (!drawer) return;
+        const abasValidas = new Set(['gerais', 'custos', 'fiscal', 'categorias']);
+        abaConfigOrcamentoAtual = abasValidas.has(aba) ? aba : 'gerais';
+
+        drawer.querySelectorAll('[data-config-tab]').forEach((botao) => {
+            const ativa = botao.dataset.configTab === abaConfigOrcamentoAtual;
+            botao.classList.toggle('is-active', ativa);
+            botao.setAttribute('aria-selected', ativa ? 'true' : 'false');
+            botao.tabIndex = ativa ? 0 : -1;
+        });
+        drawer.querySelectorAll('[data-config-panel]').forEach((painel) => {
+            const ativo = painel.dataset.configPanel === abaConfigOrcamentoAtual;
+            painel.hidden = !ativo;
+            painel.classList.toggle('is-active', ativo);
+        });
+
+        const conteudo = drawer.querySelector('.proposta-config-content');
+        if (conteudo && opcoes.manterRolagem !== true) conteudo.scrollTop = 0;
+        if (opcoes.focar === true) {
+            const abaAtiva = drawer.querySelector(`[data-config-tab="${abaConfigOrcamentoAtual}"]`);
+            focarPropostaSemRolagem(abaAtiva);
+        }
+    }
+
+    function atualizarResumoAccordionFiscalConfigOrcamento(linha) {
+        if (!(linha instanceof HTMLElement)) return;
+        const atualizarStatus = (nome, ativo, rotulo) => {
+            const status = linha.querySelector(`[data-fiscal-status="${nome}"]`);
+            if (!status) return;
+            status.textContent = `${rotulo}: ${ativo ? 'Sim' : 'Não'}`;
+            status.classList.toggle('is-on', ativo);
+            status.classList.toggle('is-off', !ativo);
+        };
+        atualizarStatus('nfse', linha.querySelector('.prop-matriz-base-nfse')?.checked === true, 'NFS-e');
+        atualizarStatus('contador', linha.querySelector('.prop-matriz-contador')?.checked === true, 'Contador');
+        atualizarStatus('retencao', linha.querySelector('.prop-matriz-retencao')?.checked === true, 'Retenção');
+
+        const documento = linha.querySelector('.prop-matriz-documento')?.value;
+        const resumoDocumento = linha.querySelector('.proposta-config-fiscal-type small');
+        if (resumoDocumento) resumoDocumento.textContent = textoSeguro(documento, 'Documento a conferir');
+    }
+
+    function abrirAccordionFiscalConfigOrcamento(tipoFiscal, opcoes = {}) {
+        const matriz = document.getElementById('propOrcConfigMatrizFiscal');
+        if (!matriz) return;
+        const tipoNormalizado = normalizarTipoFiscalItem(tipoFiscal);
+        const linhaAlvo = Array.from(matriz.querySelectorAll('[data-prop-matriz-fiscal]'))
+            .find((linha) => normalizarTipoFiscalItem(linha.dataset.propMatrizFiscal) === tipoNormalizado);
+        if (!linhaAlvo) return;
+
+        tipoFiscalConfigOrcamentoAberto = tipoNormalizado;
+        matriz.querySelectorAll('[data-prop-matriz-fiscal]').forEach((linha) => {
+            const aberta = linha === linhaAlvo;
+            linha.classList.toggle('is-open', aberta);
+            const gatilho = linha.querySelector('[data-config-fiscal-accordion]');
+            const conteudo = linha.querySelector('[data-config-fiscal-content]');
+            gatilho?.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+            if (conteudo) conteudo.hidden = !aberta;
+        });
+
+        if (opcoes.focar === true) {
+            focarPropostaSemRolagem(linhaAlvo.querySelector('[data-config-fiscal-accordion]'));
+        }
+    }
+
+    function direcionarCampoInvalidoConfigOrcamento(campo) {
+        if (!(campo instanceof HTMLElement)) return;
+        const painel = campo.closest('[data-config-panel]');
+        if (painel?.dataset.configPanel) {
+            mostrarAbaConfigOrcamentoProposta(painel.dataset.configPanel, { manterRolagem: true });
+        }
+
+        const linhaFiscal = campo.closest('[data-prop-matriz-fiscal]');
+        if (linhaFiscal?.dataset.propMatrizFiscal) {
+            abrirAccordionFiscalConfigOrcamento(linhaFiscal.dataset.propMatrizFiscal);
+        }
+
+        setTimeout(() => {
+            campo.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            focarPropostaSemRolagem(campo);
+            campo.reportValidity?.();
+        }, 60);
+    }
+
+    function validarCamposConfigOrcamentoProposta() {
+        const drawer = document.getElementById('propostaConfigDrawer');
+        if (!drawer) return true;
+        const campoInvalido = Array.from(drawer.querySelectorAll('input, select, textarea'))
+            .find((campo) => !campo.disabled && typeof campo.checkValidity === 'function' && !campo.checkValidity());
+        if (!campoInvalido) return true;
+        direcionarCampoInvalidoConfigOrcamento(campoInvalido);
+        mostrarToast('Revise o campo destacado antes de aplicar as configurações.', 'warning');
+        return false;
+    }
+
+    function obterFocaveisConfigOrcamento() {
+        const painel = document.querySelector('#propostaConfigDrawer.is-open .proposta-config-panel');
+        if (!painel) return [];
+        return Array.from(painel.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        )).filter((elemento) => !elemento.hidden && elemento.getClientRects().length > 0);
+    }
+
     function abrirConfigOrcamentoProposta() {
         renderConfigOrcamentoProposta();
         const drawer = document.getElementById('propostaConfigDrawer');
         if (!drawer) return;
+        acionadorConfigOrcamento = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : document.querySelector('[data-action="abrirConfigOrcamentoProposta"]');
+        mostrarAbaConfigOrcamentoProposta(abaConfigOrcamentoAtual, { manterRolagem: true });
         drawer.classList.add('is-open');
         drawer.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('proposta-config-modal-open');
         document.querySelectorAll('[data-action="abrirConfigOrcamentoProposta"]').forEach((btn) => {
             btn.setAttribute('aria-expanded', 'true');
         });
         setTimeout(() => {
-            if (usuarioEditandoProposta()) return;
-            focarPropostaSemRolagem(document.getElementById('propOrcConfigEntradaPadrao'));
+            const abaAtiva = drawer.querySelector(`[data-config-tab="${abaConfigOrcamentoAtual}"]`);
+            focarPropostaSemRolagem(abaAtiva || drawer.querySelector('.proposta-config-close'));
         }, 80);
     }
 
@@ -2314,9 +2455,14 @@
         if (!drawer) return;
         drawer.classList.remove('is-open');
         drawer.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('proposta-config-modal-open');
         document.querySelectorAll('[data-action="abrirConfigOrcamentoProposta"]').forEach((btn) => {
             btn.setAttribute('aria-expanded', 'false');
         });
+        if (acionadorConfigOrcamento?.isConnected) {
+            focarPropostaSemRolagem(acionadorConfigOrcamento);
+        }
+        acionadorConfigOrcamento = null;
     }
 
     function aplicarPadroesOrcamentoNaPropostaAtual(padroesOverride = null, valorKmOverride = null, categoriasOverride = null) {
@@ -2363,6 +2509,7 @@
     }
 
     function aplicarConfigOrcamentoProposta() {
+        if (!validarCamposConfigOrcamentoProposta()) return;
         const { padroes, categoriasOrcamento, valorKmFretePadrao } = coletarConfigOrcamentoProposta();
         const modoAplicacao = document.querySelector('input[name="propOrcConfigModoAplicacao"]:checked')?.value || 'atual';
 
@@ -3705,7 +3852,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Margem de contribuição do item</label>
-                                <input type="text" class="prop-item-margem" value="${formatarPercentual(itemCalculado.margemItem)}" readonly>
+                                <input type="text" class="prop-item-margem" value="${formatarMargemPercentual(itemCalculado.margemItem)}" readonly>
                             </div>
                             <div class="form-group prop-item-custo-proprio-aviso">
                                 <small>Custo próprio de mão de obra é considerado zero.</small>
@@ -4025,7 +4172,7 @@
             [detalhes?.querySelector('.prop-item-custo-terceirizado'), formatarMoeda(item.custoTerceirizado)],
             [detalhes?.querySelector('.prop-item-custo-interno-total'), formatarMoeda(item.custoInternoItemTotal)],
             [detalhes?.querySelector('.prop-item-lucro'), formatarMoeda(item.lucroItem)],
-            [detalhes?.querySelector('.prop-item-margem'), formatarPercentual(item.margemItem)]
+            [detalhes?.querySelector('.prop-item-margem'), formatarMargemPercentual(item.margemItem)]
         ];
         campos.forEach(([campo, valor]) => {
             if (campo) campo.value = valor;
@@ -4392,13 +4539,17 @@
             ['propStickyDesconto', formatarMoeda(resumo.desconto)],
             ['propStickyFinal', formatarMoeda(resumo.valorFinalComercial)],
             ['propStickyLucro', formatarMoeda(resumo.lucroPrevisto)],
-            ['propStickyMargem', formatarPercentual(resumo.margemPrevista)],
+            ['propStickyMargem', formatarMargemPercentual(resumo.margemPrevista)],
             ['propStickyStatus', statusRotulo(statusAtual)]
         ];
 
         mapa.forEach(([id, valor]) => {
             const el = document.getElementById(id);
             if (el) el.textContent = valor;
+        });
+
+        ['propStickyMargem', 'propGuidedMargem', 'propMargemPrevista'].forEach((id) => {
+            document.getElementById(id)?.classList.toggle('is-negative', resumo.margemPrevista < 0);
         });
 
         const statusEl = document.getElementById('propStickyStatus');
@@ -4513,7 +4664,7 @@
                 ['propValorSaldo', formatarMoeda(resumo.valorSaldo)],
                 ['propCustoTotalProposta', formatarMoeda(resumo.custoTotalProposta)],
                 ['propLucroPrevisto', formatarMoeda(resumo.lucroPrevisto)],
-                ['propMargemPrevista', formatarPercentual(resumo.margemPrevista)]
+                ['propMargemPrevista', formatarMargemPercentual(resumo.margemPrevista)]
             ];
             mapaTexto.forEach(([id, valor]) => {
                 const el = document.getElementById(id);
@@ -7006,7 +7157,7 @@
                         ${custoMaoObraInternaPdf > 0 ? linhaResumoPdf(descricaoMaoObraInternaPdf, formatarMoeda(custoMaoObraInternaPdf)) : ''}
                         ${custoHospedagemInternaPdf > 0 ? linhaResumoPdf(descricaoHospedagemInternaPdf, formatarMoeda(custoHospedagemInternaPdf)) : ''}
                         ${linhaResumoPdf('Resultado estimado da proposta', formatarMoeda(p.controleInterno.lucroPrevisto))}
-                        ${linhaResumoPdf('Margem de contribuição estimada', formatarPercentual(p.controleInterno.margemPrevista))}
+                        ${linhaResumoPdf('Margem de contribuição estimada', formatarMargemPercentual(p.controleInterno.margemPrevista))}
                     </tbody>
                 </table>
             </div>
@@ -8302,11 +8453,12 @@
             const podeEnviar = statusAtual === 'rascunho' || statusAtual === 'em_negociacao';
             const podeAprovar = !['aprovada', 'convertida', 'cancelada', 'recusada'].includes(statusAtual);
             const podeRecusar = !['convertida', 'cancelada', 'recusada'].includes(statusAtual);
+            const codigoAcessivel = sanitizar(formatarCodigoRevisaoProposta(proposta));
             return `
                 <tr data-proposta-id="${proposta.id}">
                     <td>
                         <div class="proposta-list-code">
-                            <strong>${sanitizar(formatarCodigoRevisaoProposta(proposta))}</strong>
+                            <strong>${codigoAcessivel}</strong>
                             <span class="proposta-revision-mini-badge">Rev. ${formatarNumeroRevisaoProposta(revisao)}</span>
                             ${origem ? `<small>Origem ${sanitizar(formatarCodigoRevisaoProposta(origem))}</small>` : ''}
                         </div>
@@ -8321,13 +8473,13 @@
                             ${dataStatus ? `<small>${formatarData(dataStatus)}</small>` : ''}
                             ${motivoStatus ? `<em title="${sanitizar(motivoStatus)}">${sanitizar(motivoStatus)}</em>` : ''}
                             <div class="proposta-status-actions">
-                                <button class="btn btn-sm btn-info table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:enviada" title="Marcar como enviada" ${podeEnviar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-info table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:enviada" title="Marcar como enviada" aria-label="Marcar proposta ${codigoAcessivel} como enviada" ${podeEnviar ? '' : 'disabled'}>
                                     <i class="bi bi-send"></i>
                                 </button>
-                                <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:aprovada" title="Marcar como aprovada" ${podeAprovar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:aprovada" title="Marcar como aprovada" aria-label="Marcar proposta ${codigoAcessivel} como aprovada" ${podeAprovar ? '' : 'disabled'}>
                                     <i class="bi bi-hand-thumbs-up"></i>
                                 </button>
-                                <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:recusada" title="Marcar como recusada" ${podeRecusar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:recusada" title="Marcar como recusada" aria-label="Marcar proposta ${codigoAcessivel} como recusada" ${podeRecusar ? '' : 'disabled'}>
                                     <i class="bi bi-hand-thumbs-down"></i>
                                 </button>
                             </div>
@@ -8337,22 +8489,22 @@
                     <td>${locacaoId ? `#${sanitizar(String(locacaoId).slice(-6))}` : '-'}</td>
                     <td class="col-actions">
                         <div class="actions-cell">
-                            <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${proposta.id}" title="Editar">
+                            <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${proposta.id}" title="Editar" aria-label="Editar proposta ${codigoAcessivel}">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar">
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar" aria-label="Duplicar proposta ${codigoAcessivel}">
                                 <i class="bi bi-files"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="criarNovaRevisaoProposta" data-arg="${proposta.id}" title="Nova revisao">
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="criarNovaRevisaoProposta" data-arg="${proposta.id}" title="Nova revisão" aria-label="Criar nova revisão da proposta ${codigoAcessivel}">
                                 <i class="bi bi-layers"></i>
                             </button>
-                            <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF">
+                            <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF" aria-label="Gerar PDF da proposta ${codigoAcessivel}">
                                 <i class="bi bi-printer"></i>
                             </button>
-                            <button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="Converter para locacao" ${locacaoId ? 'disabled' : ''}>
+                            <button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="Converter para locação" aria-label="Converter proposta ${codigoAcessivel} em locação" ${locacaoId ? 'disabled' : ''}>
                                 <i class="bi bi-check2-circle"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir">
+                            <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir" aria-label="Excluir proposta ${codigoAcessivel}">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -8622,8 +8774,80 @@
             }, 50);
         });
 
+        document.addEventListener('click', (event) => {
+            const aba = event.target?.closest?.('#propostaConfigDrawer [data-config-tab]');
+            if (!aba) return;
+            mostrarAbaConfigOrcamentoProposta(aba.dataset.configTab, { focar: true });
+        });
+
+        document.addEventListener('click', (event) => {
+            const gatilho = event.target?.closest?.('#propostaConfigDrawer [data-config-fiscal-accordion]');
+            if (!gatilho) return;
+            abrirAccordionFiscalConfigOrcamento(gatilho.dataset.configFiscalAccordion);
+        });
+
+        document.addEventListener('input', (event) => {
+            const linhaFiscal = event.target?.closest?.('#propOrcConfigMatrizFiscal [data-prop-matriz-fiscal]');
+            if (!linhaFiscal) return;
+            atualizarResumoAccordionFiscalConfigOrcamento(linhaFiscal);
+        });
+
+        document.addEventListener('change', (event) => {
+            const linhaFiscal = event.target?.closest?.('#propOrcConfigMatrizFiscal [data-prop-matriz-fiscal]');
+            if (!linhaFiscal) return;
+            atualizarResumoAccordionFiscalConfigOrcamento(linhaFiscal);
+        });
+
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') fecharConfigOrcamentoProposta();
+            const drawer = document.getElementById('propostaConfigDrawer');
+            if (!drawer?.classList.contains('is-open')) return;
+
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                fecharConfigOrcamentoProposta();
+                return;
+            }
+
+            const abaAtual = event.target?.closest?.('#propostaConfigDrawer [data-config-tab]');
+            if (abaAtual && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                const abas = Array.from(drawer.querySelectorAll('[data-config-tab]'));
+                const indiceAtual = Math.max(abas.indexOf(abaAtual), 0);
+                let indiceDestino = indiceAtual;
+                if (event.key === 'ArrowLeft') indiceDestino = (indiceAtual - 1 + abas.length) % abas.length;
+                if (event.key === 'ArrowRight') indiceDestino = (indiceAtual + 1) % abas.length;
+                if (event.key === 'Home') indiceDestino = 0;
+                if (event.key === 'End') indiceDestino = abas.length - 1;
+                event.preventDefault();
+                mostrarAbaConfigOrcamentoProposta(abas[indiceDestino]?.dataset.configTab, { focar: true });
+                return;
+            }
+
+            const accordionAtual = event.target?.closest?.('[data-config-fiscal-accordion]');
+            if (accordionAtual && ['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+                const accordions = Array.from(drawer.querySelectorAll('[data-config-fiscal-accordion]'));
+                const indiceAtual = Math.max(accordions.indexOf(accordionAtual), 0);
+                let indiceDestino = indiceAtual;
+                if (event.key === 'ArrowUp') indiceDestino = (indiceAtual - 1 + accordions.length) % accordions.length;
+                if (event.key === 'ArrowDown') indiceDestino = (indiceAtual + 1) % accordions.length;
+                if (event.key === 'Home') indiceDestino = 0;
+                if (event.key === 'End') indiceDestino = accordions.length - 1;
+                event.preventDefault();
+                focarPropostaSemRolagem(accordions[indiceDestino]);
+                return;
+            }
+
+            if (event.key !== 'Tab') return;
+            const focaveis = obterFocaveisConfigOrcamento();
+            if (!focaveis.length) return;
+            const primeiro = focaveis[0];
+            const ultimo = focaveis[focaveis.length - 1];
+            if (event.shiftKey && document.activeElement === primeiro) {
+                event.preventDefault();
+                focarPropostaSemRolagem(ultimo);
+            } else if (!event.shiftKey && document.activeElement === ultimo) {
+                event.preventDefault();
+                focarPropostaSemRolagem(primeiro);
+            }
         });
     }
 

@@ -7945,6 +7945,10 @@ header {
     pointer-events: auto;
 }
 
+body.proposta-config-modal-open {
+    overflow: hidden;
+}
+
 #tab-propostas .proposta-config-backdrop {
     position: absolute;
     inset: 0;
@@ -7958,16 +7962,18 @@ header {
     top: 16px;
     right: 16px;
     bottom: 16px;
-    width: min(860px, calc(100vw - 32px));
+    width: min(1180px, calc(100vw - 32px));
+    max-width: min(1180px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px;
+    gap: 0;
+    padding: 0;
     border: 1px solid var(--border);
     border-radius: 20px;
     background: var(--surface);
     box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
-    overflow: auto;
+    overflow: hidden;
     transform: translateX(18px);
     animation: propostaDrawerIn 0.18s ease forwards;
 }
@@ -7979,12 +7985,76 @@ header {
 }
 
 #tab-propostas .proposta-config-head {
+    flex: 0 0 auto;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 14px;
-    padding-bottom: 12px;
+    padding: 18px 18px 14px;
     border-bottom: 1px solid var(--border);
+}
+
+#tab-propostas .proposta-config-tabs {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-config-tab {
+    min-width: 0;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-light);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+#tab-propostas .proposta-config-tab:hover {
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text);
+}
+
+#tab-propostas .proposta-config-tab.is-active {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--border));
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    color: var(--primary);
+}
+
+#tab-propostas .proposta-config-tab:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 32%, transparent);
+    outline-offset: 2px;
+}
+
+#tab-propostas .proposta-config-content {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 18px;
+    scrollbar-gutter: stable;
+}
+
+#tab-propostas .proposta-config-tabpanel {
+    display: grid;
+    gap: 14px;
+}
+
+#tab-propostas .proposta-config-tabpanel[hidden] {
+    display: none !important;
 }
 
 #tab-propostas .proposta-config-head h3,
@@ -8011,7 +8081,7 @@ header {
 #tab-propostas .proposta-config-section {
     padding: 12px;
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: 10px;
     background: var(--surface-soft);
 }
 
@@ -8126,7 +8196,7 @@ header {
 #tab-propostas .proposta-config-categories {
     display: grid;
     gap: 8px;
-    overflow-x: auto;
+    overflow-x: visible;
     padding-bottom: 4px;
 }
 
@@ -8346,19 +8416,20 @@ header {
 #tab-propostas .proposta-config-category-list {
     display: grid;
     gap: 6px;
-    min-width: 1010px;
+    min-width: 0;
+    overflow: visible;
 }
 
 #tab-propostas .proposta-config-matrix-head {
-    grid-template-columns: 44px minmax(230px, 1.6fr) minmax(86px, 0.55fr) repeat(3, minmax(112px, 0.72fr)) minmax(214px, 0.9fr);
+    grid-template-columns: 38px minmax(190px, 1fr) 80px repeat(3, minmax(88px, 0.62fr)) 218px;
     gap: 7px;
     align-items: center;
-    min-width: 1010px;
+    min-width: 0;
     padding: 0 10px 5px;
 }
 
 #tab-propostas .proposta-config-matrix-row {
-    grid-template-columns: 44px minmax(230px, 1.6fr) minmax(86px, 0.55fr) repeat(3, minmax(112px, 0.72fr)) minmax(214px, 0.9fr);
+    grid-template-columns: 38px minmax(190px, 1fr) 80px repeat(3, minmax(88px, 0.62fr)) 218px;
     gap: 7px;
     align-items: center;
     min-height: 56px;
@@ -8366,7 +8437,7 @@ header {
 }
 
 #tab-propostas .proposta-config-matrix-row.is-inactive {
-    opacity: 0.72;
+    opacity: 0.78;
 }
 
 #tab-propostas .proposta-config-order-badge {
@@ -8481,34 +8552,61 @@ header {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 5px;
-    min-width: 0;
+    gap: 6px;
+    min-width: 218px;
     flex-wrap: nowrap;
+    white-space: nowrap;
+    user-select: none;
 }
 
-#tab-propostas .proposta-config-row-actions .table-action-btn {
+#appArea #tab-propostas .proposta-config-row-actions .table-action-btn {
     flex: 0 0 auto;
-    min-width: 30px;
-    height: 30px;
-    padding: 0 8px;
-    border-radius: 9px;
-    font-size: 0.72rem;
+    min-width: 40px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+    font-size: 0.78rem;
+    user-select: none;
+    touch-action: manipulation;
 }
 
-#tab-propostas .proposta-config-row-actions .table-action-btn:first-child {
-    min-width: 74px;
+#appArea #tab-propostas .proposta-config-row-actions .table-action-btn:first-child {
+    min-width: 80px !important;
+    width: auto !important;
+    padding: 0 12px !important;
 }
 
-#tab-propostas .proposta-config-row-actions .table-action-btn:last-child {
-    min-width: 38px;
+#appArea #tab-propostas .proposta-config-row-actions .table-action-btn:last-child {
+    min-width: 40px !important;
 }
 
-#tab-propostas .proposta-config-row-actions .table-action-btn span {
-    margin-left: 4px;
+#tab-propostas .proposta-config-row-actions :is(button, i, span),
+#tab-propostas .proposta-config-matrix-row :is(.badge, .proposta-config-rule-badge, .proposta-config-order-badge) {
+    user-select: none;
 }
 
-#tab-propostas .proposta-config-row-actions .table-action-btn:not(:first-child) span {
+#appArea #tab-propostas .proposta-config-row-actions .table-action-btn span {
     display: none;
+    margin-left: 5px;
+}
+
+#appArea #tab-propostas .proposta-config-row-actions .table-action-btn:first-child span {
+    display: inline !important;
+}
+
+#tab-propostas .proposta-config-row-actions .table-action-btn:disabled {
+    opacity: 0.82;
+    border-color: color-mix(in srgb, var(--text-light) 42%, var(--border));
+    background: color-mix(in srgb, var(--surface-soft) 82%, var(--border));
+    color: var(--text-light);
+    cursor: not-allowed;
+}
+
+#tab-propostas .proposta-config-row-actions .table-action-btn:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 38%, transparent);
+    outline-offset: 2px;
 }
 
 #tab-propostas .proposta-config-category-editor-host[hidden] {
@@ -8614,7 +8712,14 @@ header {
 
 #tab-propostas .proposta-config-apply-mode {
     display: grid;
-    gap: 10px;
+    grid-template-columns: auto repeat(2, minmax(210px, 1fr));
+    align-items: center;
+    gap: 8px;
+}
+
+#tab-propostas .proposta-config-apply-mode h4 {
+    margin: 0;
+    white-space: nowrap;
 }
 
 #tab-propostas .proposta-config-mode-option {
@@ -8622,7 +8727,7 @@ header {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 10px;
     align-items: flex-start;
-    padding: 10px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 14px;
     background: var(--surface);
@@ -8703,16 +8808,22 @@ header {
 }
 
 #tab-propostas .proposta-config-actions {
-    position: sticky;
-    bottom: -18px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin: 0 -18px -18px;
-    padding: 14px 18px 18px;
+    min-width: 330px;
+}
+
+#tab-propostas .proposta-config-footer {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 18px;
     border-top: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
-    backdrop-filter: blur(12px);
+    background: var(--surface);
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.06);
 }
 
 #tab-propostas .proposta-step-index {
@@ -8822,7 +8933,7 @@ header {
     top: calc(var(--app-sticky-total-height, 154px) + 8px);
     z-index: 6;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     align-items: center;
     margin: 0 0 18px;
@@ -8836,7 +8947,7 @@ header {
 
 #tab-propostas .proposta-sticky-metrics {
     display: grid;
-    grid-template-columns: repeat(7, minmax(86px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
     gap: 8px;
 }
 
@@ -8855,7 +8966,7 @@ header {
 
 #tab-propostas .proposta-sticky-metrics .proposta-sticky-final strong {
     color: var(--primary);
-    font-size: 1.08rem;
+    font-size: 1rem;
 }
 
 #tab-propostas .proposta-sticky-metrics .proposta-sticky-profit {
@@ -8888,11 +8999,10 @@ header {
 #tab-propostas .proposta-sticky-metrics strong {
     display: block;
     color: var(--text);
-    font-size: clamp(0.78rem, 1vw, 0.94rem);
+    font-size: 0.9rem;
     font-weight: 950;
     line-height: 1.08;
-    overflow-wrap: anywhere;
-    white-space: normal;
+    white-space: nowrap;
 }
 
 #tab-propostas .proposta-sticky-actions {
@@ -8900,6 +9010,8 @@ header {
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    padding-top: 10px;
 }
 
 #tab-propostas .proposta-form-section {
@@ -10410,9 +10522,19 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
         top: 8px;
         right: 8px;
         bottom: 8px;
-        width: calc(100vw - 16px);
-        padding: 14px;
+        width: calc(100% - 16px);
+        max-width: calc(100vw - 16px);
+        padding: 0;
         border-radius: 18px;
+    }
+
+    #tab-propostas .proposta-config-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 8px 12px;
+    }
+
+    #tab-propostas .proposta-config-content {
+        padding: 12px;
     }
 
     #tab-propostas .proposta-config-grid,
@@ -10422,10 +10544,22 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     }
 
     #tab-propostas .proposta-config-actions {
-        margin-right: -14px;
-        margin-left: -14px;
-        padding-right: 14px;
-        padding-left: 14px;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+    }
+
+    #tab-propostas .proposta-config-footer,
+    #tab-propostas .proposta-config-apply-mode {
+        grid-template-columns: 1fr;
+    }
+
+    #tab-propostas .proposta-config-footer {
+        padding: 10px 12px;
+    }
+
+    #tab-propostas .proposta-config-apply-mode h4 {
+        white-space: normal;
     }
 
     #tab-propostas .proposta-form-nav {
@@ -10638,51 +10772,92 @@ body[data-theme="mtz-gold"] #tab-propostas .proposta-items-fiscal-card-total {
     }
 
     #tab-propostas .proposta-config-matrix-row {
-        gap: 9px;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-areas:
+            "order category category category status status"
+            "honorarios honorarios encargos encargos inss inss"
+            "actions actions actions actions actions actions";
+        gap: 10px 8px;
         min-width: 0;
         padding: 10px;
     }
 
     #tab-propostas .proposta-config-order-badge {
-        width: auto;
-        justify-content: flex-start;
-        padding: 0 10px;
+        grid-area: order;
+        width: 32px;
+        padding: 0;
     }
 
-    #tab-propostas .proposta-config-order-badge::before,
-    #tab-propostas .proposta-config-status-cell::before,
+    #tab-propostas .proposta-config-matrix-category {
+        grid-area: category;
+        grid-template-columns: 8px minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    #tab-propostas .proposta-config-category-icon {
+        display: none;
+    }
+
+    #tab-propostas .proposta-config-category-title small {
+        display: none;
+    }
+
+    #tab-propostas .proposta-config-status-cell {
+        grid-area: status;
+        align-self: center;
+    }
+
+    #tab-propostas .proposta-config-rule-summary[data-label="Honorários"] {
+        grid-area: honorarios;
+    }
+
+    #tab-propostas .proposta-config-rule-summary[data-label="Encargos"] {
+        grid-area: encargos;
+    }
+
+    #tab-propostas .proposta-config-rule-summary[data-label="INSS"] {
+        grid-area: inss;
+    }
+
+    #tab-propostas .proposta-config-row-actions {
+        grid-area: actions;
+    }
+
     #tab-propostas .proposta-config-rule-summary::before,
     #tab-propostas .proposta-config-row-actions::before {
         content: attr(data-label);
         color: var(--text-light);
-        font-size: 0.66rem;
+        font-size: 0.58rem;
         font-weight: 950;
+        line-height: 1.1;
         text-transform: uppercase;
     }
 
-    #tab-propostas .proposta-config-status-cell,
-    #tab-propostas .proposta-config-rule-summary,
-    #tab-propostas .proposta-config-row-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        min-height: 32px;
-        padding-top: 7px;
-        border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    #tab-propostas .proposta-config-rule-summary {
+        align-content: start;
+        justify-items: start;
+        gap: 5px;
+        min-height: 62px;
+        padding: 8px;
+        overflow: visible;
+        border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+        border-radius: 10px;
+        background: var(--surface-soft);
     }
 
     #tab-propostas .proposta-config-row-actions {
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        justify-content: flex-start;
+        min-width: 0;
+        padding-top: 10px;
+        border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     }
 
     #tab-propostas .proposta-config-row-actions::before {
         margin-right: auto;
     }
 
-    #tab-propostas .proposta-config-row-actions .table-action-btn span {
-        display: inline;
+    #tab-propostas .proposta-config-row-actions .table-action-btn:not(:first-child) span {
+        display: none;
     }
 
     #tab-propostas .proposta-config-category-editor-grid,
@@ -13255,7 +13430,6 @@ body[data-theme="mtz-premium"] .actions-cell {
 body[data-theme="mtz-premium"] .actions-cell .table-action-btn,
 body[data-theme="mtz-premium"] #tab-propostas .proposta-status-actions .table-action-btn,
 body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn,
-body[data-theme="mtz-premium"] #tab-propostas .proposta-config-row-actions .table-action-btn,
 body[data-theme="mtz-premium"] #tab-transporte .actions-cell .table-action-btn,
 body[data-theme="mtz-premium"] #tab-auditoria .actions-cell .table-action-btn {
     width: 38px !important;
@@ -13272,8 +13446,7 @@ body[data-theme="mtz-premium"] #tab-auditoria .actions-cell .table-action-btn {
 
 body[data-theme="mtz-premium"] .actions-cell .table-action-btn span,
 body[data-theme="mtz-premium"] #tab-propostas .proposta-status-actions .table-action-btn span,
-body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn span,
-body[data-theme="mtz-premium"] #tab-propostas .proposta-config-row-actions .table-action-btn span {
+body[data-theme="mtz-premium"] #tab-propostas .proposta-items-table .actions-cell .table-action-btn span {
     display: none !important;
 }
 
@@ -19895,6 +20068,385 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
 
+/* === V23.40 | CONFIGURACOES DO ORCAMENTO EM ABAS === */
+#tab-propostas .proposta-config-fiscal-row.proposta-config-fiscal-accordion {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+}
+
+#tab-propostas .proposta-config-fiscal-trigger {
+    width: 100%;
+    min-height: 62px;
+    display: grid;
+    grid-template-columns: minmax(190px, 1fr) minmax(0, auto) 24px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+#tab-propostas .proposta-config-fiscal-trigger:hover {
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+#tab-propostas .proposta-config-fiscal-trigger:focus-visible,
+#tab-propostas .proposta-config-mode-option:has(input:focus-visible) {
+    outline: 3px solid color-mix(in srgb, var(--primary) 34%, transparent);
+    outline-offset: -3px;
+}
+
+#tab-propostas .proposta-config-fiscal-statuses {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+#tab-propostas .proposta-config-fiscal-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-light);
+    font-size: 0.69rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+#tab-propostas .proposta-config-fiscal-status.is-on {
+    border-color: color-mix(in srgb, var(--success) 38%, var(--border));
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+    color: var(--success);
+}
+
+#tab-propostas .proposta-config-fiscal-chevron {
+    justify-self: center;
+    transition: transform 0.18s ease;
+}
+
+#tab-propostas .proposta-config-fiscal-accordion.is-open .proposta-config-fiscal-chevron {
+    transform: rotate(180deg);
+}
+
+#tab-propostas .proposta-config-fiscal-content {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-soft);
+}
+
+#tab-propostas .proposta-config-fiscal-content[hidden] {
+    display: none !important;
+}
+
+#tab-propostas .proposta-config-fiscal-content > .form-group:first-child,
+#tab-propostas .proposta-config-fiscal-content .proposta-config-fiscal-observation {
+    grid-column: 1 / -1;
+}
+
+#tab-propostas .proposta-config-footer {
+    position: relative;
+    z-index: 2;
+}
+
+#tab-propostas .proposta-config-actions .btn,
+#tab-propostas .proposta-config-mode-option {
+    min-width: 0;
+}
+
+@media (max-width: 700px) {
+    #tab-propostas .proposta-config-head {
+        padding: 12px 12px 10px;
+    }
+
+    #tab-propostas .proposta-config-head h3 {
+        font-size: 1rem;
+    }
+
+    #tab-propostas .proposta-config-head p {
+        font-size: 0.76rem;
+    }
+
+    #tab-propostas .proposta-config-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 5px;
+        padding: 7px 10px;
+    }
+
+    #tab-propostas .proposta-config-tab {
+        min-height: 40px;
+        padding: 7px 6px;
+        font-size: 0.7rem;
+    }
+
+    #tab-propostas .proposta-config-content {
+        padding: 10px;
+        overflow-x: hidden;
+    }
+
+    #tab-propostas .proposta-config-fiscal-trigger {
+        grid-template-columns: minmax(0, 1fr) 22px;
+        gap: 8px;
+        min-height: 58px;
+        padding: 9px 10px;
+    }
+
+    #tab-propostas .proposta-config-fiscal-statuses {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+    }
+
+    #tab-propostas .proposta-config-fiscal-chevron {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #tab-propostas .proposta-config-fiscal-content {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 10px;
+    }
+
+    #tab-propostas .proposta-config-fiscal-content > .form-group:first-child,
+    #tab-propostas .proposta-config-fiscal-content .proposta-config-fiscal-observation {
+        grid-column: auto;
+    }
+
+    #tab-propostas .proposta-config-footer {
+        gap: 8px;
+        padding: 9px 10px;
+    }
+
+    #tab-propostas .proposta-config-apply-mode {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    #tab-propostas .proposta-config-apply-mode h4 {
+        grid-column: 1 / -1;
+        font-size: 0.76rem;
+    }
+
+    #tab-propostas .proposta-config-mode-option {
+        gap: 6px;
+        padding: 7px;
+    }
+
+    #tab-propostas .proposta-config-mode-option strong {
+        font-size: 0.7rem;
+        line-height: 1.2;
+    }
+
+    #tab-propostas .proposta-config-mode-option small {
+        font-size: 0.62rem;
+        line-height: 1.2;
+    }
+
+    #tab-propostas .proposta-config-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    #tab-propostas .proposta-config-actions .btn {
+        min-height: 42px;
+        padding: 7px 8px;
+        white-space: normal;
+    }
+}
+
+@media (max-width: 360px) {
+    #tab-propostas .proposta-config-tab {
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    #tab-propostas .proposta-config-apply-mode,
+    #tab-propostas .proposta-config-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #tab-propostas .proposta-config-apply-mode h4 {
+        grid-column: auto;
+    }
+}
+
+/* === V23.39 | RESUMO FINANCEIRO RESPONSIVO === */
+#tab-propostas .proposta-sticky-summary {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#tab-propostas .proposta-sticky-metrics {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: stretch;
+}
+
+#tab-propostas .proposta-sticky-metrics > span {
+    display: flex;
+    min-width: 150px;
+    min-height: 68px;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#tab-propostas .proposta-sticky-metrics strong,
+#tab-propostas .proposta-sticky-status strong.badge {
+    max-width: 100%;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+#tab-propostas .proposta-sticky-status {
+    grid-column: span 2;
+}
+
+#tab-propostas .proposta-sticky-actions {
+    width: 100%;
+    min-width: 0;
+}
+
+#tab-propostas .proposta-sticky-actions .btn {
+    min-width: 132px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+#tab-propostas .proposta-sticky-actions .btn:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 42%, transparent);
+    outline-offset: 2px;
+}
+
+#tab-propostas .proposta-guided-summary dl div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+}
+
+#tab-propostas .proposta-guided-summary dd {
+    max-width: 100%;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    word-break: normal;
+    font-size: clamp(0.74rem, 1vw, 0.86rem);
+}
+
+@media (max-width: 560px) {
+    #tab-propostas .proposta-sticky-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #tab-propostas .proposta-sticky-metrics > span {
+        min-width: 0;
+        min-height: 72px;
+    }
+
+    #tab-propostas .proposta-sticky-status {
+        grid-column: 1 / -1;
+    }
+
+    #tab-propostas .proposta-sticky-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+    }
+
+    #tab-propostas .proposta-sticky-actions .btn:last-child {
+        flex-basis: 100%;
+    }
+}
+
+@media (max-width: 340px) {
+    #tab-propostas .proposta-sticky-metrics {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #tab-propostas .proposta-sticky-status {
+        grid-column: auto;
+    }
+
+    #tab-propostas .proposta-sticky-actions .btn {
+        flex-basis: 100%;
+    }
+}
+
+/* Instalacao do PWA sem sobrepor drawers e modais de trabalho. */
+.pwa-install-button {
+    position: fixed;
+    right: calc(20px + env(safe-area-inset-right, 0px));
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    z-index: 2200;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border: 1px solid color-mix(in srgb, var(--primary) 68%, #ffffff);
+    border-radius: 8px;
+    background: var(--primary);
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 900;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.24);
+    cursor: pointer;
+    box-sizing: border-box;
+    white-space: nowrap;
+    user-select: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+}
+
+.pwa-install-button:hover {
+    transform: translateY(-1px);
+}
+
+.pwa-install-button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    outline-offset: 3px;
+}
+
+.pwa-install-button.is-suspended,
+body.proposta-config-modal-open .pwa-install-button,
+body:has(.modal.active) .pwa-install-button,
+body:has(dialog[open]) .pwa-install-button {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(8px);
+}
+
+@media (max-width: 560px) {
+    .pwa-install-button {
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    }
+}
+
 /* Itens da proposta: linha principal compacta e detalhes preservados. */
 #tab-propostas .proposta-items-table-wrap {
     overflow-x: auto !important;
@@ -20983,6 +21535,29 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
         max-width: 112px !important;
         margin-right: 10px !important;
     }
+}
+
+@media (max-width: 640px) {
+    #appArea > header .header-actions {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    #appArea > header #headerUser.header-user {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex-basis: 100% !important;
+        margin-right: 0 !important;
+        padding-inline: 10px !important;
+        box-sizing: border-box !important;
+    }
+}
+
+#tab-propostas :is(#propStickyMargem, #propGuidedMargem, #propMargemPrevista).is-negative {
+    color: var(--danger, #dc2626) !important;
 }
 
 .theme-menu.theme-menu-floating {
