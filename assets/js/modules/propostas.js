@@ -65,8 +65,10 @@
     const MENSAGEM_ORIGEM_CUSTO_NAO_INFORMADA = 'Defina a origem operacional do item como Próprio, Terceirizado ou Misto.';
     const TIPOS_CALCULO_TRIBUTO_PROPOSTA = new Set(['simples', 'por_dentro']);
     const TIPO_FISCAL_ITEM_PADRAO = 'verificar_contador';
+    const TIPO_FISCAL_ITEM_LEGADO = 'locacao_bem_movel';
     const TIPOS_FISCAIS_ITEM_PROPOSTA = Object.freeze([
-        { id: 'locacao_bem_movel', rotulo: 'Locação de bem móvel' },
+        { id: 'locacao_pura_bem_movel', rotulo: 'Locação pura de bem móvel' },
+        { id: 'cessao_estrutura_temporaria_3_05', rotulo: 'Cessão de estrutura temporária — item 3.05' },
         { id: 'servico', rotulo: 'Serviço' },
         { id: 'mao_de_obra', rotulo: 'Mão de obra' },
         { id: 'frete_logistica', rotulo: 'Frete / logística' },
@@ -77,12 +79,26 @@
         { id: TIPO_FISCAL_ITEM_PADRAO, rotulo: 'Verificar com contador' }
     ]);
     const MATRIZ_FISCAL_ITEM_PADRAO = Object.freeze({
-        locacao_bem_movel: {
-            documentoSugerido: 'Contrato/fatura/recibo de locação, conforme orientação contábil',
+        locacao_pura_bem_movel: {
+            documentoSugerido: 'Contrato/fatura/recibo de locação, após conferência contábil',
             entraBaseNfse: false,
-            exigeConferenciaContador: false,
+            exigeConferenciaContador: true,
             permiteRetencaoINSS: false,
-            observacaoFiscalPadrao: 'Locação separada da base estimada de NFS-e.'
+            observacaoFiscalPadrao: 'Confirmar que a locação está separada dos serviços antes do faturamento.'
+        },
+        cessao_estrutura_temporaria_3_05: {
+            documentoSugerido: 'NFS-e de cessão de estrutura temporária — código municipal pendente',
+            entraBaseNfse: true,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Usar o local da instalação como referência de incidência e validar código municipal e alíquota com a contabilidade.'
+        },
+        locacao_bem_movel: {
+            documentoSugerido: 'Classificação antiga — verificar com contador',
+            entraBaseNfse: false,
+            exigeConferenciaContador: true,
+            permiteRetencaoINSS: false,
+            observacaoFiscalPadrao: 'Classificação legada preservada. Reclassificar manualmente antes do fluxo fiscal.'
         },
         servico: {
             documentoSugerido: 'NFS-e de serviços',
@@ -301,7 +317,8 @@
             tipoCalculoNF: document.getElementById('propTipoCalculoNF')?.value || 'descontar',
             percentualEntrada: parsePercentualInput('propPercentualEntrada', 50, 100),
             controleInterno,
-            clientePrecisaNotaFiscal
+            clientePrecisaNotaFiscal,
+            ...obterContextoFiscalFormularioProposta()
         });
 
         return { itens, custos, controleInterno, resumo };
@@ -978,12 +995,21 @@
     }
 
     function normalizarTipoFiscalItem(tipoFiscal) {
+        const persistido = normalizarTipoFiscalPersistido(tipoFiscal);
+        return persistido === TIPO_FISCAL_ITEM_LEGADO ? TIPO_FISCAL_ITEM_PADRAO : persistido;
+    }
+
+    function normalizarTipoFiscalPersistido(tipoFiscal) {
         const valor = textoSeguro(tipoFiscal, '');
+        if (valor === TIPO_FISCAL_ITEM_LEGADO) return TIPO_FISCAL_ITEM_LEGADO;
         const encontrado = TIPOS_FISCAIS_ITEM_PROPOSTA.find((tipo) => tipo.id === valor);
         return encontrado ? encontrado.id : TIPO_FISCAL_ITEM_PADRAO;
     }
 
     function rotuloTipoFiscalItem(tipoFiscal) {
+        if (normalizarTipoFiscalPersistido(tipoFiscal) === TIPO_FISCAL_ITEM_LEGADO) {
+            return 'Classificação antiga — verificar com contador';
+        }
         const tipo = TIPOS_FISCAIS_ITEM_PROPOSTA.find((item) => item.id === normalizarTipoFiscalItem(tipoFiscal));
         return tipo?.rotulo || 'Verificar com contador';
     }
@@ -1005,10 +1031,21 @@
 
     function normalizarMatrizFiscalProposta(valor = {}) {
         const origem = valor && typeof valor === 'object' ? valor : {};
-        return TIPOS_FISCAIS_ITEM_PROPOSTA.reduce((acc, tipo) => {
+        const matriz = TIPOS_FISCAIS_ITEM_PROPOSTA.reduce((acc, tipo) => {
             acc[tipo.id] = normalizarRegraMatrizFiscal(tipo.id, origem[tipo.id]);
             return acc;
         }, {});
+        matriz[TIPO_FISCAL_ITEM_LEGADO] = {
+            ...MATRIZ_FISCAL_ITEM_PADRAO[TIPO_FISCAL_ITEM_LEGADO],
+            ...(origem[TIPO_FISCAL_ITEM_LEGADO] && typeof origem[TIPO_FISCAL_ITEM_LEGADO] === 'object'
+                ? origem[TIPO_FISCAL_ITEM_LEGADO]
+                : {}),
+            tipoFiscal: TIPO_FISCAL_ITEM_LEGADO,
+            rotulo: 'Classificação antiga — verificar com contador',
+            entraBaseNfse: false,
+            exigeConferenciaContador: true
+        };
+        return matriz;
     }
 
     function obterMatrizFiscalProposta(padroesOrigem = null) {
@@ -1029,9 +1066,12 @@
     }
 
     function montarOptionsTipoFiscalItem(tipoAtual) {
-        const atual = normalizarTipoFiscalItem(tipoAtual);
-        return TIPOS_FISCAIS_ITEM_PROPOSTA.map((tipo) => {
-            const selected = tipo.id === atual ? ' selected' : '';
+        const atualPersistido = normalizarTipoFiscalPersistido(tipoAtual);
+        const opcoes = atualPersistido === TIPO_FISCAL_ITEM_LEGADO
+            ? [{ id: TIPO_FISCAL_ITEM_LEGADO, rotulo: 'Classificação antiga — verificar com contador' }, ...TIPOS_FISCAIS_ITEM_PROPOSTA]
+            : TIPOS_FISCAIS_ITEM_PROPOSTA;
+        return opcoes.map((tipo) => {
+            const selected = tipo.id === atualPersistido ? ' selected' : '';
             return `<option value="${sanitizar(tipo.id)}"${selected}>${sanitizar(tipo.rotulo)}</option>`;
         }).join('');
     }
@@ -1313,7 +1353,8 @@
 
         return {
             categoria,
-            tipoFiscal: normalizarTipoFiscalItem(item.tipoFiscal),
+            tipoFiscal: normalizarTipoFiscalPersistido(item.tipoFiscal),
+            confirmacaoLocacaoPuraSeparada: item.confirmacaoLocacaoPuraSeparada === true,
             descricao: textoSeguro(item.descricao, ''),
             medida: textoSeguro(item.medida, ''),
             periodoDias,
@@ -1350,6 +1391,159 @@
             observacoes: textoSeguro(item.observacoes, ''),
             usarPadraoCalculo: false
         };
+    }
+
+    function normalizarPerfilFiscalEmpresa(valor = {}) {
+        const origem = valor && typeof valor === 'object' && !Array.isArray(valor) ? valor : {};
+        const cnaesOrigem = Array.isArray(origem.cnaes)
+            ? origem.cnaes
+            : textoSeguro(origem.cnaes, '').split(/[\n,;]+/);
+        return {
+            ...origem,
+            regimeTributario: textoSeguro(origem.regimeTributario, ''),
+            cnpj: textoSeguro(origem.cnpj, ''),
+            inscricaoMunicipal: textoSeguro(origem.inscricaoMunicipal, ''),
+            municipioEstabelecimento: textoSeguro(origem.municipioEstabelecimento, ''),
+            ufEstabelecimento: textoSeguro(origem.ufEstabelecimento, '').toUpperCase().slice(0, 2),
+            cnaes: [...new Set(cnaesOrigem.map((cnae) => textoSeguro(cnae, '')).filter(Boolean))],
+            validadoPorContador: origem.validadoPorContador === true,
+            responsavelValidacao: textoSeguro(origem.responsavelValidacao, ''),
+            dataValidacao: textoSeguro(origem.dataValidacao, ''),
+            vigenciaInicio: textoSeguro(origem.vigenciaInicio, ''),
+            observacoes: textoSeguro(origem.observacoes, '')
+        };
+    }
+
+    function obterPerfilFiscalEmpresa() {
+        return normalizarPerfilFiscalEmpresa(config?.perfilFiscalEmpresa);
+    }
+
+    function obterPendenciasClassificacaoFiscalProposta({
+        itens = [],
+        custos = {},
+        fiscal = {},
+        evento = {},
+        perfilFiscalEmpresa = null
+    } = {}) {
+        const pendencias = [];
+        const perfil = normalizarPerfilFiscalEmpresa(perfilFiscalEmpresa || obterPerfilFiscalEmpresa());
+        let exigePerfilValidado = false;
+
+        (Array.isArray(itens) ? itens : []).forEach((itemOriginal, indice) => {
+            const item = itemOriginal && typeof itemOriginal === 'object' ? itemOriginal : {};
+            const descricao = textoSeguro(item.descricao, '');
+            const quantidade = numeroNaoNegativo(item.quantidade, 0);
+            const valor = numeroNaoNegativo(item.valorTotal ?? item.totalFinal ?? item.custoTotal, 0);
+            if (!descricao && quantidade <= 0 && valor <= 0) return;
+
+            const tipoPersistidoRaw = textoSeguro(item.tipoFiscal, '');
+            const identificacao = descricao ? `Item ${indice + 1} (${descricao})` : `Item ${indice + 1}`;
+            if (!tipoPersistidoRaw) {
+                pendencias.push({
+                    codigo: 'tipo_fiscal_ausente',
+                    itemIndice: indice,
+                    campo: 'tipoFiscal',
+                    mensagem: `${identificacao}: informe a classificação fiscal.`
+                });
+                return;
+            }
+
+            const tipoPersistido = normalizarTipoFiscalPersistido(tipoPersistidoRaw);
+            if (tipoPersistido === TIPO_FISCAL_ITEM_LEGADO) {
+                pendencias.push({
+                    codigo: 'tipo_fiscal_legado',
+                    itemIndice: indice,
+                    campo: 'tipoFiscal',
+                    mensagem: `${identificacao}: classificação antiga — verificar com contador e reclassificar manualmente.`
+                });
+                return;
+            }
+
+            if (tipoPersistido === TIPO_FISCAL_ITEM_PADRAO) {
+                pendencias.push({
+                    codigo: 'verificar_contador',
+                    itemIndice: indice,
+                    campo: 'tipoFiscal',
+                    mensagem: `${identificacao}: classificação marcada como "Verificar com contador".`
+                });
+                return;
+            }
+
+            if (tipoPersistido === 'locacao_pura_bem_movel') {
+                exigePerfilValidado = true;
+                if (item.confirmacaoLocacaoPuraSeparada !== true) {
+                    pendencias.push({
+                        codigo: 'locacao_pura_sem_confirmacao',
+                        itemIndice: indice,
+                        campo: 'confirmacaoLocacaoPuraSeparada',
+                        mensagem: `${identificacao}: confirme que a locação pura está separada dos serviços.`
+                    });
+                }
+            }
+
+            if (tipoPersistido === 'cessao_estrutura_temporaria_3_05') {
+                exigePerfilValidado = true;
+                const municipio = textoSeguro(fiscal.municipioIncidencia || evento.cidadeEvento, '');
+                const uf = textoSeguro(fiscal.ufIncidencia || evento.ufEvento, '').toUpperCase().slice(0, 2);
+                const codigoServico = textoSeguro(fiscal.codigoServicoMunicipal, '');
+                if (!municipio) {
+                    pendencias.push({
+                        codigo: 'municipio_incidencia_ausente',
+                        itemIndice: indice,
+                        campo: 'municipioIncidencia',
+                        mensagem: `${identificacao}: informe o município de incidência da cessão de estrutura temporária.`
+                    });
+                }
+                if (!uf) {
+                    pendencias.push({
+                        codigo: 'uf_incidencia_ausente',
+                        itemIndice: indice,
+                        campo: 'ufIncidencia',
+                        mensagem: `${identificacao}: informe a UF de incidência da cessão de estrutura temporária.`
+                    });
+                }
+                if (!codigoServico) {
+                    pendencias.push({
+                        codigo: 'codigo_servico_municipal_ausente',
+                        itemIndice: indice,
+                        campo: 'codigoServicoMunicipal',
+                        mensagem: `${identificacao}: informe o código municipal do serviço após conferência contábil.`
+                    });
+                }
+            }
+        });
+
+        if (exigePerfilValidado && perfil.validadoPorContador !== true) {
+            pendencias.push({
+                codigo: 'perfil_fiscal_nao_validado',
+                itemIndice: null,
+                campo: 'perfilFiscalEmpresa',
+                mensagem: 'O perfil fiscal da empresa ainda não foi validado pela contabilidade.'
+            });
+        }
+
+        const hospedagemCobrada = custos?.hospedagemCobrada && typeof custos.hospedagemCobrada === 'object'
+            ? custos.hospedagemCobrada
+            : {};
+        const valorHospedagemCobrada = numeroNaoNegativo(hospedagemCobrada.total ?? custos?.hospedagem, 0);
+        const temItemFiscalHospedagem = (Array.isArray(itens) ? itens : []).some((item) => {
+            const tipoFiscalOriginal = textoSeguro(item?.tipoFiscal, '');
+            return tipoFiscalOriginal
+                && normalizarTipoFiscalItem(tipoFiscalOriginal) !== TIPO_FISCAL_ITEM_PADRAO
+                && itemCombinaPossivelDuplicidade(item, {
+                    termos: ['hospedagem', 'hotel', 'pousada', 'diária de hospedagem']
+                });
+        });
+        if (valorHospedagemCobrada > 0 && !temItemFiscalHospedagem) {
+            pendencias.push({
+                codigo: 'hospedagem_comercial_sem_classificacao',
+                itemIndice: null,
+                campo: 'hospedagemComercial',
+                mensagem: 'Hospedagem comercial sem item fiscal correspondente. Classifique o valor antes da pré-nota.'
+            });
+        }
+
+        return pendencias;
     }
 
     function calcularResumoFiscalProposta(itens = [], opcoes = {}) {
@@ -1397,8 +1591,8 @@
             if (valorNormalizado <= 0) return;
 
             resumo.totaisPorTipoFiscal[tipoFiscalNormalizado] = arredondarMoeda((resumo.totaisPorTipoFiscal[tipoFiscalNormalizado] || 0) + valorNormalizado);
-            if (tipoFiscalNormalizado === 'locacao_bem_movel') resumo.totalLocacao += valorNormalizado;
-            if (tipoFiscalNormalizado === 'servico') resumo.totalServicos += valorNormalizado;
+            if (tipoFiscalNormalizado === 'locacao_pura_bem_movel') resumo.totalLocacao += valorNormalizado;
+            if (tipoFiscalNormalizado === 'servico' || tipoFiscalNormalizado === 'cessao_estrutura_temporaria_3_05') resumo.totalServicos += valorNormalizado;
             if (tipoFiscalNormalizado === 'mao_de_obra') resumo.totalMaoObra += valorNormalizado;
             if (tipoFiscalNormalizado === 'frete_logistica') resumo.totalFreteLogistica += valorNormalizado;
             if (tipoFiscalNormalizado === 'impressao_producao') resumo.totalImpressaoProducao += valorNormalizado;
@@ -1432,7 +1626,9 @@
                 regraFiscal,
                 valorINSS: item.valorINSS,
                 semClassificacao: !tipoFiscalOriginal,
-                verificarContador: tipoFiscal === TIPO_FISCAL_ITEM_PADRAO
+                verificarContador: Boolean(tipoFiscalOriginal)
+                    && tipoFiscalOriginal !== TIPO_FISCAL_ITEM_LEGADO
+                    && tipoFiscal === TIPO_FISCAL_ITEM_PADRAO
             });
         });
 
@@ -1470,6 +1666,13 @@
                 });
         });
         resumo.hospedagemComercialSemClassificacao = valorHospedagemCobrada > 0 && !temItemFiscalHospedagem;
+        resumo.pendenciasFiscais = obterPendenciasClassificacaoFiscalProposta({
+            itens,
+            custos: custosProposta,
+            fiscal: opcoes.fiscal,
+            evento: opcoes.evento,
+            perfilFiscalEmpresa: opcoes.perfilFiscalEmpresa
+        });
 
         Object.keys(resumo).forEach((chave) => {
             if (typeof resumo[chave] === 'number') resumo[chave] = arredondarMoeda(resumo[chave]);
@@ -1489,9 +1692,7 @@
         const decisaoManualNf = typeof opcoes.precisaNotaFiscal === 'boolean'
             ? opcoes.precisaNotaFiscal
             : null;
-        resumo.bloquearPreNota = resumo.itensSemClassificacaoFiscal > 0
-            || resumo.itensVerificarContador > 0
-            || resumo.hospedagemComercialSemClassificacao;
+        resumo.bloquearPreNota = resumo.pendenciasFiscais.length > 0;
 
         if (temBaseNfe && temBaseNfse) {
             resumo.tipoDocumentoSugerido = 'NF-e + NFS-e';
@@ -1535,6 +1736,10 @@
         if (resumo.hospedagemComercialSemClassificacao) {
             resumo.avisos.push('Hospedagem comercial sem item fiscal correspondente. A pré-nota fica bloqueada até a conferência e classificação fiscal.');
         }
+
+        resumo.pendenciasFiscais.forEach((pendencia) => {
+            if (!resumo.avisos.includes(pendencia.mensagem)) resumo.avisos.push(pendencia.mensagem);
+        });
 
         if (resumo.itensExigemConferencia > 0) {
             resumo.avisos.push('Existem tipos fiscais que exigem conferência do contador antes da emissão.');
@@ -1932,6 +2137,7 @@
     function renderConfigOrcamentoProposta(padroesOrigem = null, valorKmOrigem = null) {
         const padroes = normalizarPadroesOrcamento(padroesOrigem || config?.padroesOrcamento);
         const globais = padroes.globais || {};
+        const perfilFiscalEmpresa = obterPerfilFiscalEmpresa();
 
         preencherValorConfigOrcamento('propOrcConfigEntradaPadrao', globais.percentualEntradaPadrao ?? 50);
         preencherValorConfigOrcamento('propOrcConfigDescontoPadrao', globais.percentualDescontoPadrao || 0);
@@ -1954,6 +2160,24 @@
         if (tipoFiscal) tipoFiscal.value = normalizarTipoCalculoNF(globais.tipoCalculoFiscalPadrao, 'descontar');
         const aplicarFiscal = document.getElementById('propOrcConfigAplicarFiscalAutomaticamente');
         if (aplicarFiscal) aplicarFiscal.value = globais.aplicarFiscalAutomaticamente === true ? 'sim' : 'nao';
+        const perfilFiscalCampos = {
+            propOrcPerfilFiscalRegime: perfilFiscalEmpresa.regimeTributario,
+            propOrcPerfilFiscalCnpj: perfilFiscalEmpresa.cnpj,
+            propOrcPerfilFiscalIM: perfilFiscalEmpresa.inscricaoMunicipal,
+            propOrcPerfilFiscalMunicipio: perfilFiscalEmpresa.municipioEstabelecimento,
+            propOrcPerfilFiscalUF: perfilFiscalEmpresa.ufEstabelecimento,
+            propOrcPerfilFiscalCnaes: perfilFiscalEmpresa.cnaes.join('\n'),
+            propOrcPerfilFiscalResponsavel: perfilFiscalEmpresa.responsavelValidacao,
+            propOrcPerfilFiscalDataValidacao: perfilFiscalEmpresa.dataValidacao,
+            propOrcPerfilFiscalVigenciaInicio: perfilFiscalEmpresa.vigenciaInicio,
+            propOrcPerfilFiscalObservacoes: perfilFiscalEmpresa.observacoes
+        };
+        Object.entries(perfilFiscalCampos).forEach(([id, valor]) => {
+            const campo = document.getElementById(id);
+            if (campo) campo.value = valor;
+        });
+        const perfilFiscalValidado = document.getElementById('propOrcPerfilFiscalValidado');
+        if (perfilFiscalValidado) perfilFiscalValidado.checked = perfilFiscalEmpresa.validadoPorContador;
 
         const matrizFiscalEl = document.getElementById('propOrcConfigMatrizFiscal');
         if (matrizFiscalEl) {
@@ -2318,10 +2542,30 @@
             });
         });
 
+        const cnaes = textoSeguro(document.getElementById('propOrcPerfilFiscalCnaes')?.value, '')
+            .split(/[\n,;]+/)
+            .map((cnae) => textoSeguro(cnae, ''))
+            .filter(Boolean);
+        const perfilFiscalEmpresa = normalizarPerfilFiscalEmpresa({
+            ...obterPerfilFiscalEmpresa(),
+            regimeTributario: document.getElementById('propOrcPerfilFiscalRegime')?.value,
+            cnpj: document.getElementById('propOrcPerfilFiscalCnpj')?.value,
+            inscricaoMunicipal: document.getElementById('propOrcPerfilFiscalIM')?.value,
+            municipioEstabelecimento: document.getElementById('propOrcPerfilFiscalMunicipio')?.value,
+            ufEstabelecimento: document.getElementById('propOrcPerfilFiscalUF')?.value,
+            cnaes,
+            validadoPorContador: document.getElementById('propOrcPerfilFiscalValidado')?.checked === true,
+            responsavelValidacao: document.getElementById('propOrcPerfilFiscalResponsavel')?.value,
+            dataValidacao: document.getElementById('propOrcPerfilFiscalDataValidacao')?.value,
+            vigenciaInicio: document.getElementById('propOrcPerfilFiscalVigenciaInicio')?.value,
+            observacoes: document.getElementById('propOrcPerfilFiscalObservacoes')?.value
+        });
+
         return {
             padroes: normalizarPadroesOrcamento({ globais, categorias, categoriasOrcamento, matrizFiscal }),
             categoriasOrcamento: normalizarCategoriasOrcamentoConfig(categoriasOrcamento, categorias, globais),
-            valorKmFretePadrao: numeroNaoNegativo(document.getElementById('propOrcConfigValorKmPadrao')?.value, 0)
+            valorKmFretePadrao: numeroNaoNegativo(document.getElementById('propOrcConfigValorKmPadrao')?.value, 0),
+            perfilFiscalEmpresa
         };
     }
 
@@ -2510,7 +2754,7 @@
 
     function aplicarConfigOrcamentoProposta() {
         if (!validarCamposConfigOrcamentoProposta()) return;
-        const { padroes, categoriasOrcamento, valorKmFretePadrao } = coletarConfigOrcamentoProposta();
+        const { padroes, categoriasOrcamento, valorKmFretePadrao, perfilFiscalEmpresa } = coletarConfigOrcamentoProposta();
         const modoAplicacao = document.querySelector('input[name="propOrcConfigModoAplicacao"]:checked')?.value || 'atual';
 
         if (modoAplicacao === 'padrao' && typeof validarPermissao === 'function' && !validarPermissao('configuracao', 'Somente administrador pode salvar padrões de orçamento.')) {
@@ -2529,6 +2773,7 @@
             config.padroesOrcamento = padroes;
             config.categoriasOrcamento = categoriasOrcamento;
             config.valorKmFretePadrao = valorKmFretePadrao;
+            config.perfilFiscalEmpresa = perfilFiscalEmpresa;
         }
         categoriasOrcamentoTemporarias = null;
         matrizFiscalTemporaria = null;
@@ -3728,6 +3973,10 @@
                                     ${montarOptionsTipoFiscalItem(itemCalculado.tipoFiscal)}
                                 </select>
                             </div>
+                            <label class="prop-calc-toggle prop-item-confirmacao-locacao-pura"${itemCalculado.tipoFiscal === 'locacao_pura_bem_movel' ? '' : ' hidden'}>
+                                <input type="checkbox" class="prop-item-confirmacao-locacao-pura-check" data-change="recalcularResumoProposta"${itemCalculado.confirmacaoLocacaoPuraSeparada ? ' checked' : ''}>
+                                Confirmo que esta locação pura está separada dos serviços
+                            </label>
                             <div class="form-group">
                                 <label>Medida</label>
                                 <input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta">
@@ -3911,7 +4160,8 @@
         const politicaAlterada = modoCustoProprio !== modoOriginal;
         const item = {
             categoria: normalizarCategoriaItemProposta(linha.querySelector('.prop-item-categoria')?.value),
-            tipoFiscal: normalizarTipoFiscalItem((detalhes?.querySelector('.prop-item-tipo-fiscal') || linha.querySelector('.prop-item-tipo-fiscal'))?.value),
+            tipoFiscal: normalizarTipoFiscalPersistido((detalhes?.querySelector('.prop-item-tipo-fiscal') || linha.querySelector('.prop-item-tipo-fiscal'))?.value),
+            confirmacaoLocacaoPuraSeparada: detalhes?.querySelector('.prop-item-confirmacao-locacao-pura-check')?.checked === true,
             descricao: textoSeguro(linha.querySelector('.prop-item-descricao')?.value),
             medida: textoSeguro((detalhes?.querySelector('.prop-item-medida') || linha.querySelector('.prop-item-medida'))?.value),
             periodoDias: numeroNaoNegativo(linha.querySelector('.prop-item-periodo')?.value, 1) || 1,
@@ -4398,6 +4648,20 @@
         return arredondarMoeda(numeroNaoNegativo(pessoas, 0) * numeroNaoNegativo(diarias, 0) * numeroNaoNegativo(valorDiariaPessoa, 0));
     }
 
+    function obterContextoFiscalFormularioProposta() {
+        return {
+            fiscal: {
+                codigoServicoMunicipal: document.getElementById('propFiscalCodigoServicoMunicipal')?.value,
+                municipioIncidencia: document.getElementById('propFiscalMunicipioIncidencia')?.value,
+                ufIncidencia: document.getElementById('propFiscalUfIncidencia')?.value
+            },
+            evento: {
+                cidadeEvento: document.getElementById('propEventoCidade')?.value,
+                ufEvento: document.getElementById('propEventoUF')?.value
+            }
+        };
+    }
+
     function obterControleInternoFormulario() {
         const maoObraPessoas = inteiroNaoNegativo(document.getElementById('propMaoObraPessoas')?.value, 0);
         const maoObraValorPessoaDia = parseNumeroInput('propMaoObraValorPessoaDia');
@@ -4441,7 +4705,9 @@
         tipoCalculoNF = 'descontar',
         percentualEntrada = 50,
         controleInterno = {},
-        clientePrecisaNotaFiscal = null
+        clientePrecisaNotaFiscal = null,
+        fiscal = {},
+        evento = {}
     } = {}) {
         const itensCalculados = (Array.isArray(itens) ? itens : []).map((item) => calcularItemProposta(item || {}));
         const subtotalItens = arredondarMoeda(itensCalculados.reduce((acc, item) => acc + numeroNaoNegativo(item.valorTotal, 0), 0));
@@ -4485,14 +4751,17 @@
         const custoTotalProposta = arredondarMoeda(custoInternoItens + custoInternoTotal + custoTerceirizadoTotal + outrosCustosInternos + custoMaoObraOperacional + custoHospedagemOperacional);
         const lucroPrevisto = arredondarMoeda(valorLiquidoPrevisto - custoTotalProposta);
         const margemPrevista = valorLiquidoPrevisto > 0 ? (lucroPrevisto / valorLiquidoPrevisto) * 100 : 0;
-        const resumoFiscal = calcularResumoFiscalProposta(itensCalculados, {
+        const resumoFiscal = calcularResumoFiscalProposta(itens, {
             percentualNF: percentualNFNormalizado,
             valorBrutoProposta: valorFinalComercial,
             valorLiquidoPrevisto,
             tipoCalculoNF: tipoNF,
             custos,
             controleInterno,
-            precisaNotaFiscal: typeof clientePrecisaNotaFiscal === 'boolean' ? clientePrecisaNotaFiscal : null
+            precisaNotaFiscal: typeof clientePrecisaNotaFiscal === 'boolean' ? clientePrecisaNotaFiscal : null,
+            fiscal,
+            evento,
+            perfilFiscalEmpresa: obterPerfilFiscalEmpresa()
         });
 
         return {
@@ -4650,7 +4919,8 @@
                 tipoCalculoNF,
                 percentualEntrada,
                 controleInterno,
-                clientePrecisaNotaFiscal
+                clientePrecisaNotaFiscal,
+                ...obterContextoFiscalFormularioProposta()
             });
 
             const mapaTexto = [
@@ -4990,7 +5260,6 @@
             const el = document.getElementById(id);
             if (el) el.value = valor ?? '';
         });
-
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) {
             precisaNfEl.checked = c.precisaNotaFiscal || Boolean(c.cpfCnpj || c.razaoSocial || c.inscricaoEstadual || c.inscricaoMunicipal);
@@ -5074,6 +5343,9 @@
             cpfCnpj: textoSeguro(fiscal.cpfCnpj, cliente.cpfCnpj || cliente.documento),
             emailFiscal: textoSeguro(fiscal.emailFiscal, cliente.emailFiscal || cliente.email),
             municipioPrestacao: textoSeguro(fiscal.municipioPrestacao, evento.cidadeEvento || evento.cidade || cliente.cidadeFiscal),
+            codigoServicoMunicipal: textoSeguro(fiscal.codigoServicoMunicipal, ''),
+            municipioIncidencia: textoSeguro(fiscal.municipioIncidencia, evento.cidadeEvento || evento.cidade || ''),
+            ufIncidencia: textoSeguro(fiscal.ufIncidencia, evento.ufEvento || evento.uf || '').toUpperCase().slice(0, 2),
             descricaoFiscalSugerida: textoSeguro(fiscal.descricaoFiscalSugerida, 'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.'),
             observacoesEmissao: textoSeguro(fiscal.observacoesEmissao, 'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'),
             tipoDocumentoSugerido: textoSeguro(resumo.tipoDocumentoSugerido, fiscal.tipoDocumentoSugerido),
@@ -5215,9 +5487,11 @@
         const clientePrecisaNotaFiscalOrigem = proposta.clientePrecisaNotaFiscal === true
             || proposta.cliente?.precisaNotaFiscal === true
             || proposta.clienteSnapshot?.precisaNotaFiscal === true;
+        const evento = montarEventoNormalizado(proposta.evento || {});
+        const fiscalOrig = proposta.fiscal || proposta.dadosFiscais || {};
 
         const resumo = calcularResumoProposta({
-            itens,
+            itens: itensOrig,
             custos,
             desconto: numeroNaoNegativo(financeiroOrig.desconto, 0),
             acrescimo: numeroNaoNegativo(financeiroOrig.acrescimo, 0),
@@ -5225,7 +5499,9 @@
             tipoCalculoNF: normalizarTipoCalculoNF(financeiroOrig.tipoCalculoNF, 'descontar'),
             percentualEntrada: converterTextoPercentualParaNumero(financeiroOrig.percentualEntrada, 50, { maximo: 100 }),
             controleInterno,
-            clientePrecisaNotaFiscal: clientePrecisaNotaFiscalOrigem
+            clientePrecisaNotaFiscal: clientePrecisaNotaFiscalOrigem,
+            fiscal: fiscalOrig,
+            evento
         });
 
         const financeiro = montarFinanceiroNormalizado(financeiroOrig, resumo);
@@ -5249,7 +5525,6 @@
             observacoesComerciais: textoSeguro(escopoOrig.observacoesComerciais, escopoPadrao.observacoesComerciais)
         };
 
-        const evento = montarEventoNormalizado(proposta.evento || {});
         const clienteId = textoSeguro(
             proposta.clienteId ?? proposta.cliente?.clienteId ?? proposta.cliente?.id ?? proposta.locadorId,
             ''
@@ -5265,7 +5540,7 @@
         });
         const clienteSnapshot = montarClienteSnapshotProposta(proposta.clienteSnapshot || cliente);
         const clientePrecisaNotaFiscal = clientePrecisaNotaFiscalOrigem || cliente.precisaNotaFiscal === true;
-        const fiscal = montarFiscalPropostaNormalizado(proposta.fiscal || proposta.dadosFiscais || {}, cliente, evento, resumo.resumoFiscal);
+        const fiscal = montarFiscalPropostaNormalizado(fiscalOrig, cliente, evento, resumo.resumoFiscal);
         const id = proposta.id || Date.now();
         const anexos = normalizarAnexosProposta(proposta.anexos, id);
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
@@ -5504,7 +5779,8 @@
             tipoCalculoNF,
             percentualEntrada,
             controleInterno,
-            clientePrecisaNotaFiscal
+            clientePrecisaNotaFiscal,
+            ...obterContextoFiscalFormularioProposta()
         });
 
         const dataCriacao = textoSeguro(propostaAtual?.dataCriacao, agoraIso);
@@ -5551,6 +5827,9 @@
             cpfCnpj: clienteFormulario.cpfCnpj || clienteFormulario.documento,
             emailFiscal: clienteFormulario.emailFiscal || clienteFormulario.email,
             municipioPrestacao: textoSeguro(document.getElementById('propEventoCidade')?.value) || clienteFormulario.cidadeFiscal,
+            codigoServicoMunicipal: document.getElementById('propFiscalCodigoServicoMunicipal')?.value,
+            municipioIncidencia: document.getElementById('propFiscalMunicipioIncidencia')?.value,
+            ufIncidencia: document.getElementById('propFiscalUfIncidencia')?.value,
             descricaoFiscalSugerida: 'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.',
             observacoesEmissao: 'Conferir classificação fiscal, retenções e município de prestação com a contabilidade antes da emissão oficial.'
         }, clienteFormulario, montarEventoNormalizado({
@@ -5721,6 +6000,9 @@
             propFiscalCEP: p.cliente.cepFiscal,
             propFiscalEmail: p.cliente.emailFiscal,
             propFiscalContatoFinanceiro: p.cliente.contatoFinanceiro,
+            propFiscalCodigoServicoMunicipal: p.fiscal.codigoServicoMunicipal,
+            propFiscalMunicipioIncidencia: p.fiscal.municipioIncidencia,
+            propFiscalUfIncidencia: p.fiscal.ufIncidencia,
             propEventoNome: p.evento.nome,
             propEventoLocal: p.evento.local,
             propEventoEnderecoCompleto: p.evento.enderecoEvento,
@@ -5788,6 +6070,11 @@
             const el = document.getElementById(id);
             if (el) el.value = valor ?? '';
         });
+        ['propFiscalMunicipioIncidencia', 'propFiscalUfIncidencia'].forEach((id) => {
+            const campo = document.getElementById(id);
+            const chave = id === 'propFiscalMunicipioIncidencia' ? 'municipioIncidencia' : 'ufIncidencia';
+            if (campo) campo.dataset.edicaoManual = textoSeguro(proposta?.fiscal?.[chave], '') ? '1' : '0';
+        });
 
         const hidden = document.getElementById('propostaIdAtual');
         if (hidden) hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
@@ -5816,6 +6103,7 @@
             'propClienteCep', 'propClienteRua', 'propClienteNumero', 'propClienteComplemento', 'propClienteBairro', 'propClienteCidade', 'propClienteUf',
             'propClienteEndereco', 'propFiscalRazaoSocial', 'propFiscalNomeFantasia', 'propFiscalCpfCnpj', 'propFiscalIE', 'propFiscalIM',
             'propFiscalEndereco', 'propFiscalCidade', 'propFiscalUF', 'propFiscalCEP', 'propFiscalEmail', 'propFiscalContatoFinanceiro',
+            'propFiscalCodigoServicoMunicipal', 'propFiscalMunicipioIncidencia', 'propFiscalUfIncidencia',
             'propEventoNome', 'propEventoLocal', 'propEventoEnderecoCompleto', 'propEventoCidade', 'propEventoUF',
             'propEventoReferenciaAcesso', 'propDataMontagem', 'propHoraMontagem', 'propDataEvento', 'propHoraInicioEvento',
             'propHoraFimEvento', 'propDataDesmontagem', 'propHoraDesmontagem', 'propEventoObs',
@@ -5833,6 +6121,10 @@
         campos.forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.value = '';
+        });
+        ['propFiscalMunicipioIncidencia', 'propFiscalUfIncidencia'].forEach((id) => {
+            const campo = document.getElementById(id);
+            if (campo) campo.dataset.edicaoManual = '0';
         });
 
         const hidden = document.getElementById('propostaIdAtual');
@@ -8536,7 +8828,10 @@
             valorLiquidoPrevisto: p.financeiro.valorLiquidoPrevisto,
             tipoCalculoNF: p.financeiro.tipoCalculoNF,
             custos: p.custos,
-            precisaNotaFiscal: p.clientePrecisaNotaFiscal === true || p.cliente?.precisaNotaFiscal === true
+            precisaNotaFiscal: p.clientePrecisaNotaFiscal === true || p.cliente?.precisaNotaFiscal === true,
+            fiscal: p.fiscal,
+            evento: p.evento,
+            perfilFiscalEmpresa: obterPerfilFiscalEmpresa()
         });
         const totalServicosSeparados = arredondarMoeda(
             numeroNaoNegativo(resumoFiscal.totalServicos, 0)
@@ -8548,7 +8843,9 @@
         const tomador = textoSeguro(p.fiscal?.tomador || p.cliente.razaoSocial || p.cliente.nome, '-');
         const documento = textoSeguro(p.fiscal?.cpfCnpj || p.cliente.cpfCnpj || p.cliente.documento, '-');
         const emailFiscal = textoSeguro(p.fiscal?.emailFiscal || p.cliente.emailFiscal || p.cliente.email, '-');
-        const municipio = textoSeguro(p.fiscal?.municipioPrestacao || p.evento.cidadeEvento || p.cliente.cidadeFiscal, '-');
+        const municipio = textoSeguro(p.fiscal?.municipioIncidencia || p.fiscal?.municipioPrestacao || p.evento.cidadeEvento || p.cliente.cidadeFiscal, '-');
+        const ufIncidencia = textoSeguro(p.fiscal?.ufIncidencia || p.evento.ufEvento, '-');
+        const codigoServicoMunicipal = textoSeguro(p.fiscal?.codigoServicoMunicipal, '-');
         const descricaoFiscal = textoSeguro(
             p.fiscal?.descricaoFiscalSugerida,
             'Locação de estruturas, materiais e/ou serviços para evento conforme proposta comercial.'
@@ -8602,6 +8899,8 @@
                 ${item('CNPJ/CPF', documento)}
                 ${item('E-mail fiscal', emailFiscal)}
                 ${item('Município da prestação', municipio)}
+                ${item('UF de incidência', ufIncidencia)}
+                ${item('Código municipal do serviço', codigoServicoMunicipal)}
                 ${item('Valor de serviços', formatarMoeda(totalServicosSeparados))}
                 ${item('Valor de locação separado', formatarMoeda(resumoFiscal.totalLocacao))}
                 ${item('Base estimada de NFS-e', formatarMoeda(resumoFiscal.baseEstimadaNfse))}
@@ -8643,8 +8942,28 @@
         if (!painel || !conteudo) return;
 
         const propostaNormalizada = normalizarProposta(proposta);
-        if (propostaNormalizada.fiscal?.resumo?.bloquearPreNota) {
-            mostrarToast('Pré-nota bloqueada: confira os tipos fiscais antes de faturar.', 'warning');
+        const pendenciasFiscais = propostaNormalizada.fiscal?.resumo?.pendenciasFiscais || [];
+        if (pendenciasFiscais.length) {
+            const primeira = pendenciasFiscais[0];
+            mostrarToast(`Pré-nota bloqueada: ${primeira.mensagem}`, 'warning', 7000);
+            if (Number.isInteger(primeira.itemIndice)) {
+                const linha = document.querySelectorAll('#propostaItensBody .proposta-item-row')[primeira.itemIndice];
+                const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+                    ? linha.nextElementSibling
+                    : null;
+                if (detalhes) detalhes.hidden = false;
+                const seletor = primeira.campo === 'confirmacaoLocacaoPuraSeparada'
+                    ? '.prop-item-confirmacao-locacao-pura-check'
+                    : '.prop-item-tipo-fiscal';
+                focarPropostaSemRolagem(detalhes?.querySelector(seletor));
+            } else if (primeira.campo === 'municipioIncidencia') {
+                focarPropostaSemRolagem(document.getElementById('propFiscalMunicipioIncidencia'));
+            } else if (primeira.campo === 'ufIncidencia') {
+                focarPropostaSemRolagem(document.getElementById('propFiscalUfIncidencia'));
+            } else if (primeira.campo === 'codigoServicoMunicipal') {
+                focarPropostaSemRolagem(document.getElementById('propFiscalCodigoServicoMunicipal'));
+            }
+            return;
         }
 
         conteudo.innerHTML = montarHtmlPreNotaProposta(propostaNormalizada);
@@ -8738,6 +9057,32 @@
             const linha = campoOrigem.closest('.proposta-item-details-row')?.previousElementSibling;
             sincronizarQuantidadesOperacionaisLinhaProposta(linha);
             validarQuantidadeMistaLinhaProposta(linha);
+        });
+
+        document.addEventListener('change', (event) => {
+            const campoTipoFiscal = event.target?.closest?.('#propostaItensBody .prop-item-tipo-fiscal');
+            if (!campoTipoFiscal || campoTipoFiscal !== event.target) return;
+            const detalhes = campoTipoFiscal.closest('.proposta-item-details-row');
+            const confirmacao = detalhes?.querySelector('.prop-item-confirmacao-locacao-pura');
+            if (confirmacao) confirmacao.hidden = campoTipoFiscal.value !== 'locacao_pura_bem_movel';
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoIncidencia = event.target?.closest?.('#propFiscalMunicipioIncidencia, #propFiscalUfIncidencia');
+            if (!campoIncidencia || campoIncidencia !== event.target) return;
+            campoIncidencia.dataset.edicaoManual = '1';
+        });
+
+        document.addEventListener('input', (event) => {
+            const campoEvento = event.target?.closest?.('#propEventoCidade, #propEventoUF');
+            if (!campoEvento || campoEvento !== event.target) return;
+            const campoIncidencia = document.getElementById(
+                campoEvento.id === 'propEventoCidade' ? 'propFiscalMunicipioIncidencia' : 'propFiscalUfIncidencia'
+            );
+            if (!campoIncidencia || campoIncidencia.dataset.edicaoManual === '1') return;
+            campoIncidencia.value = campoEvento.id === 'propEventoUF'
+                ? textoSeguro(campoEvento.value, '').toUpperCase().slice(0, 2)
+                : textoSeguro(campoEvento.value, '');
         });
 
         document.addEventListener('change', (event) => {
@@ -8876,6 +9221,7 @@
     window.converterTextoMoedaParaNumero = converterTextoMoedaParaNumero;
     window.formatarMoedaProposta = formatarMoeda;
     window.calcularResumoProposta = calcularResumoProposta;
+    window.obterPendenciasClassificacaoFiscalProposta = obterPendenciasClassificacaoFiscalProposta;
     window.normalizarPadroesOrcamento = normalizarPadroesOrcamento;
     window.CATEGORIAS_ITEM_PROPOSTA = CATEGORIAS_ITEM_PROPOSTA;
     window.renderPropostas = renderPropostas;

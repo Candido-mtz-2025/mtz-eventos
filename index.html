@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.42">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.43">
 </head>
 <body>
 
@@ -916,6 +916,62 @@
                         <div id="propostaConfigPanelFiscal" class="proposta-config-tabpanel" role="tabpanel" aria-labelledby="propostaConfigTabFiscal" data-config-panel="fiscal" hidden>
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
+                                <h4>Perfil fiscal da empresa</h4>
+                                <span>Dados informativos. Regime, CNAEs, códigos e alíquotas devem ser confirmados pela contabilidade.</span>
+                            </div>
+                            <div class="proposta-config-grid proposta-config-fiscal-profile-grid">
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalRegime">Regime tributário</label>
+                                    <input type="text" id="propOrcPerfilFiscalRegime" placeholder="Preencher após validação contábil">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalCnpj">CNPJ</label>
+                                    <input type="text" id="propOrcPerfilFiscalCnpj" inputmode="numeric">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalIM">Inscrição municipal</label>
+                                    <input type="text" id="propOrcPerfilFiscalIM">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalMunicipio">Município do estabelecimento</label>
+                                    <input type="text" id="propOrcPerfilFiscalMunicipio">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalUF">UF do estabelecimento</label>
+                                    <input type="text" id="propOrcPerfilFiscalUF" maxlength="2">
+                                </div>
+                                <div class="form-group proposta-config-cnaes-field">
+                                    <label for="propOrcPerfilFiscalCnaes">CNAEs</label>
+                                    <textarea id="propOrcPerfilFiscalCnaes" rows="3" placeholder="Um CNAE por linha. Não preencher sem conferência."></textarea>
+                                </div>
+                                <label class="prop-calc-toggle proposta-config-fiscal-validado">
+                                    <input type="checkbox" id="propOrcPerfilFiscalValidado">
+                                    Perfil validado pela contabilidade
+                                </label>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalResponsavel">Responsável pela validação</label>
+                                    <input type="text" id="propOrcPerfilFiscalResponsavel">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalDataValidacao">Data da validação</label>
+                                    <input type="date" id="propOrcPerfilFiscalDataValidacao">
+                                </div>
+                                <div class="form-group">
+                                    <label for="propOrcPerfilFiscalVigenciaInicio">Início da vigência</label>
+                                    <input type="date" id="propOrcPerfilFiscalVigenciaInicio">
+                                </div>
+                                <div class="form-group proposta-config-fiscal-observacoes">
+                                    <label for="propOrcPerfilFiscalObservacoes">Observações</label>
+                                    <textarea id="propOrcPerfilFiscalObservacoes" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <div class="proposta-config-fiscal-note">
+                                <i class="bi bi-shield-exclamation"></i>
+                                <span>O perfil é global e só será persistido ao escolher “Salvar como padrão para próximos orçamentos”.</span>
+                            </div>
+                        </div>
+                        <div class="proposta-config-section">
+                            <div class="proposta-config-section-title">
                                 <h4>Configuração fiscal / impostos</h4>
                                 <span>Estimativas usadas no fechamento comercial.</span>
                             </div>
@@ -1726,6 +1782,20 @@
                             <button type="button" class="btn btn-secondary" data-action="gerarPreNotaPropostaAtual">
                                 <i class="bi bi-file-earmark-text"></i> Gerar pré-nota / dados para faturamento
                             </button>
+                        </div>
+                        <div class="proposta-fiscal-incidence-grid">
+                            <div class="form-group">
+                                <label for="propFiscalMunicipioIncidencia">Município de incidência</label>
+                                <input type="text" id="propFiscalMunicipioIncidencia" placeholder="Sugestão: local da instalação">
+                            </div>
+                            <div class="form-group">
+                                <label for="propFiscalUfIncidencia">UF de incidência</label>
+                                <input type="text" id="propFiscalUfIncidencia" maxlength="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="propFiscalCodigoServicoMunicipal">Código municipal do serviço</label>
+                                <input type="text" id="propFiscalCodigoServicoMunicipal" placeholder="Validar com a contabilidade">
+                            </div>
                         </div>
                         <div class="proposta-fiscal-metrics">
                             <div><span>Documento sugerido</span><strong id="propFiscalTipoDocumento">Conferir com contabilidade</strong></div>
@@ -2757,18 +2827,18 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.3"></script>
+    <script src="./assets/js/core/state.js?v=12.4"></script>
     <script src="./assets/js/core/utils.js?v=2.4"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.4"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.7"></script>
+    <script src="./assets/js/core/migrations.js?v=12.8"></script>
     <script src="./assets/js/core/domain-services.js?v=12.2"></script>
-    <script src="./assets/js/core/storage.js?v=12.5"></script>
+    <script src="./assets/js/core/storage.js?v=12.6"></script>
     <script src="./assets/js/ui/pwa.js?v=1.5"></script>
     <script src="./assets/js/modules/locacoes.js?v=12.7"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.10"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.11"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.4"></script>

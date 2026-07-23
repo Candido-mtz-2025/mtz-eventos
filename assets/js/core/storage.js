@@ -62,7 +62,30 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     const origemCarga = opcoes.origem || 'desconhecida';
     const baseConfig = manterConfigAtual
         ? (config || {})
-        : { rodape: 'MTZ Eventos', tel: '', email: '', logo: '', emailsPermitidos: '', adminEmails: '', valorKmFretePadrao: 0, padroesOrcamento: null, categoriasOrcamento: null };
+        : {
+            rodape: 'MTZ Eventos',
+            tel: '',
+            email: '',
+            logo: '',
+            emailsPermitidos: '',
+            adminEmails: '',
+            valorKmFretePadrao: 0,
+            padroesOrcamento: null,
+            categoriasOrcamento: null,
+            perfilFiscalEmpresa: {
+                regimeTributario: '',
+                cnpj: '',
+                inscricaoMunicipal: '',
+                municipioEstabelecimento: '',
+                ufEstabelecimento: '',
+                cnaes: [],
+                validadoPorContador: false,
+                responsavelValidacao: '',
+                dataValidacao: '',
+                vigenciaInicio: '',
+                observacoes: ''
+            }
+        };
 
     const resultadoMigracao = typeof migrarDadosParaV12 === 'function'
         ? migrarDadosParaV12(dados, { origem: origemCarga })

@@ -21967,3 +21967,53 @@ body[data-theme="mtz-premium"] #appArea :is(.table tbody tr:nth-child(even) td, 
 body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, table tbody tr:nth-child(even) td) {
     background: color-mix(in srgb, var(--app-theme-panel-bg) 90%, var(--app-theme-panel-soft) 10%) !important;
 }
+/* Adequação fiscal inicial da proposta */
+#tab-propostas .prop-item-confirmacao-locacao-pura {
+    grid-column: span 2;
+    align-self: end;
+    min-height: 42px;
+    border: 1px solid color-mix(in srgb, var(--warning, #d97706) 35%, transparent);
+    background: color-mix(in srgb, var(--warning, #d97706) 8%, transparent);
+}
+
+#tab-propostas .prop-item-confirmacao-locacao-pura[hidden] {
+    display: none;
+}
+
+#propostaConfigDrawer .proposta-config-fiscal-profile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#propostaConfigDrawer .proposta-config-cnaes-field,
+#propostaConfigDrawer .proposta-config-fiscal-observacoes {
+    grid-column: span 2;
+}
+
+#propostaConfigDrawer .proposta-config-fiscal-validado {
+    align-self: end;
+    min-height: 42px;
+}
+
+#tab-propostas .proposta-fiscal-incidence-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface, #fff) 94%, var(--primary, #2563eb) 6%);
+}
+
+@media (max-width: 760px) {
+    #propostaConfigDrawer .proposta-config-fiscal-profile-grid,
+    #tab-propostas .proposta-fiscal-incidence-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #propostaConfigDrawer .proposta-config-cnaes-field,
+    #propostaConfigDrawer .proposta-config-fiscal-observacoes,
+    #tab-propostas .prop-item-confirmacao-locacao-pura {
+        grid-column: auto;
+    }
+}

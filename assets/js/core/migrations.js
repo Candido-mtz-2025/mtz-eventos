@@ -1,6 +1,7 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.4';
+const SCHEMA_VERSION_V12 = '12.5';
 const VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS = 1;
+const VERSAO_MIGRACAO_PERFIL_FISCAL_EMPRESA = 1;
 const MODOS_CUSTO_PROPRIO_V12 = new Set(['percentual', 'manual', 'nao_calcular']);
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
@@ -237,6 +238,27 @@ function criarPadroesOrcamentoV12(valor = {}) {
         };
     });
     return { ...origem, globais, categorias, categoriasOrcamento };
+}
+
+function normalizarPerfilFiscalEmpresaV12(valor = {}) {
+    const origem = valor && typeof valor === 'object' && !Array.isArray(valor) ? valor : {};
+    const cnaesOrigem = Array.isArray(origem.cnaes)
+        ? origem.cnaes
+        : String(origem.cnaes || '').split(/[\n,;]+/);
+    return {
+        ...origem,
+        regimeTributario: String(origem.regimeTributario || '').trim(),
+        cnpj: String(origem.cnpj || '').trim(),
+        inscricaoMunicipal: String(origem.inscricaoMunicipal || '').trim(),
+        municipioEstabelecimento: String(origem.municipioEstabelecimento || '').trim(),
+        ufEstabelecimento: String(origem.ufEstabelecimento || '').trim().toUpperCase().slice(0, 2),
+        cnaes: [...new Set(cnaesOrigem.map((cnae) => String(cnae || '').trim()).filter(Boolean))],
+        validadoPorContador: origem.validadoPorContador === true,
+        responsavelValidacao: String(origem.responsavelValidacao || '').trim(),
+        dataValidacao: String(origem.dataValidacao || '').trim(),
+        vigenciaInicio: String(origem.vigenciaInicio || '').trim(),
+        observacoes: String(origem.observacoes || '').trim()
+    };
 }
 
 function criarPermissoesPadraoV12(perfil) {
@@ -590,7 +612,9 @@ function migrarItemPropostaParaV12(itemOriginal, contexto = {}) {
                 textoSeguro(contexto.dataMigracaoIso, '')
             )
         },
-        usarPadraoCalculo: !temCalculoSalvo,
+        usarPadraoCalculo: typeof item.usarPadraoCalculo === 'boolean'
+            ? item.usarPadraoCalculo
+            : !temCalculoSalvo,
         observacoes: textoSeguro(item.observacoes, '')
     };
 }
@@ -916,7 +940,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
             adminEmails: '',
             valorKmFretePadrao: 0,
             padroesOrcamento: null,
-            categoriasOrcamento: null
+            categoriasOrcamento: null,
+            perfilFiscalEmpresa: null
         }),
         versao: SCHEMA_VERSION_V12
     };
@@ -1002,6 +1027,23 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         contexto.logs.push(baseJaInicializada
             ? 'Política de custos próprios preservada em 20% para a base existente.'
             : 'Política de custos próprios criada sem cálculo automático para a instalação vazia.');
+    }
+
+    const perfilFiscalJaMigrado = inteiroNaoNegativo(
+        migracoesConfig.perfilFiscalEmpresa,
+        0
+    ) >= VERSAO_MIGRACAO_PERFIL_FISCAL_EMPRESA;
+    if (!perfilFiscalJaMigrado) {
+        dadosMigrados.config.perfilFiscalEmpresa = normalizarPerfilFiscalEmpresaV12(
+            dadosMigrados.config.perfilFiscalEmpresa
+        );
+        migracoesConfig.perfilFiscalEmpresa = VERSAO_MIGRACAO_PERFIL_FISCAL_EMPRESA;
+        contexto.houveMudanca = true;
+        contexto.logs.push('Perfil fiscal da empresa preparado sem assumir regime, CNAE, código de serviço ou alíquota.');
+    } else {
+        dadosMigrados.config.perfilFiscalEmpresa = normalizarPerfilFiscalEmpresaV12(
+            dadosMigrados.config.perfilFiscalEmpresa
+        );
     }
 
     dadosMigrados.config.migracoes = migracoesConfig;
