@@ -273,6 +273,107 @@
         }
     }
 
+    function limparDestaquesPendenciaProposta() {
+        document.querySelectorAll('#tab-propostas .proposta-validation-target').forEach((elemento) => {
+            elemento.classList.remove('proposta-validation-target');
+            if (!elemento.validationMessage) elemento.removeAttribute('aria-invalid');
+        });
+    }
+
+    function posicionarCampoPendenciaProposta(campo, mensagem = '', opcoes = {}) {
+        if (!(campo instanceof HTMLElement)) {
+            if (opcoes.exibirMensagem !== false && mensagem) {
+                mostrarToast(mensagem, 'erro', 5600);
+            }
+            return;
+        }
+
+        const atraso = Number.isFinite(Number(opcoes.atraso))
+            ? Math.max(0, Number(opcoes.atraso))
+            : 80;
+        const exibirMensagem = opcoes.exibirMensagem !== false && Boolean(mensagem);
+
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                if (!document.contains(campo)) return;
+
+                limparDestaquesPendenciaProposta();
+                campo.classList.add('proposta-validation-target');
+                campo.setAttribute('aria-invalid', 'true');
+                campo.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+                if (exibirMensagem) {
+                    mostrarToast(mensagem, 'erro', 5600);
+                }
+
+                const centralizarImediatamente = () => {
+                    const raiz = document.documentElement;
+                    const corpo = document.body;
+                    const rolagemRaizAnterior = {
+                        valor: raiz.style.getPropertyValue('scroll-behavior'),
+                        prioridade: raiz.style.getPropertyPriority('scroll-behavior')
+                    };
+                    const rolagemCorpoAnterior = {
+                        valor: corpo.style.getPropertyValue('scroll-behavior'),
+                        prioridade: corpo.style.getPropertyPriority('scroll-behavior')
+                    };
+                    raiz.style.setProperty('scroll-behavior', 'auto', 'important');
+                    corpo.style.setProperty('scroll-behavior', 'auto', 'important');
+                    campo.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+                    const viewport = window.visualViewport;
+                    const retangulo = campo.getBoundingClientRect();
+                    const alturaViewport = viewport?.height || window.innerHeight;
+                    const topoViewport = viewport?.offsetTop || 0;
+                    if (retangulo.top < topoViewport + 16 || retangulo.bottom > topoViewport + alturaViewport - 16) {
+                        const destino = Math.max(
+                            0,
+                            (window.scrollY || window.pageYOffset || 0)
+                                + retangulo.top
+                                - topoViewport
+                                - ((alturaViewport - retangulo.height) / 2)
+                        );
+                        raiz.scrollTop = destino;
+                        corpo.scrollTop = destino;
+                    }
+                    raiz.style.setProperty('scroll-behavior', rolagemRaizAnterior.valor, rolagemRaizAnterior.prioridade);
+                    corpo.style.setProperty('scroll-behavior', rolagemCorpoAnterior.valor, rolagemCorpoAnterior.prioridade);
+                };
+
+                requestAnimationFrame(() => {
+                    centralizarImediatamente();
+                    focarPropostaSemRolagem(campo);
+                });
+
+                const manterVisivelEFocado = (reportar = false) => {
+                    if (!document.contains(campo)) return;
+
+                    const viewport = window.visualViewport;
+                    const topoViewport = viewport?.offsetTop || 0;
+                    const alturaViewport = viewport?.height || window.innerHeight;
+                    const limiteSuperior = topoViewport + 16;
+                    const limiteInferior = topoViewport + alturaViewport - 16;
+                    const retangulo = campo.getBoundingClientRect();
+
+                    if (retangulo.top < limiteSuperior || retangulo.bottom > limiteInferior) {
+                        centralizarImediatamente();
+                    }
+
+                    focarPropostaSemRolagem(campo);
+                    if (reportar) campo.reportValidity?.();
+                };
+
+                setTimeout(() => manterVisivelEFocado(true), 220);
+                setTimeout(() => manterVisivelEFocado(false), 520);
+                setTimeout(() => manterVisivelEFocado(false), 1500);
+                setTimeout(() => manterVisivelEFocado(false), 2300);
+                setTimeout(() => {
+                    campo.classList.remove('proposta-validation-target');
+                    if (!campo.validationMessage) campo.removeAttribute('aria-invalid');
+                }, 4200);
+            }, atraso);
+        });
+    }
+
     function normalizarEtapaFormularioProposta(alvo = 'cliente') {
         const valor = String(alvo || '').trim();
         if (ETAPAS_GUIADAS_PROPOSTA.includes(valor)) return valor;
@@ -4365,11 +4466,13 @@
             });
             detalhes.hidden = false;
             atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), true);
-            mostrarToast(inconsistencia.mensagem, 'erro', 5200);
         }
         if (opcoes.focar === true) {
-            focarPropostaSemRolagem(campoAlvo);
-            campoAlvo?.reportValidity?.();
+            posicionarCampoPendenciaProposta(campoAlvo, inconsistencia.mensagem, {
+                exibirMensagem: opcoes.exibirMensagem === true
+            });
+        } else if (opcoes.exibirMensagem === true) {
+            mostrarToast(inconsistencia.mensagem, 'erro', 5200);
         }
 
         return false;
@@ -5660,15 +5763,29 @@
         if (!pendencia?.secao) return;
         const etapa = normalizarEtapaFormularioProposta(pendencia.secao);
         const secaoReal = obterSecaoRealFormularioProposta(etapa);
+        const campoPadraoPorEtapa = {
+            cliente: 'propClienteNome',
+            evento: 'propEventoNome',
+            itens: 'propBtnAdicionarItem',
+            logistica: 'propFreteDistanciaKm',
+            comercial: 'propDesconto',
+            revisao: 'propIncluso'
+        };
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
         mostrarSecaoFormularioProposta(etapa, { semRolagem: true, foco: false, ignorarValidacao: true });
 
         setTimeout(() => {
-            const campo = pendencia.campo ? document.getElementById(pendencia.campo) : null;
+            const campoId = pendencia.campo || campoPadraoPorEtapa[etapa];
+            const campo = campoId ? document.getElementById(campoId) : null;
             const alvo = campo || document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
-            alvo?.scrollIntoView?.({ behavior: 'smooth', block: campo ? 'center' : 'start', inline: 'nearest' });
-            focarPropostaSemRolagem(campo);
-            campo?.reportValidity?.();
+            if (campo) {
+                posicionarCampoPendenciaProposta(campo, pendencia.mensagem || 'Revise o campo destacado para continuar.');
+                return;
+            }
+
+            alvo?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            destacarAlvoAtalho(alvo, 1800);
+            if (pendencia.mensagem) mostrarToast(pendencia.mensagem, 'erro', 5600);
         }, 80);
     }
 
@@ -5729,9 +5846,10 @@
         if (!pendencias.length) return true;
 
         const primeira = pendencias[0];
-        mostrarToast(primeira.mensagem, 'erro');
         if (opcoes.focar !== false) {
             focarPendenciaProposta(primeira);
+        } else {
+            mostrarToast(primeira.mensagem, 'erro', 5600);
         }
         return false;
     }
@@ -5764,7 +5882,7 @@
         if (!pendencias.length) return true;
 
         const detalhes = pendencias.map((item) => item.rotulo).join(', ');
-        mostrarToast(`Complete os dados fiscais antes de ${acao}: ${detalhes}.`, 'erro', 6200);
+        const mensagem = `Complete os dados fiscais antes de ${acao}: ${detalhes}.`;
 
         const detalhesFiscais = document.querySelector('#tab-propostas .proposta-fiscal-details');
         if (detalhesFiscais) {
@@ -5775,10 +5893,12 @@
 
         if (opcoes.focar !== false) {
             focarPendenciaProposta({
-                secao: 'dados',
+                secao: 'cliente',
                 campo: pendencias[0]?.campo || 'propFiscalRazaoSocial',
-                mensagem: 'Complete os dados fiscais antes de finalizar.'
+                mensagem
             });
+        } else {
+            mostrarToast(mensagem, 'erro', 6200);
         }
 
         return false;
@@ -9057,8 +9177,9 @@
         `;
     }
 
-    function focarPendenciaFiscalProposta(pendencia) {
+    function focarPendenciaFiscalProposta(pendencia, opcoes = {}) {
         if (!pendencia) return;
+        const mensagem = opcoes.mensagem || pendencia.mensagem || 'Revise a pendência fiscal destacada para continuar.';
 
         const camposDoItem = new Set(['tipoFiscal', 'confirmacaoLocacaoPuraSeparada']);
         if (Number.isInteger(pendencia.itemIndice) && camposDoItem.has(pendencia.campo)) {
@@ -9074,8 +9195,7 @@
                 ? '.prop-item-confirmacao-locacao-pura-check'
                 : '.prop-item-tipo-fiscal';
             const campoItem = detalhes?.querySelector(seletor);
-            campoItem?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-            focarPropostaSemRolagem(campoItem);
+            posicionarCampoPendenciaProposta(campoItem, mensagem);
             return;
         }
 
@@ -9087,7 +9207,8 @@
         if (camposRevisao[pendencia.campo]) {
             focarPendenciaProposta({
                 secao: 'revisao',
-                campo: camposRevisao[pendencia.campo]
+                campo: camposRevisao[pendencia.campo],
+                mensagem
             });
             return;
         }
@@ -9095,7 +9216,8 @@
         if (pendencia.campo === 'hospedagemComercial') {
             focarPendenciaProposta({
                 secao: 'itens',
-                campo: 'propBtnAdicionarItem'
+                campo: 'propBtnAdicionarItem',
+                mensagem
             });
             return;
         }
@@ -9105,8 +9227,7 @@
             mostrarAbaConfigOrcamentoProposta('fiscal', { manterRolagem: true });
             setTimeout(() => {
                 const campoPerfil = document.getElementById('propOrcPerfilFiscalValidado');
-                campoPerfil?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                focarPropostaSemRolagem(campoPerfil);
+                posicionarCampoPendenciaProposta(campoPerfil, mensagem);
             }, 80);
         }
     }
@@ -9129,8 +9250,9 @@
         const pendenciasFiscais = propostaNormalizada.fiscal?.resumo?.pendenciasFiscais || [];
         if (pendenciasFiscais.length) {
             const primeira = pendenciasFiscais[0];
-            mostrarToast(`Pré-nota bloqueada: ${primeira.mensagem}`, 'warning', 7000);
-            focarPendenciaFiscalProposta(primeira);
+            focarPendenciaFiscalProposta(primeira, {
+                mensagem: `Pré-nota bloqueada: ${primeira.mensagem}`
+            });
             return;
         }
 
