@@ -67,6 +67,10 @@ function existeCamadaInterfaceAberta() {
     const seletores = [
         '.proposta-config-drawer.is-open',
         '.modal.active',
+        '.modal.show',
+        '.modal[aria-hidden="false"]',
+        '.drawer.is-open',
+        '.offcanvas.show',
         'dialog[open]',
         '[role="dialog"][aria-modal="true"]'
     ].join(',');

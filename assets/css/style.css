@@ -20611,6 +20611,12 @@ body:has(dialog[open]) .pwa-install-button {
     background: #fef3c7;
 }
 
+.proposta-step-status[data-status="pendente"] {
+    color: #9f1239;
+    background: #ffe4e6;
+    border: 1px solid #fecdd3;
+}
+
 .proposta-guided-layout {
     display: grid;
     grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
@@ -20818,6 +20824,14 @@ body[data-theme="mtz-premium"] #appArea .proposta-step-status,
 body[data-theme="mtz-gold"] #appArea .proposta-step-status {
     background: var(--app-theme-panel-muted);
     color: var(--app-theme-text-soft);
+}
+
+body[data-theme="dark"] #appArea .proposta-step-status[data-status="pendente"],
+body[data-theme="mtz-premium"] #appArea .proposta-step-status[data-status="pendente"],
+body[data-theme="mtz-gold"] #appArea .proposta-step-status[data-status="pendente"] {
+    color: #fecdd3 !important;
+    background: rgba(190, 24, 93, 0.2) !important;
+    border-color: rgba(251, 113, 133, 0.55) !important;
 }
 
 @media (max-width: 1180px) {
@@ -21538,21 +21552,74 @@ body[data-theme="mtz-gold"] #appArea :is(.config-budget-rule, .proposta-config-t
 }
 
 @media (max-width: 640px) {
-    #appArea > header .header-actions {
+    #appArea > header .container {
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
+        padding-inline: 12px !important;
         box-sizing: border-box !important;
     }
 
-    #appArea > header #headerUser.header-user {
+    #appArea > header .logo {
         width: 100% !important;
-        min-width: 0 !important;
         max-width: 100% !important;
-        flex-basis: 100% !important;
+        min-width: 0 !important;
+    }
+
+    #appArea > header .header-actions {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+        box-sizing: border-box !important;
+        transform: none !important;
+    }
+
+    #appArea > header #headerUser.header-user {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        flex-basis: auto !important;
         margin-right: 0 !important;
         padding-inline: 10px !important;
         box-sizing: border-box !important;
+    }
+
+    #appArea > header #headerUser.header-user > div {
+        min-width: 0 !important;
+    }
+
+    #appArea > header #syncBadge.sync-badge {
+        min-width: 94px !important;
+        max-width: 94px !important;
+        margin: 0 !important;
+        padding-inline: 10px !important;
+    }
+
+    #appArea > header .header-notification-btn {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        max-height: 44px !important;
+        flex-basis: 44px !important;
+    }
+
+    #tab-propostas,
+    #tab-propostas .propostas-subpanel,
+    #tab-propostas .proposta-mode-toolbar,
+    #tab-propostas .proposta-guided-stepper,
+    #tab-propostas .proposta-guided-layout,
+    #tab-propostas .proposta-guided-main,
+    #tab-propostas .proposta-form-section,
+    #tab-propostas .proposta-items-table-wrap {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
     }
 }
 

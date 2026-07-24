@@ -303,6 +303,23 @@
         }
     }
 
+    function associarRotulosCamposProposta(raiz = document.getElementById('tab-propostas')) {
+        if (!(raiz instanceof HTMLElement)) return;
+
+        raiz.querySelectorAll('.form-group').forEach((grupo) => {
+            const rotulo = grupo.querySelector(':scope > label');
+            const campo = grupo.querySelector(':scope > input, :scope > select, :scope > textarea');
+            if (!(rotulo instanceof HTMLLabelElement) || !(campo instanceof HTMLElement)) return;
+
+            const textoRotulo = textoSeguro(rotulo.textContent);
+            if (campo.id) {
+                rotulo.htmlFor = campo.id;
+            } else if (textoRotulo && !campo.hasAttribute('aria-label') && !campo.hasAttribute('aria-labelledby')) {
+                campo.setAttribute('aria-label', textoRotulo);
+            }
+        });
+    }
+
     function obterResumoAtualFormularioProposta(itensInformados = null) {
         const itens = Array.isArray(itensInformados) ? itensInformados : coletarItensFormulario();
         const custos = obterCustosFormulario();
@@ -2230,6 +2247,7 @@
                 ${categorias.map((categoria) => montarLinhaConfigCategoriaOrcamento(categoria, globais)).join('')}
             </div>
         `;
+        associarRotulosCamposProposta(document.getElementById('propostaConfigDrawer'));
     }
 
     function montarEditorCategoriaConfigOrcamento(categoria, opcoes = {}) {
@@ -2952,6 +2970,12 @@
             painel.hidden = !ativo;
             painel.classList.toggle('is-active', ativo);
         });
+
+        const abaAtiva = document.querySelector(`[data-proposta-form-tab="${etapa}"]`);
+        const painelAtivo = document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
+        if (abaAtiva?.id && painelAtivo) {
+            painelAtivo.setAttribute('aria-labelledby', abaAtiva.id);
+        }
 
         atualizarExperienciaGuiadaProposta();
         if (etapa === 'revisao') {
@@ -3918,7 +3942,16 @@
     }
 
     function criarLinhaItemProposta(item = {}) {
-        const itemCalculado = calcularItemProposta(item);
+        const itemNovo = Object.keys(item || {}).length === 0;
+        const itemCalculadoBase = calcularItemProposta(item);
+        const itemCalculado = itemNovo
+            ? {
+                ...itemCalculadoBase,
+                quantidade: 1,
+                quantidadePropria: itemCalculadoBase.origemCusto === 'proprio' ? 1 : 0,
+                quantidadeTerceirizada: 0
+            }
+            : itemCalculadoBase;
         const descricao = sanitizar(itemCalculado.descricao);
         const medida = sanitizar(itemCalculado.medida);
         const observacoes = sanitizar(itemCalculado.observacoes);
@@ -3930,26 +3963,26 @@
         return `
             <tr class="proposta-item-row" data-categoria-atual="${sanitizar(itemCalculado.categoria)}">
                 <td data-label="Categoria comercial" class="proposta-item-col-categoria">
-                    <select class="prop-item-categoria" data-change="recalcularResumoProposta">
+                    <select class="prop-item-categoria" data-change="recalcularResumoProposta" aria-label="Categoria comercial do item">
                         ${montarOptionsCategoriaItemProposta(itemCalculado.categoria)}
                     </select>
                 </td>
-                <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta"></td>
-                <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta"></td>
-                <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta"></td>
-                <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></td>
-                <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly></td>
+                <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta" aria-label="Descrição do item"></td>
+                <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta" aria-label="Quantidade comercial do item"></td>
+                <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta" aria-label="Período em dias do item"></td>
+                <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta" aria-label="Valor unitário do item"></td>
+                <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly aria-label="Total do item"></td>
                 <td class="col-actions proposta-item-actions-cell" data-label="Ações">
                     <div class="actions-cell proposta-item-actions">
-                        <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn proposta-item-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de cálculo">
+                        <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn proposta-item-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de cálculo" aria-label="Abrir detalhes do item">
                             <i class="bi bi-chevron-down"></i>
                             <span>Detalhes</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-info table-action-btn proposta-item-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item">
+                        <button type="button" class="btn btn-sm btn-info table-action-btn proposta-item-action-btn" data-action="duplicarLinhaItemProposta" data-arg="__this__" title="Duplicar item" aria-label="Duplicar item">
                             <i class="bi bi-files"></i>
                             <span>Duplicar</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-danger table-action-btn proposta-item-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item">
+                        <button type="button" class="btn btn-sm btn-danger table-action-btn proposta-item-action-btn" data-action="removerLinhaItemProposta" data-arg="__this__" title="Remover item" aria-label="Remover item">
                             <i class="bi bi-trash"></i>
                             <span>Remover</span>
                         </button>
@@ -4212,7 +4245,7 @@
             ? `Item ${indice + 1} (${descricao})`
             : `Item ${indice + 1}`;
 
-        if (!descricao && quantidade <= 0) return null;
+        if (!descricao) return null;
 
         if (!Number.isFinite(quantidade) || quantidade < 0) {
             return {
@@ -4443,6 +4476,7 @@
         if (!tbody) return;
         const lista = Array.isArray(itens) && itens.length ? itens : [{}];
         tbody.innerHTML = lista.map((item) => criarLinhaItemProposta(item)).join('');
+        associarRotulosCamposProposta(tbody);
         recalcularResumoProposta();
         atualizarBotaoExpandirTodosItensProposta(false);
     }
@@ -4451,6 +4485,7 @@
         const tbody = document.getElementById('propostaItensBody');
         if (!tbody) return;
         tbody.insertAdjacentHTML('beforeend', criarLinhaItemProposta({}));
+        associarRotulosCamposProposta(tbody);
         recalcularResumoProposta();
         const linhas = Array.from(tbody.querySelectorAll('.proposta-item-row'));
         const ultimaDescricao = linhas[linhas.length - 1]?.querySelector('.prop-item-descricao');
@@ -4483,6 +4518,7 @@
             : linha;
         const item = coletarItemDaLinhaProposta(linha);
         detalhes.insertAdjacentHTML('afterend', criarLinhaItemProposta(item));
+        associarRotulosCamposProposta(document.getElementById('propostaItensBody'));
         recalcularResumoProposta();
         const novaLinha = detalhes.nextElementSibling;
         setTimeout(() => {
@@ -4504,6 +4540,7 @@
     function atualizarBotaoDetalhesItemProposta(botao, aberto) {
         if (!botao) return;
         botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+        botao.setAttribute('aria-label', aberto ? 'Ocultar detalhes do item' : 'Abrir detalhes do item');
         const icon = botao.querySelector('i');
         if (icon) {
             icon.classList.toggle('bi-chevron-down', !aberto);
@@ -5621,16 +5658,18 @@
 
     function focarPendenciaProposta(pendencia) {
         if (!pendencia?.secao) return;
+        const etapa = normalizarEtapaFormularioProposta(pendencia.secao);
+        const secaoReal = obterSecaoRealFormularioProposta(etapa);
         mostrarSubAbaPropostas('formulario', { semRolagem: true, foco: false });
-        mostrarSecaoFormularioProposta(pendencia.secao, { semRolagem: true, foco: false });
+        mostrarSecaoFormularioProposta(etapa, { semRolagem: true, foco: false, ignorarValidacao: true });
 
         setTimeout(() => {
-            if (usuarioEditandoProposta()) return;
             const campo = pendencia.campo ? document.getElementById(pendencia.campo) : null;
-            const alvo = campo || document.getElementById(`propostaSecao${pendencia.secao[0]?.toUpperCase() || ''}${pendencia.secao.slice(1)}`);
-            alvo?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-            focarPropostaSemRolagem(campo, true);
-        }, 120);
+            const alvo = campo || document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
+            alvo?.scrollIntoView?.({ behavior: 'smooth', block: campo ? 'center' : 'start', inline: 'nearest' });
+            focarPropostaSemRolagem(campo);
+            campo?.reportValidity?.();
+        }, 80);
     }
 
     function obterPendenciasPropostaPronta(proposta, opcoes = {}) {
@@ -5646,25 +5685,25 @@
         const valorFinalComercial = obterValorFinalComercial(p);
 
         if (!textoSeguro(p.cliente?.nome)) {
-            pendencias.push({ secao: 'dados', campo: 'propClienteNome', mensagem: 'Informe o nome/empresa do cliente antes de gerar a proposta.' });
+            pendencias.push({ secao: 'cliente', campo: 'propClienteNome', mensagem: 'Informe o nome/empresa do cliente antes de gerar a proposta.' });
         }
         if (!textoSeguro(p.cliente?.telefone) && !textoSeguro(p.cliente?.email)) {
-            pendencias.push({ secao: 'dados', campo: 'propClienteTelefone', mensagem: 'Informe telefone ou e-mail do cliente para contato comercial.' });
+            pendencias.push({ secao: 'cliente', campo: 'propClienteTelefone', mensagem: 'Informe telefone ou e-mail do cliente para contato comercial.' });
         }
         if (!textoSeguro(p.evento?.nome)) {
-            pendencias.push({ secao: 'dados', campo: 'propEventoNome', mensagem: 'Informe o nome do evento antes de finalizar a proposta.' });
+            pendencias.push({ secao: 'evento', campo: 'propEventoNome', mensagem: 'Informe o nome do evento antes de finalizar a proposta.' });
         }
         if (!textoSeguro(p.evento?.dataEvento)) {
-            pendencias.push({ secao: 'dados', campo: 'propDataEvento', mensagem: 'Informe a data do evento antes de gerar PDF ou converter.' });
+            pendencias.push({ secao: 'evento', campo: 'propDataEvento', mensagem: 'Informe a data do evento antes de gerar PDF ou converter.' });
         }
         if (modo === 'conversao' && !textoSeguro(p.evento?.dataMontagem)) {
-            pendencias.push({ secao: 'dados', campo: 'propDataMontagem', mensagem: 'Informe a data de montagem antes de converter em locação.' });
+            pendencias.push({ secao: 'evento', campo: 'propDataMontagem', mensagem: 'Informe a data de montagem antes de converter em locação.' });
         }
         if (modo === 'conversao' && !textoSeguro(p.evento?.dataDesmontagem)) {
-            pendencias.push({ secao: 'dados', campo: 'propDataDesmontagem', mensagem: 'Informe a data de desmontagem antes de converter em locação.' });
+            pendencias.push({ secao: 'evento', campo: 'propDataDesmontagem', mensagem: 'Informe a data de desmontagem antes de converter em locação.' });
         }
         if (!parseDataIso(p.financeiro?.validadePropostaData)) {
-            pendencias.push({ secao: 'dados', campo: 'propValidadeData', mensagem: 'Informe uma validade para a proposta.' });
+            pendencias.push({ secao: 'cliente', campo: 'propValidadeData', mensagem: 'Informe uma validade para a proposta.' });
         }
         if (!itensValidos.length) {
             pendencias.push({ secao: 'itens', campo: null, mensagem: 'Adicione pelo menos um item com descrição, quantidade e valor maior que zero.' });
@@ -5672,10 +5711,6 @@
         if (valorFinalComercial <= 0) {
             pendencias.push({ secao: 'itens', campo: null, mensagem: 'O valor final da proposta precisa ser maior que zero.' });
         }
-        if (!textoSeguro(p.financeiro?.condicaoPagamento)) {
-            pendencias.push({ secao: 'fechamento', campo: 'propCondicaoPagamento', mensagem: 'Informe a condição de pagamento antes de enviar a proposta.' });
-        }
-
         return pendencias;
     }
 
@@ -7969,9 +8004,11 @@
         );
         const pagamentoDividido = percentualEntrada > 0 && percentualSaldo > 0;
         const formaPagamentoLabel = rotuloFormaPagamento(p.financeiro.formaPagamento);
-        const condicaoPagamentoLabel = pagamentoDividido
-            ? `${formatarPercentual(percentualEntrada)} no fechamento e ${formatarPercentual(percentualSaldo)} conforme condição acordada`
-            : p.financeiro.condicaoPagamento;
+        const condicaoPagamentoPersonalizada = textoSeguro(p.financeiro.condicaoPagamento, '');
+        const condicaoPagamentoLabel = condicaoPagamentoPersonalizada
+            || (pagamentoDividido
+                ? `${formatarPercentual(percentualEntrada)} no fechamento e ${formatarPercentual(percentualSaldo)} conforme condição acordada`
+                : '-');
 
         const frete = numeroNaoNegativo(p.custos.frete, 0);
         const totalCustosAdicionais = numeroNaoNegativo(p.financeiro.totalCustosAdicionais, 0);
@@ -8460,6 +8497,99 @@
                     font-size:6.8pt;
                 }
                 .proposta-v2-footer span:last-child { text-align:right; }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-cliente-page,
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-cliente-page :is(h1, h2, h3, h4, h5, h6, p, small, strong, span, dt, dd, th, td, div) {
+                    color:#172033 !important;
+                    text-shadow:none !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-cliente-page,
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-header,
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-acceptance {
+                    background:#ffffff !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-header {
+                    border-bottom-color:#d9e1ec !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] :is(
+                    .proposta-v2-brand h1,
+                    .proposta-v2-meta > div strong,
+                    .proposta-v2-identity h2,
+                    .proposta-v2-schedule strong,
+                    .proposta-v2-title-row h2,
+                    .proposta-v2-items td.total,
+                    .proposta-v2-items td.description strong,
+                    .proposta-v2-summary-line strong
+                ) {
+                    color:#101828 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] :is(
+                    .proposta-v2-brand strong,
+                    .proposta-v2-meta dd,
+                    .proposta-v2-data-line strong,
+                    .proposta-v2-items td,
+                    .proposta-v2-notes strong,
+                    .proposta-v2-responsible strong
+                ) {
+                    color:#344054 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] :is(
+                    .proposta-v2-brand small,
+                    .proposta-v2-meta > div span,
+                    .proposta-v2-meta dt,
+                    .proposta-v2-data-line span,
+                    .proposta-v2-schedule span,
+                    .proposta-v2-title-row small,
+                    .proposta-v2-items td.description small,
+                    .proposta-v2-items td.empty,
+                    .proposta-v2-summary-line span,
+                    .proposta-v2-notes p,
+                    .proposta-v2-responsible
+                ) {
+                    color:#667085 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] :is(
+                    .proposta-v2-kicker,
+                    .proposta-v2-section-label,
+                    .proposta-v2-title-row span
+                ) {
+                    color:#1f5fc4 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-schedule {
+                    background:#f4f7fb !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] :is(
+                    .proposta-v2-schedule small,
+                    .proposta-v2-signatures div
+                ) {
+                    color:#475467 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-items :is(table, tbody, tr, td) {
+                    background:#ffffff !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-items th {
+                    background:#173d75 !important;
+                    border-color:#173d75 !important;
+                    color:#ffffff !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-items td {
+                    border-bottom-color:#e6eaf0 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-total {
+                    background:#173d75 !important;
+                    color:#ffffff !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-total :is(span, strong) {
+                    color:#ffffff !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-total small {
+                    color:#d8e6f8 !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-notes {
+                    background:#f8fafc !important;
+                }
+                #appArea #printArea[data-pdf-tipo="proposta-cliente-v2"] .proposta-v2-footer {
+                    color:#7b8494 !important;
+                }
                 @media print {
                     html, body { margin:0 !important; padding:0 !important; background:#ffffff !important; }
                     #printArea[data-pdf-tipo="proposta-cliente-v2"] { margin:0 !important; padding:0 !important; background:#ffffff !important; }
@@ -8927,6 +9057,60 @@
         `;
     }
 
+    function focarPendenciaFiscalProposta(pendencia) {
+        if (!pendencia) return;
+
+        const camposDoItem = new Set(['tipoFiscal', 'confirmacaoLocacaoPuraSeparada']);
+        if (Number.isInteger(pendencia.itemIndice) && camposDoItem.has(pendencia.campo)) {
+            mostrarSecaoFormularioProposta('itens', { semRolagem: true, foco: false, ignorarValidacao: true });
+            const linha = document.querySelectorAll('#propostaItensBody .proposta-item-row')[pendencia.itemIndice];
+            const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
+                ? linha.nextElementSibling
+                : null;
+            if (detalhes) detalhes.hidden = false;
+            atualizarBotaoDetalhesItemProposta(linha?.querySelector('.prop-details-toggle-btn'), true);
+
+            const seletor = pendencia.campo === 'confirmacaoLocacaoPuraSeparada'
+                ? '.prop-item-confirmacao-locacao-pura-check'
+                : '.prop-item-tipo-fiscal';
+            const campoItem = detalhes?.querySelector(seletor);
+            campoItem?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            focarPropostaSemRolagem(campoItem);
+            return;
+        }
+
+        const camposRevisao = {
+            municipioIncidencia: 'propFiscalMunicipioIncidencia',
+            ufIncidencia: 'propFiscalUfIncidencia',
+            codigoServicoMunicipal: 'propFiscalCodigoServicoMunicipal'
+        };
+        if (camposRevisao[pendencia.campo]) {
+            focarPendenciaProposta({
+                secao: 'revisao',
+                campo: camposRevisao[pendencia.campo]
+            });
+            return;
+        }
+
+        if (pendencia.campo === 'hospedagemComercial') {
+            focarPendenciaProposta({
+                secao: 'itens',
+                campo: 'propBtnAdicionarItem'
+            });
+            return;
+        }
+
+        if (pendencia.campo === 'perfilFiscalEmpresa') {
+            abrirConfigOrcamentoProposta();
+            mostrarAbaConfigOrcamentoProposta('fiscal', { manterRolagem: true });
+            setTimeout(() => {
+                const campoPerfil = document.getElementById('propOrcPerfilFiscalValidado');
+                campoPerfil?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+                focarPropostaSemRolagem(campoPerfil);
+            }, 80);
+        }
+    }
+
     function gerarPreNotaPropostaAtual() {
         if (!validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })) {
             return;
@@ -8946,23 +9130,7 @@
         if (pendenciasFiscais.length) {
             const primeira = pendenciasFiscais[0];
             mostrarToast(`Pré-nota bloqueada: ${primeira.mensagem}`, 'warning', 7000);
-            if (Number.isInteger(primeira.itemIndice)) {
-                const linha = document.querySelectorAll('#propostaItensBody .proposta-item-row')[primeira.itemIndice];
-                const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
-                    ? linha.nextElementSibling
-                    : null;
-                if (detalhes) detalhes.hidden = false;
-                const seletor = primeira.campo === 'confirmacaoLocacaoPuraSeparada'
-                    ? '.prop-item-confirmacao-locacao-pura-check'
-                    : '.prop-item-tipo-fiscal';
-                focarPropostaSemRolagem(detalhes?.querySelector(seletor));
-            } else if (primeira.campo === 'municipioIncidencia') {
-                focarPropostaSemRolagem(document.getElementById('propFiscalMunicipioIncidencia'));
-            } else if (primeira.campo === 'ufIncidencia') {
-                focarPropostaSemRolagem(document.getElementById('propFiscalUfIncidencia'));
-            } else if (primeira.campo === 'codigoServicoMunicipal') {
-                focarPropostaSemRolagem(document.getElementById('propFiscalCodigoServicoMunicipal'));
-            }
+            focarPendenciaFiscalProposta(primeira);
             return;
         }
 
@@ -9209,6 +9377,7 @@
         preencherResponsavelPropostaSeVazio();
         renderizarSelectClientesProposta();
         renderConfigOrcamentoProposta();
+        associarRotulosCamposProposta();
         mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
         mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
         renderPropostas();
