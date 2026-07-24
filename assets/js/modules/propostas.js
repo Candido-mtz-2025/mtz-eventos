@@ -1470,6 +1470,7 @@
         const margemItem = valorTotal > 0 ? (lucroItem / valorTotal) * 100 : 0;
 
         return {
+            ...item,
             categoria,
             tipoFiscal: normalizarTipoFiscalPersistido(item.tipoFiscal),
             confirmacaoLocacaoPuraSeparada: item.confirmacaoLocacaoPuraSeparada === true,
@@ -5097,6 +5098,7 @@
 
     function montarEventoNormalizado(evento = {}) {
         return {
+            ...evento,
             nome: textoSeguro(evento.nome, ''),
             local: textoSeguro(evento.local, ''),
             enderecoEvento: textoSeguro(evento.enderecoEvento ?? evento.enderecoCompleto ?? '', ''),
@@ -5282,6 +5284,7 @@
         const usarMesmoEnderecoCliente = fiscalOrigem.usarMesmoEnderecoCliente === true;
 
         return {
+            ...origem,
             id,
             clienteId: id,
             nome,
@@ -5329,6 +5332,7 @@
     function montarClienteSnapshotProposta(cliente = {}) {
         const c = montarClientePropostaNormalizado(cliente);
         return {
+            ...c,
             nome: c.nome,
             documento: c.documento,
             telefone: c.telefone,
@@ -5447,6 +5451,7 @@
         const exibirInfoInterna = financeiroOrig.exibirInformacoesInternasPDF === true || financeiroOrig.exibirCustosInternosPdf === true;
         const percentualEntrada = clampPercentual(financeiroOrig.percentualEntrada ?? resumoBase.percentualEntrada ?? 50);
         return {
+            ...financeiroOrig,
             subtotal: numeroNaoNegativo(financeiroOrig.subtotal, resumoBase.subtotalItens || 0),
             totalCustosAdicionais: numeroNaoNegativo(financeiroOrig.totalCustosAdicionais, resumoBase.totalCustosAdicionais || 0),
             desconto: numeroNaoNegativo(financeiroOrig.desconto, resumoBase.desconto || 0),
@@ -5479,6 +5484,7 @@
         const fiscal = fiscalOrig && typeof fiscalOrig === 'object' ? fiscalOrig : {};
         const resumo = resumoFiscal && typeof resumoFiscal === 'object' ? resumoFiscal : calcularResumoFiscalProposta([]);
         return {
+            ...fiscal,
             tomador: textoSeguro(fiscal.tomador, cliente.razaoSocial || cliente.nome),
             cpfCnpj: textoSeguro(fiscal.cpfCnpj, cliente.cpfCnpj || cliente.documento),
             emailFiscal: textoSeguro(fiscal.emailFiscal, cliente.emailFiscal || cliente.email),
@@ -5697,6 +5703,7 @@
         const dataConversaoLocacao = textoSeguro(proposta.dataConversaoLocacao, '');
 
         return {
+            ...proposta,
             id,
             codigo,
             codigoBase,
@@ -6917,9 +6924,72 @@
         if (confirm(mensagem)) callback();
     }
 
+    function clonarDadosConversaoProposta(valor, fallback = {}) {
+        if (valor == null) return fallback;
+        try {
+            if (typeof structuredClone === 'function') return structuredClone(valor);
+            return JSON.parse(JSON.stringify(valor));
+        } catch (_) {
+            if (Array.isArray(valor)) return valor.slice();
+            if (valor && typeof valor === 'object') return { ...valor };
+            return fallback;
+        }
+    }
+
+    function localizarLocacaoConvertidaDaProposta(proposta) {
+        if (!proposta || !Array.isArray(locacoes)) return null;
+        const propostaId = String(proposta.id || '');
+        const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
+        if (locacaoVinculadaId) {
+            const vinculada = locacoes.find((locacao) => String(locacao?.id || '') === locacaoVinculadaId);
+            if (vinculada) return vinculada;
+        }
+
+        return locacoes.find((locacao) => {
+            const origemId = textoSeguro(
+                locacao?.propostaOrigemId
+                || locacao?.origemPropostaId
+                || locacao?.origem?.propostaId,
+                ''
+            );
+            return propostaId && origemId === propostaId;
+        }) || null;
+    }
+
+    function informarLocacaoExistenteDaProposta(proposta, locacao) {
+        const locacaoId = String(locacao?.id || proposta?.locacaoVinculadaId || proposta?.locacaoId || '');
+        const codigo = formatarCodigoRevisaoProposta(proposta);
+        const abrirLocacao = () => {
+            if (locacaoId && typeof irParaLocacaoPorCodigo === 'function') {
+                irParaLocacaoPorCodigo(locacaoId);
+            }
+        };
+        const mensagem = `A proposta ${codigo} já foi convertida na locação #${locacaoId.slice(-6)}.`;
+
+        if (typeof confirmarAcao === 'function') {
+            confirmarAcao(mensagem, abrirLocacao, {
+                titulo: 'Locação já existente',
+                textoConfirmar: 'Abrir locação existente',
+                classeConfirmar: 'btn-primary'
+            });
+            return;
+        }
+
+        mostrarToast(`${mensagem} Abra a locação existente para continuar.`, 'info', 5600);
+    }
+
     function executarConversaoPropostaLocacao(proposta) {
         const cliente = encontrarOuCriarClienteDaProposta(proposta);
         const hojeIso = obterHojeIso();
+        const agoraIso = obterAgoraIso();
+        const responsavelConversao = obterUsuarioAtualNomeOuEmail();
+        const propostaId = String(proposta.id || '');
+        const codigoBaseProposta = obterCodigoBaseProposta(proposta);
+        const revisaoProposta = normalizarNumeroRevisaoProposta(
+            proposta.revisao ?? proposta.numeroRevisao,
+            0
+        );
+        const codigoExibicaoProposta = formatarCodigoRevisaoProposta(proposta);
         const dataMontagem = proposta.evento.dataMontagem || proposta.evento.dataEvento || hojeIso;
         const dataDesmontagem = proposta.evento.dataDesmontagem || proposta.evento.dataEvento || dataMontagem;
         const valorFinalComercial = obterValorFinalComercial(proposta);
@@ -6956,6 +7026,19 @@
         const valorNFLocacao = numeroNaoNegativo(financeiroProposta.valorNF, 0);
         const valorFinalComNFLocacao = numeroNaoNegativo(financeiroProposta.valorFinalComNF, valorFinalComercial);
         const valorLiquidoPrevistoLocacao = numeroNaoNegativo(financeiroProposta.valorLiquidoPrevisto, valorFinalComercial);
+        const clienteSnapshot = clonarDadosConversaoProposta(
+            proposta.clienteSnapshot || proposta.cliente || {},
+            {}
+        );
+        const eventoSnapshot = clonarDadosConversaoProposta(proposta.evento || {}, {});
+        const comercialSnapshot = {
+            financeiro: clonarDadosConversaoProposta(financeiroProposta, {}),
+            custos: clonarDadosConversaoProposta(custosProposta, {}),
+            fiscal: clonarDadosConversaoProposta(proposta.fiscal || proposta.dadosFiscais || {}, {}),
+            controleInterno: clonarDadosConversaoProposta(proposta.controleInterno || {}, {}),
+            escopo: clonarDadosConversaoProposta(proposta.escopo || {}, {}),
+            clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal === true
+        };
 
         const itensLocacao = proposta.itens.map((item) => {
             const itemCalculado = calcularItemProposta(item || {});
@@ -6971,16 +7054,22 @@
                 ? arredondarMoeda(valorTotalComercial / quantidade / periodoDias)
                 : custoUnitario;
             return {
+                ...clonarDadosConversaoProposta(itemCalculado, {}),
                 pecaId: peca?.id || '',
                 nome: itemCalculado.descricao || item.descricao,
+                descricao: itemCalculado.descricao || item.descricao,
                 quantidade,
                 origemCusto: itemCalculado.origemCusto || item.origemCusto || 'nao_informado',
                 quantidadePropria: Math.max(0, Math.trunc(numeroNaoNegativo(itemCalculado.quantidadePropria ?? item.quantidadePropria, 0))),
                 quantidadeTerceirizada: Math.max(0, Math.trunc(numeroNaoNegativo(itemCalculado.quantidadeTerceirizada ?? item.quantidadeTerceirizada, 0))),
                 valor: valorUnitarioComercial,
                 periodoDias,
+                medida: itemCalculado.medida || item.medida || '',
+                tipoFiscal: itemCalculado.tipoFiscal || item.tipoFiscal || '',
                 categoria: itemCalculado.categoria || item.categoria || '',
                 categoriaId: itemCalculado.categoriaId || item.categoriaId || '',
+                fornecedor: itemCalculado.fornecedorCusto || item.fornecedorCusto || item.fornecedor || '',
+                fornecedorCusto: itemCalculado.fornecedorCusto || item.fornecedorCusto || '',
                 observacoes: itemCalculado.observacoes || item.observacoes || item.obs || '',
                 custoUnitarioProposta: custoUnitario,
                 valorTotalProposta: valorTotalComercial
@@ -7004,11 +7093,38 @@
         const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
         const novaLocacaoBase = {
             id: novaLocacaoId,
-            origemPropostaId: proposta.id,
+            origemTipo: 'orcamento',
+            origemPropostaId: propostaId,
+            propostaOrigemId: propostaId,
             codigoProposta: proposta.codigo,
+            codigoBaseProposta,
+            revisaoProposta,
+            numeroRevisaoProposta: revisaoProposta,
+            codigoExibicaoProposta,
+            propostaBaseOrigemId: textoSeguro(proposta.propostaOrigemId, propostaId),
+            dataConversaoProposta: agoraIso,
+            responsavelConversao,
+            origem: {
+                tipo: 'orcamento',
+                propostaId,
+                codigo: proposta.codigo || '',
+                codigoBase: codigoBaseProposta,
+                revisao: revisaoProposta,
+                codigoExibicao: codigoExibicaoProposta,
+                convertidoEm: agoraIso,
+                convertidoPor: responsavelConversao
+            },
             locadorId: cliente.id,
+            clienteId: textoSeguro(proposta.clienteId || clienteSnapshot.id || cliente.id),
+            clienteSnapshot,
+            cliente: clonarDadosConversaoProposta(clienteSnapshot, {}),
+            dadosFiscaisCliente: clonarDadosConversaoProposta(
+                clienteSnapshot.dadosFiscais || proposta.cliente?.dadosFiscais || {},
+                {}
+            ),
             dataAluguel: dataMontagem,
             dataDevolucaoPrevisao: dataDesmontagem,
+            evento: eventoSnapshot,
             eventoNome: proposta.evento.nome || '',
             eventoLocal: proposta.evento.local || '',
             eventoEndereco: proposta.evento.enderecoEvento || '',
@@ -7017,6 +7133,7 @@
             referenciaAcesso: proposta.evento.referenciaAcesso || '',
             observacoesGerais: proposta.evento.observacoesGerais || '',
             items: itensLocacao,
+            comercial: comercialSnapshot,
             status: 'ativo',
             statusFluxo: 'aprovado',
             divisorFatura: 1,
@@ -7055,6 +7172,7 @@
                 observacoes: observacoesLogistica
             },
             financeiro: {
+                ...clonarDadosConversaoProposta(financeiroProposta, {}),
                 valorTotal: valorFinalComercial,
                 sinal: valorEntradaLocacao,
                 valorRestante: valorRestanteLocacao,
@@ -7073,8 +7191,11 @@
                 valorNF: valorNFLocacao,
                 valorFinalComNF: valorFinalComNFLocacao,
                 valorLiquidoPrevisto: valorLiquidoPrevistoLocacao,
-                origemPropostaId: String(proposta.id || ''),
-                codigoProposta: proposta.codigo || ''
+                origemPropostaId: propostaId,
+                propostaOrigemId: propostaId,
+                codigoProposta: proposta.codigo || '',
+                codigoBaseProposta,
+                revisaoProposta
             },
             checklist: {
                 idChecklist: null,
@@ -7106,29 +7227,6 @@
 
         if (!Array.isArray(locacoes)) locacoes = [];
         locacoes.push(novaLocacao);
-        if (typeof registrarMovimentacaoEstoque === 'function') {
-            const propostaIdMov = String(proposta.id || proposta.codigo || '');
-            itensLocacao.forEach((item) => {
-                const quantidadeMov = typeof obterQuantidadePropriaOperacional === 'function'
-                    ? obterQuantidadePropriaOperacional(item)
-                    : Math.max(0, Math.trunc(numeroNaoNegativo(item.quantidade, 0)));
-                const pecaIdMov = String(item.pecaId || '');
-                if (!pecaIdMov || quantidadeMov <= 0) return;
-
-                registrarMovimentacaoEstoque({
-                    id: `mov-${novaLocacaoId}-${propostaIdMov}-${pecaIdMov}-reserva`,
-                    chaveIdempotencia: `reserva|proposta:${propostaIdMov}|locacao:${novaLocacaoId}|peca:${pecaIdMov}|q:${quantidadeMov}`,
-                    tipoMovimentacao: 'reserva',
-                    quantidade: quantidadeMov,
-                    pecaId: pecaIdMov,
-                    pecaNome: item.nome,
-                    locacaoId: String(novaLocacaoId),
-                    locacaoRef: String(proposta.codigo || ''),
-                    origemEvento: `proposta:${propostaIdMov}`,
-                    observacao: `Reserva gerada na conversao da proposta ${proposta.codigo || propostaIdMov}.`
-                });
-            });
-        }
         const deveCriarTransporte = typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento);
         if (deveCriarTransporte) {
             const criarRetiradaAutomatica = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);
@@ -7178,29 +7276,10 @@
                 });
             }
         }
-        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
-
-        const agoraIso = obterAgoraIso();
-        propostas = obterPropostasBase().map((item) => {
-            if (String(item.id) !== String(proposta.id)) return item;
-            const atualizada = {
-                ...item,
-                status: 'convertida',
-                locacaoVinculadaId: String(novaLocacaoId),
-                locacaoId: String(novaLocacaoId),
-                dataConversaoLocacao: agoraIso,
-                dataUltimaAlteracao: agoraIso,
-                alteradoPor: obterUsuarioAtualNomeOuEmail()
-            };
-            atualizada.atualizadoEm = atualizada.dataUltimaAlteracao;
-            return normalizarProposta(atualizada);
-        });
-
-        const propostaConvertida = propostas.find((item) => String(item.id) === String(proposta.id)) || proposta;
         registrarAtividadeProposta(
-            propostaConvertida,
+            proposta,
             'converter',
-            `Proposta ${formatarCodigoRevisaoProposta(propostaConvertida)} convertida na locação #${String(novaLocacaoId).slice(-4)}.`,
+            `Proposta ${formatarCodigoRevisaoProposta(proposta)} convertida na locação #${String(novaLocacaoId).slice(-4)}.`,
             { locacaoId: String(novaLocacaoId) }
         );
         salvarLocal();
@@ -7218,6 +7297,15 @@
             mostrarToast('Proposta nao encontrada para conversao.', 'erro');
             return;
         }
+        const locacaoExistente = localizarLocacaoConvertidaDaProposta(proposta);
+        if (locacaoExistente) {
+            informarLocacaoExistenteDaProposta(proposta, locacaoExistente);
+            return;
+        }
+        if (normalizarStatusProposta(proposta.status) !== 'aprovada') {
+            mostrarToast('Somente propostas com status Aprovada podem ser convertidas em locação.', 'erro', 5600);
+            return;
+        }
         if (!validarPropostaProntaParaUso(proposta, {
             modo: 'conversao',
             focar: String(obterIdPropostaEmEdicao()) === String(id)
@@ -7227,26 +7315,6 @@
         if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'converter em locação', {
             focar: String(obterIdPropostaEmEdicao()) === String(id)
         })) {
-            return;
-        }
-
-        const jaConvertida = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
-        if (jaConvertida) {
-            const confirmarNovaConversao = () => confirmarConversaoComAvisosEstoque(proposta, () => executarConversaoPropostaLocacao(proposta));
-            if (typeof confirmarAcao === 'function') {
-                confirmarAcao(
-                    `A proposta ${proposta.codigo} ja esta vinculada a locacao #${String(jaConvertida).slice(-4)}. Deseja criar uma nova locacao mesmo assim?`,
-                    confirmarNovaConversao,
-                    {
-                        titulo: 'Proposta ja convertida',
-                        textoConfirmar: 'Converter novamente',
-                        classeConfirmar: 'btn-warning'
-                    }
-                );
-                return;
-            }
-            if (!confirm(`A proposta ${proposta.codigo} ja esta vinculada a uma locacao. Deseja converter novamente?`)) return;
-            confirmarNovaConversao();
             return;
         }
 
@@ -8986,7 +9054,10 @@
         }
 
         tbody.innerHTML = filtradas.map((proposta) => {
-            const locacaoId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId);
+            const locacaoExistente = localizarLocacaoConvertidaDaProposta(proposta);
+            const locacaoId = textoSeguro(
+                locacaoExistente?.id || proposta.locacaoVinculadaId || proposta.locacaoId
+            );
             const revisao = normalizarNumeroRevisaoProposta(proposta.revisao, 0);
             const origem = localizarOrigemRevisaoProposta(proposta);
             const dataStatus = obterDataStatusProposta(proposta);
@@ -9043,9 +9114,13 @@
                             <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF" aria-label="Gerar PDF da proposta ${codigoAcessivel}">
                                 <i class="bi bi-printer"></i>
                             </button>
-                            <button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="Converter para locação" aria-label="Converter proposta ${codigoAcessivel} em locação" ${locacaoId ? 'disabled' : ''}>
-                                <i class="bi bi-check2-circle"></i>
-                            </button>
+                            ${locacaoId
+                                ? `<button class="btn btn-sm btn-success table-action-btn" data-action="irParaLocacaoPorCodigo" data-arg="${sanitizar(locacaoId)}" title="Abrir locação existente" aria-label="Abrir locação vinculada à proposta ${codigoAcessivel}">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </button>`
+                                : `<button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="${statusAtual === 'aprovada' ? 'Converter para locação' : 'Aprove a proposta antes de converter'}" aria-label="Converter proposta ${codigoAcessivel} em locação" ${statusAtual === 'aprovada' ? '' : 'disabled'}>
+                                    <i class="bi bi-check2-circle"></i>
+                                </button>`}
                             <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir" aria-label="Excluir proposta ${codigoAcessivel}">
                                 <i class="bi bi-trash"></i>
                             </button>

@@ -3060,6 +3060,23 @@ input[type="file"]::-webkit-file-upload-button {
     color: var(--text-light);
 }
 
+.locacao-origin-summary {
+    display: grid;
+    justify-items: start;
+    gap: 3px;
+    margin-top: 6px;
+    max-width: 100%;
+}
+
+.locacao-origin-link {
+    min-height: 32px;
+    margin-top: 3px;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    white-space: normal;
+    text-align: left;
+}
+
 .locacao-period-main {
     font-size: 0.82rem;
     color: var(--text-light);

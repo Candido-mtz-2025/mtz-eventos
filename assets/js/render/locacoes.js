@@ -242,11 +242,41 @@ function renderLocacoes() {
         const nomeCliente = typeof sanitizarTexto === 'function'
             ? sanitizarTexto(l.clienteNome || 'Removido')
             : (l.clienteNome || 'Removido');
-        const origemProposta = l.codigoProposta
-            ? `Proposta ${l.codigoProposta}`
+        const propostaOrigemId = String(
+            l.propostaOrigemId
+            || l.origemPropostaId
+            || l.origem?.propostaId
+            || ''
+        );
+        const codigoProposta = String(
+            l.codigoExibicaoProposta
+            || l.origem?.codigoExibicao
+            || l.codigoProposta
+            || ''
+        );
+        const revisaoProposta = Number.isFinite(Number(l.revisaoProposta ?? l.origem?.revisao))
+            ? Number(l.revisaoProposta ?? l.origem?.revisao)
+            : null;
+        const origemProposta = codigoProposta
+            ? `Origem: Orçamento ${codigoProposta}${!/\brev\.?\s*\d+/i.test(codigoProposta) && revisaoProposta != null ? ` • Rev. ${String(revisaoProposta).padStart(2, '0')}` : ''}`
             : '';
+        const dataConversaoRaw = String(l.dataConversaoProposta || l.origem?.convertidoEm || '');
+        const dataConversaoObj = dataConversaoRaw ? new Date(dataConversaoRaw) : null;
+        const dataConversao = dataConversaoObj && !Number.isNaN(dataConversaoObj.getTime())
+            ? dataConversaoObj.toLocaleString('pt-BR', {
+                dateStyle: 'short',
+                timeStyle: 'short'
+            })
+            : '';
+        const responsavelConversao = String(l.responsavelConversao || l.origem?.convertidoPor || '');
         const origemPropostaHtml = origemProposta
-            ? `<div class="locacao-cell-meta">${typeof sanitizarTexto === 'function' ? sanitizarTexto(origemProposta) : origemProposta}</div>`
+            ? `
+                <div class="locacao-origin-summary">
+                    <div class="locacao-cell-meta">${typeof sanitizarTexto === 'function' ? sanitizarTexto(origemProposta) : origemProposta}</div>
+                    ${(dataConversao || responsavelConversao) ? `<div class="locacao-cell-meta">${dataConversao ? `Convertida em ${dataConversao}` : ''}${dataConversao && responsavelConversao ? ' • ' : ''}${responsavelConversao ? `por ${typeof sanitizarTexto === 'function' ? sanitizarTexto(responsavelConversao) : responsavelConversao}` : ''}</div>` : ''}
+                    ${propostaOrigemId ? `<button type="button" class="btn btn-sm btn-secondary locacao-origin-link" data-action="abrirPropostaOriginalDaLocacao" data-arg="${typeof sanitizarTexto === 'function' ? sanitizarTexto(String(l.id)) : String(l.id)}"><i class="bi bi-file-earmark-text"></i> Ver proposta original</button>` : ''}
+                </div>
+            `
             : '';
 
         const statusVisual = l.statusVisual === 'atrasado'

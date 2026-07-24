@@ -18,6 +18,37 @@ function sincronizarFinanceiroLocacao(localLocacao) {
     return localLocacao;
 }
 
+function abrirPropostaOriginalDaLocacao(locacaoId) {
+    const locacao = Array.isArray(locacoes)
+        ? locacoes.find((item) => String(item?.id || '') === String(locacaoId || ''))
+        : null;
+    if (!locacao) {
+        mostrarToast('Locação não encontrada para abrir a proposta original.', 'erro');
+        return false;
+    }
+
+    const propostaId = String(
+        locacao.propostaOrigemId
+        || locacao.origemPropostaId
+        || locacao.origem?.propostaId
+        || ''
+    );
+    if (!propostaId) {
+        mostrarToast('Esta locação não possui uma proposta de origem vinculada.', 'info', 5200);
+        return false;
+    }
+
+    const propostaExiste = Array.isArray(propostas)
+        && propostas.some((item) => String(item?.id || '') === propostaId);
+    if (!propostaExiste || typeof window.editarProposta !== 'function') {
+        mostrarToast('A proposta original não está disponível nesta base.', 'erro', 5200);
+        return false;
+    }
+
+    window.editarProposta(propostaId);
+    return true;
+}
+
 function parseValorFinanceiroLocacao(valor) {
     const limpo = String(valor ?? '')
         .replace(/[^\d,.-]/g, '')
