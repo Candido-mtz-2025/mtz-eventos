@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.47">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.48">
 </head>
 <body>
 
@@ -654,12 +654,12 @@
 
             <div id="locacaoEtapa1" class="locacao-step-panel is-active">
                 <div class="form-row">
-                    <div class="form-group"><label>Cliente</label><select id="aluguelCliente"></select></div>
-                    <div class="form-group"><label>Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                    <div class="form-group"><label for="aluguelCliente">Cliente</label><select id="aluguelCliente"></select></div>
+                    <div class="form-group"><label for="aluguelDivisor">Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Data Início</label><input type="date" id="aluguelIni"></div>
-                    <div class="form-group"><label>Previsão Fim</label><input type="date" id="aluguelFim"></div>
+                    <div class="form-group"><label for="aluguelIni">Data Início</label><input type="date" id="aluguelIni"></div>
+                    <div class="form-group"><label for="aluguelFim">Previsão Fim</label><input type="date" id="aluguelFim"></div>
                 </div>
                 <div class="inline-chip-row">
                     <button id="btnIrEtapa2" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="2">
@@ -677,15 +677,15 @@
                         <div class="form-row locacao-form-row">
                         
                         <div class="form-group locacao-item-search">
-                            <label>Buscar Item (Digite para filtrar)</label>
+                            <label for="inputBuscaPeca">Buscar Item (Digite para filtrar)</label>
                             <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." data-keyup="filtrarItensLocacao" autocomplete="off">
                             <input type="hidden" id="aluguelItemSelect">
                             <div id="listaSugestoes" class="dropdown-sugestoes"></div>
                         </div>
 
                         <div class="form-group locacao-item-qtd">
-                            <label>Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
-                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" data-input="validarDigitacao" data-arg="__this__">
+                            <label for="aluguelQtd">Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
+                            <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" aria-describedby="avisoEstoque" data-input="validarDigitacao" data-arg="__this__">
                         </div>
 
                         <div class="form-group locacao-item-actions">
@@ -764,7 +764,8 @@
                         <button class="btn btn-sm btn-info" data-tone="info" data-filtro="devolvido" data-action="aplicarFiltroLocacoesLista" data-arg="devolvido"><i class="bi bi-archive"></i> Histórico</button>
                         <button class="btn btn-sm btn-warning" data-tone="atencao" data-filtro="cancelado" data-action="aplicarFiltroLocacoesLista" data-arg="cancelado"><i class="bi bi-x-circle"></i> Canceladas</button>
                     </div>
-                    <input type="text" id="buscaLocacoes" class="search-input" placeholder="🔍 Buscar cliente, código, período ou status..." data-input="buscarComDebounce" data-arg="locacoes">
+                    <label for="buscaLocacoes" class="locacoes-search-label">Buscar locações</label>
+                    <input type="text" id="buscaLocacoes" class="search-input" placeholder="🔍 Buscar cliente, código, período ou status..." aria-describedby="metaBuscaLocacoes" data-input="buscarComDebounce" data-arg="locacoes">
                     <div id="metaBuscaLocacoes" class="search-meta" aria-live="polite"></div>
                 </div>
 
