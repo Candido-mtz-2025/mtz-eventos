@@ -14,7 +14,11 @@ function recalcularDisponibilidade(forcar = false) {
                 ? normalizarLocacaoDominio(l, { hoje: new Date() })
                 : l;
             const statusVisual = String(locacaoNormalizada?.statusVisual || locacaoNormalizada?.status || '').toLowerCase();
-            if (statusVisual !== 'devolvido' && statusVisual !== 'cancelado') {
+            const reservaStatus = String(l?.estoqueReserva?.status || '').trim().toLowerCase();
+            const comprometeEstoque = typeof locacaoComprometeEstoque === 'function'
+                ? locacaoComprometeEstoque(l)
+                : (!reservaStatus || reservaStatus === 'reservado' || reservaStatus === 'reservado_legado');
+            if (statusVisual !== 'devolvido' && statusVisual !== 'cancelado' && comprometeEstoque) {
                 (l.items || []).forEach(i => {
                     const quantidadeEstoque = typeof obterQuantidadePropriaOperacional === 'function'
                         ? obterQuantidadePropriaOperacional(i)

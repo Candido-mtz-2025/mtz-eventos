@@ -7197,6 +7197,11 @@
                 codigoBaseProposta,
                 revisaoProposta
             },
+            estoqueReserva: {
+                status: 'nao_reservado',
+                origem: 'conversao_proposta',
+                movimentacaoIds: []
+            },
             checklist: {
                 idChecklist: null,
                 locacaoId: String(novaLocacaoId),

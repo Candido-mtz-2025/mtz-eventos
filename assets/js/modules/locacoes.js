@@ -75,9 +75,22 @@ function obterLocacaoPagamentoPorId(id) {
 
 function obterResumoPagamentoLocacao(locacao) {
     const financeiroAtual = locacao?.financeiro || {};
-    const valorTotal = Math.max(0, Number(financeiroAtual.valorTotal ?? locacao?.valorTotalCalculado ?? 0) || 0);
-    const sinalAtual = Math.max(0, Number(financeiroAtual.sinal ?? locacao?.sinal ?? 0) || 0);
-    const valorRestante = Math.max(0, Number(financeiroAtual.valorRestante ?? Math.max(valorTotal - sinalAtual, 0)) || 0);
+    const valorTotal = typeof calcularValorLocacaoDominio === 'function'
+        ? calcularValorLocacaoDominio(locacao)
+        : Math.max(0, parseValorFinanceiroLocacao(
+            financeiroAtual.valorTotal ?? locacao?.valorTotalCalculado ?? 0
+        ) || 0);
+    const sinalNormalizado = typeof normalizarValorMonetarioLegado === 'function'
+        ? normalizarValorMonetarioLegado(financeiroAtual.sinal ?? locacao?.sinal)
+        : parseValorFinanceiroLocacao(financeiroAtual.sinal ?? locacao?.sinal);
+    const sinalAtual = Math.max(0, sinalNormalizado ?? 0);
+    const restanteNormalizado = typeof normalizarValorMonetarioLegado === 'function'
+        ? normalizarValorMonetarioLegado(financeiroAtual.valorRestante)
+        : parseValorFinanceiroLocacao(financeiroAtual.valorRestante);
+    const valorRestante = Math.max(
+        0,
+        restanteNormalizado ?? Math.max(valorTotal - sinalAtual, 0)
+    );
     const recebidoAtual = Math.min(Math.max(sinalAtual, valorTotal - valorRestante, 0), valorTotal);
 
     return {
@@ -778,7 +791,12 @@ function finalizarLocacao() {
         dataDevolucaoPrevisao: fim,
         items: itensParaSalvar,
         status: 'ativo',
-        divisorFatura: divInput
+        divisorFatura: divInput,
+        estoqueReserva: {
+            status: 'nao_reservado',
+            origem: 'criacao_locacao',
+            movimentacaoIds: []
+        }
     };
 
     const concluirCriacaoLocacao = () => {
@@ -945,9 +963,11 @@ function alternarPagamento(id) {
         const pagoAnterior = !!l.pago;
         l.pago = !l.pago;
         const statusPagamento = l.pago ? 'pago' : 'pendente';
-        const financeiroAtual = l.financeiro || {};
-        const valorTotal = Math.max(0, Number(financeiroAtual.valorTotal ?? l.valorTotalCalculado ?? 0) || 0);
-        const sinal = Math.max(0, Number(financeiroAtual.sinal ?? l.sinal ?? 0) || 0);
+        const {
+            financeiroAtual,
+            valorTotal,
+            sinalAtual: sinal
+        } = obterResumoPagamentoLocacao(l);
         l.financeiro = {
             ...financeiroAtual,
             sinal: l.pago ? valorTotal : sinal,
@@ -1164,11 +1184,75 @@ function abrirHistoricoLocacao(id) {
         locacaoNormalizada?.financeiro?.statusPagamento,
         locacaoNormalizada?.pago
     );
-    const valorTotal = Number(locacaoNormalizada?.financeiro?.valorTotal ?? locacaoNormalizada?.valorTotalCalculado ?? 0) || 0;
+    const valorTotal = typeof calcularValorLocacaoDominio === 'function'
+        ? calcularValorLocacaoDominio(locacaoNormalizada)
+        : Math.max(0, parseValorFinanceiroLocacao(
+            locacaoNormalizada?.financeiro?.valorTotal ?? locacaoNormalizada?.valorTotalCalculado ?? 0
+        ) || 0);
 
     const historico = Array.isArray(locacaoNormalizada.historicoAlteracoes)
         ? locacaoNormalizada.historicoAlteracoes.slice().sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0))
         : [];
+    const idsMovimentacoesReserva = new Set(
+        Array.isArray(locacaoNormalizada?.estoqueReserva?.movimentacaoIds)
+            ? locacaoNormalizada.estoqueReserva.movimentacaoIds.map((movimentacaoId) => String(movimentacaoId))
+            : []
+    );
+    const ledgerEstoque = typeof movimentacoesEstoque !== 'undefined' && Array.isArray(movimentacoesEstoque)
+        ? movimentacoesEstoque
+        : (Array.isArray(window.movimentacoesEstoque) ? window.movimentacoesEstoque : []);
+    const movimentacoesReserva = ledgerEstoque
+        .filter((movimentacao) => {
+            if (String(movimentacao?.locacaoId || '') !== String(locacaoNormalizada.id || '')) return false;
+            if (String(movimentacao?.tipoMovimentacao || '').toLowerCase() !== 'reserva') return false;
+            if (idsMovimentacoesReserva.size > 0 && !idsMovimentacoesReserva.has(String(movimentacao?.id || ''))) return false;
+            return true;
+        })
+        .sort((a, b) => new Date(b.dataHora || 0) - new Date(a.dataHora || 0));
+    const formatarQuantidadeMovimentacao = (valor) => {
+        const numero = Number(valor);
+        return Number.isFinite(numero)
+            ? numero.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+            : '0';
+    };
+    const detalhesMovimentacoesReserva = movimentacoesReserva.length
+        ? `
+            <details class="locacao-history-movements">
+                <summary aria-label="Consultar ${movimentacoesReserva.length} movimentações individuais da reserva">
+                    Ver ${movimentacoesReserva.length} movimentação(ões) da reserva
+                </summary>
+                <div class="locacao-history-movement-list">
+                    ${movimentacoesReserva.map((movimentacao) => `
+                        <article class="locacao-history-movement-item">
+                            <strong>${escaparHtmlHistoricoLocacao(movimentacao.pecaNome || 'Item não identificado')}</strong>
+                            <dl>
+                                <div>
+                                    <dt>Quantidade reservada</dt>
+                                    <dd>${escaparHtmlHistoricoLocacao(formatarQuantidadeMovimentacao(movimentacao.quantidade))}</dd>
+                                </div>
+                                <div>
+                                    <dt>Saldo anterior</dt>
+                                    <dd>${escaparHtmlHistoricoLocacao(formatarQuantidadeMovimentacao(movimentacao.saldoAntes))}</dd>
+                                </div>
+                                <div>
+                                    <dt>Saldo posterior</dt>
+                                    <dd>${escaparHtmlHistoricoLocacao(formatarQuantidadeMovimentacao(movimentacao.saldoDepois))}</dd>
+                                </div>
+                                <div>
+                                    <dt>Data e horário</dt>
+                                    <dd>${escaparHtmlHistoricoLocacao(formatarDataHistoricoLocacao(movimentacao.dataHora))}</dd>
+                                </div>
+                                <div>
+                                    <dt>Responsável</dt>
+                                    <dd>${escaparHtmlHistoricoLocacao(movimentacao.usuario || 'sistema_local')}</dd>
+                                </div>
+                            </dl>
+                        </article>
+                    `).join('')}
+                </div>
+            </details>
+        `
+        : '';
 
     const linhasHistorico = historico.length
         ? historico.map((registro) => `
@@ -1184,6 +1268,7 @@ function abrirHistoricoLocacao(id) {
                         <span><b>Origem:</b> ${escaparHtmlHistoricoLocacao(registro.origem || 'sistema')}</span>
                         <span><b>Usuário:</b> ${escaparHtmlHistoricoLocacao(registro.usuario || 'sistema_local')}</span>
                     </div>
+                    ${registro.acao === 'reserva_estoque' ? detalhesMovimentacoesReserva : ''}
                 </div>
             </article>
         `).join('')
@@ -1219,7 +1304,10 @@ function abrirHistoricoLocacao(id) {
             </div>
             <div class="locacao-history-card">
                 <small>Valor</small>
-                <strong>${escaparHtmlHistoricoLocacao(`R$ ${valorTotal.toFixed(2)}`)}</strong>
+                <strong>${escaparHtmlHistoricoLocacao(valorTotal.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                }))}</strong>
             </div>
         </div>
         <div class="locacao-history-list">
@@ -1228,6 +1316,66 @@ function abrirHistoricoLocacao(id) {
     `;
 
     modal.classList.add('active');
+}
+
+function reservarEstoqueDaLocacao(id) {
+    const locacao = Array.isArray(locacoes)
+        ? locacoes.find((item) => String(item?.id || '') === String(id || ''))
+        : null;
+    if (!locacao) {
+        mostrarToast('Locação não encontrada para reserva.', 'erro');
+        return;
+    }
+    if (typeof reservarEstoqueLocacao !== 'function') {
+        mostrarToast('Serviço de reserva de estoque indisponível.', 'erro');
+        return;
+    }
+
+    const executarReserva = () => {
+        const resultado = reservarEstoqueLocacao(locacao);
+        if (!resultado?.ok) {
+            const detalhe = Array.isArray(resultado?.bloqueios) && resultado.bloqueios.length
+                ? resultado.bloqueios[0]
+                : 'Não foi possível reservar o estoque.';
+            mostrarToast(detalhe, 'erro', 6500);
+            return;
+        }
+
+        if (resultado.jaReservada) {
+            mostrarToast('O estoque desta locação já está reservado. Nenhuma nova movimentação foi criada.', 'info', 5200);
+            return;
+        }
+
+        salvarLocal();
+        renderTudo();
+        sincronizar('salvar');
+        mostrarToast(`Estoque reservado com sucesso: ${resultado.totalReservado || 0} unidade(s) própria(s).`);
+    };
+
+    const reservaAtual = typeof normalizarEstoqueReservaLocacao === 'function'
+        ? normalizarEstoqueReservaLocacao(locacao)
+        : (locacao.estoqueReserva || {});
+    if (reservaAtual.status === 'reservado' || reservaAtual.status === 'reservado_legado') {
+        executarReserva();
+        return;
+    }
+
+    if (typeof confirmarAcao === 'function') {
+        confirmarAcao(
+            'Reservar agora somente as quantidades próprias desta locação?',
+            executarReserva,
+            {
+                titulo: 'Reservar estoque',
+                textoConfirmar: 'Reservar estoque',
+                classeConfirmar: 'btn-warning'
+            }
+        );
+        return;
+    }
+
+    if (confirm('Reservar agora somente as quantidades próprias desta locação?')) {
+        executarReserva();
+    }
 }
 
 function atualizarLimiteEstoque() {
@@ -1267,3 +1415,4 @@ window.irEtapaLocacao = irEtapaLocacao;
 window.inicializarFluxoLocacao = inicializarFluxoLocacao;
 window.atualizarFluxoLocacao = atualizarFluxoLocacao;
 window.abrirHistoricoLocacao = abrirHistoricoLocacao;
+window.reservarEstoqueDaLocacao = reservarEstoqueDaLocacao;

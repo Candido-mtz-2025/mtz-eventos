@@ -312,6 +312,42 @@ function renderLocacoes() {
             ? `CHECKLIST ${checklistConferidos}/${checklistTotal}`
             : 'CHECKLIST';
         const checklistBadgeClass = checklistGerado ? 'badge-info' : 'badge-warning';
+        const estoqueReserva = typeof normalizarEstoqueReservaLocacao === 'function'
+            ? normalizarEstoqueReservaLocacao(l)
+            : (l.estoqueReserva || { status: 'reservado_legado' });
+        const estoqueReservado = estoqueReserva.status === 'reservado'
+            || estoqueReserva.status === 'reservado_legado';
+        const reservaStatus = String(estoqueReserva.status || 'nao_reservado').toLowerCase();
+        const reservaApresentacao = {
+            nao_reservado: {
+                label: 'ESTOQUE NÃO RESERVADO',
+                badgeClass: 'badge-warning',
+                modifier: 'nao-reservado'
+            },
+            reservado: {
+                label: 'ESTOQUE RESERVADO',
+                badgeClass: 'badge-success',
+                modifier: 'reservado'
+            },
+            reservado_legado: {
+                label: 'RESERVA LEGADA',
+                badgeClass: 'badge-info',
+                modifier: 'legado'
+            },
+            liberado: {
+                label: 'ESTOQUE LIBERADO',
+                badgeClass: 'badge-info',
+                modifier: 'liberado'
+            }
+        }[reservaStatus] || {
+            label: 'ESTOQUE NÃO RESERVADO',
+            badgeClass: 'badge-warning',
+            modifier: 'nao-reservado'
+        };
+        const reservaActionLabel = estoqueReservado
+            ? 'Conferir reserva de estoque'
+            : 'Reservar estoque';
+        const reservaActionClass = estoqueReservado ? 'btn-success' : 'btn-warning';
         
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
@@ -329,14 +365,15 @@ function renderLocacoes() {
                 <div class="locacao-period-meta">Até ${formatarData(l.dataDevolucaoPrevisao)}</div>
             </td>
             <td>
-                <div class="locacao-cell-main">R$ ${l.valorTotal.toFixed(2)}</div>
+                <div class="locacao-cell-main">${formatarMoedaResumoLocacoes(l.valorTotal)}</div>
                 ${l.pago ? '<span class="badge badge-success">PAGO</span>' : '<span class="badge badge-warning">PENDENTE</span>'}
             </td>
-            <td>
+            <td class="locacao-status-cell">
                 <span class="badge-row">
                     <span class="badge ${badgeClass}">${statusLabel}</span>
                     ${l.devolucaoParcial ? '<span class="badge badge-warning">PARCIAL</span>' : ''}
                     ${(checklistGerado || checklistPendente) ? `<span class="badge ${checklistBadgeClass}">${checklistBadgeTexto}</span>` : ''}
+                    <span class="badge ${reservaApresentacao.badgeClass} locacao-stock-badge locacao-stock-badge--${reservaApresentacao.modifier}" role="status" aria-label="Status do estoque: ${reservaApresentacao.label}">${reservaApresentacao.label}</span>
                 </span>
             </td>
             <td class="col-actions">
@@ -353,6 +390,7 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="${checklistTitulo}" aria-label="${checklistTitulo}" data-action="gerarChecklistDaLocacao" data-arg="${l.id}">
                     <i class="bi bi-clipboard-check"></i>
                 </button>
+                ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm ${reservaActionClass} table-action-btn locacao-action-btn locacao-action-reserva" title="${reservaActionLabel}" aria-label="${reservaActionLabel}" data-action="reservarEstoqueDaLocacao" data-arg="${l.id}"><i class="bi bi-box-seam"></i></button>` : ''}
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-relatorio" title="Abrir relatório" aria-label="Abrir relatório" data-action="gerarRelatorio" data-arg="${l.id}">
                     <i class="bi bi-file-text"></i>
                 </button>

@@ -69,6 +69,22 @@ function inteiroNaoNegativo(valor, fallback = 0) {
     return Math.max(0, Math.trunc(numeroNaoNegativo(valor, fallback)));
 }
 
+function normalizarValorMonetarioV12(valor) {
+    if (typeof window !== 'undefined' && typeof window.normalizarValorMonetarioLegado === 'function') {
+        return window.normalizarValorMonetarioLegado(valor);
+    }
+
+    const numero = Number(valor);
+    return Number.isFinite(numero) ? numero : null;
+}
+
+function numeroMonetarioNaoNegativoV12(valor, fallback = 0) {
+    const normalizado = normalizarValorMonetarioV12(valor);
+    if (normalizado !== null && normalizado >= 0) return normalizado;
+    const fallbackNormalizado = normalizarValorMonetarioV12(fallback);
+    return fallbackNormalizado !== null && fallbackNormalizado >= 0 ? fallbackNormalizado : 0;
+}
+
 function valorEmConjunto(valor, conjunto, fallback) {
     const normalizado = String(valor || '').trim().toLowerCase();
     return conjunto.has(normalizado) ? normalizado : fallback;
@@ -311,7 +327,7 @@ function normalizarPermissoesUsuarioV12(permissoes, perfil) {
 function calcularValorTotalLocacaoV12(locacao) {
     const itens = Array.isArray(locacao?.items) ? locacao.items : [];
     const subtotal = itens.reduce((acumulado, item) => {
-        const valor = Number(item?.valor) || 0;
+        const valor = numeroMonetarioNaoNegativoV12(item?.valor, 0);
         const quantidade = Number(item?.quantidade) || 0;
         return acumulado + (valor * quantidade);
     }, 0);
@@ -387,13 +403,30 @@ function migrarPecaParaV12(pecaOriginal, contexto) {
 
 function migrarLocacaoParaV12(locacaoOriginal, contexto) {
     const locacao = clonarObjetoSeguro(locacaoOriginal);
-    const valorTotal = numeroNaoNegativo(
+    const valorTotal = numeroMonetarioNaoNegativoV12(
         locacao?.financeiro?.valorTotal,
         calcularValorTotalLocacaoV12(locacao)
     );
-    const sinal = numeroNaoNegativo(locacao?.financeiro?.sinal, locacao?.sinal);
+    const sinal = numeroMonetarioNaoNegativoV12(locacao?.financeiro?.sinal, locacao?.sinal);
     const valorRestantePadrao = Math.max(valorTotal - sinal, 0);
     const statusPagamentoPadrao = locacao?.pago ? 'pago' : 'pendente';
+    const estoqueReservaOriginal = clonarObjetoSeguro(locacao.estoqueReserva);
+    const statusReservaInformado = textoSeguro(estoqueReservaOriginal.status, '').trim().toLowerCase();
+    const statusReservaValido = new Set(['nao_reservado', 'reservado', 'reservado_legado', 'liberado']);
+    const statusReservaLegado = typeof window !== 'undefined'
+        && typeof window.classificarStatusReservaLegadoLocacao === 'function'
+        ? window.classificarStatusReservaLegadoLocacao(locacao, contexto.devolucoes)
+        : 'reservado_legado';
+    const reservaGeradaPorCompatibilidade = textoSeguro(
+        estoqueReservaOriginal.origem,
+        ''
+    ).trim().toLowerCase() === 'compatibilidade_legado';
+    const reclassificarReservaLegada = statusReservaInformado === 'reservado_legado'
+        && reservaGeradaPorCompatibilidade
+        && statusReservaLegado === 'liberado';
+    const statusReserva = statusReservaValido.has(statusReservaInformado)
+        ? (reclassificarReservaLegada ? 'liberado' : statusReservaInformado)
+        : statusReservaLegado;
 
     const locacaoMigrada = {
         ...locacao,
@@ -443,6 +476,15 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
             notaFiscal: '',
             comprovante: ''
         }),
+        estoqueReserva: {
+            ...estoqueReservaOriginal,
+            status: statusReserva,
+            origem: textoSeguro(
+                estoqueReservaOriginal.origem,
+                statusReservaInformado ? '' : 'compatibilidade_legado'
+            ),
+            movimentacaoIds: clonarArraySeguro(estoqueReservaOriginal.movimentacaoIds)
+        },
         checklist: clonarObjetoSeguro(locacao.checklist, {
             idChecklist: null,
             status: 'nao_iniciado',
@@ -463,9 +505,12 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
         'pendente'
     );
 
-    locacaoMigrada.financeiro.valorTotal = numeroNaoNegativo(locacaoMigrada.financeiro.valorTotal, valorTotal);
-    locacaoMigrada.financeiro.sinal = numeroNaoNegativo(locacaoMigrada.financeiro.sinal, sinal);
-    locacaoMigrada.financeiro.valorRestante = numeroNaoNegativo(
+    locacaoMigrada.financeiro.valorTotal = numeroMonetarioNaoNegativoV12(
+        locacaoMigrada.financeiro.valorTotal,
+        valorTotal
+    );
+    locacaoMigrada.financeiro.sinal = numeroMonetarioNaoNegativoV12(locacaoMigrada.financeiro.sinal, sinal);
+    locacaoMigrada.financeiro.valorRestante = numeroMonetarioNaoNegativoV12(
         locacaoMigrada.financeiro.valorRestante,
         valorRestantePadrao
     );
@@ -476,6 +521,15 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
     );
     locacaoMigrada.pago = locacaoMigrada.financeiro.statusPagamento === 'pago';
 
+    if (
+        !Object.is(locacao?.financeiro?.valorTotal, locacaoMigrada.financeiro.valorTotal)
+        || !Object.is(locacao?.financeiro?.sinal, locacaoMigrada.financeiro.sinal)
+        || !Object.is(locacao?.financeiro?.valorRestante, locacaoMigrada.financeiro.valorRestante)
+        || reclassificarReservaLegada
+    ) {
+        contexto.houveMudanca = true;
+    }
+
     const camposNovos = [
         'statusFluxo',
         'datasMontagem',
@@ -483,6 +537,7 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
         'equipe',
         'logistica',
         'financeiro',
+        'estoqueReserva',
         'checklist',
         'historicoAlteracoes'
     ];
@@ -791,10 +846,14 @@ function migrarPropostaParaV12(propostaOriginal, contexto) {
     const codigoBaseRaw = textoSeguro(proposta.codigoBase || codigoOriginal, '');
     const codigoBase = codigoBaseRaw.replace(/\s+rev\.?\s*\d+$/i, '').trim() || codigoOriginal;
     const revisaoEncontrada = codigoComRevisao.match(/\brev\.?\s*(\d+)$/i);
-    const revisao = inteiroNaoNegativo(
-        proposta.revisao ?? proposta.numeroRevisao ?? (revisaoEncontrada ? revisaoEncontrada[1] : 1),
-        1
-    ) || 1;
+    const revisaoOriginal = proposta.revisao
+        ?? proposta.numeroRevisao
+        ?? (revisaoEncontrada ? revisaoEncontrada[1] : 1);
+    const revisao = revisaoOriginal !== ''
+        && revisaoOriginal != null
+        && Number.isFinite(Number(revisaoOriginal))
+        ? inteiroNaoNegativo(revisaoOriginal, 0)
+        : 1;
     const codigoExibicao = codigoBase ? `${codigoBase} Rev. ${revisao}` : codigoOriginal;
 
     const propostaMigrada = {
@@ -909,7 +968,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         origem: opcoes.origem || 'desconhecida',
         houveMudanca: false,
         dataMigracaoIso: new Date().toISOString(),
-        logs: []
+        logs: [],
+        devolucoes: clonarArraySeguro(dadosBase.devolucoes)
     };
 
     const versaoAnterior = String(dadosBase.versao || 'sem-versao');

@@ -13,6 +13,72 @@
     ]);
     const STATUS_PAGAMENTO_VALIDOS = new Set(['pendente', 'parcial', 'pago', 'atrasado', 'cancelado']);
     const STATUS_LOGISTICA_VALIDOS = new Set(['pendente', 'agendado', 'em_rota', 'concluida', 'cancelada']);
+    const STATUS_RESERVA_ESTOQUE_VALIDOS = new Set([
+        'nao_reservado',
+        'reservado',
+        'reservado_legado',
+        'liberado'
+    ]);
+
+    function normalizarValorMonetarioLegado(valor) {
+        if (typeof valor === 'number') {
+            return Number.isFinite(valor) ? valor : null;
+        }
+        if (valor == null) return null;
+
+        let texto = String(valor)
+            .replace(/\u00a0/g, ' ')
+            .trim();
+        if (!texto) return null;
+
+        texto = texto
+            .replace(/^R\$\s*/i, '')
+            .replace(/\s+/g, '');
+
+        let sinal = 1;
+        if (texto.startsWith('-')) {
+            sinal = -1;
+            texto = texto.slice(1);
+        } else if (texto.startsWith('+')) {
+            texto = texto.slice(1);
+        }
+
+        if (!texto || !/^\d+(?:[.,]\d+)*$/.test(texto)) return null;
+
+        const ultimaVirgula = texto.lastIndexOf(',');
+        const ultimoPonto = texto.lastIndexOf('.');
+        let separadorDecimal = '';
+
+        if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+            separadorDecimal = ultimaVirgula > ultimoPonto ? ',' : '.';
+        } else {
+            const separador = ultimaVirgula >= 0 ? ',' : (ultimoPonto >= 0 ? '.' : '');
+            if (separador) {
+                const casasFinais = texto.length - texto.lastIndexOf(separador) - 1;
+                if (casasFinais > 0 && casasFinais <= 2) separadorDecimal = separador;
+            }
+        }
+
+        let textoNumerico;
+        if (separadorDecimal) {
+            const indiceDecimal = texto.lastIndexOf(separadorDecimal);
+            const parteInteira = texto.slice(0, indiceDecimal).replace(/[.,]/g, '');
+            const parteDecimal = texto.slice(indiceDecimal + 1);
+            textoNumerico = `${parteInteira}.${parteDecimal}`;
+        } else {
+            textoNumerico = texto.replace(/[.,]/g, '');
+        }
+
+        const numero = Number(textoNumerico) * sinal;
+        return Number.isFinite(numero) ? numero : null;
+    }
+
+    function valorMonetarioSeguro(valor, fallback = 0) {
+        const normalizado = normalizarValorMonetarioLegado(valor);
+        if (normalizado !== null) return normalizado;
+        const fallbackNormalizado = normalizarValorMonetarioLegado(fallback);
+        return fallbackNormalizado !== null ? fallbackNormalizado : 0;
+    }
 
     function numeroSeguro(valor, fallback) {
         const n = Number(valor);
@@ -100,9 +166,13 @@
         return Array.isArray(valor) ? valor.slice() : [];
     }
 
-    function calcularValorLocacaoDominio(locacao = {}) {
+    function possuiValorFinanceiroLocacao(locacao = {}) {
+        return normalizarValorMonetarioLegado(locacao?.financeiro?.valorTotal) !== null;
+    }
+
+    function calcularValorItensLocacaoDominio(locacao = {}) {
         const subtotal = clonarArraySeguro(locacao.items).reduce((total, item) => {
-            const valor = numeroSeguro(item?.valor, 0);
+            const valor = valorMonetarioSeguro(item?.valor, 0);
             const qtd = inteiroNaoNegativo(item?.quantidade, 0);
             return total + (valor * qtd);
         }, 0);
@@ -110,6 +180,13 @@
         let divisor = numeroSeguro(locacao?.divisorFatura, 1);
         if (divisor <= 0) divisor = 1;
         return subtotal / divisor;
+    }
+
+    function calcularValorLocacaoDominio(locacao = {}) {
+        if (possuiValorFinanceiroLocacao(locacao)) {
+            return Math.max(0, valorMonetarioSeguro(locacao.financeiro.valorTotal, 0));
+        }
+        return calcularValorItensLocacaoDominio(locacao);
     }
 
     function inferirStatusFluxoLocacao(locacao = {}) {
@@ -145,9 +222,76 @@
         return 'ativo';
     }
 
+    function possuiDevolucaoTotalComprovadaLocacao(locacao = {}, registrosDevolucao = []) {
+        const locacaoId = textoSeguro(locacao?.id, '');
+        if (!locacaoId || !Array.isArray(registrosDevolucao)) return false;
+
+        return registrosDevolucao.some((registro) => (
+            textoSeguro(registro?.locacaoId, '') === locacaoId
+            && textoSeguro(registro?.tipo, '').trim().toLowerCase() === 'total'
+        ));
+    }
+
+    function classificarStatusReservaLegadoLocacao(locacao = {}, registrosDevolucao = []) {
+        const statusFluxo = inferirStatusFluxoLocacao(locacao);
+        const statusBase = textoSeguro(locacao.status, '').trim().toLowerCase();
+        const cancelamentoComprovado = statusFluxo === 'cancelado' || statusBase === 'cancelado';
+        const devolucaoComprovada = statusFluxo === 'devolvido'
+            || statusBase === 'devolvido'
+            || possuiDevolucaoTotalComprovadaLocacao(locacao, registrosDevolucao);
+
+        return cancelamentoComprovado || devolucaoComprovada
+            ? 'liberado'
+            : 'reservado_legado';
+    }
+
+    function normalizarEstoqueReservaLocacao(locacao = {}, registrosDevolucao = null) {
+        const reservaAtual = clonarObjetoSeguro(locacao.estoqueReserva);
+        const statusAtual = valorEmConjunto(
+            reservaAtual.status,
+            STATUS_RESERVA_ESTOQUE_VALIDOS,
+            ''
+        );
+        const registrosDisponiveis = Array.isArray(registrosDevolucao)
+            ? registrosDevolucao
+            : (typeof devolucoes !== 'undefined' && Array.isArray(devolucoes) ? devolucoes : []);
+        const statusLegadoComprovado = classificarStatusReservaLegadoLocacao(
+            locacao,
+            registrosDisponiveis
+        );
+
+        if (statusAtual) {
+            const origemCompatibilidade = textoSeguro(reservaAtual.origem, '').trim().toLowerCase()
+                === 'compatibilidade_legado';
+            const reclassificarComoLiberado = statusAtual === 'reservado_legado'
+                && origemCompatibilidade
+                && statusLegadoComprovado === 'liberado';
+            return {
+                ...reservaAtual,
+                status: reclassificarComoLiberado ? 'liberado' : statusAtual,
+                movimentacaoIds: clonarArraySeguro(reservaAtual.movimentacaoIds)
+            };
+        }
+
+        return {
+            ...reservaAtual,
+            status: statusLegadoComprovado,
+            origem: 'compatibilidade_legado',
+            movimentacaoIds: clonarArraySeguro(reservaAtual.movimentacaoIds)
+        };
+    }
+
+    function locacaoComprometeEstoque(locacao = {}) {
+        const reserva = normalizarEstoqueReservaLocacao(locacao);
+        return reserva.status === 'reservado' || reserva.status === 'reservado_legado';
+    }
+
     function normalizarFinanceiroLocacao(locacao = {}) {
-        const valorTotal = Math.max(0, numeroSeguro(locacao?.financeiro?.valorTotal, calcularValorLocacaoDominio(locacao)));
-        const sinal = Math.max(0, numeroSeguro(locacao?.financeiro?.sinal, locacao?.sinal));
+        const valorTotal = Math.max(0, valorMonetarioSeguro(
+            locacao?.financeiro?.valorTotal,
+            calcularValorLocacaoDominio(locacao)
+        ));
+        const sinal = Math.max(0, valorMonetarioSeguro(locacao?.financeiro?.sinal, locacao?.sinal));
         const valorRestantePadrao = Math.max(valorTotal - sinal, 0);
         const statusPagamentoPadrao = locacao?.pago ? 'pago' : 'pendente';
 
@@ -162,9 +306,12 @@
             comprovante: ''
         });
 
-        financeiro.valorTotal = Math.max(0, numeroSeguro(financeiro.valorTotal, valorTotal));
-        financeiro.sinal = Math.max(0, numeroSeguro(financeiro.sinal, sinal));
-        financeiro.valorRestante = Math.max(0, numeroSeguro(financeiro.valorRestante, valorRestantePadrao));
+        financeiro.valorTotal = Math.max(0, valorMonetarioSeguro(financeiro.valorTotal, valorTotal));
+        financeiro.sinal = Math.max(0, valorMonetarioSeguro(financeiro.sinal, sinal));
+        financeiro.valorRestante = Math.max(0, valorMonetarioSeguro(
+            financeiro.valorRestante,
+            valorRestantePadrao
+        ));
         financeiro.statusPagamento = valorEmConjunto(financeiro.statusPagamento, STATUS_PAGAMENTO_VALIDOS, statusPagamentoPadrao);
         return financeiro;
     }
@@ -280,6 +427,7 @@
                 observacoes: ''
             }),
             financeiro,
+            estoqueReserva: normalizarEstoqueReservaLocacao(locacao),
             checklist: clonarObjetoSeguro(locacao.checklist, {
                 idChecklist: null,
                 status: 'nao_iniciado',
@@ -441,9 +589,179 @@
         return normalizada;
     }
 
+    function obterLocacaoParaReserva(locacaoOuId) {
+        if (locacaoOuId && typeof locacaoOuId === 'object') return locacaoOuId;
+        const lista = typeof locacoes !== 'undefined' && Array.isArray(locacoes)
+            ? locacoes
+            : [];
+        return lista.find((item) => String(item?.id || '') === String(locacaoOuId || '')) || null;
+    }
+
+    function obterPecasParaReserva() {
+        return typeof pecas !== 'undefined' && Array.isArray(pecas) ? pecas : [];
+    }
+
+    function obterChaveItemReservaEstoque(locacaoId, item, indice) {
+        const itemId = textoSeguro(item?.id || item?.codigo || item?.pecaId || `item-${indice + 1}`, `item-${indice + 1}`);
+        return `reserva|${textoSeguro(locacaoId)}|${itemId}|${indice + 1}|${textoSeguro(item?.pecaId)}`.toLowerCase();
+    }
+
+    function reservarEstoqueLocacao(locacaoOuId, opcoes = {}) {
+        const locacao = obterLocacaoParaReserva(locacaoOuId);
+        if (!locacao) {
+            return { ok: false, bloqueios: ['Locação não encontrada para reserva.'], movimentacoes: [] };
+        }
+
+        const reservaAtual = normalizarEstoqueReservaLocacao(locacao);
+        if (reservaAtual.status === 'reservado' || reservaAtual.status === 'reservado_legado') {
+            return {
+                ok: true,
+                jaReservada: true,
+                status: reservaAtual.status,
+                bloqueios: [],
+                movimentacoes: []
+            };
+        }
+
+        const statusFluxo = inferirStatusFluxoLocacao(locacao);
+        if (statusFluxo === 'cancelado' || statusFluxo === 'devolvido') {
+            return {
+                ok: false,
+                bloqueios: ['Locações canceladas ou devolvidas não podem reservar estoque.'],
+                movimentacoes: []
+            };
+        }
+
+        if (typeof recalcularDisponibilidade === 'function') {
+            recalcularDisponibilidade(true);
+        }
+
+        const itens = clonarArraySeguro(locacao.items);
+        const pecasDisponiveis = obterPecasParaReserva();
+        const bloqueios = [];
+        const reservas = [];
+        const totaisPorPeca = new Map();
+
+        itens.forEach((item, indice) => {
+            const quantidade = obterQuantidadePropriaOperacional(item);
+            if (quantidade <= 0) return;
+
+            const pecaId = textoSeguro(item?.pecaId, '');
+            const descricao = textoSeguro(item?.nome || item?.descricao, `Item ${indice + 1}`);
+            if (!pecaId) {
+                bloqueios.push(`${descricao}: vincule o item ao estoque antes de reservar.`);
+                return;
+            }
+
+            const peca = pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
+            if (!peca) {
+                bloqueios.push(`${descricao}: item de estoque não encontrado.`);
+                return;
+            }
+
+            const chaveIdempotencia = obterChaveItemReservaEstoque(locacao.id, item, indice);
+            reservas.push({
+                item,
+                indice,
+                peca,
+                pecaId,
+                descricao,
+                quantidade,
+                chaveIdempotencia
+            });
+            totaisPorPeca.set(pecaId, (totaisPorPeca.get(pecaId) || 0) + quantidade);
+        });
+
+        totaisPorPeca.forEach((quantidadeNecessaria, pecaId) => {
+            const peca = pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
+            const disponivel = inteiroNaoNegativo(peca?.disponivel, peca?.quantidadeTotal ?? peca?.quantidade);
+            if (quantidadeNecessaria > disponivel) {
+                bloqueios.push(
+                    `${textoSeguro(peca?.nome, 'Item de estoque')}: necessário ${quantidadeNecessaria}, disponível ${disponivel}.`
+                );
+            }
+        });
+
+        const movimentosExistentes = reservas.filter((reserva) => movimentacaoJaRegistrada(reserva.chaveIdempotencia));
+        if (movimentosExistentes.length > 0 && movimentosExistentes.length !== reservas.length) {
+            bloqueios.push('A reserva possui movimentações parciais anteriores. Confira o histórico antes de continuar.');
+        }
+
+        if (bloqueios.length) {
+            return { ok: false, bloqueios, movimentacoes: [], totalReservado: 0 };
+        }
+
+        const dataHora = textoSeguro(opcoes.dataHora, new Date().toISOString());
+        const usuario = textoSeguro(opcoes.usuario, obterIdentidadeOperacaoDominio());
+        const saldosPorPeca = new Map(
+            Array.from(totaisPorPeca.keys()).map((pecaId) => {
+                const peca = pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
+                return [pecaId, inteiroNaoNegativo(peca?.disponivel, peca?.quantidadeTotal ?? peca?.quantidade)];
+            })
+        );
+
+        const movimentacoes = reservas.map((reserva) => {
+            const saldoAntes = saldosPorPeca.get(reserva.pecaId) || 0;
+            const saldoDepois = Math.max(saldoAntes - reserva.quantidade, 0);
+            saldosPorPeca.set(reserva.pecaId, saldoDepois);
+
+            return registrarMovimentacaoEstoque({
+                chaveIdempotencia: reserva.chaveIdempotencia,
+                pecaId: reserva.pecaId,
+                pecaNome: textoSeguro(reserva.peca?.nome, reserva.descricao),
+                tipoMovimentacao: 'reserva',
+                quantidade: reserva.quantidade,
+                locacaoId: textoSeguro(locacao.id),
+                locacaoRef: `#${textoSeguro(locacao.id).slice(-4)}`,
+                usuario,
+                dataHora,
+                observacao: `Reserva explícita do item ${reserva.descricao}.`,
+                saldoAntes,
+                saldoDepois,
+                origemEvento: 'reserva_explicita_locacao',
+                statusProcessamento: 'confirmado'
+            });
+        }).filter(Boolean);
+
+        locacao.estoqueReserva = {
+            ...reservaAtual,
+            status: 'reservado',
+            origem: 'reserva_explicita',
+            reservadoEm: dataHora,
+            reservadoPor: usuario,
+            movimentacaoIds: movimentacoes.map((movimento) => movimento.id)
+        };
+
+        registrarHistoricoLocacaoDominio(locacao, {
+            acao: 'reserva_estoque',
+            descricao: `Estoque reservado para ${reservas.length} item(ns) próprio(s).`,
+            origem: 'locacoes',
+            usuario
+        });
+
+        if (typeof recalcularDisponibilidade === 'function') {
+            recalcularDisponibilidade(true);
+        }
+
+        return {
+            ok: true,
+            jaReservada: false,
+            status: 'reservado',
+            bloqueios: [],
+            movimentacoes,
+            totalReservado: reservas.reduce((total, reserva) => total + reserva.quantidade, 0)
+        };
+    }
+
+    window.normalizarValorMonetarioLegado = normalizarValorMonetarioLegado;
     window.calcularValorLocacaoDominio = calcularValorLocacaoDominio;
+    window.possuiValorFinanceiroLocacao = possuiValorFinanceiroLocacao;
     window.obterQuantidadePropriaOperacional = obterQuantidadePropriaOperacional;
     window.obterComposicaoOperacionalItem = obterComposicaoOperacionalItem;
+    window.classificarStatusReservaLegadoLocacao = classificarStatusReservaLegadoLocacao;
+    window.normalizarEstoqueReservaLocacao = normalizarEstoqueReservaLocacao;
+    window.locacaoComprometeEstoque = locacaoComprometeEstoque;
+    window.reservarEstoqueLocacao = reservarEstoqueLocacao;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;

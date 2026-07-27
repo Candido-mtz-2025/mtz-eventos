@@ -22124,3 +22124,360 @@ body[data-theme="mtz-gold"] #appArea :is(.table tbody tr:nth-child(even) td, tab
         grid-column: auto;
     }
 }
+
+/* === V23.46 | STATUS, AÇÕES E HISTÓRICO DE RESERVA (LOCAÇÕES) === */
+#tab-locacoes .table-responsive {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    overscroll-behavior-inline: contain;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table {
+    width: 100%;
+    min-width: 1160px;
+    table-layout: fixed;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table th:nth-child(1),
+#tab-locacoes #tblLocacoes td:nth-child(1) {
+    width: 260px;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table th:nth-child(2),
+#tab-locacoes #tblLocacoes td:nth-child(2) {
+    width: 145px;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table th:nth-child(3),
+#tab-locacoes #tblLocacoes td:nth-child(3) {
+    width: 140px;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table th:nth-child(4),
+#tab-locacoes #tblLocacoes td.locacao-status-cell {
+    width: 255px;
+    min-width: 255px;
+}
+
+#tab-locacoes #tblLocacoes td.locacao-status-cell {
+    overflow: visible;
+    vertical-align: middle;
+}
+
+#tab-locacoes #tblLocacoes td.locacao-status-cell .badge-row {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+#tab-locacoes #tblLocacoes td.locacao-status-cell .badge {
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+#tab-locacoes #locacoesLista .table-responsive > table th:nth-child(5),
+#tab-locacoes #tblLocacoes td.col-actions {
+    width: 330px !important;
+    min-width: 330px !important;
+}
+
+#tab-locacoes #tblLocacoes td.col-actions {
+    overflow: visible !important;
+    vertical-align: middle;
+}
+
+#tab-locacoes #tblLocacoes td.col-actions .actions-cell.locacao-actions {
+    display: grid !important;
+    width: max-content !important;
+    max-width: 100%;
+    margin-left: auto;
+    padding-right: 0;
+    grid-template-columns: repeat(4, 40px);
+    grid-auto-flow: row !important;
+    grid-auto-columns: auto !important;
+    justify-content: end !important;
+    gap: 8px !important;
+}
+
+#tab-locacoes #tblLocacoes td.col-actions .locacao-action-btn {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+}
+
+#tab-locacoes .locacao-stock-badge--nao-reservado {
+    color: #92400e !important;
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+}
+
+#tab-locacoes .locacao-stock-badge--reservado {
+    color: #166534 !important;
+    background: #dcfce7 !important;
+    border-color: #22c55e !important;
+}
+
+#tab-locacoes .locacao-stock-badge--legado {
+    color: #5b21b6 !important;
+    background: #ede9fe !important;
+    border-color: #8b5cf6 !important;
+}
+
+#tab-locacoes .locacao-stock-badge--liberado {
+    color: #1d4ed8 !important;
+    background: #dbeafe !important;
+    border-color: #60a5fa !important;
+}
+
+.locacao-history-movements {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-hover);
+}
+
+.locacao-history-movements summary {
+    min-height: 40px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+}
+
+.locacao-history-movements summary:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary, #2563eb) 45%, transparent);
+    outline-offset: 2px;
+}
+
+.locacao-history-movement-list {
+    display: grid;
+    gap: 8px;
+    padding: 0 10px 10px;
+}
+
+.locacao-history-movement-item {
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.locacao-history-movement-item > strong {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.locacao-history-movement-item dl {
+    display: grid;
+    margin: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px 12px;
+}
+
+.locacao-history-movement-item dl > div {
+    min-width: 0;
+}
+
+.locacao-history-movement-item dt {
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.locacao-history-movement-item dd {
+    margin: 3px 0 0;
+    color: var(--text);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    #tab-locacoes #locacoesLista .table-responsive > table {
+        min-width: 1020px;
+    }
+
+    #tab-locacoes #locacoesLista .table-responsive > table th:nth-child(4),
+    #tab-locacoes #tblLocacoes td.locacao-status-cell {
+        width: 235px;
+        min-width: 235px;
+    }
+
+    #tab-locacoes #locacoesLista .table-responsive > table th:nth-child(5),
+    #tab-locacoes #tblLocacoes td.col-actions {
+        width: 230px !important;
+        min-width: 230px !important;
+    }
+
+    #tab-locacoes #tblLocacoes td.col-actions .actions-cell.locacao-actions {
+        grid-template-columns: repeat(4, 40px);
+    }
+
+    .locacao-history-movement-item dl {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* === V23.47 | CARDS MOBILE DA LISTA DE LOCAÇÕES === */
+@media (max-width: 600px) {
+    #tab-locacoes #locacoesLista,
+    #tab-locacoes #locacoesLista .table-responsive {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    #tab-locacoes #locacoesLista .table-responsive {
+        overflow: visible !important;
+        overscroll-behavior-inline: auto;
+    }
+
+    #tab-locacoes #locacoesLista .table-responsive > table {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        table-layout: auto;
+        border: 0;
+        background: transparent;
+    }
+
+    #tab-locacoes #locacoesLista .table-responsive > table > thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    #tab-locacoes #tblLocacoes {
+        display: grid;
+        width: 100%;
+        min-width: 0;
+        gap: 14px;
+    }
+
+    #tab-locacoes #tblLocacoes > tr {
+        display: grid;
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td {
+        display: block;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100%;
+        padding: 12px !important;
+        border: 0 !important;
+        border-bottom: 1px solid var(--border) !important;
+        background: transparent !important;
+        overflow: visible !important;
+        white-space: normal;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td::before {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--text-light);
+        font-size: 0.68rem;
+        font-weight: 800;
+        line-height: 1.2;
+        text-transform: uppercase;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(1) {
+        grid-column: 1 / -1;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(1)::before {
+        content: "Cliente e origem";
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(2)::before {
+        content: "Período";
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(3)::before {
+        content: "Valor e pagamento";
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(4) {
+        grid-column: 1 / -1;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(4)::before {
+        content: "Status operacional";
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(5) {
+        grid-column: 1 / -1;
+        border-bottom: 0 !important;
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td:nth-child(5)::before {
+        content: "Ações";
+    }
+
+    #tab-locacoes #tblLocacoes > tr > td[colspan] {
+        grid-column: 1 / -1;
+        border-bottom: 0 !important;
+    }
+
+    #tab-locacoes #tblLocacoes .locacao-cell-main,
+    #tab-locacoes #tblLocacoes .locacao-cell-meta,
+    #tab-locacoes #tblLocacoes .locacao-period-main,
+    #tab-locacoes #tblLocacoes .locacao-period-meta {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    #tab-locacoes #tblLocacoes .locacao-origin-link {
+        max-width: 100%;
+        min-height: 40px;
+        white-space: normal;
+        text-align: left;
+    }
+
+    #tab-locacoes #tblLocacoes td:nth-child(3) .locacao-cell-main,
+    #tab-locacoes #tblLocacoes td:nth-child(3) .badge {
+        white-space: nowrap;
+    }
+
+    #tab-locacoes #tblLocacoes td.locacao-status-cell .badge-row {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+
+    #tab-locacoes #tblLocacoes td.locacao-status-cell .badge {
+        width: auto;
+        max-width: 100%;
+        white-space: normal;
+        text-align: left;
+    }
+
+    #tab-locacoes #tblLocacoes td.col-actions .actions-cell.locacao-actions {
+        width: 100% !important;
+        max-width: 100%;
+        margin: 0;
+        grid-template-columns: repeat(4, 40px);
+        justify-content: start !important;
+    }
+}

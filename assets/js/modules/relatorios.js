@@ -123,7 +123,9 @@ function prepararModalRelatorio(id, titulo) {
     let div = parseFloat(l.divisorFatura || 1);
     if (div <= 0) div = 1;
 
-    const totalFinal = totalItens / div;
+    const totalFinal = typeof calcularValorLocacaoDominio === 'function'
+        ? calcularValorLocacaoDominio(l)
+        : totalItens / div;
     const valorImposto = totalFinal - totalItens;
     const porcentagemImposto = Math.max(0, (1 - div) * 100);
 
@@ -314,7 +316,9 @@ function gerarRelatorioAnual(clienteId) {
 
         let div = parseFloat(l.divisorFatura || 1);
         if (div <= 0) div = 1;
-        const final = subtotal / div;
+        const final = typeof calcularValorLocacaoDominio === 'function'
+            ? calcularValorLocacaoDominio(l)
+            : subtotal / div;
 
         somaItens += subtotal;
         somaFinal += final;
