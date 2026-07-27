@@ -45,6 +45,9 @@ function abrirPropostaOriginalDaLocacao(locacaoId) {
         return false;
     }
 
+    if (typeof window.irParaPropostasFormulario === 'function') {
+        window.irParaPropostasFormulario();
+    }
     window.editarProposta(propostaId);
     return true;
 }
