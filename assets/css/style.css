@@ -1041,6 +1041,78 @@
   .checklist-summary-badges {
     justify-content: flex-start;
   }
+
+  .checklist-origin-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .checklist-origin-back {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .checklist-preview-table,
+  .checklist-preview-table tbody,
+  .checklist-preview-table tr,
+  .checklist-preview-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .checklist-preview-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .checklist-preview-table tr {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .checklist-preview-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .checklist-preview-table td,
+  .checklist-preview-table td:nth-child(2),
+  .checklist-preview-table td:nth-child(3),
+  .checklist-preview-table td:nth-child(4) {
+    display: grid;
+    grid-template-columns: minmax(112px, 0.75fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    padding: 8px 4px;
+    border-bottom: 1px dashed var(--border);
+    text-align: left;
+  }
+
+  .checklist-preview-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .checklist-preview-table td::before {
+    content: attr(data-label);
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .checklist-input-retorno,
+  .checklist-select-status,
+  .checklist-input-obs {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
         /* OUTROS */
@@ -3958,15 +4030,32 @@ input[type="file"]::-webkit-file-upload-button {
     color: #fff;
 }
 
-.checklist-origin-banner strong,
-.checklist-origin-banner span {
+.checklist-origin-banner > div {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.checklist-origin-banner > div strong,
+.checklist-origin-banner > div span {
     display: block;
 }
 
-.checklist-origin-banner span {
+.checklist-origin-banner > div span {
     margin-top: 2px;
     color: var(--muted);
     font-size: 0.9rem;
+}
+
+.checklist-origin-back {
+    flex: 0 0 auto;
+    min-height: 40px;
+    white-space: nowrap;
+}
+
+.checklist-origin-back span {
+    display: inline;
+    margin: 0;
+    color: inherit;
 }
 
 #tab-checklist .section-gap {

@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.48">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.49">
 </head>
 <body>
 
@@ -2307,49 +2307,49 @@
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Cliente</label>
-                            <input type="text" id="checklistCliente" placeholder="Nome do cliente">
+                            <label for="checklistCliente">Cliente</label>
+                            <input type="text" id="checklistCliente" placeholder="Nome do cliente" data-change="atualizarCabecalhoChecklistDaLocacao">
                         </div>
                         <div class="form-group">
-                            <label>Local</label>
-                            <input type="text" id="checklistLocal" placeholder="Local do evento">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Montagem</label>
-                            <input type="date" id="checklistMontagemData">
-                        </div>
-                        <div class="form-group">
-                            <label>Horário</label>
-                            <input type="text" id="checklistHorario" placeholder="Ex: 08:00">
-                        </div>
-                        <div class="form-group">
-                            <label>Evento</label>
-                            <input type="text" id="checklistEvento" placeholder="Nome do evento">
+                            <label for="checklistLocal">Local</label>
+                            <input type="text" id="checklistLocal" placeholder="Local do evento" data-change="atualizarCabecalhoChecklistDaLocacao">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Desmontagem</label>
-                            <input type="date" id="checklistDesmontagemData">
+                            <label for="checklistMontagemData">Data de montagem</label>
+                            <input type="date" id="checklistMontagemData" data-change="atualizarCabecalhoChecklistDaLocacao">
                         </div>
                         <div class="form-group">
-                            <label>Responsável pela Saída</label>
-                            <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída">
+                            <label for="checklistHorario">Horário de montagem</label>
+                            <input type="time" id="checklistHorario" aria-label="Horário de montagem" data-change="atualizarCabecalhoChecklistDaLocacao">
                         </div>
                         <div class="form-group">
-                            <label>Responsável pelo Retorno</label>
-                            <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno">
+                            <label for="checklistEvento">Evento</label>
+                            <input type="text" id="checklistEvento" placeholder="Nome do evento" data-change="atualizarCabecalhoChecklistDaLocacao">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Modelo salvo</label>
-                            <select id="checklistModeloSelect"></select>
+                            <label for="checklistDesmontagemData">Data de desmontagem</label>
+                            <input type="date" id="checklistDesmontagemData" data-change="atualizarCabecalhoChecklistDaLocacao">
+                        </div>
+                        <div class="form-group">
+                            <label for="checklistRespSaida">Responsável pela saída</label>
+                            <input type="text" id="checklistRespSaida" placeholder="Responsável pela saída" data-change="atualizarCabecalhoChecklistDaLocacao">
+                        </div>
+                        <div class="form-group">
+                            <label for="checklistRespRetorno">Responsável pelo retorno</label>
+                            <input type="text" id="checklistRespRetorno" placeholder="Responsável pelo retorno" data-change="atualizarCabecalhoChecklistDaLocacao">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="checklistModeloSelect">Modelo de checklist salvo</label>
+                            <select id="checklistModeloSelect" aria-label="Selecionar modelo de checklist"></select>
                         </div>
                         <div class="form-group form-group-end">
                             <button class="btn btn-primary" data-action="adicionarModeloAoChecklist">
@@ -2374,6 +2374,7 @@
                     </div>
 
                     <div class="inline-chip-row section-gap">
+                        <button class="btn btn-primary" data-action="concluirChecklistDaLocacao">Concluir checklist</button>
                         <button class="btn btn-success" data-action="gerarPDFChecklistMontagem">Gerar PDF</button>
                         <button class="btn btn-secondary" data-action="limparChecklistMontagem">Limpar</button>
                     </div>
@@ -2843,7 +2844,7 @@
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.5"></script>
-    <script src="./assets/js/modules/checklist.js?v=1.1"></script>
+    <script src="./assets/js/modules/checklist.js?v=1.2"></script>
     <script src="./assets/js/modules/config.js?v=1.1"></script>
     <script src="./assets/js/modules/importacao.js?v=1.1"></script>
     <script src="./assets/js/modules/relatorios.js?v=1.5"></script>
