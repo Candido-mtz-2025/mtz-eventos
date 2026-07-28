@@ -21,7 +21,16 @@ function focarCampoChecklist(idCampo, selecionar = false) {
     if (!campo) return;
 
     const alvoRolagem = campo.closest('.form-group') || campo;
-    if (typeof alvoRolagem.scrollIntoView === 'function') {
+    const limites = typeof alvoRolagem.getBoundingClientRect === 'function'
+        ? alvoRolagem.getBoundingClientRect()
+        : null;
+    const margemVisivel = 24;
+    const foraDaAreaVisivel = limites && (
+        limites.top < margemVisivel
+        || limites.bottom > (window.innerHeight || document.documentElement.clientHeight) - margemVisivel
+    );
+
+    if (foraDaAreaVisivel && typeof alvoRolagem.scrollIntoView === 'function') {
         alvoRolagem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
@@ -34,7 +43,7 @@ function focarCampoChecklist(idCampo, selecionar = false) {
         if (selecionar && typeof campo.select === 'function') {
             campo.select();
         }
-    }, 120);
+    }, foraDaAreaVisivel ? 180 : 0);
 }
 
 function adicionarModeloAoChecklist() {
@@ -362,29 +371,41 @@ function obterDetalhesQuantidadeOperacionalChecklist(itemChecklist, locacao = nu
             quantidadeTotal,
             quantidadePropria: quantidadeTotal,
             quantidadeTerceirizada: 0,
-            possuiClassificacao: false
+            possuiClassificacao: false,
+            divisaoValida: true,
+            mensagemDivisao: ''
         };
     }
 
-    const quantidadePropria = typeof obterQuantidadePropriaOperacional === 'function'
-        ? obterQuantidadePropriaOperacional(itemLocacao)
-        : quantidadeTotal;
+    let quantidadePropria = quantidadeTotal;
     let quantidadeTerceirizada = 0;
+    let divisaoValida = true;
+    let mensagemDivisao = '';
 
     if (origemCusto === 'terceirizado') {
+        quantidadePropria = 0;
         quantidadeTerceirizada = quantidadeTotal;
     } else if (origemCusto === 'misto') {
-        quantidadeTerceirizada = Math.max(
-            0,
-            Math.min(parseInt(itemLocacao?.quantidadeTerceirizada, 10) || 0, quantidadeTotal)
-        );
+        const propriaInformada = Number(itemLocacao?.quantidadePropria);
+        const terceirizadaInformada = Number(itemLocacao?.quantidadeTerceirizada);
+        quantidadePropria = Number.isFinite(propriaInformada) ? propriaInformada : 0;
+        quantidadeTerceirizada = Number.isFinite(terceirizadaInformada) ? terceirizadaInformada : 0;
+        divisaoValida = quantidadePropria >= 0
+            && quantidadeTerceirizada >= 0
+            && quantidadePropria + quantidadeTerceirizada === quantidadeTotal;
+
+        if (!divisaoValida) {
+            mensagemDivisao = 'A soma das quantidades própria e terceirizada deve ser igual à quantidade total do item.';
+        }
     }
 
     return {
         quantidadeTotal,
-        quantidadePropria: Math.max(0, Math.min(quantidadePropria, quantidadeTotal)),
+        quantidadePropria,
         quantidadeTerceirizada,
-        possuiClassificacao: true
+        possuiClassificacao: true,
+        divisaoValida,
+        mensagemDivisao
     };
 }
 
@@ -471,18 +492,7 @@ function mostrarChecklistDaLocacao(locacao, mensagem) {
 
     setTimeout(() => {
         renderChecklistMontagem();
-        const alvo = document.getElementById('tab-checklist');
-        if (alvo && typeof alvo.scrollIntoView === 'function') {
-            alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        const primeiroFoco = document.getElementById('checklistCliente');
-        if (primeiroFoco) {
-            try {
-                primeiroFoco.focus({ preventScroll: true });
-            } catch (_) {
-                primeiroFoco.focus();
-            }
-        }
+        focarPrimeiraPendenciaChecklist();
         mostrarToast(mensagem);
     }, 120);
 }
@@ -707,6 +717,11 @@ function obterConferenciaItemChecklist(chave, quantidadeSaida) {
     if (!statusPermitido.includes(registro.status)) {
         registro.status = 'pendente';
     }
+    if (registro.status !== 'avaria') {
+        if (registro.retorno === '') registro.status = 'pendente';
+        else if (registro.retorno === maximo) registro.status = 'ok';
+        else registro.status = 'faltando';
+    }
 
     registro.observacao = String(registro.observacao || '').trim().slice(0, 160);
     return registro;
@@ -731,7 +746,17 @@ function atualizarConferenciaChecklist(chave, campo, valor, quantidadeSaida) {
 
     if (campo === 'status') {
         const statusPermitido = ['pendente', 'ok', 'faltando', 'avaria'];
-        registro.status = statusPermitido.includes(valor) ? valor : 'pendente';
+        const statusSolicitado = statusPermitido.includes(valor) ? valor : 'pendente';
+        const maximo = Math.max(parseInt(quantidadeSaida, 10) || 0, 0);
+
+        if (statusSolicitado === 'avaria') {
+            registro.status = 'avaria';
+        } else {
+            if (statusSolicitado === 'ok') registro.retorno = maximo;
+            if (registro.retorno === '') registro.status = 'pendente';
+            else if (registro.retorno === maximo) registro.status = 'ok';
+            else registro.status = 'faltando';
+        }
     }
 
     if (campo === 'observacao') {
@@ -795,6 +820,8 @@ function obterGruposChecklist() {
             quantidadePropriaOperacional: 0,
             quantidadeTerceirizada: 0,
             possuiClassificacaoOperacional: false,
+            divisaoOperacionalValida: true,
+            mensagemDivisaoOperacional: '',
             chaveConferencia
         };
 
@@ -803,6 +830,10 @@ function obterGruposChecklist() {
         linhaAtual.quantidadeTerceirizada += detalhesQuantidade.quantidadeTerceirizada;
         linhaAtual.possuiClassificacaoOperacional = linhaAtual.possuiClassificacaoOperacional
             || detalhesQuantidade.possuiClassificacao;
+        if (!detalhesQuantidade.divisaoValida) {
+            linhaAtual.divisaoOperacionalValida = false;
+            linhaAtual.mensagemDivisaoOperacional = detalhesQuantidade.mensagemDivisao;
+        }
         gruposMap[grupo].itens.set(referencia, linhaAtual);
         gruposMap[grupo].total += qtd;
 
@@ -921,6 +952,31 @@ function idCampoConferenciaChecklist(prefixo, chave) {
     return `${prefixo}-${sufixo}`;
 }
 
+function focarPrimeiraPendenciaChecklist() {
+    const primeiroPendente = obterGruposChecklist()
+        .flatMap((grupo) => grupo.itens)
+        .find((item) => (
+            !item.divisaoOperacionalValida
+            || (
+                item.quantidadeConferencia > 0
+                && (
+                    item.conferencia?.status !== 'ok'
+                    || Number(item.conferencia?.retorno) !== item.quantidadeConferencia
+                )
+            )
+        ));
+
+    if (!primeiroPendente) {
+        focarCampoChecklist('checklistCliente');
+        return;
+    }
+
+    const prefixo = primeiroPendente.divisaoOperacionalValida
+        ? 'checklist-retorno'
+        : 'checklist-item';
+    focarCampoChecklist(idCampoConferenciaChecklist(prefixo, primeiroPendente.chaveConferencia));
+}
+
 function concluirChecklistDaLocacao() {
     const locacao = obterLocacaoChecklistAtual();
     if (!locacao) {
@@ -938,17 +994,44 @@ function concluirChecklistDaLocacao() {
     }
 
     const grupos = obterGruposChecklist();
-    const primeiroPendente = grupos
+    const primeiraDivisaoInvalida = grupos
         .flatMap((grupo) => grupo.itens)
-        .find((item) => item.quantidadeConferencia > 0 && item.conferencia?.status !== 'ok');
+        .find((item) => !item.divisaoOperacionalValida);
 
-    if (primeiroPendente) {
-        const idStatus = idCampoConferenciaChecklist('checklist-status', primeiroPendente.chaveConferencia);
+    if (primeiraDivisaoInvalida) {
         mostrarToast(
-            `Confira a parcela própria do item "${primeiroPendente.nome}" antes de concluir o checklist.`,
+            `${primeiraDivisaoInvalida.mensagemDivisaoOperacional} Item: "${primeiraDivisaoInvalida.nome}".`,
             'erro'
         );
-        focarCampoChecklist(idStatus);
+        focarCampoChecklist(
+            idCampoConferenciaChecklist('checklist-item', primeiraDivisaoInvalida.chaveConferencia)
+        );
+        return;
+    }
+
+    const primeiroPendente = grupos
+        .flatMap((grupo) => grupo.itens)
+        .find((item) => (
+            item.quantidadeConferencia > 0
+            && (
+                item.conferencia?.status !== 'ok'
+                || Number(item.conferencia?.retorno) !== item.quantidadeConferencia
+            )
+        ));
+
+    if (primeiroPendente) {
+        const idControle = idCampoConferenciaChecklist(
+            primeiroPendente.conferencia?.status === 'avaria' ? 'checklist-status' : 'checklist-retorno',
+            primeiroPendente.chaveConferencia
+        );
+        const detalhe = primeiroPendente.conferencia?.status === 'avaria'
+            ? 'O item está marcado com avaria e precisa ser tratado.'
+            : `Informe ${primeiroPendente.quantidadeConferencia} unidade(s) conferida(s).`;
+        mostrarToast(
+            `Não foi possível concluir "${primeiroPendente.nome}". ${detalhe}`,
+            'erro'
+        );
+        focarCampoChecklist(idControle);
         return;
     }
 
@@ -1038,8 +1121,9 @@ function renderChecklistMontagem() {
                                 const idRetorno = idCampoConferenciaChecklist('checklist-retorno', item.chaveConferencia);
                                 const idStatus = idCampoConferenciaChecklist('checklist-status', item.chaveConferencia);
                                 const idObservacao = idCampoConferenciaChecklist('checklist-observacao', item.chaveConferencia);
+                                const idItem = idCampoConferenciaChecklist('checklist-item', item.chaveConferencia);
                                 return `
-                                <tr>
+                                <tr id="${idItem}" tabindex="-1" ${item.divisaoOperacionalValida ? '' : 'aria-invalid="true"'}>
                                     <td data-label="Item">
                                         <strong>${escaparHTMLChecklist(item.nome)}</strong>
                                         ${item.possuiClassificacaoOperacional ? `
@@ -1047,6 +1131,11 @@ function renderChecklistMontagem() {
                                                 ${montarResumoQuantidadeOperacionalChecklist(item)}
                                             </div>
                                         ` : ''}
+                                        ${item.divisaoOperacionalValida ? '' : `
+                                            <div role="alert" style="margin-top:6px;color:var(--danger);font-size:0.76rem;font-weight:700;line-height:1.4;">
+                                                ${escaparHTMLChecklist(item.mensagemDivisaoOperacional)}
+                                            </div>
+                                        `}
                                     </td>
                                     <td data-label="Total necessário">${item.quantidade}</td>
                                     <td data-label="Conferência interna">
@@ -1056,9 +1145,10 @@ function renderChecklistMontagem() {
                                                 type="number"
                                                 min="0"
                                                 max="${item.quantidadeConferencia}"
-                                                class="checklist-input-retorno"
-                                                aria-label="Quantidade conferida internamente de ${escaparAtributoChecklist(item.nome)}"
-                                                value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
+                                                 class="checklist-input-retorno"
+                                                 aria-label="Quantidade conferida internamente de ${escaparAtributoChecklist(item.nome)}"
+                                                 ${item.divisaoOperacionalValida ? '' : 'aria-invalid="true"'}
+                                                 value="${item.conferencia.retorno === '' ? '' : item.conferencia.retorno}"
                                                 data-change="atualizarConferenciaChecklist"
                                                 data-arg="${item.chaveConferencia}"
                                                 data-arg2="retorno"
