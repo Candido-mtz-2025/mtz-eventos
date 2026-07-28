@@ -1225,6 +1225,21 @@ function gerarPDFChecklistMontagem(opcoes = {}) {
     const logoPdfSrc = (config && config.logo) ? config.logo : './logo.png';
 
     const grupos = obterGruposChecklist();
+    const primeiroItemComDivisaoInvalida = grupos
+        .flatMap((grupo) => grupo.itens)
+        .find((item) => !item.divisaoOperacionalValida);
+
+    if (primeiroItemComDivisaoInvalida) {
+        mostrarToast(
+            `Não foi possível gerar o PDF. A soma das quantidades própria e terceirizada deve ser igual à quantidade total do item "${primeiroItemComDivisaoInvalida.nome}".`,
+            'erro'
+        );
+        focarCampoChecklist(
+            idCampoConferenciaChecklist('checklist-item', primeiroItemComDivisaoInvalida.chaveConferencia)
+        );
+        return;
+    }
+
     sincronizarConferenciaChecklist(grupos);
     const origemChecklist = obterOrigemChecklistAtual();
     const resumoChecklist = calcularResumoChecklistAtual();
