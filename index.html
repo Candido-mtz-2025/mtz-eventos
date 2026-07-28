@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.49">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.50">
 </head>
 <body>
 
@@ -2384,8 +2384,8 @@
         <div class="card" id="devolucoesFormularioCard">
             <h3>Registrar Devolução</h3>
             <div class="form-row">
-                <div class="form-group"><label>Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao"></select></div>
-                <div class="form-group"><label>Data Devolução</label><input type="date" id="devData"></div>
+                <div class="form-group"><label for="devLocacao">Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao"></select></div>
+                <div class="form-group"><label for="devData">Data Devolução</label><input type="date" id="devData"></div>
             </div>
             <div id="divItensDevolucao" class="soft-box">
                 <div class="ui-state-panel">
@@ -2398,7 +2398,7 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-primary" data-action="confirmarDevolucao"><i class="bi bi-check-lg"></i> Registrar Devolução</button>
+            <button id="btnRegistrarDevolucao" class="btn btn-primary" data-action="confirmarDevolucao" disabled><i class="bi bi-check-lg"></i> Registrar Devolução</button>
         </div>
         <div class="card" id="devolucoesHistoricoCard">
             <div class="section-toolbar">
@@ -2836,7 +2836,7 @@
     <script src="./assets/js/core/sync.js?v=1.4"></script>
     <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/migrations.js?v=12.9"></script>
-    <script src="./assets/js/core/domain-services.js?v=12.3"></script>
+    <script src="./assets/js/core/domain-services.js?v=12.4"></script>
     <script src="./assets/js/core/storage.js?v=12.6"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.2"></script>
@@ -2848,17 +2848,17 @@
     <script src="./assets/js/modules/config.js?v=1.1"></script>
     <script src="./assets/js/modules/importacao.js?v=1.1"></script>
     <script src="./assets/js/modules/relatorios.js?v=1.5"></script>
-    <script src="./assets/js/modules/devolucoes.js?v=2.3"></script>
+    <script src="./assets/js/modules/devolucoes.js?v=2.5"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
     <script src="./assets/js/modules/backup-tools.js?v=1.1"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.1"></script>
     <script src="./assets/js/modules/transporte.js?v=1.2"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.1"></script>
     <script src="./assets/js/render/locacoes.js?v=15.4"></script>
-    <script src="./assets/js/render/cadastros.js?v=3.4"></script>
+    <script src="./assets/js/render/cadastros.js?v=3.5"></script>
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
-    <script src="./assets/js/render/devolucoes.js?v=2.3"></script>
+    <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.4"></script>
     <script src="./assets/js/core/app.js?v=23.6"></script>

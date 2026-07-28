@@ -98,11 +98,20 @@ function renderDevolucoes() {
     const totalPendentes = Array.isArray(locacoes)
         ? locacoes.filter((x) => {
             if (!x) return false;
+            if (typeof locacaoTemPendenciaDevolucaoInterna === 'function') {
+                return locacaoTemPendenciaDevolucaoInterna(x);
+            }
             const normalizada = typeof normalizarLocacaoDominio === 'function'
                 ? normalizarLocacaoDominio(x)
                 : null;
             const statusVisual = String(normalizada?.statusVisual || x?.status || '').trim().toLowerCase();
-            return statusVisual !== 'devolvido' && statusVisual !== 'cancelado';
+            return statusVisual !== 'devolvido'
+                && statusVisual !== 'cancelado'
+                && (x.items || []).some((item) => (
+                    typeof obterQuantidadePendenteDevolucaoItem === 'function'
+                        ? obterQuantidadePendenteDevolucaoItem(item) > 0
+                        : getQtdPendenteItem(item) > 0
+                ));
         }).length
         : 0;
 

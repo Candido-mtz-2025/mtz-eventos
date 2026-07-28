@@ -112,6 +112,25 @@
         return quantidadeTotal;
     }
 
+    function obterQuantidadePendenteDevolucaoItem(item = {}) {
+        const quantidadePropria = obterQuantidadePropriaOperacional(item);
+        const devolvidos = inteiroNaoNegativo(item?.devolvidos, 0);
+        const avariados = inteiroNaoNegativo(item?.avariadosEstoqueProprio, 0);
+        return Math.max(quantidadePropria - devolvidos - avariados, 0);
+    }
+
+    function locacaoTemPendenciaDevolucaoInterna(locacao = {}) {
+        const statusFluxo = inferirStatusFluxoLocacao(locacao);
+        const statusBase = textoSeguro(locacao?.status, '').trim().toLowerCase();
+        if (statusFluxo === 'devolvido' || statusFluxo === 'cancelado'
+            || statusBase === 'devolvido' || statusBase === 'cancelado') {
+            return false;
+        }
+
+        return Array.isArray(locacao?.items)
+            && locacao.items.some((item) => obterQuantidadePendenteDevolucaoItem(item) > 0);
+    }
+
     function obterComposicaoOperacionalItem(item = {}) {
         const quantidadeTotal = inteiroNaoNegativo(item?.quantidade, 0);
         const possuiOrigemCusto = Object.prototype.hasOwnProperty.call(item || {}, 'origemCusto');
@@ -757,6 +776,8 @@
     window.calcularValorLocacaoDominio = calcularValorLocacaoDominio;
     window.possuiValorFinanceiroLocacao = possuiValorFinanceiroLocacao;
     window.obterQuantidadePropriaOperacional = obterQuantidadePropriaOperacional;
+    window.obterQuantidadePendenteDevolucaoItem = obterQuantidadePendenteDevolucaoItem;
+    window.locacaoTemPendenciaDevolucaoInterna = locacaoTemPendenciaDevolucaoInterna;
     window.obterComposicaoOperacionalItem = obterComposicaoOperacionalItem;
     window.classificarStatusReservaLegadoLocacao = classificarStatusReservaLegadoLocacao;
     window.normalizarEstoqueReservaLocacao = normalizarEstoqueReservaLocacao;

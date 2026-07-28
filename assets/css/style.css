@@ -819,6 +819,21 @@
   border-radius: 10px;
 }
 
+.devolucao-item.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.devolucao-item.is-invalid input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.dev-linha-erro {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .devolucao-item-info strong {
   display: block;
   color: var(--text);
