@@ -294,6 +294,8 @@ function atualizarControleSidebar() {
     if (sidebar) {
         sidebar.setAttribute('aria-hidden', (!layoutSidebarEhDesktop() && !abertaMobile) ? 'true' : 'false');
     }
+
+    atualizarTooltipsGruposSidebar();
 }
 
 function fecharSidebarMobile() {
@@ -326,6 +328,77 @@ function inicializarSidebarLayout() {
     atualizarControleSidebar();
 }
 
+const ROTULOS_GRUPOS_NAVEGACAO = Object.freeze({
+    comercial: 'Comercial',
+    operacao: 'Operação',
+    logistica: 'Logística',
+    financeiro: 'Financeiro',
+    admin: 'Administração'
+});
+
+function sidebarRecolhidaDesktop() {
+    return layoutSidebarEhDesktop()
+        && document.getElementById('appArea')?.classList.contains('sidebar-collapsed');
+}
+
+function limparPosicaoFlyoutNavegacao(grupoEl) {
+    const dropdown = grupoEl?.querySelector?.('.nav-dropdown');
+    if (!(dropdown instanceof HTMLElement)) return;
+    dropdown.style.removeProperty('--nav-flyout-top');
+    dropdown.style.removeProperty('--nav-flyout-left');
+    dropdown.style.removeProperty('--nav-flyout-max-height');
+}
+
+function atualizarTooltipsGruposSidebar() {
+    const recolhida = sidebarRecolhidaDesktop();
+    document.querySelectorAll('[data-nav-group]').forEach((grupoEl) => {
+        const grupo = String(grupoEl.dataset.navGroup || '').trim();
+        const trigger = grupoEl.querySelector('[data-menu-toggle]');
+        if (!(trigger instanceof HTMLElement)) return;
+        const rotulo = ROTULOS_GRUPOS_NAVEGACAO[grupo] || grupo;
+        const fechado = !grupoEl.classList.contains('is-open');
+        if (recolhida && fechado) trigger.title = rotulo;
+        else trigger.removeAttribute('title');
+        trigger.setAttribute('aria-haspopup', 'menu');
+    });
+}
+
+function posicionarFlyoutNavegacao(grupoEl) {
+    if (!sidebarRecolhidaDesktop() || !(grupoEl instanceof HTMLElement)) {
+        limparPosicaoFlyoutNavegacao(grupoEl);
+        return;
+    }
+
+    const trigger = grupoEl.querySelector('[data-menu-toggle]');
+    const dropdown = grupoEl.querySelector('.nav-dropdown');
+    if (!(trigger instanceof HTMLElement) || !(dropdown instanceof HTMLElement)) return;
+
+    requestAnimationFrame(() => {
+        if (!grupoEl.classList.contains('is-open')) return;
+        const margem = 12;
+        const espacamento = 10;
+        const triggerRect = trigger.getBoundingClientRect();
+        const sidebarRect = document.getElementById('appMainSidebar')?.getBoundingClientRect();
+        const altura = Math.min(dropdown.scrollHeight, window.innerHeight - (margem * 2));
+        const topo = Math.min(
+            window.innerHeight - altura - margem,
+            Math.max(margem, triggerRect.top)
+        );
+        dropdown.style.setProperty('--nav-flyout-top', `${Math.round(topo)}px`);
+        const esquerda = Math.max(triggerRect.right, sidebarRect?.right || 0) + espacamento;
+        dropdown.style.setProperty('--nav-flyout-left', `${Math.round(esquerda)}px`);
+        dropdown.style.setProperty('--nav-flyout-max-height', `${Math.max(160, window.innerHeight - (margem * 2))}px`);
+    });
+}
+
+function focarItemFlyout(grupoEl, posicao = 'primeiro') {
+    const itens = Array.from(grupoEl?.querySelectorAll?.('.nav-dropdown [data-menu-item]') || [])
+        .filter((item) => !item.disabled && item.getAttribute('aria-hidden') !== 'true');
+    if (!itens.length) return;
+    const alvo = posicao === 'ultimo' ? itens[itens.length - 1] : itens[0];
+    setTimeout(() => alvo.focus({ preventScroll: true }), 30);
+}
+
 function fecharMenusNavegacaoPrincipal(excecao = '') {
     document.querySelectorAll('[data-nav-group]').forEach((grupoEl) => {
         const grupo = String(grupoEl.dataset.navGroup || '').trim();
@@ -333,7 +406,9 @@ function fecharMenusNavegacaoPrincipal(excecao = '') {
         grupoEl.classList.toggle('is-open', Boolean(manterAberto));
         const trigger = grupoEl.querySelector('[data-menu-toggle]');
         if (trigger) trigger.setAttribute('aria-expanded', manterAberto ? 'true' : 'false');
+        if (!manterAberto) limparPosicaoFlyoutNavegacao(grupoEl);
     });
+    atualizarTooltipsGruposSidebar();
 }
 
 function alternarMenuNavegacaoPrincipal(grupo) {
@@ -343,6 +418,7 @@ function alternarMenuNavegacaoPrincipal(grupo) {
 
     const vaiAbrir = !grupoEl.classList.contains('is-open');
     fecharMenusNavegacaoPrincipal(vaiAbrir ? grupoId : '');
+    if (vaiAbrir) posicionarFlyoutNavegacao(grupoEl);
     return true;
 }
 
@@ -401,16 +477,69 @@ function inicializarNavegacaoPrincipal() {
     });
 
     document.addEventListener('keydown', (event) => {
+        const alvo = event.target;
+        if (!(alvo instanceof HTMLElement)) return;
+
+        const trigger = alvo.closest('[data-menu-toggle]');
+        if (
+            trigger instanceof HTMLElement
+            && sidebarRecolhidaDesktop()
+            && ['ArrowRight', 'ArrowDown'].includes(event.key)
+        ) {
+            const grupoEl = trigger.closest('[data-nav-group]');
+            if (!(grupoEl instanceof HTMLElement)) return;
+            event.preventDefault();
+            if (!grupoEl.classList.contains('is-open')) {
+                alternarMenuNavegacaoPrincipal(trigger.dataset.menuToggle);
+            }
+            focarItemFlyout(grupoEl);
+            return;
+        }
+
+        const item = alvo.closest('.nav-dropdown [data-menu-item]');
+        if (item instanceof HTMLElement && sidebarRecolhidaDesktop()) {
+            const grupoEl = item.closest('[data-nav-group]');
+            const itens = Array.from(grupoEl?.querySelectorAll('.nav-dropdown [data-menu-item]') || [])
+                .filter((entrada) => !entrada.disabled && entrada.getAttribute('aria-hidden') !== 'true');
+            const indice = itens.indexOf(item);
+            let proximo = -1;
+            if (event.key === 'ArrowDown') proximo = (indice + 1) % itens.length;
+            if (event.key === 'ArrowUp') proximo = (indice - 1 + itens.length) % itens.length;
+            if (event.key === 'Home') proximo = 0;
+            if (event.key === 'End') proximo = itens.length - 1;
+            if (proximo >= 0) {
+                event.preventDefault();
+                itens[proximo]?.focus({ preventScroll: true });
+                return;
+            }
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                const acionador = grupoEl?.querySelector('[data-menu-toggle]');
+                fecharMenusNavegacaoPrincipal();
+                acionador?.focus({ preventScroll: true });
+                return;
+            }
+        }
+
         if (event.key !== 'Escape') return;
         const menuAberto = document.querySelector('[data-nav-group].is-open');
         const sidebarAberta = document.body.classList.contains('sidebar-mobile-open');
         if (!menuAberto && !sidebarAberta) return;
         event.preventDefault();
+        const acionador = menuAberto?.querySelector('[data-menu-toggle]');
         fecharMenusNavegacaoPrincipal();
-        fecharSidebarMobile();
+        if (sidebarRecolhidaDesktop()) {
+            acionador?.focus({ preventScroll: true });
+        } else {
+            fecharSidebarMobile();
+        }
     });
 
-    window.addEventListener('resize', atualizarControleSidebar);
+    window.addEventListener('resize', () => {
+        atualizarControleSidebar();
+        const grupoAberto = document.querySelector('[data-nav-group].is-open');
+        if (grupoAberto) posicionarFlyoutNavegacao(grupoAberto);
+    });
 }
 
 function abrirModuloPreparado(id) {

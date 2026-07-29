@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.51">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.52">
 </head>
 <body>
 
@@ -93,6 +93,14 @@
                     <p class="logo-subtitle">Painel de Controle</p>
                 </div>
                 <div class="header-actions">
+                    <button id="syncBadge" type="button" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao" aria-label="Sincronização: Offline">
+                        <i id="syncIcon" class="bi bi-cloud-slash" aria-hidden="true"></i>
+                        <span id="syncText">Offline</span>
+                    </button>
+                    <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
+                        <i class="bi bi-bell"></i>
+                        <span class="header-notification-count" hidden>0</span>
+                    </button>
                     <div id="headerUser" class="header-account" style="display:none;">
                         <button id="headerUserButton" class="header-user" type="button" data-action="abrirMenuConta" aria-haspopup="dialog" aria-controls="accountMenu" aria-expanded="false">
                             <img id="headerUserAvatar" src="./logo.png" alt="">
@@ -111,19 +119,19 @@
                                 <span id="themeMenuLabel" class="account-menu-label">Aparência</span>
                                 <div id="themeMenu" class="theme-menu" role="radiogroup" aria-labelledby="themeMenuLabel">
                                     <button type="button" role="radio" aria-checked="false" data-theme-option="light" data-action="selecionarTema" data-arg="light">
-                                        <i class="bi bi-sun" aria-hidden="true"></i><span>Claro</span>
+                                        <span class="theme-swatch theme-swatch-light" aria-hidden="true"></span><span>Claro</span>
                                     </button>
                                     <button type="button" role="radio" aria-checked="false" data-theme-option="dark" data-action="selecionarTema" data-arg="dark">
-                                        <i class="bi bi-moon" aria-hidden="true"></i><span>Escuro</span>
+                                        <span class="theme-swatch theme-swatch-dark" aria-hidden="true"></span><span>Escuro</span>
                                     </button>
                                     <button type="button" role="radio" aria-checked="false" data-theme-option="mtz-premium" data-action="selecionarTema" data-arg="mtz-premium">
-                                        <i class="bi bi-palette" aria-hidden="true"></i><span>Premium MTZ</span>
+                                        <span class="theme-swatch theme-swatch-premium" aria-hidden="true"></span><span>Premium MTZ</span>
                                     </button>
                                     <button type="button" role="radio" aria-checked="false" data-theme-option="mtz-gold" data-action="selecionarTema" data-arg="mtz-gold">
-                                        <i class="bi bi-gem" aria-hidden="true"></i><span>Dourado</span>
+                                        <span class="theme-swatch theme-swatch-gold" aria-hidden="true"></span><span>Dourado</span>
                                     </button>
                                     <button type="button" role="radio" aria-checked="false" data-theme-option="auto" data-action="selecionarTema" data-arg="auto">
-                                        <i class="bi bi-circle-half" aria-hidden="true"></i><span>Automático</span>
+                                        <span class="theme-swatch theme-swatch-auto" aria-hidden="true"></span><span>Usar tema automático do dispositivo</span>
                                     </button>
                                 </div>
                             </div>
@@ -132,11 +140,6 @@
                             </button>
                         </div>
                     </div>
-                    <button id="syncBadge" type="button" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao" aria-label="Sincronização: Offline"><i class="bi bi-circle-fill" aria-hidden="true"></i> <span id="syncText">Offline</span><i class="bi bi-gear sync-caret" aria-hidden="true"></i></button>
-                    <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
-                        <i class="bi bi-bell"></i>
-                        <span class="header-notification-count" hidden>0</span>
-                    </button>
                 </div>
             </div>
         </header>
@@ -2828,7 +2831,7 @@
     <script src="./assets/js/core/utils.js?v=2.4"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
-    <script src="./assets/js/core/sync.js?v=1.5"></script>
+    <script src="./assets/js/core/sync.js?v=1.6"></script>
     <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/migrations.js?v=12.9"></script>
     <script src="./assets/js/core/domain-services.js?v=12.4"></script>
@@ -2856,7 +2859,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.4"></script>
-    <script src="./assets/js/core/app.js?v=23.7"></script>
+    <script src="./assets/js/core/app.js?v=23.8"></script>
         
 </body>
 </html>

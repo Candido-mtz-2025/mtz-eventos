@@ -557,39 +557,59 @@ function sair() {
 function updStatus(s) {
     const b = document.getElementById('syncBadge');
     const t = document.getElementById('syncText');
-    if (!b || !t) return;
+    const icon = document.getElementById('syncIcon');
+    if (!b || !t || !icon) return;
 
-    const configurarAtalhoReconexao = (ativo, titulo) => {
+    const configurarEstado = ({ classe, texto, icone, ativo, titulo }) => {
+        b.className = `sync-badge ${classe}`;
+        t.textContent = texto;
+        icon.className = `bi ${icone}`;
         b.classList.toggle('sync-badge-action', !!ativo);
         b.dataset.action = 'abrirPainelSincronizacao';
         b.title = titulo || 'Ver detalhes da sincronização.';
-        b.setAttribute('aria-label', `Sincronização: ${String(t.textContent || 'Offline').trim()}. ${b.title}`);
+        b.setAttribute('aria-label', `Sincronização: ${texto}. ${b.title}`);
     };
 
     if (s === 'online') {
-        b.className = 'sync-badge sync-online';
-        t.innerText = 'Online';
-        configurarAtalhoReconexao(false, 'Sincronização ativa.');
+        configurarEstado({
+            classe: 'sync-online',
+            texto: 'Sincronizado',
+            icone: 'bi-cloud-check',
+            ativo: false,
+            titulo: 'Dados sincronizados com a nuvem.'
+        });
         return;
     }
 
     if (s === 'saving') {
-        b.className = 'sync-badge sync-saving';
-        t.innerText = 'Salvando...';
-        configurarAtalhoReconexao(false, 'Salvando dados na nuvem.');
+        configurarEstado({
+            classe: 'sync-saving',
+            texto: 'Salvando',
+            icone: 'bi-arrow-repeat',
+            ativo: false,
+            titulo: 'Salvando dados na nuvem.'
+        });
         return;
     }
 
     if (s === 'local') {
-        b.className = 'sync-badge sync-local';
-        t.innerText = 'Local';
-        configurarAtalhoReconexao(true, 'Clique para reconectar ao Google e reativar a sincronização.');
+        configurarEstado({
+            classe: 'sync-local',
+            texto: 'Modo local',
+            icone: 'bi-cloud',
+            ativo: true,
+            titulo: 'Clique para ver os detalhes da sincronização local.'
+        });
         return;
     }
 
-    b.className = 'sync-badge sync-offline';
-    t.innerText = 'Offline';
-    configurarAtalhoReconexao(true, 'Clique para entrar com Google quando houver internet.');
+    configurarEstado({
+        classe: 'sync-offline',
+        texto: 'Offline',
+        icone: 'bi-cloud-slash',
+        ativo: true,
+        titulo: 'Clique para ver os detalhes da sincronização offline.'
+    });
 }
 
 function tentarRevalidacaoSilenciosa() {
