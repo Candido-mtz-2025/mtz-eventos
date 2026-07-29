@@ -288,6 +288,7 @@ function atualizarControleSidebar() {
         const expandido = layoutSidebarEhDesktop() ? !recolhidaDesktop : abertaMobile;
         botao.setAttribute('aria-expanded', expandido ? 'true' : 'false');
         botao.setAttribute('title', expandido ? 'Recolher menu' : 'Abrir menu');
+        botao.setAttribute('aria-label', expandido ? 'Recolher menu principal' : 'Abrir menu principal');
     });
 
     if (sidebar) {
@@ -297,6 +298,7 @@ function atualizarControleSidebar() {
 
 function fecharSidebarMobile() {
     document.body.classList.remove('sidebar-mobile-open');
+    fecharMenusNavegacaoPrincipal();
     atualizarControleSidebar();
 }
 
@@ -307,8 +309,10 @@ function toggleSidebarMobile() {
     if (layoutSidebarEhDesktop()) {
         const recolhida = app.classList.toggle('sidebar-collapsed');
         localStorage.setItem(CHAVE_SIDEBAR_RECOLHIDA, recolhida ? '1' : '0');
+        if (recolhida) fecharMenusNavegacaoPrincipal();
     } else {
-        document.body.classList.toggle('sidebar-mobile-open');
+        const aberta = document.body.classList.toggle('sidebar-mobile-open');
+        if (!aberta) fecharMenusNavegacaoPrincipal();
     }
 
     atualizarControleSidebar();
@@ -1777,25 +1781,26 @@ function abrirPainelSincronizacao() {
 
 function abrirMenuConta() {
     const menu = document.getElementById('accountMenu');
-    const usuario = document.getElementById('headerUser');
-    if (!menu || !usuario) return false;
+    const botao = document.getElementById('headerUserButton');
+    if (!menu || !botao) return false;
 
     const abrindo = menu.hidden;
     menu.hidden = !abrindo;
-    usuario.setAttribute('aria-expanded', abrindo ? 'true' : 'false');
+    botao.setAttribute('aria-expanded', abrindo ? 'true' : 'false');
     if (abrindo) {
-        const primeiro = menu.querySelector('button');
+        const primeiro = menu.querySelector('[data-action="abrirPerfilUsuario"]');
         setTimeout(() => primeiro?.focus?.({ preventScroll: true }), 40);
     }
     return true;
 }
 
-function fecharMenuConta() {
+function fecharMenuConta(restaurarFoco = false) {
     const menu = document.getElementById('accountMenu');
-    const usuario = document.getElementById('headerUser');
+    const botao = document.getElementById('headerUserButton');
     if (!menu) return;
     menu.hidden = true;
-    usuario?.setAttribute('aria-expanded', 'false');
+    botao?.setAttribute('aria-expanded', 'false');
+    if (restaurarFoco) botao?.focus?.({ preventScroll: true });
 }
 
 function abrirPerfilUsuario() {
@@ -2925,44 +2930,17 @@ function executarAtalhoRapido(atalhoId) {
         meta.setAttribute('content', cores[temaEfetivo] || cores.light);
     }
 
-    function obterBotaoTemaPrincipal() {
-        return document.querySelector('.theme-menu-wrap [data-action="toggleTheme"]')
-            || document.querySelector('[data-action="toggleTheme"]');
-    }
-
-    function atualizarControleTema(preferencia, temaEfetivo) {
-        const botao = obterBotaoTemaPrincipal();
+    function atualizarControleTema(preferencia) {
         const menu = document.getElementById('themeMenu');
         const tema = normalizarTemaSistema(preferencia);
-        const icones = {
-            light: 'bi-sun',
-            dark: 'bi-moon',
-            'mtz-premium': 'bi-palette',
-            'mtz-gold': 'bi-gem',
-            auto: 'bi-circle-half'
-        };
-        const rotulos = {
-            light: 'Tema claro',
-            dark: 'Tema escuro',
-            'mtz-premium': 'Tema MTZ Premium',
-            'mtz-gold': 'Tema MTZ Gold',
-            auto: `Tema automatico (${temaEfetivo === 'dark' ? 'escuro' : 'claro'})`
-        };
-
-        if (botao) {
-            const icon = botao.querySelector('i');
-            if (icon) {
-                icon.className = `bi ${icones[tema] || icones.light}`;
-            }
-            botao.setAttribute('title', rotulos[tema] || rotulos.light);
-            botao.setAttribute('aria-label', `${rotulos[tema] || rotulos.light}. Abrir opcoes de tema.`);
-        }
 
         if (menu) {
             menu.querySelectorAll('[data-theme-option]').forEach((item) => {
                 const ativo = item.dataset.themeOption === tema;
                 item.classList.toggle('is-active', ativo);
                 item.setAttribute('aria-current', ativo ? 'true' : 'false');
+                item.setAttribute('aria-checked', ativo ? 'true' : 'false');
+                item.tabIndex = ativo ? 0 : -1;
             });
         }
     }
@@ -2978,85 +2956,18 @@ function executarAtalhoRapido(atalhoId) {
         }
 
         atualizarMetaCorTema(temaEfetivo);
-        atualizarControleTema(tema, temaEfetivo);
+        atualizarControleTema(tema);
     }
 
-    function restaurarMenuTemaPadrao() {
+    function abrirMenuTema() {
         const menu = document.getElementById('themeMenu');
-        const wrap = document.querySelector('.theme-menu-wrap');
-        if (!menu || !wrap) return;
-        if (menu.parentElement !== wrap) wrap.appendChild(menu);
-        menu.classList.remove('theme-menu-floating');
-        delete menu.dataset.floatSide;
-        menu.style.removeProperty('top');
-        menu.style.removeProperty('left');
-        menu.style.removeProperty('right');
-        menu.style.removeProperty('position');
-    }
-
-    function posicionarMenuTemaFlutuante(origem) {
-        const menu = document.getElementById('themeMenu');
-        if (!menu || !(origem instanceof HTMLElement)) return;
-
-        const rect = origem.getBoundingClientRect();
-        const largura = 230;
-        const altura = 252;
-        const margem = 12;
-        const offset = 10;
-        let esquerda = rect.right + offset;
-        let lado = 'left';
-
-        if (esquerda + largura > window.innerWidth - margem) {
-            esquerda = rect.left - largura - offset;
-            lado = 'right';
-        }
-
-        if (esquerda < margem) {
-            esquerda = Math.min(window.innerWidth - largura - margem, Math.max(margem, rect.left));
-            lado = 'top';
-        }
-
-        const topo = lado === 'top'
-            ? Math.min(window.innerHeight - altura - margem, Math.max(margem, rect.bottom + 8))
-            : Math.min(window.innerHeight - altura - margem, Math.max(margem, rect.top - 6));
-
-        document.body.appendChild(menu);
-        menu.classList.add('theme-menu-floating');
-        menu.dataset.floatSide = lado;
-        menu.style.position = 'fixed';
-        menu.style.left = `${esquerda}px`;
-        menu.style.top = `${topo}px`;
-        menu.style.right = 'auto';
-    }
-
-    function fecharMenuTema() {
-        const menu = document.getElementById('themeMenu');
-        const botao = obterBotaoTemaPrincipal();
-        if (menu) menu.hidden = true;
-        if (botao) botao.setAttribute('aria-expanded', 'false');
-        restaurarMenuTemaPadrao();
-    }
-
-    function abrirMenuTema(origem = null) {
-        const menu = document.getElementById('themeMenu');
-        const botao = obterBotaoTemaPrincipal();
         if (!menu) return;
-        const deveAbrir = menu.hidden;
-        if (deveAbrir && origem instanceof HTMLElement && origem.closest('#accountMenu')) {
-            posicionarMenuTemaFlutuante(origem);
-        } else {
-            restaurarMenuTemaPadrao();
-        }
-        menu.hidden = !deveAbrir;
-        if (botao) botao.setAttribute('aria-expanded', deveAbrir ? 'true' : 'false');
-        if (deveAbrir) {
-            setTimeout(() => menu.querySelector('[data-theme-option].is-active, [data-theme-option]')?.focus(), 30);
-        }
+        if (document.getElementById('accountMenu')?.hidden) abrirMenuConta();
+        setTimeout(() => menu.querySelector('[data-theme-option].is-active, [data-theme-option]')?.focus(), 30);
     }
 
     function selecionarTema(tema) {
         aplicarTemaSistema(tema);
-        fecharMenuTema();
         if (typeof mostrarToast === 'function') {
             const rotulos = {
                 light: 'Tema claro aplicado.',
@@ -3090,53 +3001,36 @@ function executarAtalhoRapido(atalhoId) {
         }
     }
 
-document.addEventListener('click', (event) => {
-    const alvo = event.target;
-    if (
-        alvo instanceof HTMLElement
-        && (alvo.closest('.theme-menu-wrap') || alvo.closest('#themeMenu') || alvo.closest('#accountMenu [data-action="toggleTheme"]'))
-    ) return;
-    fecharMenuTema();
+document.getElementById('themeMenu')?.addEventListener('keydown', (event) => {
+    if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+    const opcoes = Array.from(event.currentTarget.querySelectorAll('[data-theme-option]'));
+    const atual = Math.max(0, opcoes.indexOf(document.activeElement));
+    let proximo = atual;
+    if (event.key === 'Home') proximo = 0;
+    else if (event.key === 'End') proximo = opcoes.length - 1;
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') proximo = (atual + 1) % opcoes.length;
+    else proximo = (atual - 1 + opcoes.length) % opcoes.length;
+    event.preventDefault();
+    opcoes[proximo]?.focus();
 });
 
 document.addEventListener('click', (event) => {
     const alvo = event.target;
     if (!(alvo instanceof HTMLElement)) return;
-    const botaoTemaConta = alvo.closest('#accountMenu [data-action="toggleTheme"]');
-    if (!botaoTemaConta) return;
-    event.preventDefault();
-    event.stopPropagation();
-    abrirMenuTema(botaoTemaConta);
-    setTimeout(fecharMenuConta, 0);
-}, true);
-
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') fecharMenuTema();
-});
-
-document.addEventListener('click', (event) => {
-    const alvo = event.target;
-    if (!(alvo instanceof HTMLElement)) return;
-    const setaSync = alvo.closest('#syncBadge .sync-caret');
-    if (!setaSync) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    abrirMenuConta();
-}, true);
-
-document.addEventListener('click', (event) => {
-    const alvo = event.target;
-    if (!(alvo instanceof HTMLElement)) return;
+    if (alvo.closest('#accountMenu [data-theme-option]')) return;
     if (alvo.closest('#accountMenu button')) {
         setTimeout(fecharMenuConta, 0);
         return;
     }
-    if (alvo.closest('#headerUser') || alvo.closest('#accountMenu')) return;
+    if (alvo.closest('#headerUser')) return;
     fecharMenuConta();
 });
 
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') fecharMenuConta();
+    if (event.key === 'Escape' && !document.getElementById('accountMenu')?.hidden) {
+        event.preventDefault();
+        fecharMenuConta(true);
+    }
 });
 
     window.aplicarTemaSistema = aplicarTemaSistema;

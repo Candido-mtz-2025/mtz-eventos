@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.50">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.51">
 </head>
 <body>
 
@@ -85,7 +85,7 @@
     <div id="appArea" style="display: none;">
         <header>
             <div class="container">
-                <button class="sidebar-mobile-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="false" title="Abrir menu">
+                <button class="sidebar-mobile-toggle" type="button" data-action="toggleSidebarMobile" aria-controls="appMainSidebar" aria-expanded="false" aria-label="Abrir menu principal" title="Abrir menu">
                     <i class="bi bi-list"></i>
                 </button>
                 <div class="logo">
@@ -93,55 +93,50 @@
                     <p class="logo-subtitle">Painel de Controle</p>
                 </div>
                 <div class="header-actions">
-                    <div id="headerUser" class="header-user" style="display:none;" aria-haspopup="menu" aria-expanded="false">
-                        <img id="headerUserAvatar" src="./logo.png" alt="Usuário">
-                        <div>
-                            <strong id="headerUserName">Usuário</strong>
-                            <span id="headerUserEmail">Modo local</span>
-                            <small id="headerUserRole" class="header-role-badge">Admin</small>
-                        </div>
-                        <div id="accountMenu" class="account-menu" role="menu" aria-label="Menu da conta" hidden>
-                            <button type="button" role="menuitem" data-action="abrirPerfilUsuario">
-                                <i class="bi bi-person-circle"></i><span>Perfil</span>
+                    <div id="headerUser" class="header-account" style="display:none;">
+                        <button id="headerUserButton" class="header-user" type="button" data-action="abrirMenuConta" aria-haspopup="dialog" aria-controls="accountMenu" aria-expanded="false">
+                            <img id="headerUserAvatar" src="./logo.png" alt="">
+                            <span class="header-user-meta">
+                                <strong id="headerUserName">Usuário</strong>
+                                <span id="headerUserEmail">Modo local</span>
+                                <small id="headerUserRole" class="header-role-badge">Admin</small>
+                            </span>
+                            <i class="bi bi-chevron-down account-caret" aria-hidden="true"></i>
+                        </button>
+                        <div id="accountMenu" class="account-menu" role="dialog" aria-label="Menu da conta" hidden>
+                            <button type="button" data-action="abrirPerfilUsuario">
+                                <i class="bi bi-person-circle" aria-hidden="true"></i><span>Perfil</span>
                             </button>
-                            <button type="button" role="menuitem" data-action="toggleTheme">
-                                <i class="bi bi-palette"></i><span>Temas</span>
-                            </button>
-                            <button type="button" role="menuitem" data-action="sair">
-                                <i class="bi bi-box-arrow-right"></i><span>Sair</span>
+                            <div class="account-menu-section">
+                                <span id="themeMenuLabel" class="account-menu-label">Aparência</span>
+                                <div id="themeMenu" class="theme-menu" role="radiogroup" aria-labelledby="themeMenuLabel">
+                                    <button type="button" role="radio" aria-checked="false" data-theme-option="light" data-action="selecionarTema" data-arg="light">
+                                        <i class="bi bi-sun" aria-hidden="true"></i><span>Claro</span>
+                                    </button>
+                                    <button type="button" role="radio" aria-checked="false" data-theme-option="dark" data-action="selecionarTema" data-arg="dark">
+                                        <i class="bi bi-moon" aria-hidden="true"></i><span>Escuro</span>
+                                    </button>
+                                    <button type="button" role="radio" aria-checked="false" data-theme-option="mtz-premium" data-action="selecionarTema" data-arg="mtz-premium">
+                                        <i class="bi bi-palette" aria-hidden="true"></i><span>Premium MTZ</span>
+                                    </button>
+                                    <button type="button" role="radio" aria-checked="false" data-theme-option="mtz-gold" data-action="selecionarTema" data-arg="mtz-gold">
+                                        <i class="bi bi-gem" aria-hidden="true"></i><span>Dourado</span>
+                                    </button>
+                                    <button type="button" role="radio" aria-checked="false" data-theme-option="auto" data-action="selecionarTema" data-arg="auto">
+                                        <i class="bi bi-circle-half" aria-hidden="true"></i><span>Automático</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" data-action="sair" class="account-logout">
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i><span>Sair</span>
                             </button>
                         </div>
                     </div>
-                    <div id="syncBadge" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao"><i class="bi bi-circle-fill"></i> <span id="syncText">Offline</span><i class="bi bi-gear sync-caret" aria-hidden="true"></i></div>
+                    <button id="syncBadge" type="button" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao" aria-label="Sincronização: Offline"><i class="bi bi-circle-fill" aria-hidden="true"></i> <span id="syncText">Offline</span><i class="bi bi-gear sync-caret" aria-hidden="true"></i></button>
                     <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
                         <i class="bi bi-bell"></i>
-                        <span class="header-notification-count">3</span>
+                        <span class="header-notification-count" hidden>0</span>
                     </button>
-                    <div class="header-controls">
-                        <div class="theme-menu-wrap">
-                            <button class="btn btn-secondary btn-sm" data-action="toggleTheme" aria-expanded="false" aria-controls="themeMenu" title="Escolher tema">
-                                <i class="bi bi-moon"></i>
-                            </button>
-                            <div id="themeMenu" class="theme-menu" role="menu" aria-label="Escolher tema" hidden>
-                                <button type="button" role="menuitem" data-theme-option="light" data-action="selecionarTema" data-arg="light">
-                                    <i class="bi bi-sun"></i><span>Claro</span>
-                                </button>
-                                <button type="button" role="menuitem" data-theme-option="dark" data-action="selecionarTema" data-arg="dark">
-                                    <i class="bi bi-moon"></i><span>Escuro</span>
-                                </button>
-                                <button type="button" role="menuitem" data-theme-option="mtz-premium" data-action="selecionarTema" data-arg="mtz-premium">
-                                    <i class="bi bi-palette"></i><span>MTZ Premium</span>
-                                </button>
-                                <button type="button" role="menuitem" data-theme-option="mtz-gold" data-action="selecionarTema" data-arg="mtz-gold">
-                                    <i class="bi bi-gem"></i><span>MTZ Gold</span>
-                                </button>
-                                <button type="button" role="menuitem" data-theme-option="auto" data-action="selecionarTema" data-arg="auto">
-                                    <i class="bi bi-circle-half"></i><span>Automático</span>
-                                </button>
-                            </div>
-                        </div>
-                        <button class="btn btn-danger btn-sm" data-action="sair"><i class="bi bi-box-arrow-right"></i></button>
-                    </div>
                 </div>
             </div>
         </header>
@@ -2833,7 +2828,7 @@
     <script src="./assets/js/core/utils.js?v=2.4"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
-    <script src="./assets/js/core/sync.js?v=1.4"></script>
+    <script src="./assets/js/core/sync.js?v=1.5"></script>
     <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/migrations.js?v=12.9"></script>
     <script src="./assets/js/core/domain-services.js?v=12.4"></script>
@@ -2861,7 +2856,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.4"></script>
-    <script src="./assets/js/core/app.js?v=23.6"></script>
+    <script src="./assets/js/core/app.js?v=23.7"></script>
         
 </body>
 </html>

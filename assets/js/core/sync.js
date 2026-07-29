@@ -562,9 +562,8 @@ function updStatus(s) {
     const configurarAtalhoReconexao = (ativo, titulo) => {
         b.classList.toggle('sync-badge-action', !!ativo);
         b.dataset.action = 'abrirPainelSincronizacao';
-        b.setAttribute('role', 'button');
-        b.setAttribute('tabindex', '0');
         b.title = titulo || 'Ver detalhes da sincronização.';
+        b.setAttribute('aria-label', `Sincronização: ${String(t.textContent || 'Offline').trim()}. ${b.title}`);
     };
 
     if (s === 'online') {
