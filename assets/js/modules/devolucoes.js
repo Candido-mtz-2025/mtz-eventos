@@ -1,5 +1,7 @@
 // Devoluções: conferência total ou parcial por item
 let devolucaoEmProcessamento = false;
+let devolucaoSubmissaoId = '';
+let devolucaoSubmissaoLocacaoId = '';
 
 function getQtdPendenteItem(item) {
     if (typeof obterQuantidadePendenteDevolucaoItem === 'function') {
@@ -55,6 +57,20 @@ function gerarOperacaoIdDevolucao() {
         return `devolucao-${window.crypto.randomUUID()}`;
     }
     return `devolucao-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function renovarSubmissaoDevolucao(locacaoId = '') {
+    devolucaoSubmissaoId = gerarOperacaoIdDevolucao();
+    devolucaoSubmissaoLocacaoId = String(locacaoId || '');
+    return devolucaoSubmissaoId;
+}
+
+function obterSubmissaoDevolucao(locacaoId) {
+    const idLocacao = String(locacaoId || '');
+    if (!devolucaoSubmissaoId || devolucaoSubmissaoLocacaoId !== idLocacao) {
+        return renovarSubmissaoDevolucao(idLocacao);
+    }
+    return devolucaoSubmissaoId;
 }
 
 function obterValorQuantidadeDevolucao(input) {
@@ -248,6 +264,8 @@ function carregarItensDevolucao() {
         focarCampoDevolucao('devLocacao');
         return;
     }
+    const submissaoId = obterSubmissaoDevolucao(l.id);
+    div.dataset.devolucaoSubmissaoId = submissaoId;
 
     const cliente = locadores.find(x => x.id === l.locadorId);
     const itensPendentes = (l.items || [])
@@ -429,7 +447,7 @@ function confirmarDevolucao() {
         obs: devolucaoTotal ? 'Total' : 'Parcial',
         itens: itensDevolvidos
     };
-    const operacaoId = gerarOperacaoIdDevolucao();
+    const operacaoId = obterSubmissaoDevolucao(l.id);
 
     const concluirRegistroDevolucao = () => {
         if (devolucaoEmProcessamento) return;
@@ -639,6 +657,7 @@ function limparFormularioDevolucaoAposRegistro() {
     if (seletor) seletor.value = '';
     if (data) data.value = new Date().toISOString().split('T')[0];
     if (painel) {
+        painel.dataset.devolucaoSubmissaoId = renovarSubmissaoDevolucao();
         painel.innerHTML = criarEstadoDevolucaoPainel({
             tipo: 'info',
             titulo: 'Selecione uma locação',
