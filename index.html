@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.52">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.53">
 </head>
 <body>
 
@@ -93,10 +93,41 @@
                     <p class="logo-subtitle">Painel de Controle</p>
                 </div>
                 <div class="header-actions">
-                    <button id="syncBadge" type="button" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao" aria-label="Sincronização: Offline">
+                    <button id="syncBadge" type="button" class="sync-badge sync-offline" data-action="abrirPainelSincronizacao" aria-label="Sincronização: Offline" aria-haspopup="dialog" aria-controls="syncDetailsPanel" aria-expanded="false">
                         <i id="syncIcon" class="bi bi-cloud-slash" aria-hidden="true"></i>
                         <span id="syncText">Offline</span>
                     </button>
+                    <div id="syncDetailsPanel" class="sync-details-panel" role="dialog" aria-labelledby="syncDetailsTitle" hidden>
+                        <div class="sync-details-header">
+                            <div>
+                                <small>Conexão e dados</small>
+                                <strong id="syncDetailsTitle">Detalhes da sincronização</strong>
+                            </div>
+                            <button type="button" class="icon-btn" data-action="fecharPainelSincronizacao" aria-label="Fechar detalhes da sincronização" title="Fechar">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <dl class="sync-details-list">
+                            <div>
+                                <dt>Estado atual</dt>
+                                <dd id="syncDetailsStatus">Offline</dd>
+                            </div>
+                            <div>
+                                <dt>Modo de acesso</dt>
+                                <dd id="syncDetailsMode">Acesso local</dd>
+                            </div>
+                            <div>
+                                <dt>Última sincronização</dt>
+                                <dd id="syncDetailsLast">Não registrada</dd>
+                            </div>
+                        </dl>
+                        <p id="syncDetailsPending" class="sync-details-pending">Nenhuma alteração local pendente identificada.</p>
+                        <p id="syncDetailsGuidance" class="sync-details-guidance">Conecte uma conta Google para sincronizar com a nuvem.</p>
+                        <button id="syncDetailsReconnect" type="button" class="btn btn-sm btn-primary sync-details-reconnect" data-action="fazerLoginGoogle">
+                            <i class="bi bi-google" aria-hidden="true"></i>
+                            <span>Conectar ou reconectar</span>
+                        </button>
+                    </div>
                     <button class="header-notification-btn" type="button" data-action="irParaAlertasDashboard" aria-label="Notificações" title="Ver alertas no Dashboard">
                         <i class="bi bi-bell"></i>
                         <span class="header-notification-count" hidden>0</span>
@@ -2831,7 +2862,7 @@
     <script src="./assets/js/core/utils.js?v=2.4"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
-    <script src="./assets/js/core/sync.js?v=1.6"></script>
+    <script src="./assets/js/core/sync.js?v=1.7"></script>
     <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/migrations.js?v=12.9"></script>
     <script src="./assets/js/core/domain-services.js?v=12.4"></script>
@@ -2859,7 +2890,7 @@
     <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.4"></script>
-    <script src="./assets/js/core/app.js?v=23.8"></script>
+    <script src="./assets/js/core/app.js?v=23.9"></script>
         
 </body>
 </html>

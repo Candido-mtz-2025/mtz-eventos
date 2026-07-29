@@ -568,9 +568,14 @@ function updStatus(s) {
         b.dataset.action = 'abrirPainelSincronizacao';
         b.title = titulo || 'Ver detalhes da sincronização.';
         b.setAttribute('aria-label', `Sincronização: ${texto}. ${b.title}`);
+        if (!document.getElementById('syncDetailsPanel')?.hidden
+            && typeof atualizarPainelSincronizacao === 'function') {
+            atualizarPainelSincronizacao();
+        }
     };
 
     if (s === 'online') {
+        localStorage.setItem('mtzUltimaSincronizacao', String(Date.now()));
         configurarEstado({
             classe: 'sync-online',
             texto: 'Sincronizado',

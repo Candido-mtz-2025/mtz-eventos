@@ -336,17 +336,72 @@ const ROTULOS_GRUPOS_NAVEGACAO = Object.freeze({
     admin: 'Administração'
 });
 
+const flyoutsNavegacao = new WeakMap();
+
 function sidebarRecolhidaDesktop() {
     return layoutSidebarEhDesktop()
         && document.getElementById('appArea')?.classList.contains('sidebar-collapsed');
 }
 
+function obterDropdownGrupoNavegacao(grupoEl) {
+    if (!(grupoEl instanceof HTMLElement)) return null;
+    const dropdownMapeado = flyoutsNavegacao.get(grupoEl)?.dropdown;
+    if (dropdownMapeado instanceof HTMLElement) return dropdownMapeado;
+
+    const dropdown = grupoEl.querySelector('.nav-dropdown');
+    if (dropdown instanceof HTMLElement) {
+        flyoutsNavegacao.set(grupoEl, {
+            dropdown,
+            proximoIrmao: dropdown.nextSibling
+        });
+        return dropdown;
+    }
+    return null;
+}
+
+function obterGrupoNavegacaoDoItem(item) {
+    if (!(item instanceof HTMLElement)) return null;
+    const grupoDireto = item.closest('[data-nav-group]');
+    if (grupoDireto instanceof HTMLElement) return grupoDireto;
+    const grupoId = String(item.closest('.nav-flyout-portal')?.dataset.navFlyoutGroup || '').trim();
+    return grupoId ? document.querySelector(`[data-nav-group="${grupoId}"]`) : null;
+}
+
+function restaurarFlyoutNavegacao(grupoEl) {
+    const registro = flyoutsNavegacao.get(grupoEl);
+    const dropdown = registro?.dropdown;
+    if (!(grupoEl instanceof HTMLElement) || !(dropdown instanceof HTMLElement)) return;
+
+    dropdown.classList.remove('nav-flyout-portal');
+    delete dropdown.dataset.navFlyoutGroup;
+    if (dropdown.parentElement !== grupoEl) {
+        const referencia = registro.proximoIrmao;
+        if (referencia?.parentNode === grupoEl) grupoEl.insertBefore(dropdown, referencia);
+        else grupoEl.appendChild(dropdown);
+    }
+}
+
+function portalarFlyoutNavegacao(grupoEl) {
+    const dropdown = obterDropdownGrupoNavegacao(grupoEl);
+    if (!(dropdown instanceof HTMLElement) || dropdown.parentElement === document.body) return dropdown;
+
+    const registro = flyoutsNavegacao.get(grupoEl) || {};
+    registro.dropdown = dropdown;
+    registro.proximoIrmao = dropdown.nextSibling;
+    flyoutsNavegacao.set(grupoEl, registro);
+    dropdown.dataset.navFlyoutGroup = String(grupoEl.dataset.navGroup || '');
+    dropdown.classList.add('nav-flyout-portal');
+    document.body.appendChild(dropdown);
+    return dropdown;
+}
+
 function limparPosicaoFlyoutNavegacao(grupoEl) {
-    const dropdown = grupoEl?.querySelector?.('.nav-dropdown');
+    const dropdown = obterDropdownGrupoNavegacao(grupoEl);
     if (!(dropdown instanceof HTMLElement)) return;
     dropdown.style.removeProperty('--nav-flyout-top');
     dropdown.style.removeProperty('--nav-flyout-left');
     dropdown.style.removeProperty('--nav-flyout-max-height');
+    restaurarFlyoutNavegacao(grupoEl);
 }
 
 function atualizarTooltipsGruposSidebar() {
@@ -356,10 +411,15 @@ function atualizarTooltipsGruposSidebar() {
         const trigger = grupoEl.querySelector('[data-menu-toggle]');
         if (!(trigger instanceof HTMLElement)) return;
         const rotulo = ROTULOS_GRUPOS_NAVEGACAO[grupo] || grupo;
+        const dropdown = obterDropdownGrupoNavegacao(grupoEl);
         const fechado = !grupoEl.classList.contains('is-open');
         if (recolhida && fechado) trigger.title = rotulo;
         else trigger.removeAttribute('title');
+        if (!trigger.id) trigger.id = `nav-trigger-${grupo}`;
+        trigger.setAttribute('aria-label', rotulo);
         trigger.setAttribute('aria-haspopup', 'menu');
+        if (dropdown?.id) trigger.setAttribute('aria-controls', dropdown.id);
+        dropdown?.setAttribute('aria-labelledby', trigger.id);
     });
 }
 
@@ -370,7 +430,7 @@ function posicionarFlyoutNavegacao(grupoEl) {
     }
 
     const trigger = grupoEl.querySelector('[data-menu-toggle]');
-    const dropdown = grupoEl.querySelector('.nav-dropdown');
+    const dropdown = portalarFlyoutNavegacao(grupoEl);
     if (!(trigger instanceof HTMLElement) || !(dropdown instanceof HTMLElement)) return;
 
     requestAnimationFrame(() => {
@@ -392,7 +452,8 @@ function posicionarFlyoutNavegacao(grupoEl) {
 }
 
 function focarItemFlyout(grupoEl, posicao = 'primeiro') {
-    const itens = Array.from(grupoEl?.querySelectorAll?.('.nav-dropdown [data-menu-item]') || [])
+    const dropdown = obterDropdownGrupoNavegacao(grupoEl);
+    const itens = Array.from(dropdown?.querySelectorAll?.('[data-menu-item]') || [])
         .filter((item) => !item.disabled && item.getAttribute('aria-hidden') !== 'true');
     if (!itens.length) return;
     const alvo = posicao === 'ultimo' ? itens[itens.length - 1] : itens[0];
@@ -468,7 +529,7 @@ function inicializarNavegacaoPrincipal() {
             return;
         }
 
-        if (!alvo.closest('.app-main-nav')) {
+        if (!alvo.closest('.app-main-nav') && !alvo.closest('.nav-flyout-portal')) {
             fecharMenusNavegacaoPrincipal();
             if (!layoutSidebarEhDesktop() && !alvo.closest('#appMainSidebar') && !alvo.closest('.sidebar-mobile-toggle')) {
                 fecharSidebarMobile();
@@ -498,8 +559,9 @@ function inicializarNavegacaoPrincipal() {
 
         const item = alvo.closest('.nav-dropdown [data-menu-item]');
         if (item instanceof HTMLElement && sidebarRecolhidaDesktop()) {
-            const grupoEl = item.closest('[data-nav-group]');
-            const itens = Array.from(grupoEl?.querySelectorAll('.nav-dropdown [data-menu-item]') || [])
+            const grupoEl = obterGrupoNavegacaoDoItem(item);
+            const dropdown = obterDropdownGrupoNavegacao(grupoEl);
+            const itens = Array.from(dropdown?.querySelectorAll('[data-menu-item]') || [])
                 .filter((entrada) => !entrada.disabled && entrada.getAttribute('aria-hidden') !== 'true');
             const indice = itens.indexOf(item);
             let proximo = -1;
@@ -1894,18 +1956,75 @@ function irParaAlertasDashboard() {
     }, 100);
 }
 
-function abrirPainelSincronizacao() {
-    const texto = String(document.getElementById('syncText')?.textContent || 'Local').trim();
-    const modo = texto || 'Local';
-    const detalhes = modo.toLowerCase() === 'online'
-        ? 'Sincronização ativa. Seus dados podem ser salvos na nuvem.'
-        : modo.toLowerCase() === 'salvando...'
-            ? 'O sistema está salvando as alterações agora.'
-            : 'O app está funcionando localmente. Quando reconectar, você pode sincronizar novamente.';
+function formatarDataHoraSincronizacao(timestamp) {
+    const valor = Number(timestamp || 0);
+    if (!Number.isFinite(valor) || valor <= 0) return 'Não registrada';
+    return new Date(valor).toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+    });
+}
 
-    if (typeof mostrarToast === 'function') {
-        mostrarToast(`${modo}: ${detalhes}`, modo.toLowerCase() === 'online' ? 'ok' : 'info', 5200);
+function atualizarPainelSincronizacao() {
+    const painel = document.getElementById('syncDetailsPanel');
+    if (!(painel instanceof HTMLElement)) return;
+
+    const estado = String(document.getElementById('syncText')?.textContent || 'Offline').trim();
+    const modoAcesso = String(localStorage.getItem('mtzAuthMode') || 'offline').toLowerCase();
+    const ultimaSincronizacao = Number(localStorage.getItem('mtzUltimaSincronizacao') || 0);
+    const ultimaEdicao = Number(localStorage.getItem('mtzUltimaEdicao') || 0);
+    const alteracoesPendentes = ultimaEdicao > ultimaSincronizacao;
+    const conectadoGoogle = modoAcesso === 'google';
+
+    const estadoEl = document.getElementById('syncDetailsStatus');
+    const modoEl = document.getElementById('syncDetailsMode');
+    const ultimaEl = document.getElementById('syncDetailsLast');
+    const pendenciasEl = document.getElementById('syncDetailsPending');
+    const orientacaoEl = document.getElementById('syncDetailsGuidance');
+    const reconectarEl = document.getElementById('syncDetailsReconnect');
+
+    if (estadoEl) estadoEl.textContent = estado;
+    if (modoEl) modoEl.textContent = conectadoGoogle ? 'Conta Google' : 'Acesso local';
+    if (ultimaEl) ultimaEl.textContent = formatarDataHoraSincronizacao(ultimaSincronizacao);
+    if (pendenciasEl) {
+        pendenciasEl.textContent = alteracoesPendentes
+            ? 'Há alterações locais aguardando sincronização.'
+            : 'Nenhuma alteração local pendente identificada.';
+        pendenciasEl.dataset.pending = alteracoesPendentes ? 'true' : 'false';
     }
+    if (orientacaoEl) {
+        orientacaoEl.textContent = conectadoGoogle
+            ? 'A sincronização será retomada automaticamente quando a conexão estiver disponível.'
+            : 'Conecte uma conta Google para salvar e recuperar os dados na nuvem.';
+    }
+    if (reconectarEl) reconectarEl.hidden = conectadoGoogle && estado === 'Sincronizado';
+}
+
+function abrirPainelSincronizacao() {
+    const painel = document.getElementById('syncDetailsPanel');
+    const botao = document.getElementById('syncBadge');
+    if (!(painel instanceof HTMLElement) || !(botao instanceof HTMLElement)) return false;
+
+    if (!painel.hidden) {
+        fecharPainelSincronizacao(true);
+        return true;
+    }
+
+    fecharMenuConta();
+    atualizarPainelSincronizacao();
+    painel.hidden = false;
+    botao.setAttribute('aria-expanded', 'true');
+    setTimeout(() => painel.querySelector('[data-action="fecharPainelSincronizacao"]')?.focus({ preventScroll: true }), 40);
+    return true;
+}
+
+function fecharPainelSincronizacao(restaurarFoco = false) {
+    const painel = document.getElementById('syncDetailsPanel');
+    const botao = document.getElementById('syncBadge');
+    if (!(painel instanceof HTMLElement)) return;
+    painel.hidden = true;
+    botao?.setAttribute('aria-expanded', 'false');
+    if (restaurarFoco) botao?.focus({ preventScroll: true });
 }
 
 function abrirMenuConta() {
@@ -3146,6 +3265,9 @@ document.getElementById('themeMenu')?.addEventListener('keydown', (event) => {
 document.addEventListener('click', (event) => {
     const alvo = event.target;
     if (!(alvo instanceof HTMLElement)) return;
+    if (!alvo.closest('#syncDetailsPanel') && !alvo.closest('#syncBadge')) {
+        fecharPainelSincronizacao();
+    }
     if (alvo.closest('#accountMenu [data-theme-option]')) return;
     if (alvo.closest('#accountMenu button')) {
         setTimeout(fecharMenuConta, 0);
@@ -3156,6 +3278,11 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !document.getElementById('syncDetailsPanel')?.hidden) {
+        event.preventDefault();
+        fecharPainelSincronizacao(true);
+        return;
+    }
     if (event.key === 'Escape' && !document.getElementById('accountMenu')?.hidden) {
         event.preventDefault();
         fecharMenuConta(true);
