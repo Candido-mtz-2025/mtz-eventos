@@ -3259,7 +3259,11 @@ document.getElementById('themeMenu')?.addEventListener('keydown', (event) => {
     else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') proximo = (atual + 1) % opcoes.length;
     else proximo = (atual - 1 + opcoes.length) % opcoes.length;
     event.preventDefault();
-    opcoes[proximo]?.focus();
+    const opcao = opcoes[proximo];
+    opcao?.focus();
+    if (opcao?.dataset.themeOption) {
+        aplicarTemaSistema(opcao.dataset.themeOption);
+    }
 });
 
 document.addEventListener('click', (event) => {

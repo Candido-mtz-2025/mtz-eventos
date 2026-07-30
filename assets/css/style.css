@@ -23232,3 +23232,581 @@ body[data-theme="mtz-gold"] #appArea > header .sync-details-panel {
         transition: none !important;
     }
 }
+
+/* =========================
+   V30 | IDENTIDADE VISUAL SEMANTICA
+   Camada unica para temas e componentes compartilhados.
+========================= */
+
+body[data-theme] {
+    --color-bg: #eef2f7;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #ffffff;
+    --color-surface-muted: #f6f8fb;
+    --color-border: #d7e0eb;
+    --color-border-strong: #bcc9d8;
+    --color-text: #142033;
+    --color-text-muted: #5f6f84;
+    --color-primary: #163d6b;
+    --color-primary-hover: #0f3159;
+    --color-accent: #2563eb;
+    --color-success: #15803d;
+    --color-warning: #b45309;
+    --color-danger: #c93636;
+    --color-focus: #2563eb;
+    --color-on-primary: #ffffff;
+    --shadow-surface: 0 6px 18px rgba(20, 32, 51, 0.07);
+    --shadow-elevated: 0 16px 38px rgba(20, 32, 51, 0.14);
+    --radius-control: 6px;
+    --radius-surface: 8px;
+
+    /* Compatibilidade com componentes legados. */
+    --primary: var(--color-primary);
+    --primary-hover: var(--color-primary-hover);
+    --bg: var(--color-bg);
+    --surface: var(--color-surface);
+    --surface-hover: var(--color-surface-muted);
+    --surface-soft: var(--color-surface-muted);
+    --surface-muted: var(--color-surface-muted);
+    --input-bg: var(--color-surface);
+    --text: var(--color-text);
+    --text-light: var(--color-text-muted);
+    --text-muted: var(--color-text-muted);
+    --border: var(--color-border);
+    --border-strong: var(--color-border-strong);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
+    --danger: var(--color-danger);
+    --app-theme-page-bg: var(--color-bg);
+    --app-theme-panel-bg: var(--color-surface);
+    --app-theme-panel-soft: var(--color-surface-muted);
+    --app-theme-panel-muted: var(--color-surface-muted);
+    --app-theme-field-bg: var(--color-surface);
+    --app-theme-border: var(--color-border);
+    --app-theme-border-strong: var(--color-border-strong);
+    --app-theme-text: var(--color-text);
+    --app-theme-text-soft: var(--color-text-muted);
+}
+
+body[data-theme="dark"] {
+    --color-bg: #0b111b;
+    --color-surface: #121b29;
+    --color-surface-elevated: #182334;
+    --color-surface-muted: #0f1724;
+    --color-border: #2c3b50;
+    --color-border-strong: #40536c;
+    --color-text: #f4f7fb;
+    --color-text-muted: #aebbd0;
+    --color-primary: #4f8fe8;
+    --color-primary-hover: #70a7f1;
+    --color-accent: #4f8fe8;
+    --color-success: #4db477;
+    --color-warning: #d5a34d;
+    --color-danger: #e46a6a;
+    --color-focus: #73aaf5;
+    --color-on-primary: #07111f;
+    --shadow-surface: 0 7px 20px rgba(0, 0, 0, 0.2);
+    --shadow-elevated: 0 18px 42px rgba(0, 0, 0, 0.34);
+}
+
+body[data-theme="mtz-premium"] {
+    --color-bg: #070d16;
+    --color-surface: #101a28;
+    --color-surface-elevated: #162232;
+    --color-surface-muted: #0c1420;
+    --color-border: #2a3a50;
+    --color-border-strong: #40536b;
+    --color-text: #f7f9fc;
+    --color-text-muted: #afbbca;
+    --color-primary: #c92e42;
+    --color-primary-hover: #a92134;
+    --color-accent: #d43b4f;
+    --color-success: #4ba874;
+    --color-warning: #c99a4b;
+    --color-danger: #e15c68;
+    --color-focus: #e05a6c;
+    --color-on-primary: #ffffff;
+    --shadow-surface: 0 8px 22px rgba(0, 0, 0, 0.22);
+    --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.38);
+}
+
+body[data-theme="mtz-gold"] {
+    --color-bg: #0d0f12;
+    --color-surface: #171a1e;
+    --color-surface-elevated: #1d2126;
+    --color-surface-muted: #121519;
+    --color-border: #353a41;
+    --color-border-strong: #555046;
+    --color-text: #f5f3ed;
+    --color-text-muted: #bbb7ad;
+    --color-primary: #b99743;
+    --color-primary-hover: #c9aa5c;
+    --color-accent: #c2a052;
+    --color-success: #6aa47d;
+    --color-warning: #c39b52;
+    --color-danger: #d36565;
+    --color-focus: #d5b867;
+    --color-on-primary: #17130a;
+    --shadow-surface: 0 7px 20px rgba(0, 0, 0, 0.24);
+    --shadow-elevated: 0 18px 44px rgba(0, 0, 0, 0.4);
+}
+
+body[data-theme] #appArea {
+    color: var(--color-text) !important;
+    background: var(--color-bg) !important;
+}
+
+body[data-theme] #loginArea {
+    color: var(--color-text) !important;
+    background: var(--color-bg) !important;
+}
+
+body[data-theme] #loginArea .login-box {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+    border-radius: var(--radius-surface) !important;
+    box-shadow: var(--shadow-elevated) !important;
+}
+
+body[data-theme] #loginArea :is(.login-brand h1, .login-copy h2) {
+    color: var(--color-text) !important;
+}
+
+body[data-theme] #loginArea :is(.login-brand p, .login-copy p, .login-hint) {
+    color: var(--color-text-muted) !important;
+}
+
+body[data-theme] #loginArea .login-status {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+}
+
+body[data-theme] #loginArea .btn-login-google {
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #loginArea .btn-login-offline {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border-strong) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #appArea > header,
+body[data-theme] #appArea .container > #appMainSidebar {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: var(--shadow-surface) !important;
+}
+
+body[data-theme] #appArea > header::after {
+    display: none !important;
+    content: none !important;
+}
+
+body[data-theme] #appArea > header :is(.logo h1, .logo-subtitle),
+body[data-theme] #appArea .container > #appMainSidebar :is(.app-sidebar-brand strong, .app-sidebar-brand small) {
+    color: var(--color-text) !important;
+    text-shadow: none !important;
+}
+
+body[data-theme] #appArea > header .logo-subtitle,
+body[data-theme] #appArea .container > #appMainSidebar .app-sidebar-brand small {
+    color: var(--color-text-muted) !important;
+}
+
+body[data-theme] #appArea > header :is(
+    #headerUserButton.header-user,
+    #syncBadge.sync-badge,
+    .header-notification-btn,
+    .account-menu,
+    .sync-details-panel
+),
+body[data-theme] > .nav-flyout-portal {
+    color: var(--color-text) !important;
+    background: var(--color-surface-elevated) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: var(--shadow-elevated) !important;
+}
+
+body[data-theme] #appArea > header :is(#headerUserButton.header-user, #syncBadge.sync-badge, .header-notification-btn) {
+    box-shadow: none !important;
+}
+
+body[data-theme] #appArea > header :is(#headerUserButton.header-user, #syncBadge.sync-badge, .header-notification-btn):hover {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border-strong) !important;
+}
+
+body[data-theme] #appArea > header :is(.header-user-meta strong, .header-user-meta span, .header-user-meta small, #syncText),
+body[data-theme] #appArea > header .account-menu button,
+body[data-theme] > .nav-flyout-portal .tab-menu-item {
+    color: var(--color-text) !important;
+}
+
+body[data-theme] #appArea > header :is(.account-menu-label, .sync-details-header small, .sync-details-list dt, .sync-details-guidance),
+body[data-theme] > .nav-flyout-portal::before {
+    color: var(--color-text-muted) !important;
+}
+
+body[data-theme] #appArea > header .account-menu button:hover,
+body[data-theme] #appArea > header .account-menu button:focus-visible {
+    background: var(--color-surface-muted) !important;
+}
+
+body[data-theme] #appArea > header .account-logout {
+    color: var(--color-danger) !important;
+    background: transparent !important;
+    font-weight: 700 !important;
+}
+
+body[data-theme] #appArea > header .account-logout:hover {
+    color: var(--color-on-primary) !important;
+    background: var(--color-danger) !important;
+}
+
+body[data-theme] #appArea > header .theme-menu button.is-active {
+    color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 11%, var(--color-surface)) !important;
+    border-color: var(--color-primary) !important;
+}
+
+body[data-theme] #appArea .container > #appMainSidebar .app-main-nav :is(.tab-btn, .nav-menu-trigger, .tab-menu-item) {
+    color: var(--color-text-muted) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #appArea .container > #appMainSidebar .sidebar-collapse-toggle {
+    color: var(--color-text) !important;
+    background: var(--color-surface-elevated) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #appArea .container > #appMainSidebar .app-main-nav :is(.tab-btn, .nav-menu-trigger, .tab-menu-item):hover,
+body[data-theme] #appArea .container > #appMainSidebar .app-main-nav :is(.tab-btn, .nav-menu-trigger, .tab-menu-item):focus-visible {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+}
+
+body[data-theme] #appArea .container > #appMainSidebar .app-main-nav :is(
+    .tab-btn.active,
+    .nav-menu-trigger.active,
+    .nav-menu-group.is-active > .nav-menu-trigger,
+    .tab-menu-item.active,
+    .tab-menu-item.is-active
+),
+body[data-theme] > .nav-flyout-portal .tab-menu-item:is(:hover, :focus-visible, .active, .is-active) {
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+}
+
+body[data-theme] #appArea :is(
+    .card,
+    .panel-block,
+    .dash-section,
+    .module-topbar,
+    .quick-actions-bar,
+    .table-responsive,
+    .form-section,
+    .list-section,
+    .cadastro-section,
+    .ui-state,
+    .finance-kpi,
+    .stat-card,
+    .config-card,
+    .config-actions-card,
+    .locacao-step-panel,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi,
+    .propostas-hero-card,
+    .proposta-data-card,
+    .proposta-form-section,
+    .proposta-guided-summary,
+    .proposta-sticky-summary,
+    .proposta-action-panel,
+    .proposta-closing-block,
+    .proposta-config-panel,
+    .proposta-config-section
+) {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+    border-radius: var(--radius-surface) !important;
+    box-shadow: var(--shadow-surface) !important;
+}
+
+body[data-theme] #appArea :is(
+    .card,
+    .dash-section,
+    .stat-card,
+    .finance-kpi,
+    .locacao-kpi-card,
+    .estoque-kpi-card,
+    .tipos-kpi-card,
+    .devolucao-kpi
+):hover {
+    transform: none !important;
+    box-shadow: var(--shadow-surface) !important;
+}
+
+body[data-theme] #appArea :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea
+) {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+    border-radius: var(--radius-control) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #appArea :is(input, select, textarea)::placeholder {
+    color: var(--color-text-muted) !important;
+    opacity: 0.82;
+}
+
+body[data-theme] #appArea :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea
+):focus {
+    border-color: var(--color-focus) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 20%, transparent) !important;
+    outline: none !important;
+}
+
+body[data-theme] #appArea :is(label, .field-hint, .table-cell-sub, .search-meta, .empty-state p, .ui-state p) {
+    color: var(--color-text-muted);
+}
+
+body[data-theme] #appArea .table-responsive {
+    overflow-x: auto;
+    scrollbar-color: var(--color-border-strong) transparent;
+}
+
+body[data-theme] #appArea .table :is(th, td) {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+
+body[data-theme] #appArea .table thead th {
+    color: var(--color-text-muted) !important;
+    background: var(--color-surface-muted) !important;
+}
+
+body[data-theme] #appArea .table tbody tr:hover td {
+    background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface)) !important;
+}
+
+body[data-theme] #appArea .modal-content:not(.modal-relatorio-content),
+body[data-theme] #appArea :is(.popover, [popover], .dropdown-menu):not(#propostaMaisAcoes) {
+    color: var(--color-text);
+    background: var(--color-surface-elevated);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-elevated);
+}
+
+body[data-theme] #appArea .btn {
+    border-radius: var(--radius-control);
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+body[data-theme] #appArea .btn-primary {
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+}
+
+body[data-theme] #appArea .btn-primary:hover {
+    background: var(--color-primary-hover) !important;
+    border-color: var(--color-primary-hover) !important;
+}
+
+body[data-theme] #appArea .btn-secondary {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border-strong) !important;
+}
+
+body[data-theme] #appArea :is(.btn, button, [role="button"], [role="tab"], [role="radio"]):focus-visible,
+body[data-theme] > .nav-flyout-portal .tab-menu-item:focus-visible,
+.pwa-install-button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-focus) 58%, transparent) !important;
+    outline-offset: 2px !important;
+}
+
+body[data-theme] #tab-dashboard .dashboard-topbar {
+    color: var(--color-text) !important;
+    background: var(--color-surface-elevated) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: var(--shadow-surface) !important;
+}
+
+body[data-theme] #tab-dashboard :is(.dash-chart-placeholder, .chart-container, .dashboard-chart) {
+    min-height: 240px;
+    color: var(--color-text-muted) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+}
+
+body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab {
+    color: var(--color-text-muted) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] #tab-propostas :is(
+    .propostas-subnav,
+    .proposta-internal-details > summary,
+    .proposta-fiscal-details > summary,
+    .prop-item-details-panel > summary,
+    details > summary
+) {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+}
+
+body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab :is(strong, small) {
+    color: inherit !important;
+}
+
+body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab.is-active {
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+}
+
+body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab:not(.is-active) .proposta-step-index {
+    color: var(--color-text-muted) !important;
+    background: var(--color-surface) !important;
+    border-color: var(--color-border) !important;
+}
+
+body[data-theme] #tab-propostas .proposta-sticky-actions .btn-warning {
+    color: var(--color-text) !important;
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border-strong) !important;
+}
+
+body[data-theme] #tab-propostas .proposta-sticky-actions .btn-secondary {
+    color: var(--color-text-muted) !important;
+    background: transparent !important;
+}
+
+.pwa-install-button {
+    right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 44px !important;
+    max-width: min(220px, calc(100vw - 32px)) !important;
+    padding: 10px 14px !important;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 72%, #ffffff) !important;
+    border-radius: var(--radius-control) !important;
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    box-shadow: var(--shadow-elevated) !important;
+}
+
+body[data-theme="mtz-premium"] .pwa-install-button,
+body[data-theme="mtz-gold"] .pwa-install-button {
+    color: var(--color-on-primary) !important;
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    body[data-theme] #tab-propostas .proposta-guided-stepper {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        overflow-x: visible !important;
+    }
+
+    body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 640px) {
+    body[data-theme] #appArea > header {
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    body[data-theme] #appArea > header .container,
+    body[data-theme] #appArea > header .header-actions,
+    body[data-theme] #appArea .content,
+    body[data-theme] #tab-propostas,
+    body[data-theme] #tab-propostas :is(
+        .propostas-subpanel,
+        .proposta-mode-toolbar,
+        .proposta-guided-stepper,
+        .proposta-guided-layout,
+        .proposta-guided-main,
+        .proposta-form-section,
+        .proposta-sticky-summary
+    ) {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    body[data-theme] #tab-propostas .proposta-guided-stepper {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        overflow-x: visible !important;
+    }
+
+    body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    body[data-theme] #tab-propostas .propostas-subnav {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        overflow-x: visible !important;
+    }
+
+    body[data-theme] #tab-propostas .propostas-subnav .propostas-subtab {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .pwa-install-button {
+        right: calc(10px + env(safe-area-inset-right, 0px)) !important;
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+        max-width: calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)) !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
