@@ -23810,3 +23810,30 @@ body[data-theme="mtz-gold"] .pwa-install-button {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* === V23.55 | CONTRASTE DO DASHBOARD E ESPACO SEGURO PARA O PWA === */
+body[data-theme] #tab-dashboard .dashboard-topbar h2,
+body[data-theme] #tab-dashboard .dashboard-topbar-meta strong {
+    color: var(--color-text) !important;
+}
+
+body[data-theme] #tab-dashboard .dashboard-topbar p,
+body[data-theme] #tab-dashboard .dashboard-topbar-meta small {
+    color: var(--color-text-muted) !important;
+}
+
+body[data-theme] #tab-dashboard .dash-actions-placeholder {
+    color: var(--color-text) !important;
+    background: var(--color-surface-muted) !important;
+    border-color: var(--color-border) !important;
+}
+
+body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+    body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
+        padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+    }
+}
