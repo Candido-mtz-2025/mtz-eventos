@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.55">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.56">
 </head>
 <body>
 
@@ -683,12 +683,28 @@
 
             <div id="locacaoEtapa1" class="locacao-step-panel is-active">
                 <div class="form-row">
-                    <div class="form-group"><label for="aluguelCliente">Cliente</label><select id="aluguelCliente"></select></div>
-                    <div class="form-group"><label for="aluguelDivisor">Divisor (Gross-up)</label><input type="number" id="aluguelDivisor" value="0.8367" step="0.0001"></div>
+                    <div class="form-group">
+                        <label for="aluguelCliente">Cliente</label>
+                        <select id="aluguelCliente" aria-describedby="aluguelClienteErro" required></select>
+                        <small id="aluguelClienteErro" class="locacao-field-error" role="alert" aria-live="polite" hidden></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="aluguelDivisor">Divisor (Gross-up)</label>
+                        <input type="number" id="aluguelDivisor" value="0.8367" min="0.0001" max="1" step="0.0001" aria-describedby="aluguelDivisorErro" required>
+                        <small id="aluguelDivisorErro" class="locacao-field-error" role="alert" aria-live="polite" hidden></small>
+                    </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label for="aluguelIni">Data Início</label><input type="date" id="aluguelIni"></div>
-                    <div class="form-group"><label for="aluguelFim">Previsão Fim</label><input type="date" id="aluguelFim"></div>
+                    <div class="form-group">
+                        <label for="aluguelIni">Data Início</label>
+                        <input type="date" id="aluguelIni" aria-describedby="aluguelIniErro" required>
+                        <small id="aluguelIniErro" class="locacao-field-error" role="alert" aria-live="polite" hidden></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="aluguelFim">Previsão Fim</label>
+                        <input type="date" id="aluguelFim" aria-describedby="aluguelFimErro" required>
+                        <small id="aluguelFimErro" class="locacao-field-error" role="alert" aria-live="polite" hidden></small>
+                    </div>
                 </div>
                 <div class="inline-chip-row">
                     <button id="btnIrEtapa2" class="btn btn-primary" data-action="irEtapaLocacao" data-arg="2">
@@ -739,8 +755,9 @@
                     </div>
                     <div class="checkout-bar">
                         <div>
-                            <small>Total do pedido</small>
+                            <small>Subtotal dos itens</small>
                             <strong id="checkoutTotalLocacao">R$ 0,00</strong>
+                            <span class="field-hint">O gross-up será aplicado somente ao total faturado na revisão.</span>
                         </div>
                         <div class="checkout-actions">
                             <button id="btnLimparCarrinho" class="btn btn-secondary" data-action="limparCarrinhoLocacao" disabled>
@@ -766,7 +783,7 @@
                 </div>
             </div>
 
-               <div class="locacao-kpi-grid" aria-label="Resumo de locacoes">
+               <div class="locacao-kpi-grid" aria-label="Resumo de locações">
                     <div class="locacao-kpi-card" data-tone="total" data-action="aplicarFiltroLocacoesResumo" data-arg="todos">
                         <small>Registros</small>
                         <strong id="locacaoKpiTotal">0</strong>
@@ -2868,7 +2885,7 @@
     <script src="./assets/js/core/domain-services.js?v=12.4"></script>
     <script src="./assets/js/core/storage.js?v=12.6"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.2"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.3"></script>
     <script src="./assets/js/modules/propostas.js?v=4.14"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -2883,14 +2900,14 @@
     <script src="./assets/js/modules/whatsapp.js?v=1.1"></script>
     <script src="./assets/js/modules/transporte.js?v=1.2"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.1"></script>
-    <script src="./assets/js/render/locacoes.js?v=15.4"></script>
+    <script src="./assets/js/render/locacoes.js?v=15.5"></script>
     <script src="./assets/js/render/cadastros.js?v=3.5"></script>
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.4"></script>
-    <script src="./assets/js/core/app.js?v=23.10"></script>
+    <script src="./assets/js/core/app.js?v=23.11"></script>
         
 </body>
 </html>

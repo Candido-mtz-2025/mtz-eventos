@@ -183,7 +183,7 @@ function renderLocacoes() {
         atualizarMetaBusca('metaBuscaLocacoes', {
             total: lista.length,
             filtrados: filtrados.length,
-            rotulo: 'locacoes',
+            rotulo: 'locações',
             termo: termoRaw,
             filtro: filtroAtual,
             filtroLabel: rotulosFiltro[filtroAtual] || filtroAtual

@@ -23832,6 +23832,31 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
 }
 
+#tab-locacoes .locacao-field-error {
+    display: block;
+    margin-top: 5px;
+    color: var(--danger, #b42318);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+#tab-locacoes .locacao-field-error[hidden] {
+    display: none;
+}
+
+#tab-locacoes :is(input, select)[aria-invalid="true"] {
+    border-color: var(--danger, #b42318) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #b42318) 18%, transparent) !important;
+}
+
+#tab-locacoes .checkout-bar .field-hint {
+    display: block;
+    max-width: 420px;
+    margin-top: 5px;
+    text-transform: none;
+}
+
 @media (max-width: 640px) {
     body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
         padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));

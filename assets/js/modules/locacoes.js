@@ -204,6 +204,43 @@ function focarCampoLocacao(idCampo) {
     }, 40);
 }
 
+const ERROS_CAMPOS_LOCACAO = Object.freeze({
+    aluguelCliente: 'aluguelClienteErro',
+    aluguelDivisor: 'aluguelDivisorErro',
+    aluguelIni: 'aluguelIniErro',
+    aluguelFim: 'aluguelFimErro'
+});
+
+function limparErroCampoLocacao(idCampo) {
+    const campo = document.getElementById(idCampo);
+    const erro = document.getElementById(ERROS_CAMPOS_LOCACAO[idCampo]);
+    campo?.removeAttribute('aria-invalid');
+    if (erro) {
+        erro.textContent = '';
+        erro.hidden = true;
+    }
+}
+
+function informarErroCampoLocacao(idCampo, mensagem, opcoes = {}) {
+    const campo = document.getElementById(idCampo);
+    const erro = document.getElementById(ERROS_CAMPOS_LOCACAO[idCampo]);
+    if (campo) campo.setAttribute('aria-invalid', 'true');
+    if (erro) {
+        erro.textContent = mensagem;
+        erro.hidden = false;
+    }
+    if (opcoes.toast !== false) mostrarToast(mensagem, 'erro');
+    if (opcoes.focar !== false) focarCampoLocacao(idCampo);
+}
+
+function obterDivisorFormularioLocacao() {
+    const valor = String(document.getElementById('aluguelDivisor')?.value ?? '').trim();
+    if (!valor) return null;
+    const numero = Number(valor);
+    if (!Number.isFinite(numero) || numero <= 0 || numero > 1) return null;
+    return numero;
+}
+
 function normalizarFiltroLocacoes(valor) {
     const filtro = String(valor || '').trim().toLowerCase();
     return FILTROS_LOCACOES_VALIDOS.has(filtro) ? filtro : 'todos';
@@ -343,45 +380,64 @@ function validarDadosBaseLocacao(exibirErro) {
 
     if (!cli) {
         if (exibirErro) {
-            mostrarToast('Selecione o cliente para continuar.', 'erro');
-            focarCampoLocacao('aluguelCliente');
+            informarErroCampoLocacao('aluguelCliente', 'Selecione um cliente para continuar.');
         }
         return false;
     }
+    limparErroCampoLocacao('aluguelCliente');
 
     if (!obterClienteLocacaoAtual()) {
         if (exibirErro) {
-            mostrarToast('Cliente selecionado invalido.', 'erro');
-            focarCampoLocacao('aluguelCliente');
+            informarErroCampoLocacao('aluguelCliente', 'Selecione um cliente válido.');
         }
         return false;
     }
 
-    if (!ini || !fim) {
+    if (!ini) {
         if (exibirErro) {
-            mostrarToast('Informe inicio e previsao de fim.', 'erro');
-            focarCampoLocacao(!ini ? 'aluguelIni' : 'aluguelFim');
+            informarErroCampoLocacao('aluguelIni', 'Informe a data inicial.');
         }
         return false;
     }
+    limparErroCampoLocacao('aluguelIni');
+
+    if (!fim) {
+        if (exibirErro) {
+            informarErroCampoLocacao('aluguelFim', 'Informe a previsão de término.');
+        }
+        return false;
+    }
+    limparErroCampoLocacao('aluguelFim');
 
     const dataInicio = parseDataIso(ini);
     const dataFim = parseDataIso(fim);
     if (!dataInicio || !dataFim) {
         if (exibirErro) {
-            mostrarToast('Datas invalidas. Confira os campos.', 'erro');
-            focarCampoLocacao('aluguelIni');
+            const campoInvalido = !dataInicio ? 'aluguelIni' : 'aluguelFim';
+            informarErroCampoLocacao(campoInvalido, 'Informe uma data válida.');
         }
         return false;
     }
 
     if (dataFim < dataInicio) {
         if (exibirErro) {
-            mostrarToast('A previsao de fim nao pode ser antes do inicio.', 'erro');
-            focarCampoLocacao('aluguelFim');
+            informarErroCampoLocacao('aluguelFim', 'A previsão de término não pode ser anterior à data inicial.');
         }
         return false;
     }
+    limparErroCampoLocacao('aluguelFim');
+
+    const divisor = obterDivisorFormularioLocacao();
+    if (divisor === null) {
+        if (exibirErro) {
+            informarErroCampoLocacao(
+                'aluguelDivisor',
+                'Informe um divisor maior que zero e menor ou igual a 1.'
+            );
+        }
+        return false;
+    }
+    limparErroCampoLocacao('aluguelDivisor');
 
     return true;
 }
@@ -452,8 +508,15 @@ function montarResumoFinalLocacao() {
         return;
     }
 
-    const divisorRaw = parseFloat(document.getElementById('aluguelDivisor')?.value);
-    const divisor = Number.isFinite(divisorRaw) && divisorRaw > 0 ? divisorRaw : 1;
+    const divisor = obterDivisorFormularioLocacao();
+    if (divisor === null) {
+        boxResumo.innerHTML = criarEstadoLocacaoPainel({
+            tipo: 'warning',
+            titulo: 'Revisão indisponível',
+            mensagem: 'Informe um divisor maior que zero e menor ou igual a 1.'
+        });
+        return;
+    }
     const totalBruto = calcularTotalCarrinhoLocacao();
     const totalFaturado = totalBruto / divisor;
     const totalItens = carrinhoLocacao.reduce((acc, item) => acc + (parseInt(item.quantidade, 10) || 0), 0);
@@ -480,11 +543,11 @@ function montarResumoFinalLocacao() {
                 <strong>${escaparHTML(cliente.nome)}</strong>
             </div>
             <div class="locacao-review-meta">
-                <small>Periodo</small>
-                <strong>${dataInicio.toLocaleDateString('pt-BR')} ate ${dataFim.toLocaleDateString('pt-BR')}</strong>
+                <small>Período</small>
+                <strong>${dataInicio.toLocaleDateString('pt-BR')} até ${dataFim.toLocaleDateString('pt-BR')}</strong>
             </div>
             <div class="locacao-review-meta">
-                <small>Duracao</small>
+                <small>Duração</small>
                 <strong>${duracaoDias} dia(s)</strong>
             </div>
             <div class="locacao-review-meta">
@@ -555,7 +618,7 @@ function atualizarFluxoLocacao() {
     });
 
     const btnEtapa2 = document.getElementById('btnIrEtapa2');
-    if (btnEtapa2) btnEtapa2.disabled = !dadosBaseOk;
+    if (btnEtapa2) btnEtapa2.disabled = false;
 
     const btnEtapa3 = document.getElementById('btnIrEtapa3');
     if (btnEtapa3) btnEtapa3.disabled = !(dadosBaseOk && possuiItens);
@@ -572,7 +635,7 @@ function irEtapaLocacao(etapa) {
 
     if (destino >= 2 && !validarDadosBaseLocacao(true)) return;
     if (destino === 3 && carrinhoLocacao.length === 0) {
-        mostrarToast('Adicione pelo menos 1 item para revisar a locacao.', 'erro');
+        mostrarToast('Adicione pelo menos 1 item para revisar a locação.', 'erro');
         focarCampoLocacao('inputBuscaPeca');
         return;
     }
@@ -594,9 +657,22 @@ function inicializarFluxoLocacao() {
         idsCampos.forEach((id) => {
             const campo = document.getElementById(id);
             if (!campo) return;
-            campo.addEventListener('change', atualizarFluxoLocacao);
+            campo.addEventListener('change', () => {
+                limparErroCampoLocacao(id);
+                atualizarFluxoLocacao();
+            });
             if (id === 'aluguelDivisor') {
                 campo.addEventListener('input', () => {
+                    const valorInformado = String(campo.value || '').trim();
+                    if (valorInformado && obterDivisorFormularioLocacao() === null) {
+                        informarErroCampoLocacao(
+                            'aluguelDivisor',
+                            'Informe um divisor maior que zero e menor ou igual a 1.',
+                            { focar: false, toast: false }
+                        );
+                    } else {
+                        limparErroCampoLocacao('aluguelDivisor');
+                    }
                     atualizarFluxoLocacao();
                 });
             }
@@ -729,46 +805,14 @@ function finalizarLocacao() {
     var cli = document.getElementById('aluguelCliente').value;
     var ini = document.getElementById('aluguelIni').value;
     var fim = document.getElementById('aluguelFim').value;
+    if (!validarDadosBaseLocacao(true)) return;
 
-    var divInput = parseFloat(document.getElementById('aluguelDivisor').value);
-    if (isNaN(divInput) || divInput <= 0) divInput = 1;
+    var divInput = obterDivisorFormularioLocacao();
+    const cliente = obterClienteLocacaoAtual();
 
-    if (!cli || carrinhoLocacao.length === 0) {
-        mostrarToast('Preencha cliente e itens!', 'erro');
-        focarCampoLocacao(!cli ? 'aluguelCliente' : 'inputBuscaPeca');
-        return;
-    }
-
-    const cliente = locadores.find((x) => String(x.id) === String(cli));
-    if (!cliente) {
-        mostrarToast('Cliente selecionado e invalido.', 'erro');
-        focarCampoLocacao('aluguelCliente');
-        return;
-    }
-
-    if (!ini || !fim) {
-        mostrarToast('Informe as datas da locacao.', 'erro');
-        focarCampoLocacao(!ini ? 'aluguelIni' : 'aluguelFim');
-        return;
-    }
-
-    const dataInicio = new Date(`${ini}T00:00:00`);
-    const dataFim = new Date(`${fim}T00:00:00`);
-    if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
-        mostrarToast('Datas invalidas. Confira inicio e fim.', 'erro');
-        focarCampoLocacao('aluguelIni');
-        return;
-    }
-
-    if (dataFim < dataInicio) {
-        mostrarToast('A previsao de fim nao pode ser antes do inicio.', 'erro');
-        focarCampoLocacao('aluguelFim');
-        return;
-    }
-
-    if (!Number.isFinite(divInput) || divInput <= 0) {
-        mostrarToast('Divisor invalido. Informe um valor acima de zero.', 'erro');
-        focarCampoLocacao('aluguelDivisor');
+    if (carrinhoLocacao.length === 0) {
+        mostrarToast('Adicione pelo menos 1 item à locação.', 'erro');
+        focarCampoLocacao('inputBuscaPeca');
         return;
     }
 
@@ -827,6 +871,7 @@ function finalizarLocacao() {
         document.getElementById('aluguelQtd').value = '1';
         document.getElementById('inputBuscaPeca').value = '';
         document.getElementById('avisoEstoque').innerText = '';
+        Object.keys(ERROS_CAMPOS_LOCACAO).forEach(limparErroCampoLocacao);
 
         renderCarrinhoLocacao();
 
@@ -842,7 +887,7 @@ function finalizarLocacao() {
         locacaoEtapaAtual = 1;
         inicializarFluxoLocacao();
 
-        mostrarToast('Locacao concluida!');
+        mostrarToast('Locação concluída!');
         sincronizar('salvar');
     };
 
@@ -867,7 +912,7 @@ function finalizarLocacao() {
 }
 
 function cancelarLocacao(id) {
-    if (typeof validarPermissao === 'function' && !validarPermissao('cancelar_locacao', 'Somente administrador pode cancelar locacoes.')) {
+    if (typeof validarPermissao === 'function' && !validarPermissao('cancelar_locacao', 'Somente administrador pode cancelar locações.')) {
         return;
     }
 

@@ -53,13 +53,13 @@ const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';
 const TAB_QUICK_ACTIONS = {
     dashboard: [
         { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
-        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' },
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locação' },
         { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' }
     ],
     locadores: [
         { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
         { id: 'qa_busca_cliente', icon: 'bi-search', label: 'Buscar cliente' },
-        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' }
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locação' }
     ],
     tipos: [
         { id: 'qa_novo_tipo', icon: 'bi-tags', label: 'Novo tipo' },
@@ -77,7 +77,7 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_gerar_pdf_checklist', icon: 'bi-printer', label: 'Gerar PDF' }
     ],
     locacoes: [
-        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locacao' },
+        { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locação' },
         { id: 'qa_filtro_aberto', icon: 'bi-play-circle', label: 'Em aberto' },
         { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Atrasados' }
     ],
@@ -112,7 +112,7 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_transporte_em_rota', icon: 'bi-truck', label: 'Em rota' }
     ],
     auditoria: [
-        { id: 'qa_log_locacao', icon: 'bi-cart', label: 'Logs de locacoes' },
+        { id: 'qa_log_locacao', icon: 'bi-cart', label: 'Logs de locações' },
         { id: 'qa_log_sistema', icon: 'bi-cpu', label: 'Logs do sistema' },
         { id: 'qa_busca_auditoria', icon: 'bi-search', label: 'Buscar logs' }
     ],
@@ -254,12 +254,16 @@ function atualizarTopbarModulo(tabId) {
 
     if (!topbar || !titleEl || !descEl || !metaEl) return;
 
+    const cfg = TAB_TOPBAR_CONFIG[tabId] || TAB_TOPBAR_CONFIG.dashboard;
+    const tabAtiva = document.getElementById(`tab-${tabId}`);
+    document.title = `${cfg.titulo} | MTZ Eventos`;
+    if (tabAtiva) tabAtiva.setAttribute('aria-label', cfg.titulo);
+
     if (tabId === 'dashboard' || tabId === 'propostas') {
         topbar.style.display = 'none';
         return;
     }
 
-    const cfg = TAB_TOPBAR_CONFIG[tabId] || TAB_TOPBAR_CONFIG.dashboard;
     titleEl.innerHTML = `<i class="bi ${cfg.icon}"></i> ${cfg.titulo}`;
     descEl.textContent = cfg.descricao;
     metaEl.textContent = cfg.meta;
@@ -3363,7 +3367,7 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && IDS_CAMPOS_BUSCA_ESCAPE.has(idCampoBusca)) {
         const mensagensRestauro = {
             buscaEstoque: 'Filtro do estoque voltou para Todos.',
-            buscaLocacoes: 'Filtro de locacoes voltou para Todos.',
+            buscaLocacoes: 'Filtro de locações voltou para Todos.',
             buscaPropostas: 'Filtro de propostas voltou para Todos.',
             buscaOrcamentos: 'Filtro de orcamentos voltou para Todos.',
             buscaFinanceiro: 'Filtro financeiro voltou para Todos.',
