@@ -54,7 +54,7 @@ const TAB_QUICK_ACTIONS = {
     dashboard: [
         { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
         { id: 'qa_nova_locacao', icon: 'bi-cart-plus', label: 'Nova locação' },
-        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' }
+        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolução' }
     ],
     locadores: [
         { id: 'qa_novo_cliente', icon: 'bi-person-plus', label: 'Novo cliente' },
@@ -87,9 +87,9 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_converter_proposta', icon: 'bi-check2-circle', label: 'Converter orçamento' }
     ],
     devolucoes: [
-        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolucao' },
+        { id: 'qa_registrar_devolucao', icon: 'bi-arrow-return-left', label: 'Registrar devolução' },
         { id: 'qa_filtro_dev_parcial', icon: 'bi-hourglass-split', label: 'Parciais' },
-        { id: 'qa_filtro_dev_total', icon: 'bi-check2-circle', label: 'Concluidas' }
+        { id: 'qa_filtro_dev_total', icon: 'bi-check2-circle', label: 'Concluídas' }
     ],
     orcamentos: [
         { id: 'qa_nova_locacao', icon: 'bi-file-earmark-plus', label: 'Nova proposta' },
@@ -3095,7 +3095,11 @@ function executarAtalhoRapido(atalhoId) {
     const elIni = document.getElementById('aluguelIni');
     const elDev = document.getElementById('devData');
     if(elIni) elIni.value = hoje;
-    if(elDev) elDev.value = hoje;
+    if(elDev) {
+        elDev.value = typeof obterDataLocalIsoDevolucao === 'function'
+            ? obterDataLocalIsoDevolucao()
+            : hoje;
+    }
     if(typeof inicializarFluxoLocacao === 'function') inicializarFluxoLocacao();
 
     const style = document.createElement('style');
@@ -3373,7 +3377,7 @@ document.addEventListener('keydown', (event) => {
             buscaFinanceiro: 'Filtro financeiro voltou para Todos.',
             buscaAgenda: 'Filtro da agenda voltou para Todos.',
             buscaTransporte: 'Filtro de transporte voltou para Todos.',
-            devBuscaHistorico: 'Filtro de devolucoes voltou para Todos.',
+            devBuscaHistorico: 'Filtro de devoluções voltou para Todos.',
             auditBusca: 'Filtro de logs voltou para Todos.'
         };
         const valorAtual = String(alvo?.value || '');

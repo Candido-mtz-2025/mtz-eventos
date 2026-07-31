@@ -76,13 +76,13 @@ function renderDevolucoes() {
         const rotulosFiltro = {
             todos: 'Todos',
             parcial: 'Parciais',
-            total: 'Concluidas'
+            total: 'Concluídas'
         };
         atualizarMetaBusca('metaBuscaDevolucoes', {
             total: listaComContexto.length,
             filtrados: filtrados.length,
             termo: termoRaw,
-            rotulo: 'devolucoes',
+            rotulo: 'devoluções',
             filtro,
             filtroLabel: rotulosFiltro[filtro] || filtro
         });

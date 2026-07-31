@@ -2430,7 +2430,7 @@
         <div class="card" id="devolucoesFormularioCard">
             <h3>Registrar Devolução</h3>
             <div class="form-row">
-                <div class="form-group"><label for="devLocacao">Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao"></select></div>
+                <div class="form-group"><label for="devLocacao">Locação Pendente</label><select id="devLocacao" data-change="carregarItensDevolucao" aria-describedby="devLocacaoErro"></select><small id="devLocacaoErro" class="dev-linha-erro" role="alert" aria-live="polite" hidden></small></div>
                 <div class="form-group"><label for="devData">Data Devolução</label><input type="date" id="devData"></div>
             </div>
             <div id="divItensDevolucao" class="soft-box">
@@ -2451,12 +2451,12 @@
                 <h3>Histórico Recente</h3>
             </div>
             <div class="devolucoes-search-toolbar">
-                <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes">
+                <select id="devFiltroHistorico" data-change="aplicarFiltroHistoricoDevolucoes" aria-label="Filtrar devoluções por status">
                     <option value="todos">Todos</option>
                     <option value="parcial">Parciais</option>
                     <option value="total">Concluídas</option>
                 </select>
-                <input type="text" id="devBuscaHistorico" class="search-input" placeholder="Buscar cliente..." data-input="buscarComDebounce" data-arg="devolucoes">
+                <input type="text" id="devBuscaHistorico" class="search-input" placeholder="Buscar cliente..." aria-label="Buscar devoluções por cliente" data-input="buscarComDebounce" data-arg="devolucoes">
             </div>
             <div id="metaBuscaDevolucoes" class="search-meta" aria-live="polite"></div>
             <div class="devolucao-kpis">
@@ -2894,7 +2894,7 @@
     <script src="./assets/js/modules/config.js?v=1.1"></script>
     <script src="./assets/js/modules/importacao.js?v=1.1"></script>
     <script src="./assets/js/modules/relatorios.js?v=1.5"></script>
-    <script src="./assets/js/modules/devolucoes.js?v=2.6"></script>
+    <script src="./assets/js/modules/devolucoes.js?v=2.7"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
     <script src="./assets/js/modules/backup-tools.js?v=1.1"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.1"></script>
@@ -2904,10 +2904,10 @@
     <script src="./assets/js/render/cadastros.js?v=3.5"></script>
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
-    <script src="./assets/js/render/devolucoes.js?v=2.4"></script>
+    <script src="./assets/js/render/devolucoes.js?v=2.5"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
-    <script src="./assets/js/ui/eventos.js?v=2.4"></script>
-    <script src="./assets/js/core/app.js?v=23.11"></script>
+    <script src="./assets/js/ui/eventos.js?v=2.5"></script>
+    <script src="./assets/js/core/app.js?v=23.12"></script>
         
 </body>
 </html>

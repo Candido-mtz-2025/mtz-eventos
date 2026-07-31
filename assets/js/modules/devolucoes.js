@@ -3,6 +3,42 @@ let devolucaoEmProcessamento = false;
 let devolucaoSubmissaoId = '';
 let devolucaoSubmissaoLocacaoId = '';
 
+function obterDataLocalIsoDevolucao(data = new Date()) {
+    const dataLocal = data instanceof Date ? data : new Date(data);
+    if (Number.isNaN(dataLocal.getTime())) return '';
+
+    const ano = dataLocal.getFullYear();
+    const mes = String(dataLocal.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataLocal.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+}
+
+function limparErroLocacaoDevolucao() {
+    const campo = document.getElementById('devLocacao');
+    const mensagem = document.getElementById('devLocacaoErro');
+
+    campo?.removeAttribute('aria-invalid');
+    if (mensagem) {
+        mensagem.textContent = '';
+        mensagem.hidden = true;
+    }
+}
+
+function informarErroLocacaoDevolucao() {
+    const campo = document.getElementById('devLocacao');
+    const mensagem = document.getElementById('devLocacaoErro');
+    const texto = 'Selecione uma locação pendente para registrar a devolução.';
+
+    campo?.setAttribute('aria-invalid', 'true');
+    if (mensagem) {
+        mensagem.textContent = texto;
+        mensagem.hidden = false;
+    }
+
+    mostrarToast(texto, 'erro');
+    focarCampoDevolucao('devLocacao');
+}
+
 function getQtdPendenteItem(item) {
     if (typeof obterQuantidadePendenteDevolucaoItem === 'function') {
         return obterQuantidadePendenteDevolucaoItem(item);
@@ -127,8 +163,11 @@ function atualizarEstadoBotaoRegistroDevolucao(estadoResumo = null) {
             return acc;
         }, { informado: 0, temInvalido: false });
 
-    botao.disabled = devolucaoEmProcessamento || estado.temInvalido || estado.informado <= 0;
+    botao.disabled = devolucaoEmProcessamento;
     botao.setAttribute('aria-busy', devolucaoEmProcessamento ? 'true' : 'false');
+    botao.innerHTML = devolucaoEmProcessamento
+        ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Registrando...'
+        : '<i class="bi bi-check-lg" aria-hidden="true"></i> Registrar Devolução';
 }
 
 function atualizarResumoConferenciaDevolucao() {
@@ -264,6 +303,7 @@ function carregarItensDevolucao() {
         focarCampoDevolucao('devLocacao');
         return;
     }
+    limparErroLocacaoDevolucao();
     const submissaoId = obterSubmissaoDevolucao(l.id);
     div.dataset.devolucaoSubmissaoId = submissaoId;
 
@@ -359,14 +399,13 @@ function confirmarDevolucao() {
 
     const id = document.getElementById('devLocacao').value;
     if (!id) {
-        mostrarToast("Selecione uma locacao para devolver.", "erro");
-        focarCampoDevolucao('devLocacao');
+        informarErroLocacaoDevolucao();
         return;
     }
 
     const dataDevolucao = document.getElementById('devData').value;
     if (!dataDevolucao) {
-        mostrarToast("Informe a data da devolucao.", "erro");
+        mostrarToast("Informe a data da devolução.", "erro");
         focarCampoDevolucao('devData');
         return;
     }
@@ -410,7 +449,7 @@ function confirmarDevolucao() {
     });
 
     if (pendencias.length === 0) {
-        mostrarToast("Informe pelo menos uma quantidade para devolucao ou avaria.", "erro");
+        mostrarToast("Informe pelo menos uma quantidade para devolução ou avaria.", "erro");
         const primeiroCampoQtd = document.querySelector('.dev-qtd');
         if (primeiroCampoQtd instanceof HTMLElement) primeiroCampoQtd.focus();
         return;
@@ -625,6 +664,7 @@ function confirmarDevolucao() {
         } finally {
             devolucaoEmProcessamento = false;
             atualizarResumoConferenciaDevolucao();
+            atualizarEstadoBotaoRegistroDevolucao({ informado: 0, temInvalido: false });
         }
     };
 
@@ -655,7 +695,7 @@ function limparFormularioDevolucaoAposRegistro() {
     const botao = document.getElementById('btnRegistrarDevolucao');
 
     if (seletor) seletor.value = '';
-    if (data) data.value = new Date().toISOString().split('T')[0];
+    if (data) data.value = obterDataLocalIsoDevolucao();
     if (painel) {
         painel.dataset.devolucaoSubmissaoId = renovarSubmissaoDevolucao();
         painel.innerHTML = criarEstadoDevolucaoPainel({
@@ -667,6 +707,7 @@ function limparFormularioDevolucaoAposRegistro() {
     if (botao?.dataset.actionBusy === '1') {
         botao.dataset.actionDisabledPrev = '1';
     }
+    limparErroLocacaoDevolucao();
     atualizarEstadoBotaoRegistroDevolucao({ informado: 0, temInvalido: false });
 }
 
