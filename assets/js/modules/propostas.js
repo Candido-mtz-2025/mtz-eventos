@@ -6864,6 +6864,27 @@
 
         const bloqueios = [];
         const avisos = [];
+        const dataMontagem = proposta?.evento?.dataMontagem || proposta?.evento?.dataEvento || '';
+        const dataDesmontagem = proposta?.evento?.dataDesmontagem || proposta?.evento?.dataEvento || dataMontagem;
+        const intervalo = typeof obterIntervaloOperacionalLocacao === 'function'
+            ? obterIntervaloOperacionalLocacao({
+                dataAluguel: dataMontagem,
+                dataDevolucaoPrevisao: dataDesmontagem,
+                datasMontagem: { inicio: dataMontagem },
+                datasDesmontagem: { fim: dataDesmontagem }
+            })
+            : null;
+        const totaisPorPeca = new Map();
+
+        if (!intervalo?.completo) {
+            return {
+                bloqueios: [formatarMensagemDisponibilidadeEstoque({
+                    tipo: 'intervalo_invalido',
+                    consulta: { motivo: 'intervalo_incompleto' }
+                })],
+                avisos
+            };
+        }
 
         (Array.isArray(proposta?.itens) ? proposta.itens : []).forEach((item) => {
             const calculado = calcularItemProposta(item || {});
@@ -6883,9 +6904,26 @@
                 return;
             }
 
-            const disponivel = obterDisponivelPecaProposta(peca);
-            if (quantidadeEstoque > disponivel) {
-                bloqueios.push(`${descricao}: estoque próprio necessário ${quantidadeEstoque}, disponível ${disponivel}.`);
+            const pecaId = String(peca.id || '');
+            const acumulado = totaisPorPeca.get(pecaId) || {
+                peca,
+                descricao,
+                quantidade: 0
+            };
+            acumulado.quantidade += quantidadeEstoque;
+            totaisPorPeca.set(pecaId, acumulado);
+        });
+
+        totaisPorPeca.forEach(({ peca, descricao, quantidade }) => {
+            const consulta = typeof consultarDisponibilidadeItemPeriodo === 'function'
+                ? consultarDisponibilidadeItemPeriodo(peca, intervalo)
+                : { disponivel: obterDisponivelPecaProposta(peca), intervalo, valido: true };
+            if (!consulta.valido || quantidade > consulta.disponivel) {
+                bloqueios.push(formatarMensagemDisponibilidadeEstoque({
+                    item: descricao,
+                    solicitado: quantidade,
+                    consulta
+                }));
             }
         });
 
@@ -6896,7 +6934,7 @@
         const analise = avaliarConversaoEstoqueProposta(proposta);
 
         if (analise.bloqueios.length) {
-            mostrarToast(`Estoque insuficiente: ${analise.bloqueios[0]}`, 'erro');
+            mostrarToast(analise.bloqueios[0], 'erro', 6500);
             return;
         }
 

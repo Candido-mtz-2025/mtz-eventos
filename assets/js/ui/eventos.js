@@ -478,7 +478,8 @@ document.addEventListener('click', function (event) {
     // Fecha a lista de sugestões ao clicar fora
     const lista = document.getElementById('listaSugestoes');
     if (lista && !event.target.closest('#inputBuscaPeca') && !event.target.closest('#listaSugestoes')) {
-        lista.classList.remove('ativo');
+        if (typeof window.fecharSugestoesLocacao === 'function') window.fecharSugestoesLocacao();
+        else lista.classList.remove('ativo');
     }
 });
 
@@ -532,6 +533,7 @@ document.addEventListener('keydown', function (event) {
 
     if (event.key === 'Escape') {
         const lista = document.getElementById('listaSugestoes');
-        if (lista) lista.classList.remove('ativo');
+        if (lista && typeof window.fecharSugestoesLocacao === 'function') window.fecharSugestoesLocacao();
+        else if (lista) lista.classList.remove('ativo');
     }
 });

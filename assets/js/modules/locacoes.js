@@ -1,6 +1,7 @@
 // Busca inteligente e operacoes de locacao
 let locacaoEtapaAtual = 1;
 let fluxoLocacaoInicializado = false;
+let indiceSugestaoLocacaoAtiva = -1;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
@@ -8,6 +9,78 @@ function obterDisponivelPecaLocacao(peca) {
     if (!peca) return 0;
     const normalizada = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(peca) : peca;
     return Math.max(parseInt(normalizada?.disponivel, 10) || 0, 0);
+}
+
+function obterIntervaloFormularioLocacao() {
+    if (typeof normalizarIntervaloPeriodoEstoque !== 'function') return null;
+    return normalizarIntervaloPeriodoEstoque(
+        document.getElementById('aluguelIni')?.value,
+        document.getElementById('aluguelFim')?.value
+    );
+}
+
+function consultarDisponibilidadePecaFormularioLocacao(peca, opcoes = {}) {
+    const intervalo = obterIntervaloFormularioLocacao();
+    if (!intervalo?.completo || typeof consultarDisponibilidadeItemPeriodo !== 'function') {
+        return {
+            disponivel: obterDisponivelPecaLocacao(peca),
+            intervalo,
+            valido: Boolean(intervalo?.completo)
+        };
+    }
+    return consultarDisponibilidadeItemPeriodo(peca, intervalo, opcoes);
+}
+
+function validarDisponibilidadeCarrinhoLocacao(opcoes = {}) {
+    const exibirErro = opcoes.exibirErro !== false;
+    const intervalo = obterIntervaloFormularioLocacao();
+    if (!intervalo?.completo || typeof consultarDisponibilidadeItemPeriodo !== 'function') {
+        return false;
+    }
+
+    if (document.getElementById('aluguelItemSelect')?.value) {
+        const estadoQuantidade = validarQuantidadeItemFormularioLocacao({
+            exibirToast: exibirErro,
+            focar: exibirErro
+        });
+        if (!estadoQuantidade.valido) return false;
+    }
+
+    const totaisPorPeca = new Map();
+    carrinhoLocacao.forEach((item) => {
+        const pecaId = String(item?.pecaId || '');
+        if (!pecaId) return;
+        const quantidade = typeof obterQuantidadePropriaOperacional === 'function'
+            ? obterQuantidadePropriaOperacional(item)
+            : Math.max(parseInt(item?.quantidade, 10) || 0, 0);
+        totaisPorPeca.set(pecaId, (totaisPorPeca.get(pecaId) || 0) + quantidade);
+    });
+
+    for (const [pecaId, solicitado] of totaisPorPeca.entries()) {
+        const peca = pecas.find((item) => String(item?.id || '') === pecaId);
+        const consulta = consultarDisponibilidadeItemPeriodo(peca, intervalo, {
+            ignorarLocacaoId: opcoes.ignorarLocacaoId
+        });
+        if (!consulta.valido || solicitado > consulta.disponivel) {
+            if (exibirErro) {
+                const mensagem = consulta.valido
+                    ? formatarMensagemDisponibilidadeEstoque({
+                        item: peca?.nome || 'Item de estoque',
+                        solicitado,
+                        consulta
+                    })
+                    : formatarMensagemDisponibilidadeEstoque({
+                        tipo: 'intervalo_invalido',
+                        consulta
+                    });
+                mostrarToast(mensagem, 'erro', 6500);
+                focarCampoLocacao(consulta.valido ? 'inputBuscaPeca' : 'aluguelFim');
+            }
+            return false;
+        }
+    }
+
+    return true;
 }
 
 function sincronizarFinanceiroLocacao(localLocacao) {
@@ -265,17 +338,152 @@ function persistirFiltroLocacoesAtual() {
 
 restaurarFiltroLocacoesPersistido();
 
-function filtrarItensLocacao() {
+function obterOpcoesSugestoesLocacao() {
+    const lista = document.getElementById('listaSugestoes');
+    return lista ? Array.from(lista.querySelectorAll('[role="option"]')) : [];
+}
+
+function fecharSugestoesLocacao() {
+    const campo = document.getElementById('inputBuscaPeca');
+    const lista = document.getElementById('listaSugestoes');
+    if (lista) {
+        lista.classList.remove('ativo');
+        obterOpcoesSugestoesLocacao().forEach((opcao) => {
+            opcao.classList.remove('is-active');
+            opcao.setAttribute('aria-selected', 'false');
+        });
+    }
+    if (campo) {
+        campo.setAttribute('aria-expanded', 'false');
+        campo.removeAttribute('aria-activedescendant');
+    }
+    indiceSugestaoLocacaoAtiva = -1;
+}
+
+function abrirSugestoesLocacao() {
+    const campo = document.getElementById('inputBuscaPeca');
+    const lista = document.getElementById('listaSugestoes');
+    if (!campo || !lista) return;
+    lista.classList.add('ativo');
+    campo.setAttribute('aria-expanded', 'true');
+}
+
+function ativarSugestaoLocacao(indice) {
+    const campo = document.getElementById('inputBuscaPeca');
+    const opcoes = obterOpcoesSugestoesLocacao();
+    if (!campo || opcoes.length === 0) return;
+
+    indiceSugestaoLocacaoAtiva = (indice + opcoes.length) % opcoes.length;
+    opcoes.forEach((opcao, opcaoIndice) => {
+        const ativa = opcaoIndice === indiceSugestaoLocacaoAtiva;
+        opcao.classList.toggle('is-active', ativa);
+        opcao.setAttribute('aria-selected', ativa ? 'true' : 'false');
+    });
+    const ativa = opcoes[indiceSugestaoLocacaoAtiva];
+    campo.setAttribute('aria-activedescendant', ativa.id);
+    ativa.scrollIntoView({ block: 'nearest' });
+}
+
+function selecionarSugestaoLocacao(peca) {
+    const campoBusca = document.getElementById('inputBuscaPeca');
+    const campoItem = document.getElementById('aluguelItemSelect');
+    const campoQuantidade = document.getElementById('aluguelQtd');
+    if (!peca || !campoBusca || !campoItem || !campoQuantidade) return;
+
+    campoBusca.value = peca.nome;
+    campoItem.value = peca.id;
+    fecharSugestoesLocacao();
+    atualizarLimiteEstoque({ preservarQuantidade: false });
+    campoQuantidade.focus();
+}
+
+function navegarSugestoesLocacao(evento) {
+    const lista = document.getElementById('listaSugestoes');
+    const opcoes = obterOpcoesSugestoesLocacao();
+    if (!lista || !lista.classList.contains('ativo')) {
+        if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') filtrarItensLocacao();
+    }
+
+    const opcoesAtuais = obterOpcoesSugestoesLocacao();
+    if (evento.key === 'ArrowDown' && opcoesAtuais.length) {
+        evento.preventDefault();
+        ativarSugestaoLocacao(indiceSugestaoLocacaoAtiva + 1);
+        return;
+    }
+    if (evento.key === 'ArrowUp' && opcoesAtuais.length) {
+        evento.preventDefault();
+        ativarSugestaoLocacao(indiceSugestaoLocacaoAtiva <= 0
+            ? opcoesAtuais.length - 1
+            : indiceSugestaoLocacaoAtiva - 1);
+        return;
+    }
+    if (evento.key === 'Enter' && indiceSugestaoLocacaoAtiva >= 0) {
+        evento.preventDefault();
+        opcoesAtuais[indiceSugestaoLocacaoAtiva]?.click();
+        return;
+    }
+    if (evento.key === 'Escape') {
+        evento.preventDefault();
+        fecharSugestoesLocacao();
+    }
+}
+
+function inicializarAutocompleteLocacao() {
+    const campo = document.getElementById('inputBuscaPeca');
+    if (!campo || campo.dataset.autocompleteLocacaoBound === '1') return;
+
+    campo.addEventListener('keydown', navegarSugestoesLocacao);
+    campo.addEventListener('input', () => {
+        const itemSelecionado = document.getElementById('aluguelItemSelect');
+        const pecaSelecionada = pecas.find((peca) => String(peca?.id || '') === String(itemSelecionado?.value || ''));
+        if (pecaSelecionada && String(campo.value || '') !== String(pecaSelecionada.nome || '')) {
+            itemSelecionado.value = '';
+            const quantidade = document.getElementById('aluguelQtd');
+            quantidade?.removeAttribute('max');
+            quantidade?.removeAttribute('aria-invalid');
+            const aviso = document.getElementById('avisoEstoque');
+            if (aviso) aviso.textContent = '';
+        }
+    });
+    campo.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (!document.activeElement?.closest('#listaSugestoes')) fecharSugestoesLocacao();
+        }, 100);
+    });
+    campo.dataset.autocompleteLocacaoBound = '1';
+}
+
+function filtrarItensLocacao(evento) {
     const termoInput = document.getElementById('inputBuscaPeca');
     const lista = document.getElementById('listaSugestoes');
     if (!termoInput || !lista) return;
+
+    if (evento && ['ArrowDown', 'ArrowUp', 'Enter'].includes(evento.key)) return;
+    if (evento?.key === 'Escape') {
+        if (!termoInput.value) {
+            const itemSelecionado = document.getElementById('aluguelItemSelect');
+            if (itemSelecionado) itemSelecionado.value = '';
+            document.getElementById('aluguelQtd')?.removeAttribute('max');
+            document.getElementById('aluguelQtd')?.removeAttribute('aria-invalid');
+            const aviso = document.getElementById('avisoEstoque');
+            if (aviso) aviso.textContent = '';
+        }
+        fecharSugestoesLocacao();
+        return;
+    }
 
     const normalizar = (t) => t ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
     const termo = normalizar(termoInput.value);
 
     lista.innerHTML = '';
+    indiceSugestaoLocacaoAtiva = -1;
+    termoInput.removeAttribute('aria-activedescendant');
     if (termo.length < 1) {
-        lista.classList.remove('ativo');
+        const itemSelecionado = document.getElementById('aluguelItemSelect');
+        if (itemSelecionado) itemSelecionado.value = '';
+        document.getElementById('aluguelQtd')?.removeAttribute('max');
+        document.getElementById('aluguelQtd')?.removeAttribute('aria-invalid');
+        fecharSugestoesLocacao();
         return;
     }
 
@@ -303,7 +511,7 @@ function filtrarItensLocacao() {
             if (codigo.startsWith(t)) score += 10;
         });
 
-        score += (obterDisponivelPecaLocacao(p) > 0 ? 5 : 0);
+        score += (consultarDisponibilidadePecaFormularioLocacao(p).disponivel > 0 ? 5 : 0);
         return score;
     };
 
@@ -316,25 +524,23 @@ function filtrarItensLocacao() {
 
     if (filtrados.length === 0) {
         lista.innerHTML = '<div class="sugestao-item"><span>Nenhum item encontrado</span></div>';
-        lista.classList.add('ativo');
+        abrirSugestoesLocacao();
         return;
     }
 
-    filtrados.forEach((p) => {
+    filtrados.forEach((p, indice) => {
+        const disponivelPeriodo = consultarDisponibilidadePecaFormularioLocacao(p).disponivel;
         const item = document.createElement('div');
         item.className = 'sugestao-item';
+        item.id = `locacao-sugestao-${String(p.id || indice).replace(/[^a-zA-Z0-9_-]/g, '-')}-${indice}`;
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', 'false');
         item.innerHTML = `<span>${p.nome} <small style="opacity:0.6">[${p.codigo}]</small></span>
-                          <span class="sugestao-estoque">(Disp: ${obterDisponivelPecaLocacao(p)})</span>`;
-        item.onclick = function () {
-            document.getElementById('inputBuscaPeca').value = p.nome;
-            document.getElementById('aluguelItemSelect').value = p.id;
-            document.getElementById('aluguelQtd').focus();
-            if (typeof atualizarLimiteEstoque === 'function') atualizarLimiteEstoque();
-            lista.classList.remove('ativo');
-        };
+                          <span class="sugestao-estoque">(Disp. no período: ${disponivelPeriodo})</span>`;
+        item.addEventListener('click', () => selecionarSugestaoLocacao(p));
         lista.appendChild(item);
     });
-    lista.classList.add('ativo');
+    abrirSugestoesLocacao();
 }
 
 function formatarMoedaBR(valor) {
@@ -639,6 +845,7 @@ function irEtapaLocacao(etapa) {
         focarCampoLocacao('inputBuscaPeca');
         return;
     }
+    if (destino === 3 && !validarDisponibilidadeCarrinhoLocacao({ exibirErro: true })) return;
 
     locacaoEtapaAtual = destino;
     atualizarFluxoLocacao();
@@ -649,18 +856,46 @@ function irEtapaLocacao(etapa) {
     }
 }
 
+function atualizarDisponibilidadePeriodoFormularioLocacao() {
+    const intervalo = obterIntervaloFormularioLocacao();
+    const selectItem = document.getElementById('aluguelItemSelect');
+    const campoQuantidade = document.getElementById('aluguelQtd');
+    const aviso = document.getElementById('avisoEstoque');
+
+    if (!intervalo?.completo) {
+        if (selectItem) selectItem.value = '';
+        if (campoQuantidade) {
+            campoQuantidade.removeAttribute('max');
+            campoQuantidade.removeAttribute('aria-invalid');
+            campoQuantidade.value = '1';
+        }
+        if (aviso) aviso.innerText = 'Informe um período válido para consultar a disponibilidade.';
+        return;
+    }
+
+    atualizarLimiteEstoque({ preservarQuantidade: true });
+}
+
 function inicializarFluxoLocacao() {
     if (!document.getElementById('locacaoFlow')) return;
+    inicializarAutocompleteLocacao();
 
     if (!fluxoLocacaoInicializado) {
         const idsCampos = ['aluguelCliente', 'aluguelIni', 'aluguelFim', 'aluguelDivisor'];
         idsCampos.forEach((id) => {
             const campo = document.getElementById(id);
             if (!campo) return;
-            campo.addEventListener('change', () => {
+            const atualizarCampo = () => {
                 limparErroCampoLocacao(id);
+                if (id === 'aluguelIni' || id === 'aluguelFim') {
+                    atualizarDisponibilidadePeriodoFormularioLocacao();
+                }
                 atualizarFluxoLocacao();
-            });
+            };
+            campo.addEventListener('change', atualizarCampo);
+            if (id === 'aluguelIni' || id === 'aluguelFim') {
+                campo.addEventListener('input', atualizarCampo);
+            }
             if (id === 'aluguelDivisor') {
                 campo.addEventListener('input', () => {
                     const valorInformado = String(campo.value || '').trim();
@@ -750,35 +985,18 @@ function addItemCarrinho() {
         return;
     }
 
-    var campoQtd = document.getElementById('aluguelQtd');
-    var qtd = parseInt(campoQtd?.value, 10);
-    if (!Number.isInteger(qtd) || qtd < 1) {
-        mostrarToast('Informe uma quantidade valida (minimo 1).', 'erro');
-        if (campoQtd) campoQtd.focus();
-        return;
-    }
-
     var p = pecas.find(function (x) { return x.id == id; });
     if (!p) {
         mostrarToast('Item nao encontrado.', 'erro');
         focarCampoLocacao('inputBuscaPeca');
         return;
     }
-    const disponivelAtual = obterDisponivelPecaLocacao(p);
-    if (disponivelAtual <= 0) {
-        mostrarToast('Esse item esta sem estoque disponivel.', 'erro');
-        focarCampoLocacao('inputBuscaPeca');
-        return;
-    }
+    const estadoQuantidade = validarQuantidadeItemFormularioLocacao({ exibirToast: true, focar: true });
+    if (!estadoQuantidade.valido) return;
 
+    var campoQtd = document.getElementById('aluguelQtd');
+    var qtd = estadoQuantidade.quantidadeDigitada;
     var itemNoCarrinho = carrinhoLocacao.find((x) => x.pecaId == p.id);
-    var qtdJaNoCarrinho = itemNoCarrinho ? itemNoCarrinho.quantidade : 0;
-    var qtdTotalSolicitada = qtd + qtdJaNoCarrinho;
-
-    if (qtdTotalSolicitada > disponivelAtual) {
-        if (campoQtd) campoQtd.value = String(Math.max(disponivelAtual - qtdJaNoCarrinho, 1));
-        return mostrarToast(`Estoque insuficiente! So restam ${disponivelAtual}.`, 'erro');
-    }
 
     if (itemNoCarrinho) {
         itemNoCarrinho.quantidade += qtd;
@@ -797,6 +1015,8 @@ function addItemCarrinho() {
     document.getElementById('inputBuscaPeca').value = '';
     document.getElementById('aluguelItemSelect').value = '';
     document.getElementById('aluguelQtd').value = '1';
+    document.getElementById('aluguelQtd').removeAttribute('max');
+    document.getElementById('aluguelQtd').removeAttribute('aria-invalid');
     document.getElementById('avisoEstoque').innerText = '';
     document.getElementById('inputBuscaPeca').focus();
 }
@@ -827,6 +1047,7 @@ function finalizarLocacao() {
         focarCampoLocacao('inputBuscaPeca');
         return;
     }
+    if (!validarDisponibilidadeCarrinhoLocacao({ exibirErro: true })) return;
 
     const itensParaSalvar = carrinhoLocacao.map((item) => ({ ...item }));
     const dadosNovaLocacao = {
@@ -1423,7 +1644,75 @@ function reservarEstoqueDaLocacao(id) {
     }
 }
 
-function atualizarLimiteEstoque() {
+function obterEstadoQuantidadeItemFormularioLocacao() {
+    const campoItem = document.getElementById('aluguelItemSelect');
+    const campoQuantidade = document.getElementById('aluguelQtd');
+    const peca = pecas.find((item) => String(item?.id || '') === String(campoItem?.value || ''));
+    const valorTexto = String(campoQuantidade?.value ?? '').trim();
+    const quantidadeDigitada = Number(valorTexto);
+
+    if (!peca) {
+        return { valido: false, silencioso: true, quantidadeDigitada: 0, disponivelRestante: 0 };
+    }
+
+    const consulta = consultarDisponibilidadePecaFormularioLocacao(peca);
+    const quantidadeNoCarrinho = carrinhoLocacao
+        .filter((item) => String(item?.pecaId || '') === String(peca.id || ''))
+        .reduce((total, item) => total + Math.max(parseInt(item?.quantidade, 10) || 0, 0), 0);
+    const disponivelRestante = Math.max(consulta.disponivel - quantidadeNoCarrinho, 0);
+
+    if (!valorTexto || !Number.isInteger(quantidadeDigitada) || quantidadeDigitada < 1) {
+        return {
+            valido: false,
+            quantidadeDigitada,
+            disponivelRestante,
+            mensagem: 'Informe uma quantidade válida (mínimo 1).'
+        };
+    }
+
+    const quantidadeTotalSolicitada = quantidadeNoCarrinho + quantidadeDigitada;
+    if (!consulta.valido || quantidadeTotalSolicitada > consulta.disponivel) {
+        return {
+            valido: false,
+            quantidadeDigitada,
+            disponivelRestante,
+            mensagem: consulta.valido
+                ? formatarMensagemDisponibilidadeEstoque({
+                    item: peca.nome || 'Item de estoque',
+                    solicitado: quantidadeTotalSolicitada,
+                    consulta
+                })
+                : formatarMensagemDisponibilidadeEstoque({ tipo: 'intervalo_invalido', consulta })
+        };
+    }
+
+    return {
+        valido: true,
+        quantidadeDigitada,
+        disponivelRestante,
+        mensagem: `(Disponível no período: ${disponivelRestante})`
+    };
+}
+
+function validarQuantidadeItemFormularioLocacao(opcoes = {}) {
+    const campoQuantidade = document.getElementById('aluguelQtd');
+    const aviso = document.getElementById('avisoEstoque');
+    const estado = obterEstadoQuantidadeItemFormularioLocacao();
+
+    if (estado.silencioso) {
+        campoQuantidade?.removeAttribute('aria-invalid');
+        return estado;
+    }
+
+    if (estado.valido) campoQuantidade?.removeAttribute('aria-invalid');
+    else campoQuantidade?.setAttribute('aria-invalid', 'true');
+    if (aviso) aviso.textContent = estado.mensagem || '';
+    if (!estado.valido && opcoes.exibirToast) mostrarToast(estado.mensagem, 'erro', 6500);
+    if (!estado.valido && opcoes.focar) focarCampoLocacao('aluguelQtd');
+    return estado;
+}
+
+function atualizarLimiteEstoque(opcoes = {}) {
     var select = document.getElementById('aluguelItemSelect');
     var inputQtd = document.getElementById('aluguelQtd');
     var aviso = document.getElementById('avisoEstoque');
@@ -1432,25 +1721,23 @@ function atualizarLimiteEstoque() {
     var p = pecas.find((x) => x.id == id);
 
     if (p) {
-        const disponivel = obterDisponivelPecaLocacao(p);
+        const consulta = consultarDisponibilidadePecaFormularioLocacao(p);
+        const quantidadeNoCarrinho = carrinhoLocacao
+            .filter((item) => String(item?.pecaId || '') === String(p.id || ''))
+            .reduce((total, item) => total + Math.max(parseInt(item?.quantidade, 10) || 0, 0), 0);
+        const disponivel = Math.max(consulta.disponivel - quantidadeNoCarrinho, 0);
         inputQtd.max = disponivel;
-        inputQtd.value = 1;
-        aviso.innerText = `(Max: ${disponivel})`;
+        if (!opcoes.preservarQuantidade) inputQtd.value = '1';
+        validarQuantidadeItemFormularioLocacao();
     } else {
         aviso.innerText = '';
         inputQtd.removeAttribute('max');
+        inputQtd.removeAttribute('aria-invalid');
     }
 }
 
 function validarDigitacao(input) {
-    var maximo = parseInt(input.max, 10);
-    var valorDigitado = parseInt(input.value, 10);
-
-    if (!isNaN(maximo) && valorDigitado > maximo) {
-        input.value = maximo;
-        mostrarToast('Limite de estoque atingido!', 'erro');
-    }
-    if (valorDigitado < 1) input.value = 1;
+    validarQuantidadeItemFormularioLocacao();
 }
 
 window.renderCarrinhoLocacao = renderCarrinhoLocacao;
@@ -1459,5 +1746,6 @@ window.limparCarrinhoLocacao = limparCarrinhoLocacao;
 window.irEtapaLocacao = irEtapaLocacao;
 window.inicializarFluxoLocacao = inicializarFluxoLocacao;
 window.atualizarFluxoLocacao = atualizarFluxoLocacao;
+window.fecharSugestoesLocacao = fecharSugestoesLocacao;
 window.abrirHistoricoLocacao = abrirHistoricoLocacao;
 window.reservarEstoqueDaLocacao = reservarEstoqueDaLocacao;

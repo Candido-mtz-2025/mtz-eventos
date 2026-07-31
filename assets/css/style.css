@@ -1254,7 +1254,9 @@
     display: flex;
     justify-content: space-between;
 }
-.sugestao-item:hover {
+.sugestao-item:hover,
+.sugestao-item.is-active,
+.sugestao-item[aria-selected="true"] {
     background: var(--surface-hover);
 }
 .sugestao-estoque {

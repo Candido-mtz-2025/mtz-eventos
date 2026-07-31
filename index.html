@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.56">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.57">
 </head>
 <body>
 
@@ -723,13 +723,13 @@
                         
                         <div class="form-group locacao-item-search">
                             <label for="inputBuscaPeca">Buscar Item (Digite para filtrar)</label>
-                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." data-keyup="filtrarItensLocacao" autocomplete="off">
+                            <input type="text" id="inputBuscaPeca" placeholder="Ex: Box Q15..." data-keyup="filtrarItensLocacao" data-arg="__event__" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="listaSugestoes">
                             <input type="hidden" id="aluguelItemSelect">
-                            <div id="listaSugestoes" class="dropdown-sugestoes"></div>
+                            <div id="listaSugestoes" class="dropdown-sugestoes" role="listbox" aria-label="Itens de estoque disponíveis"></div>
                         </div>
 
                         <div class="form-group locacao-item-qtd">
-                            <label for="aluguelQtd">Qtd <small id="avisoEstoque" class="tiny-alert"></small></label>
+                            <label for="aluguelQtd">Qtd <small id="avisoEstoque" class="tiny-alert" role="status" aria-live="polite" aria-atomic="true"></small></label>
                             <input type="number" id="aluguelQtd" class="input-center" value="1" min="1" aria-describedby="avisoEstoque" data-input="validarDigitacao" data-arg="__this__">
                         </div>
 
@@ -2882,11 +2882,11 @@
     <script src="./assets/js/core/sync.js?v=1.7"></script>
     <script src="./assets/js/core/access.js"></script>
     <script src="./assets/js/core/migrations.js?v=12.9"></script>
-    <script src="./assets/js/core/domain-services.js?v=12.4"></script>
+    <script src="./assets/js/core/domain-services.js?v=12.5"></script>
     <script src="./assets/js/core/storage.js?v=12.6"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.3"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.14"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.5"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.15"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
     <script src="./assets/js/modules/estoque.js?v=2.5"></script>
@@ -2906,7 +2906,7 @@
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.5"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.4"></script>
-    <script src="./assets/js/ui/eventos.js?v=2.5"></script>
+    <script src="./assets/js/ui/eventos.js?v=2.6"></script>
     <script src="./assets/js/core/app.js?v=23.12"></script>
         
 </body>
