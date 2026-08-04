@@ -555,7 +555,7 @@
             : (typeof pecas !== 'undefined' && Array.isArray(pecas) ? pecas : []);
         const peca = pecaOuId && typeof pecaOuId === 'object'
             ? pecaOuId
-            : listaPecas.find((item) => String(item?.id || '') === String(pecaOuId || ''));
+            : listaPecas.find((item) => textoSeguro(item?.id, '').trim() === textoSeguro(pecaOuId, '').trim());
         const intervalo = intervaloOuLocacao?.inicioMs !== undefined
             ? intervaloOuLocacao
             : (Object.prototype.hasOwnProperty.call(intervaloOuLocacao || {}, 'inicio')
@@ -579,8 +579,8 @@
             };
         }
 
-        const pecaId = String(peca?.id || '');
-        const ignorarLocacaoId = String(opcoes.ignorarLocacaoId || '');
+        const pecaId = textoSeguro(peca?.id, '').trim();
+        const ignorarLocacaoId = textoSeguro(opcoes.ignorarLocacaoId, '').trim();
         const listaLocacoes = Array.isArray(opcoes.locacoes)
             ? opcoes.locacoes
             : (typeof locacoes !== 'undefined' && Array.isArray(locacoes) ? locacoes : []);
@@ -595,7 +595,7 @@
             if (!locacaoComprometeDisponibilidadePrevista(locacao, registrosDevolucao)) return;
 
             const itensComprometidos = (Array.isArray(locacao?.items) ? locacao.items : [])
-                .filter((item) => String(item?.pecaId || '') === pecaId)
+                .filter((item) => textoSeguro(item?.pecaId, '').trim() === pecaId)
                 .map((item, indice) => ({
                     item: textoSeguro(item?.nome || item?.descricao, `Item ${indice + 1}`),
                     quantidade: obterQuantidadePropriaPendenteItem(item)
@@ -608,7 +608,7 @@
                 reservasExplicadas += quantidadeLocacao;
             }
 
-            if (ignorarLocacaoId && String(locacao?.id || '') === ignorarLocacaoId) return;
+            if (ignorarLocacaoId && textoSeguro(locacao?.id, '').trim() === ignorarLocacaoId) return;
 
             const intervaloLocacao = obterIntervaloOperacionalLocacao(locacao);
             if (!intervalosEstoqueSobrepostos(intervalo, intervaloLocacao)) return;
@@ -649,6 +649,867 @@
             valido: true,
             motivo: ''
         };
+    }
+
+    function planejarAjusteReservaLocacao(locacaoAtual = {}, dadosEditados = {}, contexto = {}) {
+        const bloqueios = [];
+        const avisos = [];
+        const conflitos = [];
+        const pecasContexto = Array.isArray(contexto.pecas) ? contexto.pecas : null;
+        const locacoesContexto = Array.isArray(contexto.locacoes) ? contexto.locacoes : null;
+        const devolucoesContexto = Array.isArray(contexto.devolucoes) ? contexto.devolucoes : null;
+        const locacaoId = textoSeguro(locacaoAtual?.id, '').trim();
+        const itensAtuais = Array.isArray(locacaoAtual?.items) ? locacaoAtual.items.slice() : null;
+        const itensEditados = Array.isArray(dadosEditados?.items) ? dadosEditados.items.slice() : null;
+        const reservaAtual = normalizarEstoqueReservaLocacao(
+            locacaoAtual,
+            devolucoesContexto || []
+        );
+        const snapshot = reservaAtual?.snapshot && typeof reservaAtual.snapshot === 'object'
+            && !Array.isArray(reservaAtual.snapshot)
+            ? reservaAtual.snapshot
+            : null;
+
+        const adicionarBloqueio = (codigo, mensagem, dados = {}) => {
+            bloqueios.push({ codigo, mensagem, ...dados });
+        };
+        const adicionarAviso = (codigo, mensagem, dados = {}) => {
+            avisos.push({ codigo, mensagem, ...dados });
+        };
+        const serializarEstavel = (valor) => {
+            if (valor === undefined) return 'undefined';
+            if (typeof valor === 'number' && !Number.isFinite(valor)) return String(valor);
+            if (valor === null || typeof valor !== 'object') return JSON.stringify(valor);
+            if (Array.isArray(valor)) return `[${valor.map(serializarEstavel).join(',')}]`;
+            return `{${Object.keys(valor).sort().map((chave) => (
+                `${JSON.stringify(chave)}:${serializarEstavel(valor[chave])}`
+            )).join(',')}}`;
+        };
+        const normalizarIdDominio = (valor) => {
+            if (typeof valor !== 'string' && typeof valor !== 'number') return '';
+            const id = String(valor).trim();
+            return id.length <= 160 && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(id) ? id : '';
+        };
+        const lerInteiroNaoNegativoEstrito = (valor, obrigatorio = true) => {
+            if (valor === null || valor === undefined || typeof valor === 'boolean') {
+                return { valido: !obrigatorio && valor == null, presente: valor != null, valor: 0 };
+            }
+            if (typeof valor === 'number') {
+                return {
+                    valido: Number.isFinite(valor) && Number.isInteger(valor) && valor >= 0,
+                    presente: true,
+                    valor
+                };
+            }
+            if (typeof valor !== 'string') return { valido: false, presente: true, valor: 0 };
+            const texto = valor.trim();
+            if (!texto || !/^\d+$/.test(texto)) return { valido: false, presente: true, valor: 0 };
+            const numero = Number(texto);
+            return {
+                valido: Number.isSafeInteger(numero) && numero >= 0,
+                presente: true,
+                valor: numero
+            };
+        };
+        const numeroHistorico = (valor) => inteiroLegadoNaoNegativo(valor, 0);
+        const periodoAtual = obterIntervaloOperacionalLocacao(locacaoAtual);
+        const locacaoPretendidaPeriodo = {
+            ...locacaoAtual,
+            dataAluguel: Object.prototype.hasOwnProperty.call(dadosEditados || {}, 'dataAluguel')
+                ? dadosEditados.dataAluguel
+                : locacaoAtual.dataAluguel,
+            dataDevolucaoPrevisao: Object.prototype.hasOwnProperty.call(dadosEditados || {}, 'dataDevolucaoPrevisao')
+                ? dadosEditados.dataDevolucaoPrevisao
+                : locacaoAtual.dataDevolucaoPrevisao,
+            datasMontagem: Object.prototype.hasOwnProperty.call(dadosEditados || {}, 'datasMontagem')
+                ? clonarObjetoSeguro(dadosEditados.datasMontagem)
+                : clonarObjetoSeguro(locacaoAtual.datasMontagem),
+            datasDesmontagem: Object.prototype.hasOwnProperty.call(dadosEditados || {}, 'datasDesmontagem')
+                ? clonarObjetoSeguro(dadosEditados.datasDesmontagem)
+                : clonarObjetoSeguro(locacaoAtual.datasDesmontagem)
+        };
+        const periodoPretendido = obterIntervaloOperacionalLocacao(locacaoPretendidaPeriodo);
+        const periodoAlterado = periodoAtual.inicio !== periodoPretendido.inicio
+            || periodoAtual.fim !== periodoPretendido.fim;
+        const chavesPeriodoEItens = new Set([
+            'items',
+            'dataAluguel',
+            'dataDevolucaoPrevisao',
+            'datasMontagem',
+            'datasDesmontagem'
+        ]);
+        const itensAlteradosNoRascunho = serializarEstavel(itensAtuais) !== serializarEstavel(itensEditados);
+        const outrosDadosAlterados = Object.keys(dadosEditados || {})
+            .filter((chave) => !chavesPeriodoEItens.has(chave))
+            .some((chave) => serializarEstavel(dadosEditados[chave]) !== serializarEstavel(locacaoAtual?.[chave]));
+        const rascunhoPossuiAlteracoes = periodoAlterado || itensAlteradosNoRascunho || outrosDadosAlterados;
+        const retornoBase = {
+            valido: false,
+            bloqueios,
+            avisos,
+            referencia: {
+                locacaoId,
+                statusReserva: textoSeguro(reservaAtual?.status, ''),
+                snapshotVersao: inteiroNaoNegativo(snapshot?.versao, 0),
+                snapshotOrigem: textoSeguro(snapshot?.origem, '')
+            },
+            periodo: {
+                atual: {
+                    inicio: periodoAtual.inicio,
+                    fim: periodoAtual.fim,
+                    completo: periodoAtual.completo
+                },
+                pretendido: {
+                    inicio: periodoPretendido.inicio,
+                    fim: periodoPretendido.fim,
+                    completo: periodoPretendido.completo
+                },
+                alterado: periodoAlterado
+            },
+            ajustes: {
+                reservar: [],
+                liberar: [],
+                manter: [],
+                reprogramarPeriodo: []
+            },
+            itens: [],
+            conflitos,
+            resumo: {
+                quantidadeReservar: 0,
+                quantidadeLiberar: 0,
+                quantidadeManter: 0,
+                itensMantidos: 0,
+                itensAlterados: 0,
+                itensIncluidos: 0,
+                itensRemovidos: 0,
+                // Indica diferenca no rascunho, independentemente de o plano ser valido.
+                possuiAlteracoes: rascunhoPossuiAlteracoes,
+                periodoAlterado
+            }
+        };
+
+        const finalizarRetorno = () => {
+            retornoBase.resumo.quantidadeReservar = retornoBase.ajustes.reservar
+                .reduce((total, ajuste) => total + inteiroLegadoNaoNegativo(ajuste?.quantidade, 0), 0);
+            retornoBase.resumo.quantidadeLiberar = retornoBase.ajustes.liberar
+                .reduce((total, ajuste) => total + inteiroLegadoNaoNegativo(ajuste?.quantidade, 0), 0);
+            retornoBase.resumo.quantidadeManter = retornoBase.ajustes.manter
+                .reduce((total, ajuste) => total + inteiroLegadoNaoNegativo(ajuste?.quantidadePendente, 0), 0);
+            retornoBase.resumo.itensMantidos = retornoBase.itens.filter((item) => item.situacao === 'mantido').length;
+            retornoBase.resumo.itensAlterados = retornoBase.itens.filter((item) => item.situacao === 'alterado').length;
+            retornoBase.resumo.itensIncluidos = retornoBase.itens.filter((item) => item.situacao === 'incluido').length;
+            retornoBase.resumo.itensRemovidos = retornoBase.itens.filter((item) => item.situacao === 'removido').length;
+            retornoBase.resumo.periodoAlterado = periodoAlterado;
+            retornoBase.resumo.possuiAlteracoes = rascunhoPossuiAlteracoes;
+            retornoBase.periodo.alterado = periodoAlterado;
+            retornoBase.valido = bloqueios.length === 0;
+            return retornoBase;
+        };
+
+        if (!locacaoId) adicionarBloqueio('LOCACAO_INVALIDA', 'Informe uma locação válida para planejar o ajuste.');
+        if (!itensAtuais) adicionarBloqueio('ITENS_ATUAIS_INVALIDOS', 'A locação atual não possui uma lista de itens válida.');
+        if (!itensEditados) adicionarBloqueio('ITENS_EDITADOS_AUSENTES', 'Informe a lista completa de itens pretendidos.');
+        if (!pecasContexto || !locacoesContexto || !devolucoesContexto) {
+            adicionarBloqueio(
+                'CONTEXTO_INCOMPLETO',
+                'Informe explicitamente peças, locações e devoluções para planejar o ajuste.'
+            );
+        }
+
+        const locacaoIdNormalizado = normalizarIdDominio(locacaoId);
+        if (locacaoId && !locacaoIdNormalizado) {
+            adicionarBloqueio('LOCACAO_INVALIDA', 'A locação atual possui um identificador inválido.');
+        }
+        if (locacoesContexto && locacaoIdNormalizado) {
+            const ocorrenciasLocacaoAtual = locacoesContexto.filter((locacao) => (
+                normalizarIdDominio(locacao?.id) === locacaoIdNormalizado
+            ));
+            if (ocorrenciasLocacaoAtual.length === 0) {
+                adicionarBloqueio(
+                    'CONTEXTO_LOCACAO_ATUAL_AUSENTE',
+                    'A locação atual não foi encontrada no contexto operacional informado.',
+                    { locacaoId: locacaoIdNormalizado }
+                );
+            } else if (ocorrenciasLocacaoAtual.length > 1) {
+                adicionarBloqueio(
+                    'LOCACAO_ID_DUPLICADO_CONTEXTO',
+                    'A locação atual aparece mais de uma vez no contexto operacional informado.',
+                    { locacaoId: locacaoIdNormalizado }
+                );
+            }
+        }
+        const pecasPorId = new Map();
+        if (pecasContexto) {
+            pecasContexto.forEach((peca, indice) => {
+                const pecaId = normalizarIdDominio(peca?.id);
+                if (!pecaId) {
+                    adicionarBloqueio(
+                        'PECA_ID_INVALIDO_CONTEXTO',
+                        `A peça ${indice + 1} do contexto possui identificador ausente ou inválido.`,
+                        { campo: 'pecaId' }
+                    );
+                    return;
+                }
+                if (pecasPorId.has(pecaId)) {
+                    adicionarBloqueio(
+                        'PECA_ID_DUPLICADO',
+                        `A peça “${pecaId}” aparece mais de uma vez no contexto de estoque.`,
+                        { pecaId }
+                    );
+                    return;
+                }
+                pecasPorId.set(pecaId, peca);
+            });
+        }
+        if (!periodoPretendido.completo) {
+            adicionarBloqueio(
+                'PERIODO_PRETENDIDO_INVALIDO',
+                'Informe um período operacional pretendido completo e válido.',
+                { campo: periodoPretendido.invertido ? 'dataDevolucaoPrevisao' : 'periodo' }
+            );
+        }
+        if (!snapshot || inteiroNaoNegativo(snapshot?.versao, 0) < 1 || !Array.isArray(snapshot?.itens)) {
+            adicionarBloqueio(
+                'SNAPSHOT_INCOMPLETO',
+                'A reserva atual não possui um snapshot consolidado válido para reconciliação.'
+            );
+        } else {
+            const periodoSnapshot = snapshot.periodo && typeof snapshot.periodo === 'object'
+                ? snapshot.periodo
+                : {};
+            const snapshotCompleto = periodoSnapshot.completo === true
+                && textoSeguro(periodoSnapshot.inicio, '')
+                && textoSeguro(periodoSnapshot.fim, '');
+            if (!snapshotCompleto) {
+                adicionarBloqueio(
+                    'SNAPSHOT_INCOMPLETO',
+                    'O snapshot da reserva não possui um período operacional completo.'
+                );
+            } else if (periodoSnapshot.inicio !== periodoAtual.inicio
+                || periodoSnapshot.fim !== periodoAtual.fim) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    'O período atual da locação não corresponde ao período registrado no snapshot.'
+                );
+            }
+        }
+
+        const fluxo = inferirStatusFluxoLocacao(locacaoAtual);
+        const statusBase = textoSeguro(locacaoAtual?.status, '').trim().toLowerCase();
+        if (['cancelado', 'devolvido', 'finalizado'].includes(fluxo)
+            || ['cancelado', 'devolvido', 'finalizado', 'historico'].includes(statusBase)) {
+            adicionarBloqueio(
+                'STATUS_NAO_EDITAVEL',
+                'Locações canceladas, devolvidas ou encerradas não podem ter a reserva planejada para edição.'
+            );
+        }
+
+        const validarQuantidadeItem = (item, indice, origem) => {
+            const itemId = normalizarItemIdLocacaoValido(item?.itemId);
+            const dadosBloqueio = { itemId: itemId || textoSeguro(item?.itemId, ''), origem };
+            const quantidade = lerInteiroNaoNegativoEstrito(item?.quantidade, true);
+            if (!quantidade.valido) {
+                adicionarBloqueio(
+                    'QUANTIDADE_INVALIDA',
+                    `A quantidade do item ${itemId || indice + 1} da ${origem} deve ser um inteiro maior ou igual a zero.`,
+                    { ...dadosBloqueio, campo: 'quantidade' }
+                );
+            }
+
+            const possuiPropria = Object.prototype.hasOwnProperty.call(item || {}, 'quantidadePropria');
+            const possuiTerceirizada = Object.prototype.hasOwnProperty.call(item || {}, 'quantidadeTerceirizada');
+            const propria = lerInteiroNaoNegativoEstrito(item?.quantidadePropria, !possuiPropria ? false : true);
+            const terceirizada = lerInteiroNaoNegativoEstrito(
+                item?.quantidadeTerceirizada,
+                !possuiTerceirizada ? false : true
+            );
+            if (possuiPropria && !propria.valido) {
+                adicionarBloqueio(
+                    'QUANTIDADE_PROPRIA_INVALIDA',
+                    `A quantidade própria do item ${itemId || indice + 1} da ${origem} deve ser um inteiro maior ou igual a zero.`,
+                    { ...dadosBloqueio, campo: 'quantidadePropria' }
+                );
+            }
+            if (possuiTerceirizada && !terceirizada.valido) {
+                adicionarBloqueio(
+                    'QUANTIDADE_TERCEIRIZADA_INVALIDA',
+                    `A quantidade terceirizada do item ${itemId || indice + 1} da ${origem} deve ser um inteiro maior ou igual a zero.`,
+                    { ...dadosBloqueio, campo: 'quantidadeTerceirizada' }
+                );
+            }
+
+            const origemCusto = textoSeguro(item?.origemCusto, '').trim().toLowerCase();
+            if (!quantidade.valido || (possuiPropria && !propria.valido)
+                || (possuiTerceirizada && !terceirizada.valido)) return;
+
+            if (possuiPropria && propria.valor > quantidade.valor) {
+                adicionarBloqueio(
+                    'QUANTIDADE_PROPRIA_INVALIDA',
+                    `A quantidade própria do item ${itemId || indice + 1} não pode superar a quantidade total.`,
+                    { ...dadosBloqueio, campo: 'quantidadePropria' }
+                );
+            }
+            if (possuiTerceirizada && terceirizada.valor > quantidade.valor) {
+                adicionarBloqueio(
+                    'QUANTIDADE_TERCEIRIZADA_INVALIDA',
+                    `A quantidade terceirizada do item ${itemId || indice + 1} não pode superar a quantidade total.`,
+                    { ...dadosBloqueio, campo: 'quantidadeTerceirizada' }
+                );
+            }
+            if (origemCusto === 'misto') {
+                if (!possuiPropria || !possuiTerceirizada) {
+                    adicionarBloqueio(
+                        'COMPOSICAO_MISTA_INCONSISTENTE',
+                        `Informe as quantidades própria e terceirizada do item misto ${itemId || indice + 1}.`,
+                        { ...dadosBloqueio, campo: !possuiPropria ? 'quantidadePropria' : 'quantidadeTerceirizada' }
+                    );
+                } else if (propria.valor + terceirizada.valor !== quantidade.valor) {
+                    adicionarBloqueio(
+                        'COMPOSICAO_MISTA_INCONSISTENTE',
+                        `A soma das quantidades própria e terceirizada do item ${itemId || indice + 1} deve ser igual à quantidade total.`,
+                        { ...dadosBloqueio, campo: 'quantidadePropria' }
+                    );
+                }
+            } else if (origemCusto === 'proprio') {
+                if (possuiPropria && propria.valor !== quantidade.valor) {
+                    adicionarBloqueio(
+                        'QUANTIDADE_PROPRIA_INVALIDA',
+                        `A quantidade própria do item ${itemId || indice + 1} deve ser igual à quantidade total.`,
+                        { ...dadosBloqueio, campo: 'quantidadePropria' }
+                    );
+                }
+                if (possuiTerceirizada && terceirizada.valor !== 0) {
+                    adicionarBloqueio(
+                        'QUANTIDADE_TERCEIRIZADA_INVALIDA',
+                        `Um item próprio não pode possuir quantidade terceirizada.`,
+                        { ...dadosBloqueio, campo: 'quantidadeTerceirizada' }
+                    );
+                }
+            } else if (origemCusto === 'terceirizado') {
+                if (possuiPropria && propria.valor !== 0) {
+                    adicionarBloqueio(
+                        'QUANTIDADE_PROPRIA_INVALIDA',
+                        `Um item terceirizado não pode possuir quantidade própria.`,
+                        { ...dadosBloqueio, campo: 'quantidadePropria' }
+                    );
+                }
+                if (possuiTerceirizada && terceirizada.valor !== quantidade.valor) {
+                    adicionarBloqueio(
+                        'QUANTIDADE_TERCEIRIZADA_INVALIDA',
+                        `A quantidade terceirizada do item ${itemId || indice + 1} deve ser igual à quantidade total.`,
+                        { ...dadosBloqueio, campo: 'quantidadeTerceirizada' }
+                    );
+                }
+            }
+
+            ['devolvidos', 'avariadosEstoqueProprio'].forEach((campo) => {
+                if (!Object.prototype.hasOwnProperty.call(item || {}, campo)) return;
+                const historico = lerInteiroNaoNegativoEstrito(item[campo], true);
+                if (!historico.valido) {
+                    adicionarBloqueio(
+                        'HISTORICO_OPERACIONAL_INVALIDO',
+                        `O campo histórico “${campo}” do item ${itemId || indice + 1} é inválido.`,
+                        { ...dadosBloqueio, campo }
+                    );
+                }
+            });
+        };
+        const validarIds = (lista, origem) => {
+            const mapa = new Map();
+            (lista || []).forEach((item, indice) => {
+                validarQuantidadeItem(item, indice, origem);
+                const itemId = normalizarItemIdLocacaoValido(item?.itemId);
+                if (!itemId) {
+                    adicionarBloqueio(
+                        'ITEM_ID_INVALIDO',
+                        `O item ${indice + 1} da ${origem} não possui itemId válido.`,
+                        { itemId: textoSeguro(item?.itemId, ''), campo: 'itemId' }
+                    );
+                    return;
+                }
+                if (mapa.has(itemId)) {
+                    adicionarBloqueio(
+                        'ITEM_ID_DUPLICADO',
+                        `O itemId “${itemId}” está duplicado na ${origem}.`,
+                        { itemId, campo: 'itemId' }
+                    );
+                    return;
+                }
+                mapa.set(itemId, { item, indice });
+            });
+            return mapa;
+        };
+        const mapaAtual = validarIds(itensAtuais, 'locação atual');
+        const mapaEditado = validarIds(itensEditados, 'edição pretendida');
+
+        if (bloqueios.length) return finalizarRetorno();
+
+        const snapshotPorPeca = new Map();
+        const itemIdsSnapshot = new Set();
+        snapshot.itens.forEach((entrada, indice) => {
+            const pecaId = textoSeguro(entrada?.pecaId, '').trim();
+            const itemIds = Array.isArray(entrada?.itemIds)
+                ? entrada.itemIds.map((itemId) => textoSeguro(itemId, '').trim()).filter(Boolean)
+                : [];
+            const quantidadePropria = inteiroLegadoNaoNegativo(entrada?.quantidadePropria, 0);
+            const quantidadePropriaBruta = lerInteiroNaoNegativoEstrito(entrada?.quantidadePropria, true);
+            const quantidadePendenteBruta = lerInteiroNaoNegativoEstrito(entrada?.quantidadePendente, true);
+            if (!quantidadePropriaBruta.valido || !quantidadePendenteBruta.valido) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `A entrada ${indice + 1} do snapshot possui quantidades inválidas.`,
+                    { pecaId }
+                );
+            }
+            if (quantidadePropria > 0 && !pecaId) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `A entrada ${indice + 1} do snapshot possui quantidade própria sem peça vinculada.`
+                );
+            }
+            if (!itemIds.length) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `A entrada ${indice + 1} do snapshot não identifica seus itens participantes.`
+                );
+            }
+            itemIds.forEach((itemId) => {
+                if (itemIdsSnapshot.has(itemId)) {
+                    adicionarBloqueio(
+                        'SNAPSHOT_NAO_RECONCILIADO',
+                        `O itemId “${itemId}” aparece mais de uma vez no snapshot.`,
+                        { itemId, pecaId }
+                    );
+                }
+                itemIdsSnapshot.add(itemId);
+                const atual = mapaAtual.get(itemId)?.item;
+                if (!atual || textoSeguro(atual?.pecaId, '').trim() !== pecaId) {
+                    adicionarBloqueio(
+                        'SNAPSHOT_NAO_RECONCILIADO',
+                        `O item “${itemId}” não pôde ser reconciliado com a peça registrada no snapshot.`,
+                        { itemId, pecaId }
+                    );
+                }
+            });
+            const agrupado = snapshotPorPeca.get(pecaId) || {
+                pecaId,
+                quantidadePropria: 0,
+                itemIds: []
+            };
+            agrupado.quantidadePropria += quantidadePropria;
+            agrupado.itemIds.push(...itemIds);
+            snapshotPorPeca.set(pecaId, agrupado);
+        });
+
+        mapaAtual.forEach(({ item }, itemId) => {
+            if (!itemIdsSnapshot.has(itemId)) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `O item “${itemId}” não está representado no snapshot da reserva.`,
+                    { itemId, pecaId: textoSeguro(item?.pecaId, '') }
+                );
+            }
+        });
+
+        const atualPorPeca = new Map();
+        mapaAtual.forEach(({ item }, itemId) => {
+            const pecaId = textoSeguro(item?.pecaId, '').trim();
+            const quantidadePropria = obterQuantidadePropriaOperacional(item);
+            const devolvida = numeroHistorico(item?.devolvidos);
+            const avariada = numeroHistorico(item?.avariadosEstoqueProprio);
+            const agrupado = atualPorPeca.get(pecaId) || {
+                pecaId,
+                quantidadePropria: 0,
+                devolvida: 0,
+                avariada: 0,
+                pendente: 0,
+                itemIds: []
+            };
+            agrupado.quantidadePropria += quantidadePropria;
+            agrupado.devolvida += devolvida;
+            agrupado.avariada += avariada;
+            agrupado.pendente += Math.max(quantidadePropria - devolvida - avariada, 0);
+            agrupado.itemIds.push(itemId);
+            atualPorPeca.set(pecaId, agrupado);
+        });
+
+        snapshotPorPeca.forEach((referencia, pecaId) => {
+            const atual = atualPorPeca.get(pecaId);
+            if (!atual || atual.quantidadePropria !== referencia.quantidadePropria) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `A quantidade própria consolidada da peça “${pecaId || 'sem vínculo'}” não corresponde ao snapshot.`,
+                    { pecaId }
+                );
+            }
+        });
+        atualPorPeca.forEach((atual, pecaId) => {
+            if (!snapshotPorPeca.has(pecaId) && atual.quantidadePropria > 0) {
+                adicionarBloqueio(
+                    'SNAPSHOT_NAO_RECONCILIADO',
+                    `A peça “${pecaId || 'sem vínculo'}” possui quantidade própria fora do snapshot.`,
+                    { pecaId }
+                );
+            }
+        });
+
+        const historicoContextoPorItem = new Map();
+        const historicoContextoPorPeca = new Map();
+        devolucoesContexto
+            .filter((registro) => textoSeguro(registro?.locacaoId, '') === locacaoId)
+            .forEach((registro) => {
+                (Array.isArray(registro?.itens) ? registro.itens : []).forEach((itemHistorico) => {
+                    const itemId = normalizarItemIdLocacaoValido(itemHistorico?.itemId);
+                    const pecaId = textoSeguro(itemHistorico?.pecaId, '').trim();
+                    const campoDevolvida = Object.prototype.hasOwnProperty.call(itemHistorico || {}, 'quantidadeDevolvida')
+                        ? 'quantidadeDevolvida'
+                        : (Object.prototype.hasOwnProperty.call(itemHistorico || {}, 'qtd') ? 'qtd' : '');
+                    const campoAvaria = Object.prototype.hasOwnProperty.call(itemHistorico || {}, 'quantidadeAvaria')
+                        ? 'quantidadeAvaria'
+                        : (Object.prototype.hasOwnProperty.call(itemHistorico || {}, 'avaria') ? 'avaria' : '');
+                    const devolvidaBruta = campoDevolvida
+                        ? lerInteiroNaoNegativoEstrito(itemHistorico[campoDevolvida], true)
+                        : { valido: true, valor: 0 };
+                    const avariadaBruta = campoAvaria
+                        ? lerInteiroNaoNegativoEstrito(itemHistorico[campoAvaria], true)
+                        : { valido: true, valor: 0 };
+                    if (!devolvidaBruta.valido || !avariadaBruta.valido) {
+                        adicionarBloqueio(
+                            'HISTORICO_OPERACIONAL_INVALIDO',
+                            `O histórico operacional do item “${itemId || pecaId || 'não identificado'}” possui quantidade inválida.`,
+                            {
+                                itemId,
+                                pecaId,
+                                campo: !devolvidaBruta.valido ? campoDevolvida : campoAvaria
+                            }
+                        );
+                        return;
+                    }
+                    const devolvida = devolvidaBruta.valor;
+                    const avariada = avariadaBruta.valor;
+                    if (itemId) {
+                        const atual = historicoContextoPorItem.get(itemId) || { devolvida: 0, avariada: 0 };
+                        atual.devolvida += devolvida;
+                        atual.avariada += avariada;
+                        historicoContextoPorItem.set(itemId, atual);
+                    }
+                    if (pecaId) {
+                        const atualPeca = historicoContextoPorPeca.get(pecaId) || { devolvida: 0, avariada: 0 };
+                        atualPeca.devolvida += devolvida;
+                        atualPeca.avariada += avariada;
+                        historicoContextoPorPeca.set(pecaId, atualPeca);
+                    }
+                });
+            });
+
+        historicoContextoPorPeca.forEach((historico, pecaId) => {
+            const persistido = atualPorPeca.get(pecaId) || { devolvida: 0, avariada: 0 };
+            if (historico.devolvida > persistido.devolvida || historico.avariada > persistido.avariada) {
+                adicionarBloqueio(
+                    'HISTORICO_OPERACIONAL_NAO_RECONCILIADO',
+                    `O histórico de devoluções da peça “${pecaId}” supera os contadores persistidos na locação.`,
+                    { pecaId }
+                );
+            }
+        });
+        mapaEditado.forEach((_, itemId) => {
+            if (!mapaAtual.has(itemId) && historicoContextoPorItem.has(itemId)) {
+                adicionarAviso(
+                    'ITEM_ID_HISTORICO_REUTILIZADO_NAO_CONFIRMADO',
+                    `O itemId “${itemId}” aparece no histórico, mas não na locação atual. Confira sua origem antes de executar o plano.`,
+                    { itemId }
+                );
+            }
+        });
+
+        if (bloqueios.length) return finalizarRetorno();
+
+        const itensResultado = [];
+        const todosItemIds = Array.from(new Set([...mapaAtual.keys(), ...mapaEditado.keys()]));
+
+        todosItemIds.forEach((itemId) => {
+            const itemAtual = mapaAtual.get(itemId)?.item || null;
+            const itemEditado = mapaEditado.get(itemId)?.item || null;
+            const pecaIdAtual = textoSeguro(itemAtual?.pecaId, '').trim();
+            const pecaIdPretendido = textoSeguro(itemEditado?.pecaId, '').trim();
+            const propriaAtual = itemAtual ? obterQuantidadePropriaOperacional(itemAtual) : 0;
+            const propriaPretendida = itemEditado ? obterQuantidadePropriaOperacional(itemEditado) : 0;
+            const historicoItemContexto = historicoContextoPorItem.get(itemId) || { devolvida: 0, avariada: 0 };
+            const devolvida = itemAtual
+                ? Math.max(numeroHistorico(itemAtual.devolvidos), historicoItemContexto.devolvida)
+                : 0;
+            const avariada = itemAtual
+                ? Math.max(numeroHistorico(itemAtual.avariadosEstoqueProprio), historicoItemContexto.avariada)
+                : 0;
+            const realizado = devolvida + avariada;
+
+            if (itemEditado) {
+                const valoresHistoricosEsperados = {
+                    devolvidos: numeroHistorico(itemAtual?.devolvidos),
+                    avariadosEstoqueProprio: numeroHistorico(itemAtual?.avariadosEstoqueProprio),
+                    quantidadePendente: Math.max(propriaAtual - realizado, 0),
+                    quantidadePropriaPendente: Math.max(propriaAtual - realizado, 0),
+                    quantidadeReservada: propriaAtual,
+                    quantidadePropriaReservada: propriaAtual
+                };
+                Object.entries(valoresHistoricosEsperados).forEach(([campo, esperado]) => {
+                    if (!Object.prototype.hasOwnProperty.call(itemEditado, campo)) return;
+                    const informado = numeroHistorico(itemEditado[campo]);
+                    if (informado !== esperado) {
+                        adicionarBloqueio(
+                            'HISTORICO_OPERACIONAL_IMUTAVEL',
+                            `O campo histórico “${campo}” do item “${itemId}” não pode ser alterado pela edição.`,
+                            { itemId, pecaId: pecaIdAtual || pecaIdPretendido, campo }
+                        );
+                    }
+                });
+            }
+
+            const removido = Boolean(itemAtual && !itemEditado);
+            const incluido = Boolean(!itemAtual && itemEditado);
+            const trocouPeca = Boolean(itemAtual && itemEditado && pecaIdAtual !== pecaIdPretendido);
+            if (itemEditado && propriaPretendida > 0 && !pecaIdPretendido) {
+                adicionarBloqueio(
+                    'PECA_NAO_INFORMADA',
+                    `O item próprio “${itemId}” precisa estar vinculado a uma peça do estoque.`,
+                    { itemId, campo: 'pecaId' }
+                );
+            }
+            if (trocouPeca && realizado > 0) {
+                adicionarBloqueio(
+                    'HISTORICO_OPERACIONAL_IMUTAVEL',
+                    `O item “${itemId}” possui devolução ou avaria e não pode trocar de peça.`,
+                    { itemId, pecaId: pecaIdAtual, campo: 'pecaId' }
+                );
+            }
+            if (!removido && itemAtual && propriaPretendida < realizado) {
+                adicionarBloqueio(
+                    'QUANTIDADE_ABAIXO_DO_HISTORICO',
+                    `A quantidade própria do item “${itemId}” não pode ser menor que ${realizado}, já devolvida ou avariada.`,
+                    { itemId, pecaId: pecaIdAtual, campo: 'quantidadePropria' }
+                );
+            }
+
+            const composicaoAtual = itemAtual ? obterComposicaoOperacionalItem(itemAtual) : {
+                quantidadeTotal: 0,
+                quantidadeTerceirizada: 0,
+                origemCusto: ''
+            };
+            const composicaoPretendida = itemEditado ? obterComposicaoOperacionalItem(itemEditado) : {
+                quantidadeTotal: 0,
+                quantidadeTerceirizada: 0,
+                origemCusto: ''
+            };
+            const pendenteAtual = Math.max(propriaAtual - realizado, 0);
+            const pendentePretendida = removido
+                ? 0
+                : Math.max(propriaPretendida - (trocouPeca ? 0 : realizado), 0);
+            const alterado = Boolean(
+                incluido || removido || trocouPeca
+                || propriaAtual !== propriaPretendida
+                || composicaoAtual.quantidadeTotal !== composicaoPretendida.quantidadeTotal
+                || composicaoAtual.quantidadeTerceirizada !== composicaoPretendida.quantidadeTerceirizada
+                || composicaoAtual.origemCusto !== composicaoPretendida.origemCusto
+            );
+            const situacao = incluido ? 'incluido' : removido ? 'removido' : alterado ? 'alterado' : 'mantido';
+
+            itensResultado.push({
+                itemId,
+                situacao,
+                pecaIdAtual,
+                pecaIdPretendido,
+                origemAtual: composicaoAtual.origemCusto,
+                origemPretendida: composicaoPretendida.origemCusto,
+                quantidades: {
+                    comercialAtual: composicaoAtual.quantidadeTotal,
+                    comercialPretendida: composicaoPretendida.quantidadeTotal,
+                    propriaReservada: propriaAtual,
+                    propriaPretendida,
+                    terceirizadaAtual: composicaoAtual.quantidadeTerceirizada,
+                    terceirizadaPretendida: composicaoPretendida.quantidadeTerceirizada,
+                    devolvida,
+                    avariada,
+                    pendenteAtual,
+                    pendentePretendida
+                },
+                delta: {
+                    propria: propriaPretendida - propriaAtual,
+                    pendente: pendentePretendida - pendenteAtual,
+                    reservar: Math.max(pendentePretendida - pendenteAtual, 0),
+                    liberar: Math.max(pendenteAtual - pendentePretendida, 0)
+                },
+                preservarHistorico: removido && realizado > 0
+            });
+        });
+
+        retornoBase.itens = itensResultado;
+        if (bloqueios.length) return finalizarRetorno();
+
+        const statusReserva = textoSeguro(reservaAtual.status, '');
+        const possuiAlteracaoItem = itensResultado.some((item) => item.situacao !== 'mantido');
+        if (statusReserva === 'reservado_legado' && (periodoAlterado || possuiAlteracaoItem)) {
+            adicionarBloqueio(
+                'RESERVA_LEGADA_REQUER_CONFERENCIA',
+                'A reserva legada precisa ser reconciliada antes de alterar período ou itens.'
+            );
+        } else if (statusReserva === 'reservado_legado') {
+            adicionarAviso(
+                'RESERVA_LEGADA_SEM_ALTERACAO',
+                'A locação utiliza reserva legada e não recebeu alterações operacionais.'
+            );
+        }
+        if (statusReserva === 'liberado') {
+            adicionarBloqueio(
+                'RESERVA_LIBERADA',
+                'Uma reserva já liberada não pode receber planejamento de ajuste.'
+            );
+        }
+        if (bloqueios.length) return finalizarRetorno();
+
+        const pendenteAtualPorPeca = new Map();
+        const pendentePretendidoPorPeca = new Map();
+        const itemIdsAtuaisPorPeca = new Map();
+        const itemIdsPretendidosPorPeca = new Map();
+        itensResultado.forEach((item) => {
+            if (item.pecaIdAtual && item.quantidades.pendenteAtual > 0) {
+                pendenteAtualPorPeca.set(
+                    item.pecaIdAtual,
+                    (pendenteAtualPorPeca.get(item.pecaIdAtual) || 0) + item.quantidades.pendenteAtual
+                );
+                const ids = itemIdsAtuaisPorPeca.get(item.pecaIdAtual) || [];
+                ids.push(item.itemId);
+                itemIdsAtuaisPorPeca.set(item.pecaIdAtual, ids);
+            }
+            if (item.pecaIdPretendido && item.quantidades.pendentePretendida > 0) {
+                pendentePretendidoPorPeca.set(
+                    item.pecaIdPretendido,
+                    (pendentePretendidoPorPeca.get(item.pecaIdPretendido) || 0) + item.quantidades.pendentePretendida
+                );
+                const ids = itemIdsPretendidosPorPeca.get(item.pecaIdPretendido) || [];
+                ids.push(item.itemId);
+                itemIdsPretendidosPorPeca.set(item.pecaIdPretendido, ids);
+            }
+        });
+
+        const pecasIds = Array.from(new Set([
+            ...pendenteAtualPorPeca.keys(),
+            ...pendentePretendidoPorPeca.keys()
+        ])).sort();
+        pecasIds.forEach((pecaId) => {
+            const atual = pendenteAtualPorPeca.get(pecaId) || 0;
+            const pretendido = pendentePretendidoPorPeca.get(pecaId) || 0;
+            const itemIds = Array.from(new Set([
+                ...(itemIdsAtuaisPorPeca.get(pecaId) || []),
+                ...(itemIdsPretendidosPorPeca.get(pecaId) || [])
+            ])).sort();
+            const delta = pretendido - atual;
+            if (delta > 0) {
+                retornoBase.ajustes.reservar.push({
+                    pecaId,
+                    itemIds,
+                    quantidade: delta,
+                    motivo: atual > 0 ? 'aumento' : 'inclusao',
+                    periodo: { ...retornoBase.periodo.pretendido }
+                });
+            } else if (delta < 0) {
+                retornoBase.ajustes.liberar.push({
+                    pecaId,
+                    itemIds,
+                    quantidade: Math.abs(delta),
+                    motivo: pretendido > 0 ? 'reducao' : 'remocao'
+                });
+            }
+            if (Math.min(atual, pretendido) > 0) {
+                retornoBase.ajustes.manter.push({
+                    pecaId,
+                    itemIds,
+                    quantidadePendente: Math.min(atual, pretendido)
+                });
+            }
+            if (periodoAlterado && pretendido > 0) {
+                retornoBase.ajustes.reprogramarPeriodo.push({
+                    pecaId,
+                    itemIds: (itemIdsPretendidosPorPeca.get(pecaId) || []).slice().sort(),
+                    quantidadePendente: pretendido,
+                    periodoAtual: { ...retornoBase.periodo.atual },
+                    periodoPretendido: { ...retornoBase.periodo.pretendido },
+                    motivo: 'mudanca_periodo'
+                });
+            }
+        });
+
+        const precisaValidarDisponibilidade = periodoAlterado
+            || retornoBase.ajustes.reservar.length > 0;
+        if (precisaValidarDisponibilidade) {
+            Array.from(pendentePretendidoPorPeca.keys()).sort().forEach((pecaId) => {
+                const solicitado = pendentePretendidoPorPeca.get(pecaId) || 0;
+                if (solicitado <= 0) return;
+                const peca = pecasPorId.get(pecaId);
+                if (!peca) {
+                    adicionarBloqueio(
+                        'PECA_NAO_ENCONTRADA',
+                        `A peça “${pecaId}” não foi encontrada no contexto de estoque.`,
+                        { pecaId }
+                    );
+                    return;
+                }
+                const consulta = consultarDisponibilidadeItemPeriodo(peca, periodoPretendido, {
+                    pecas: pecasContexto,
+                    locacoes: locacoesContexto,
+                    devolucoes: devolucoesContexto,
+                    ignorarLocacaoId: locacaoId
+                });
+                if (!consulta.valido || solicitado > consulta.disponivel) {
+                    const mensagem = consulta.valido
+                        ? formatarMensagemDisponibilidadeEstoque({
+                            item: textoSeguro(peca?.nome, pecaId),
+                            solicitado,
+                            consulta
+                        })
+                        : formatarMensagemDisponibilidadeEstoque({
+                            tipo: 'intervalo_invalido',
+                            item: textoSeguro(peca?.nome, pecaId),
+                            solicitado,
+                            consulta
+                        });
+                    const detalhesOrdenados = (Array.isArray(consulta.conflitos) ? consulta.conflitos : [])
+                        .map((conflito) => ({
+                            ...conflito,
+                            intervalo: conflito?.intervalo ? { ...conflito.intervalo } : conflito?.intervalo,
+                            itens: (Array.isArray(conflito?.itens) ? conflito.itens : [])
+                                .map((item) => ({ ...item }))
+                                .sort((a, b) => (
+                                    textoSeguro(a?.item, '').localeCompare(textoSeguro(b?.item, ''), 'pt-BR')
+                                    || inteiroLegadoNaoNegativo(a?.quantidade, 0)
+                                        - inteiroLegadoNaoNegativo(b?.quantidade, 0)
+                                ))
+                        }))
+                        .sort((a, b) => {
+                            const idA = normalizarIdDominio(a?.locacaoId);
+                            const idB = normalizarIdDominio(b?.locacaoId);
+                            return idA.localeCompare(idB, 'pt-BR')
+                                || textoSeguro(a?.intervalo?.inicio, '').localeCompare(textoSeguro(b?.intervalo?.inicio, ''))
+                                || textoSeguro(a?.intervalo?.fim, '').localeCompare(textoSeguro(b?.intervalo?.fim, ''))
+                                || serializarEstavel(a?.itens).localeCompare(serializarEstavel(b?.itens));
+                        });
+                    conflitos.push({
+                        pecaId,
+                        item: textoSeguro(peca?.nome, pecaId),
+                        solicitado,
+                        disponivel: inteiroLegadoNaoNegativo(consulta.disponivel, 0),
+                        periodo: { ...retornoBase.periodo.pretendido },
+                        detalhes: detalhesOrdenados
+                    });
+                    adicionarBloqueio(
+                        'ESTOQUE_INSUFICIENTE_PERIODO',
+                        mensagem,
+                        { pecaId }
+                    );
+                }
+            });
+        }
+
+        return finalizarRetorno();
     }
 
     function normalizarFinanceiroLocacao(locacao = {}) {
@@ -1170,6 +2031,7 @@
     window.locacaoComprometeDisponibilidadePrevista = locacaoComprometeDisponibilidadePrevista;
     window.obterEstoqueFisicoUtilizavelPeriodo = obterEstoqueFisicoUtilizavelPeriodo;
     window.consultarDisponibilidadeItemPeriodo = consultarDisponibilidadeItemPeriodo;
+    window.planejarAjusteReservaLocacao = planejarAjusteReservaLocacao;
     window.reservarEstoqueLocacao = reservarEstoqueLocacao;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
