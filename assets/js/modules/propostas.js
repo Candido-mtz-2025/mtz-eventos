@@ -7078,7 +7078,8 @@
             clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal === true
         };
 
-        const itensLocacao = proposta.itens.map((item) => {
+        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
+        let itensLocacao = proposta.itens.map((item) => {
             const itemCalculado = calcularItemProposta(item || {});
             const peca = encontrarPecaPorDescricao(itemCalculado);
             const periodoDias = numeroNaoNegativo(itemCalculado.periodoDias ?? itemCalculado.periodo, 1) || 1;
@@ -7113,6 +7114,9 @@
                 valorTotalProposta: valorTotalComercial
             };
         });
+        if (typeof atribuirItemIdsLocacao === 'function') {
+            itensLocacao = atribuirItemIdsLocacao(novaLocacaoId, itensLocacao);
+        }
         const resumoChecklistPendente = itensLocacao.reduce((acc, item) => {
             acc.totalItens += Math.max(1, Number(item.quantidade) || 1);
             acc.totalLinhas += 1;
@@ -7128,7 +7132,6 @@
         });
         resumoChecklistPendente.pendentes = resumoChecklistPendente.totalLinhas;
 
-        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
         const novaLocacaoBase = {
             id: novaLocacaoId,
             origemTipo: 'orcamento',
@@ -7266,6 +7269,13 @@
         }
         if (typeof sincronizarFinanceiroLocacao === 'function') {
             novaLocacao = sincronizarFinanceiroLocacao(novaLocacao) || novaLocacao;
+        }
+        if (typeof atualizarSnapshotReservaLocacao === 'function') {
+            atualizarSnapshotReservaLocacao(novaLocacao, {
+                origem: 'conversao_proposta',
+                capturadoEm: agoraIso,
+                statusReserva: 'nao_reservado'
+            });
         }
 
         if (!Array.isArray(locacoes)) locacoes = [];

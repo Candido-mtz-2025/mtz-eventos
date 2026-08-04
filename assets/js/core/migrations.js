@@ -1,7 +1,8 @@
 // Migracoes de schema (v12)
-const SCHEMA_VERSION_V12 = '12.5';
+const SCHEMA_VERSION_V12 = '12.6';
 const VERSAO_MIGRACAO_POLITICA_CUSTOS_PROPRIOS = 1;
 const VERSAO_MIGRACAO_PERFIL_FISCAL_EMPRESA = 1;
+const VERSAO_MIGRACAO_BASE_EDICAO_LOCACOES = 1;
 const MODOS_CUSTO_PROPRIO_V12 = new Set(['percentual', 'manual', 'nao_calcular']);
 
 const STATUS_ESTOQUE_V12 = new Set(['ativo', 'inativo', 'manutencao', 'avariado', 'perdido']);
@@ -67,6 +68,104 @@ function numeroSeguro(valor, fallback = 0) {
 
 function inteiroNaoNegativo(valor, fallback = 0) {
     return Math.max(0, Math.trunc(numeroNaoNegativo(valor, fallback)));
+}
+
+function normalizarItemIdLocacaoValidoV12(valor) {
+    const itemId = textoSeguro(valor, '').trim();
+    return itemId.length <= 160 && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(itemId)
+        ? itemId
+        : '';
+}
+
+function criarItemIdLocacaoV12(locacaoId, indice, usados = new Set()) {
+    const parteLocacao = textoSeguro(locacaoId, 'legado')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]+/g, '-') || 'legado';
+    let numeroItem = indice + 1;
+    let itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+    while (usados.has(itemId)) {
+        numeroItem += 1;
+        itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+    }
+    return itemId;
+}
+
+function migrarItensLocacaoComItemIdV12(locacao = {}, contexto = {}) {
+    const lista = clonarArraySeguro(locacao.items).map((item) => clonarObjetoSeguro(item));
+    const primeiraOcorrencia = new Map();
+    lista.forEach((item, indice) => {
+        const itemId = normalizarItemIdLocacaoValidoV12(item.itemId);
+        if (itemId && !primeiraOcorrencia.has(itemId)) primeiraOcorrencia.set(itemId, indice);
+    });
+    const usados = new Set(primeiraOcorrencia.keys());
+
+    return lista.map((item, indice) => {
+        const informado = normalizarItemIdLocacaoValidoV12(item.itemId);
+        const preservar = informado && primeiraOcorrencia.get(informado) === indice;
+        const itemId = preservar ? informado : criarItemIdLocacaoV12(locacao.id, indice, usados);
+        if (!preservar) contexto.houveMudanca = true;
+        usados.add(itemId);
+        return { ...item, itemId };
+    });
+}
+
+function obterQuantidadePropriaOperacionalV12(item = {}) {
+    const total = inteiroNaoNegativo(item.quantidade, 0);
+    const possuiOrigem = Object.prototype.hasOwnProperty.call(item, 'origemCusto');
+    const origem = textoSeguro(item.origemCusto, '').trim().toLowerCase();
+    if (!possuiOrigem || !origem || origem === 'nao_informado') return total;
+    if (origem === 'terceirizado') return 0;
+    if (origem === 'misto') return Math.min(inteiroNaoNegativo(item.quantidadePropria, 0), total);
+    return total;
+}
+
+function criarSnapshotReservaLocacaoV12(locacao = {}, opcoes = {}) {
+    // Snapshot passivo: documenta a reserva sem recalcular ou movimentar o estoque.
+    const agrupados = new Map();
+    clonarArraySeguro(locacao.items).forEach((itemOriginal, indice) => {
+        const item = clonarObjetoSeguro(itemOriginal);
+        const itemId = textoSeguro(item.itemId, criarItemIdLocacaoV12(locacao.id, indice)).trim();
+        const pecaId = textoSeguro(item.pecaId, '').trim();
+        const chave = pecaId ? `peca:${pecaId}` : `sem-vinculo:${itemId}`;
+        const quantidadePropria = obterQuantidadePropriaOperacionalV12(item);
+        const quantidadePendente = Math.max(
+            quantidadePropria
+                - inteiroNaoNegativo(item.devolvidos, 0)
+                - inteiroNaoNegativo(item.avariadosEstoqueProprio, 0),
+            0
+        );
+        const atual = agrupados.get(chave) || {
+            pecaId,
+            quantidadePropria: 0,
+            quantidadePendente: 0,
+            itemIds: []
+        };
+        atual.quantidadePropria += quantidadePropria;
+        atual.quantidadePendente += quantidadePendente;
+        atual.itemIds.push(itemId);
+        agrupados.set(chave, atual);
+    });
+
+    const inicio = textoSeguro(locacao?.datasMontagem?.inicio || locacao.dataAluguel, '').trim();
+    const fim = textoSeguro(
+        locacao?.datasDesmontagem?.fim
+            || locacao?.datasDesmontagem?.inicio
+            || locacao.dataDevolucaoPrevisao,
+        ''
+    ).trim();
+
+    return {
+        versao: 1,
+        origem: textoSeguro(opcoes.origem, 'migracao_legado'),
+        capturadoEm: textoSeguro(opcoes.capturadoEm, ''),
+        statusReserva: textoSeguro(opcoes.statusReserva, ''),
+        periodo: {
+            inicio,
+            fim,
+            completo: Boolean(inicio && fim)
+        },
+        itens: Array.from(agrupados.values())
+    };
 }
 
 function normalizarValorMonetarioV12(valor) {
@@ -403,6 +502,7 @@ function migrarPecaParaV12(pecaOriginal, contexto) {
 
 function migrarLocacaoParaV12(locacaoOriginal, contexto) {
     const locacao = clonarObjetoSeguro(locacaoOriginal);
+    const itensMigrados = migrarItensLocacaoComItemIdV12(locacao, contexto);
     const valorTotal = numeroMonetarioNaoNegativoV12(
         locacao?.financeiro?.valorTotal,
         calcularValorTotalLocacaoV12(locacao)
@@ -427,9 +527,25 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
     const statusReserva = statusReservaValido.has(statusReservaInformado)
         ? (reclassificarReservaLegada ? 'liberado' : statusReservaInformado)
         : statusReservaLegado;
+    const snapshotReservaOriginal = estoqueReservaOriginal.snapshot
+        && typeof estoqueReservaOriginal.snapshot === 'object'
+        && !Array.isArray(estoqueReservaOriginal.snapshot)
+        ? estoqueReservaOriginal.snapshot
+        : null;
+    const locacaoParaSnapshot = { ...locacao, items: itensMigrados };
+    const snapshotReserva = snapshotReservaOriginal || criarSnapshotReservaLocacaoV12(
+        locacaoParaSnapshot,
+        {
+            origem: 'migracao_legado',
+            capturadoEm: contexto.dataMigracaoIso,
+            statusReserva
+        }
+    );
+    if (!snapshotReservaOriginal) contexto.houveMudanca = true;
 
     const locacaoMigrada = {
         ...locacao,
+        items: itensMigrados,
         statusFluxo: inferirStatusFluxoLocacaoV12(locacao),
         datasMontagem: clonarObjetoSeguro(locacao.datasMontagem, {
             inicio: '',
@@ -483,7 +599,8 @@ function migrarLocacaoParaV12(locacaoOriginal, contexto) {
                 estoqueReservaOriginal.origem,
                 statusReservaInformado ? '' : 'compatibilidade_legado'
             ),
-            movimentacaoIds: clonarArraySeguro(estoqueReservaOriginal.movimentacaoIds)
+            movimentacaoIds: clonarArraySeguro(estoqueReservaOriginal.movimentacaoIds),
+            snapshot: snapshotReserva
         },
         checklist: clonarObjetoSeguro(locacao.checklist, {
             idChecklist: null,
@@ -1104,6 +1221,12 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         dadosMigrados.config.perfilFiscalEmpresa = normalizarPerfilFiscalEmpresaV12(
             dadosMigrados.config.perfilFiscalEmpresa
         );
+    }
+
+    if (inteiroNaoNegativo(migracoesConfig.baseEdicaoLocacoes, 0) < VERSAO_MIGRACAO_BASE_EDICAO_LOCACOES) {
+        migracoesConfig.baseEdicaoLocacoes = VERSAO_MIGRACAO_BASE_EDICAO_LOCACOES;
+        contexto.houveMudanca = true;
+        contexto.logs.push('Itens de locação receberam identificadores estáveis e snapshot passivo da reserva.');
     }
 
     dadosMigrados.config.migracoes = migracoesConfig;

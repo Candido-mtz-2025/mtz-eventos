@@ -1066,10 +1066,17 @@ function finalizarLocacao() {
 
     const concluirCriacaoLocacao = () => {
         const novaLocacaoId = Date.now();
-        const novaLocacao = sincronizarFinanceiroLocacao({
+        let novaLocacao = sincronizarFinanceiroLocacao({
             id: novaLocacaoId,
             ...dadosNovaLocacao
         });
+        if (typeof atualizarSnapshotReservaLocacao === 'function') {
+            atualizarSnapshotReservaLocacao(novaLocacao, {
+                origem: 'criacao_locacao',
+                capturadoEm: new Date().toISOString(),
+                statusReserva: 'nao_reservado'
+            });
+        }
         if (typeof atualizarStatusLocacaoDominio === 'function') {
             atualizarStatusLocacaoDominio(novaLocacao, 'aprovado', {
                 acao: 'criacao',

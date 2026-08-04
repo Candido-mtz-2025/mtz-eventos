@@ -245,6 +245,92 @@
         return Math.max(quantidadePropria - devolvidos - avariados, 0);
     }
 
+    function normalizarItemIdLocacaoValido(valor) {
+        const itemId = textoSeguro(valor, '').trim();
+        return itemId.length <= 160 && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(itemId)
+            ? itemId
+            : '';
+    }
+
+    function criarItemIdLocacao(locacaoId, indice, usados = new Set()) {
+        const parteLocacao = textoSeguro(locacaoId, 'nova')
+            .trim()
+            .replace(/[^a-zA-Z0-9_-]+/g, '-') || 'nova';
+        let numeroItem = indice + 1;
+        let itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+        while (usados.has(itemId)) {
+            numeroItem += 1;
+            itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+        }
+        return itemId;
+    }
+
+    function atribuirItemIdsLocacao(locacaoId, itens = []) {
+        const lista = clonarArraySeguro(itens).map((item) => clonarObjetoSeguro(item));
+        const primeiraOcorrencia = new Map();
+        lista.forEach((item, indice) => {
+            const itemId = normalizarItemIdLocacaoValido(item.itemId);
+            if (itemId && !primeiraOcorrencia.has(itemId)) primeiraOcorrencia.set(itemId, indice);
+        });
+        const usados = new Set(primeiraOcorrencia.keys());
+
+        return lista.map((item, indice) => {
+            const informado = normalizarItemIdLocacaoValido(item.itemId);
+            const preservar = informado && primeiraOcorrencia.get(informado) === indice;
+            const itemId = preservar ? informado : criarItemIdLocacao(locacaoId, indice, usados);
+            usados.add(itemId);
+            return { ...item, itemId };
+        });
+    }
+
+    function criarSnapshotReservaLocacao(locacao = {}, opcoes = {}) {
+        // Snapshot passivo: a movimentação continua exclusiva dos serviços de estoque.
+        const itens = atribuirItemIdsLocacao(locacao.id, locacao.items);
+        const agrupados = new Map();
+        itens.forEach((item) => {
+            const pecaId = textoSeguro(item.pecaId, '').trim();
+            const chave = pecaId ? `peca:${pecaId}` : `sem-vinculo:${item.itemId}`;
+            const quantidadePropria = obterQuantidadePropriaOperacional(item);
+            const quantidadePendente = obterQuantidadePropriaPendenteItem(item);
+            const atual = agrupados.get(chave) || {
+                pecaId,
+                quantidadePropria: 0,
+                quantidadePendente: 0,
+                itemIds: []
+            };
+            atual.quantidadePropria += quantidadePropria;
+            atual.quantidadePendente += quantidadePendente;
+            atual.itemIds.push(item.itemId);
+            agrupados.set(chave, atual);
+        });
+        const intervalo = obterIntervaloOperacionalLocacao(locacao);
+        const reserva = normalizarEstoqueReservaLocacao(locacao);
+
+        return {
+            versao: 1,
+            origem: textoSeguro(opcoes.origem, reserva.origem || 'estado_atual'),
+            capturadoEm: textoSeguro(opcoes.capturadoEm, ''),
+            statusReserva: textoSeguro(opcoes.statusReserva, reserva.status),
+            periodo: {
+                inicio: intervalo.inicio,
+                fim: intervalo.fim,
+                completo: intervalo.completo
+            },
+            itens: Array.from(agrupados.values())
+        };
+    }
+
+    function atualizarSnapshotReservaLocacao(locacao = {}, opcoes = {}) {
+        if (!locacao || typeof locacao !== 'object') return locacao;
+        locacao.items = atribuirItemIdsLocacao(locacao.id, locacao.items);
+        const reservaAtual = clonarObjetoSeguro(locacao.estoqueReserva);
+        locacao.estoqueReserva = {
+            ...reservaAtual,
+            snapshot: criarSnapshotReservaLocacao(locacao, opcoes)
+        };
+        return locacao;
+    }
+
     function obterQuantidadePendenteDevolucaoItem(item = {}) {
         return obterQuantidadePropriaPendenteItem(item);
     }
@@ -678,6 +764,7 @@
 
         const normalizada = {
             ...locacao,
+            items: atribuirItemIdsLocacao(locacao.id, locacao.items),
             statusFluxo,
             datasMontagem: clonarObjetoSeguro(locacao.datasMontagem, {
                 inicio: '',
@@ -881,7 +968,10 @@
     }
 
     function obterChaveItemReservaEstoque(locacaoId, item, indice) {
-        const itemId = textoSeguro(item?.id || item?.codigo || item?.pecaId || `item-${indice + 1}`, `item-${indice + 1}`);
+        const itemId = textoSeguro(
+            item?.itemId || item?.id || item?.codigo || item?.pecaId || `item-${indice + 1}`,
+            `item-${indice + 1}`
+        );
         return `reserva|${textoSeguro(locacaoId)}|${itemId}|${indice + 1}|${textoSeguro(item?.pecaId)}`.toLowerCase();
     }
 
@@ -1029,6 +1119,11 @@
             reservadoPor: usuario,
             movimentacaoIds: movimentacoes.map((movimento) => movimento.id)
         };
+        atualizarSnapshotReservaLocacao(locacao, {
+            origem: 'reserva_explicita',
+            capturadoEm: dataHora,
+            statusReserva: 'reservado'
+        });
 
         registrarHistoricoLocacaoDominio(locacao, {
             acao: 'reserva_estoque',
@@ -1062,6 +1157,10 @@
     window.possuiValorFinanceiroLocacao = possuiValorFinanceiroLocacao;
     window.obterQuantidadePropriaOperacional = obterQuantidadePropriaOperacional;
     window.obterQuantidadePropriaPendenteItem = obterQuantidadePropriaPendenteItem;
+    window.criarItemIdLocacao = criarItemIdLocacao;
+    window.atribuirItemIdsLocacao = atribuirItemIdsLocacao;
+    window.criarSnapshotReservaLocacao = criarSnapshotReservaLocacao;
+    window.atualizarSnapshotReservaLocacao = atualizarSnapshotReservaLocacao;
     window.obterQuantidadePendenteDevolucaoItem = obterQuantidadePendenteDevolucaoItem;
     window.locacaoTemPendenciaDevolucaoInterna = locacaoTemPendenciaDevolucaoInterna;
     window.obterComposicaoOperacionalItem = obterComposicaoOperacionalItem;
