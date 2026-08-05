@@ -31,6 +31,340 @@ function gerarSnapshotDadosSistema() {
     };
 }
 
+const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
+    'locadores',
+    'pecas',
+    'locacoes',
+    'propostas',
+    'devolucoes',
+    'movimentacoesEstoque',
+    'transportes',
+    'tipos',
+    'usuarios',
+    'config',
+    'logsAuditoria',
+    'modelosChecklist',
+    'checklistsGerados',
+    'checklistMontagem',
+    'checklistConferencia',
+    'checklistEtapasMontagem'
+]);
+
+function obterClonagemPersistivelEstrita(valor) {
+    if (typeof window.clonarJsonPersistivelEstrito !== 'function') {
+        return {
+            ok: false,
+            codigo: 'CLONADOR_ESTRITO_INDISPONIVEL',
+            valor: null,
+            json: '',
+            erro: { mensagem: 'O serviço de clonagem persistível não está disponível.' }
+        };
+    }
+    return window.clonarJsonPersistivelEstrito(valor);
+}
+
+function validarEstruturaSnapshotPersistivelCompleto(snapshot = {}) {
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)
+        || snapshot.tipo === 'checkpoint_operacional_edicao_locacao'
+        || snapshot.completoParaPersistencia === false) {
+        return { valido: false, codigo: 'SNAPSHOT_COMPLETO_INVALIDO', camposAusentes: [] };
+    }
+    const camposAusentes = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO
+        .filter((chave) => !Object.prototype.hasOwnProperty.call(snapshot, chave));
+    if (camposAusentes.length > 0) {
+        return { valido: false, codigo: 'SNAPSHOT_COMPLETO_INCOMPLETO', camposAusentes };
+    }
+    const colecoesArrayInvalidas = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO
+        .filter((chave) => !['config', 'checklistConferencia'].includes(chave))
+        .filter((chave) => !Array.isArray(snapshot[chave]));
+    if (colecoesArrayInvalidas.length > 0) {
+        return {
+            valido: false,
+            codigo: 'SNAPSHOT_COMPLETO_ESTRUTURA_INVALIDA',
+            camposAusentes: [],
+            camposInvalidos: colecoesArrayInvalidas
+        };
+    }
+    if (!snapshot.config || typeof snapshot.config !== 'object' || Array.isArray(snapshot.config)
+        || !snapshot.checklistConferencia || typeof snapshot.checklistConferencia !== 'object'
+        || Array.isArray(snapshot.checklistConferencia)) {
+        return {
+            valido: false,
+            codigo: 'SNAPSHOT_COMPLETO_ESTRUTURA_INVALIDA',
+            camposAusentes: [],
+            camposInvalidos: ['config', 'checklistConferencia'].filter((chave) => (
+                !snapshot[chave] || typeof snapshot[chave] !== 'object' || Array.isArray(snapshot[chave])
+            ))
+        };
+    }
+    if (!Object.prototype.hasOwnProperty.call(snapshot, 'versao')
+        || !Object.prototype.hasOwnProperty.call(snapshot, 'data')
+        || !Object.prototype.hasOwnProperty.call(snapshot, 'ultimaEdicao')) {
+        return {
+            valido: false,
+            codigo: 'METADADOS_PERSISTENCIA_AUSENTES',
+            camposAusentes: ['versao', 'data', 'ultimaEdicao'].filter((chave) => (
+                !Object.prototype.hasOwnProperty.call(snapshot, chave)
+            ))
+        };
+    }
+    const versaoValida = typeof snapshot.versao === 'string' && snapshot.versao.trim();
+    const dataValida = typeof snapshot.data === 'string' && snapshot.data.trim();
+    const ultimaEdicaoValida = (typeof snapshot.ultimaEdicao === 'number'
+        && Number.isFinite(snapshot.ultimaEdicao))
+        || (typeof snapshot.ultimaEdicao === 'string' && snapshot.ultimaEdicao.trim());
+    if (!versaoValida || !dataValida || !ultimaEdicaoValida) {
+        return {
+            valido: false,
+            codigo: 'METADADOS_PERSISTENCIA_INVALIDOS',
+            camposAusentes: [],
+            camposInvalidos: [
+                ...(!versaoValida ? ['versao'] : []),
+                ...(!dataValida ? ['data'] : []),
+                ...(!ultimaEdicaoValida ? ['ultimaEdicao'] : [])
+            ]
+        };
+    }
+    return { valido: true, codigo: 'SUCESSO', camposAusentes: [] };
+}
+
+function prepararSnapshotPersistivelCompleto(estado = {}, metadados = {}) {
+    if (estado?.tipo === 'checkpoint_operacional_edicao_locacao'
+        || estado?.completoParaPersistencia === false) {
+        return {
+            ok: false,
+            codigo: 'CHECKPOINT_OPERACIONAL_NAO_PERSISTIVEL',
+            snapshot: null,
+            json: '',
+            camposAusentes: []
+        };
+    }
+    const versao = String(metadados.versao ?? '').trim();
+    const data = String(metadados.data ?? '').trim();
+    const ultimaEdicao = metadados.ultimaEdicao;
+    const ultimaEdicaoValida = (typeof ultimaEdicao === 'number' && Number.isFinite(ultimaEdicao))
+        || (typeof ultimaEdicao === 'string' && ultimaEdicao.trim());
+    if (!versao || !data || !ultimaEdicaoValida) {
+        return {
+            ok: false,
+            codigo: 'METADADOS_PERSISTENCIA_INVALIDOS',
+            snapshot: null,
+            json: '',
+            camposAusentes: []
+        };
+    }
+    const clonagemEstado = obterClonagemPersistivelEstrita(estado);
+    if (!clonagemEstado.ok) {
+        return {
+            ok: false,
+            codigo: clonagemEstado.codigo,
+            snapshot: null,
+            json: '',
+            erro: clonagemEstado.erro,
+            camposAusentes: []
+        };
+    }
+    const estadoPersistivel = clonagemEstado.valor;
+    const chavesProtegidas = new Set([
+        'versao',
+        'data',
+        'ultimaEdicao',
+        ...CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO
+    ]);
+    const camposExtrasPreservados = Object.keys(estadoPersistivel)
+        .filter((chave) => !chavesProtegidas.has(chave));
+    const snapshot = { versao, data, ultimaEdicao };
+    CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO.forEach((chave) => {
+        snapshot[chave] = estadoPersistivel[chave];
+    });
+    camposExtrasPreservados.forEach((chave) => {
+        snapshot[chave] = estadoPersistivel[chave];
+    });
+    const estrutura = validarEstruturaSnapshotPersistivelCompleto(snapshot);
+    if (!estrutura.valido) {
+        return {
+            ok: false,
+            codigo: estrutura.codigo,
+            snapshot: null,
+            json: '',
+            camposAusentes: estrutura.camposAusentes || [],
+            camposInvalidos: estrutura.camposInvalidos || []
+        };
+    }
+    const clonagem = obterClonagemPersistivelEstrita(snapshot);
+    return clonagem.ok
+        ? {
+            ok: true,
+            codigo: 'SUCESSO',
+            snapshot: clonagem.valor,
+            json: clonagem.json,
+            chavesColecoes: CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO.slice(),
+            camposExtrasPreservados
+        }
+        : {
+            ok: false,
+            codigo: clonagem.codigo,
+            snapshot: null,
+            json: '',
+            erro: clonagem.erro,
+            camposAusentes: []
+        };
+}
+
+function persistirSnapshotLocalConfirmavel(snapshot = {}, opcoes = {}) {
+    const armazenamento = opcoes.armazenamento;
+    const chaveFoiFornecida = Object.prototype.hasOwnProperty.call(opcoes, 'chave');
+    const chaveInformada = chaveFoiFornecida ? opcoes.chave : STORAGE_KEY;
+    const chaveValida = typeof chaveInformada === 'string'
+        && chaveInformada.length > 0
+        && chaveInformada.length <= 160
+        && !/\s/.test(chaveInformada);
+    const chave = chaveValida ? chaveInformada : '';
+    if (!armazenamento || typeof armazenamento.setItem !== 'function'
+        || typeof armazenamento.getItem !== 'function') {
+        return {
+            ok: false,
+            codigo: 'ARMAZENAMENTO_INVALIDO',
+            confirmado: false,
+            estadoPersistidoIndeterminado: false,
+            requerRecuperacao: false,
+            metadadoSincronizacaoAtualizado: false
+        };
+    }
+    if (!chaveValida) {
+        return {
+            ok: false,
+            codigo: 'CHAVE_ARMAZENAMENTO_INVALIDA',
+            confirmado: false,
+            estadoPersistidoIndeterminado: false,
+            requerRecuperacao: false,
+            metadadoSincronizacaoAtualizado: false
+        };
+    }
+    const estrutura = validarEstruturaSnapshotPersistivelCompleto(snapshot);
+    if (!estrutura.valido) {
+        return {
+            ok: false,
+            codigo: estrutura.codigo,
+            confirmado: false,
+            estadoPersistidoIndeterminado: false,
+            requerRecuperacao: false,
+            metadadoSincronizacaoAtualizado: false,
+            camposAusentes: estrutura.camposAusentes || [],
+            camposInvalidos: estrutura.camposInvalidos || []
+        };
+    }
+    const clonagem = obterClonagemPersistivelEstrita(snapshot);
+    if (!clonagem.ok) {
+        return {
+            ok: false,
+            codigo: clonagem.codigo,
+            confirmado: false,
+            estadoPersistidoIndeterminado: false,
+            requerRecuperacao: false,
+            metadadoSincronizacaoAtualizado: false,
+            erro: clonagem.erro
+        };
+    }
+    const json = clonagem.json;
+    const tamanhoBytes = typeof TextEncoder === 'function'
+        ? new TextEncoder().encode(json).length
+        : unescape(encodeURIComponent(json)).length;
+    try {
+        // Uma única gravação principal. STORAGE_EDIT_KEY não é alterada nesta infraestrutura.
+        armazenamento.setItem(chave, json);
+    } catch (erro) {
+        const quotaExcedida = erro?.name === 'QuotaExceededError'
+            || erro?.code === 22 || erro?.code === 1014;
+        try {
+            const valorAposExcecao = armazenamento.getItem(chave);
+            if (valorAposExcecao === json) {
+                return {
+                    ok: true,
+                    codigo: 'SUCESSO_APOS_EXCECAO',
+                    confirmado: true,
+                    chave,
+                    tamanhoBytes,
+                    estadoPersistidoIndeterminado: false,
+                    requerRecuperacao: false,
+                    metadadoSincronizacaoAtualizado: false,
+                    aviso: quotaExcedida
+                        ? 'GRAVACAO_CONFIRMADA_APOS_QUOTA_EXCEDIDA'
+                        : 'GRAVACAO_CONFIRMADA_APOS_EXCECAO',
+                    erroOriginal: String(erro?.message || 'A gravação lançou uma exceção após persistir o snapshot.')
+                };
+            }
+        } catch (erroReleitura) {
+            return {
+                ok: false,
+                codigo: 'FALHA_RELEITURA_APOS_EXCECAO',
+                confirmado: false,
+                chave,
+                tamanhoBytes,
+                estadoPersistidoIndeterminado: true,
+                requerRecuperacao: true,
+                metadadoSincronizacaoAtualizado: false,
+                aviso: quotaExcedida ? 'QUOTA_EXCEDIDA_NAO_CONFIRMADA' : 'GRAVACAO_NAO_CONFIRMADA',
+                erro: String(erroReleitura?.message || 'Falha ao reler o snapshot após a exceção de gravação.'),
+                erroOriginal: String(erro?.message || 'Falha ao gravar o snapshot.')
+            };
+        }
+        return {
+            ok: false,
+            codigo: quotaExcedida ? 'QUOTA_EXCEDIDA' : 'FALHA_PERSISTENCIA',
+            confirmado: false,
+            chave,
+            tamanhoBytes,
+            estadoPersistidoIndeterminado: true,
+            requerRecuperacao: true,
+            metadadoSincronizacaoAtualizado: false,
+            aviso: quotaExcedida ? 'QUOTA_EXCEDIDA_NAO_CONFIRMADA' : 'GRAVACAO_NAO_CONFIRMADA',
+            erro: String(erro?.message || 'Falha ao gravar o snapshot.')
+        };
+    }
+
+    let valorRelido;
+    try {
+        valorRelido = armazenamento.getItem(chave);
+    } catch (erro) {
+        return {
+            ok: false,
+            codigo: 'FALHA_RELEITURA',
+            confirmado: false,
+            chave,
+            tamanhoBytes,
+            estadoPersistidoIndeterminado: true,
+            requerRecuperacao: true,
+            metadadoSincronizacaoAtualizado: false,
+            erro: String(erro?.message || 'Falha ao reler o snapshot persistido.')
+        };
+    }
+    if (valorRelido !== json) {
+        return {
+            ok: false,
+            codigo: 'CONFIRMACAO_DIVERGENTE',
+            confirmado: false,
+            chave,
+            tamanhoBytes,
+            estadoPersistidoIndeterminado: true,
+            requerRecuperacao: true,
+            metadadoSincronizacaoAtualizado: false,
+            observacao: 'O estado persistido deve ser considerado indeterminado e recuperado pelo chamador.'
+        };
+    }
+    return {
+        ok: true,
+        codigo: 'SUCESSO',
+        confirmado: true,
+        chave,
+        tamanhoBytes,
+        estadoPersistidoIndeterminado: false,
+        requerRecuperacao: false,
+        metadadoSincronizacaoAtualizado: false,
+        observacao: 'A gravação principal foi confirmada. O futuro executor ainda deverá atualizar o metadado de sincronização.'
+    };
+}
+
 function registrarLogsMigracaoV12(logs = [], metadados = {}) {
     if (!Array.isArray(logs) || logs.length === 0) return;
 
@@ -587,3 +921,6 @@ function carregarLocal() {
 
 window.gerarSnapshotDadosSistema = gerarSnapshotDadosSistema;
 window.aplicarDadosSistema = aplicarDadosSistema;
+window.CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO;
+window.prepararSnapshotPersistivelCompleto = prepararSnapshotPersistivelCompleto;
+window.persistirSnapshotLocalConfirmavel = persistirSnapshotLocalConfirmavel;

@@ -1512,6 +1512,638 @@
         return finalizarRetorno();
     }
 
+    function normalizarOperacaoIdLocacao(valor) {
+        if (typeof valor !== 'string') return '';
+        return valor.length <= 160 && /^[a-z0-9][a-z0-9._:-]*$/.test(valor) ? valor : '';
+    }
+
+    function normalizarIdentificadorDominio(valor) {
+        if (typeof valor !== 'string' && typeof valor !== 'number') return '';
+        const identificador = String(valor).trim();
+        return identificador.length <= 200 && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(identificador)
+            ? identificador
+            : '';
+    }
+
+    function normalizarReferenciaLocacaoEstrita(valor) {
+        if (typeof valor === 'string' && valor.length <= 200
+            && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(valor)) {
+            return `string:${valor}`;
+        }
+        if (typeof valor === 'number' && Number.isSafeInteger(valor) && valor >= 0) {
+            return `number:${valor}`;
+        }
+        return '';
+    }
+
+    function validarAssinaturaPlanoLocacao(assinatura) {
+        return typeof assinatura === 'string'
+            && /^ajuste-reserva-v1:fnv1a64:[a-f0-9]{16}$/.test(assinatura);
+    }
+
+    function validarOperacaoIdLocacao(operacaoId) {
+        const normalizado = normalizarOperacaoIdLocacao(operacaoId);
+        return normalizado
+            ? { valido: true, operacaoId: normalizado, motivo: '' }
+            : {
+                valido: false,
+                operacaoId: '',
+                motivo: 'O identificador da operação está ausente ou possui formato inválido.'
+            };
+    }
+
+    function normalizarControleEdicaoLocacao(locacao = {}) {
+        const possuiControle = Object.prototype.hasOwnProperty.call(locacao || {}, 'controleEdicao');
+        if (!possuiControle) {
+            return {
+                valido: true,
+                estado: 'legado',
+                bloqueios: [],
+                revisao: 0,
+                ultimaOperacaoId: '',
+                atualizadoEm: '',
+                atualizadoPor: ''
+            };
+        }
+
+        const controle = locacao?.controleEdicao;
+        const controleObjetoValido = controle && typeof controle === 'object' && !Array.isArray(controle);
+        const possuiRevisao = controleObjetoValido
+            && Object.prototype.hasOwnProperty.call(controle, 'revisao');
+        const revisaoValida = possuiRevisao && typeof controle.revisao === 'number'
+            && Number.isSafeInteger(controle.revisao) && controle.revisao >= 0;
+        const possuiOperacao = controleObjetoValido
+            && Object.prototype.hasOwnProperty.call(controle, 'ultimaOperacaoId')
+            && controle.ultimaOperacaoId !== '';
+        const ultimaOperacaoId = possuiOperacao
+            ? normalizarOperacaoIdLocacao(controle.ultimaOperacaoId)
+            : '';
+        const bloqueios = [];
+        if (!controleObjetoValido) bloqueios.push('CONTROLE_EDICAO_INVALIDO');
+        else if (!revisaoValida) bloqueios.push('REVISAO_ATUAL_INVALIDA');
+        if (possuiOperacao && !ultimaOperacaoId) bloqueios.push('ULTIMA_OPERACAO_ID_INVALIDO');
+
+        return {
+            valido: bloqueios.length === 0,
+            estado: bloqueios.length === 0 ? 'valido' : 'invalido',
+            bloqueios,
+            revisao: revisaoValida ? controle.revisao : null,
+            ultimaOperacaoId,
+            atualizadoEm: controleObjetoValido ? textoSeguro(controle.atualizadoEm, '').trim() : '',
+            atualizadoPor: controleObjetoValido ? textoSeguro(controle.atualizadoPor, '').trim() : ''
+        };
+    }
+
+    function prepararProximaRevisaoLocacao(locacao = {}, metadados = {}) {
+        const controleAtual = normalizarControleEdicaoLocacao(locacao);
+        const validacaoOperacao = validarOperacaoIdLocacao(metadados.operacaoId);
+        const atualizadoEm = textoSeguro(metadados.atualizadoEm, '').trim();
+        const atualizadoPor = textoSeguro(metadados.atualizadoPor, '').trim();
+        const revisaoEsperadaInformada = Object.prototype.hasOwnProperty.call(metadados, 'revisaoEsperada')
+            ? metadados.revisaoEsperada
+            : controleAtual.revisao;
+        const bloqueios = controleAtual.valido ? [] : [...controleAtual.bloqueios];
+
+        if (!validacaoOperacao.valido) bloqueios.push('OPERACAO_ID_INVALIDO');
+        if (!atualizadoEm) bloqueios.push('DATA_ATUALIZACAO_AUSENTE');
+        if (!atualizadoPor) bloqueios.push('RESPONSAVEL_ATUALIZACAO_AUSENTE');
+        if (!Number.isSafeInteger(revisaoEsperadaInformada) || revisaoEsperadaInformada < 0) {
+            bloqueios.push('REVISAO_ESPERADA_INVALIDA');
+        } else if (controleAtual.valido && revisaoEsperadaInformada !== controleAtual.revisao) {
+            bloqueios.push('REVISAO_DIVERGENTE');
+        }
+        if (controleAtual.valido && controleAtual.revisao === Number.MAX_SAFE_INTEGER) {
+            bloqueios.push('REVISAO_LIMITE_ATINGIDO');
+        }
+
+        const revisaoPretendida = controleAtual.valido
+            && controleAtual.revisao < Number.MAX_SAFE_INTEGER
+            ? controleAtual.revisao + 1
+            : null;
+        return {
+            valido: bloqueios.length === 0,
+            bloqueios,
+            estadoControle: controleAtual.estado,
+            revisaoAtual: controleAtual.revisao,
+            revisaoPretendida,
+            controleEdicao: revisaoPretendida === null ? null : {
+                revisao: revisaoPretendida,
+                ultimaOperacaoId: validacaoOperacao.operacaoId,
+                atualizadoEm,
+                atualizadoPor
+            }
+        };
+    }
+
+    function normalizarJsonPersistivelEstrito(valor, caminho = '$', ancestrais = new WeakSet()) {
+        if (valor === null || typeof valor === 'string' || typeof valor === 'boolean') return valor;
+        if (typeof valor === 'number') {
+            if (!Number.isFinite(valor) || Object.is(valor, -0)) {
+                throw Object.assign(new TypeError(`Valor numérico não persistível em ${caminho}.`), {
+                    codigo: 'VALOR_NAO_PERSISTIVEL',
+                    caminho
+                });
+            }
+            return valor;
+        }
+        if (typeof valor === 'undefined' || typeof valor === 'bigint'
+            || typeof valor === 'function' || typeof valor === 'symbol') {
+            throw Object.assign(new TypeError(`Valor não persistível em ${caminho}.`), {
+                codigo: 'VALOR_NAO_PERSISTIVEL',
+                caminho
+            });
+        }
+        if (typeof valor !== 'object') {
+            throw Object.assign(new TypeError(`Tipo não persistível em ${caminho}.`), {
+                codigo: 'VALOR_NAO_PERSISTIVEL',
+                caminho
+            });
+        }
+        if (ancestrais.has(valor)) {
+            throw Object.assign(new TypeError(`Referência cíclica detectada em ${caminho}.`), {
+                codigo: 'REFERENCIA_CICLICA',
+                caminho
+            });
+        }
+
+        const prototipo = Object.getPrototypeOf(valor);
+        if (!Array.isArray(valor) && prototipo !== Object.prototype && prototipo !== null) {
+            throw Object.assign(new TypeError(`Objeto não compatível com JSON em ${caminho}.`), {
+                codigo: 'OBJETO_NAO_PERSISTIVEL',
+                caminho
+            });
+        }
+        if (Object.getOwnPropertySymbols(valor).length > 0) {
+            throw Object.assign(new TypeError(`Propriedade Symbol não persistível em ${caminho}.`), {
+                codigo: 'VALOR_NAO_PERSISTIVEL',
+                caminho
+            });
+        }
+
+        ancestrais.add(valor);
+        try {
+            if (Array.isArray(valor)) {
+                const chavesExtras = Object.keys(valor).filter((chave) => !/^\d+$/.test(chave));
+                if (chavesExtras.length > 0) {
+                    throw Object.assign(new TypeError(`Array com propriedades extras em ${caminho}.`), {
+                        codigo: 'VALOR_NAO_PERSISTIVEL',
+                        caminho
+                    });
+                }
+                for (let indice = 0; indice < valor.length; indice += 1) {
+                    if (!Object.prototype.hasOwnProperty.call(valor, indice)) {
+                        throw Object.assign(new TypeError(`Posição vazia não persistível em ${caminho}[${indice}].`), {
+                            codigo: 'VALOR_NAO_PERSISTIVEL',
+                            caminho: `${caminho}[${indice}]`
+                        });
+                    }
+                }
+                return valor.map((item, indice) => {
+                    return normalizarJsonPersistivelEstrito(item, `${caminho}[${indice}]`, ancestrais);
+                });
+            }
+
+            const copia = Object.create(null);
+            Reflect.ownKeys(valor).forEach((chave) => {
+                if (typeof chave === 'symbol') return;
+                const descritor = Object.getOwnPropertyDescriptor(valor, chave);
+                if (!descritor?.enumerable || descritor.get || descritor.set) {
+                    throw Object.assign(new TypeError(`Propriedade não serializável em ${caminho}.${chave}.`), {
+                        codigo: 'VALOR_NAO_PERSISTIVEL',
+                        caminho: `${caminho}.${chave}`
+                    });
+                }
+                copia[chave] = normalizarJsonPersistivelEstrito(valor[chave], `${caminho}.${chave}`, ancestrais);
+            });
+            return copia;
+        } finally {
+            ancestrais.delete(valor);
+        }
+    }
+
+    function clonarJsonPersistivelEstrito(valor) {
+        try {
+            const normalizado = normalizarJsonPersistivelEstrito(valor);
+            const json = JSON.stringify(normalizado);
+            return {
+                ok: true,
+                codigo: 'SUCESSO',
+                valor: JSON.parse(json),
+                json,
+                erro: null
+            };
+        } catch (erro) {
+            return {
+                ok: false,
+                codigo: textoSeguro(erro?.codigo, 'FALHA_SERIALIZACAO'),
+                valor: null,
+                json: '',
+                erro: {
+                    mensagem: textoSeguro(erro?.message, 'Falha ao preparar dados persistíveis.'),
+                    caminho: textoSeguro(erro?.caminho, '$')
+                }
+            };
+        }
+    }
+
+    function serializarCanonicoAssinatura(valor) {
+        if (valor === null || typeof valor === 'boolean' || typeof valor === 'string') return JSON.stringify(valor);
+        if (typeof valor === 'number') {
+            if (!Number.isFinite(valor)) throw new TypeError('Número inválido no payload da assinatura.');
+            return JSON.stringify(valor);
+        }
+        if (Array.isArray(valor)) return `[${valor.map(serializarCanonicoAssinatura).join(',')}]`;
+        if (!valor || typeof valor !== 'object') throw new TypeError('Valor inválido no payload da assinatura.');
+        return `{${Object.keys(valor).sort().map((chave) => (
+            `${JSON.stringify(chave)}:${serializarCanonicoAssinatura(valor[chave])}`
+        )).join(',')}}`;
+    }
+
+    function ordenarColecaoCanonica(lista = []) {
+        return lista.map((item) => ({ item, chave: serializarCanonicoAssinatura(item) }))
+            .sort((a, b) => a.chave.localeCompare(b.chave))
+            .map((registro) => registro.item);
+    }
+
+    function normalizarInteiroAssinatura(valor, campo) {
+        const numero = Number(valor);
+        if (!Number.isSafeInteger(numero) || numero < 0) {
+            throw new TypeError(`Quantidade inválida para assinatura em ${campo}.`);
+        }
+        return numero;
+    }
+
+    function normalizarItemIdsAssinatura(itemIds = []) {
+        if (!Array.isArray(itemIds)) throw new TypeError('Lista de itemIds inválida para assinatura.');
+        return itemIds.map((itemId) => {
+            const normalizado = normalizarIdentificadorDominio(itemId);
+            if (!normalizado) throw new TypeError('itemId inválido para assinatura.');
+            return normalizado;
+        }).sort((a, b) => a.localeCompare(b));
+    }
+
+    function gerarFingerprintFnv1a64(texto) {
+        let hash = 0xcbf29ce484222325n;
+        const primo = 0x100000001b3n;
+        const mascara = 0xffffffffffffffffn;
+        const bytes = typeof TextEncoder === 'function'
+            ? new TextEncoder().encode(texto)
+            : Array.from(unescape(encodeURIComponent(texto)), (caractere) => caractere.charCodeAt(0));
+        bytes.forEach((byte) => {
+            hash ^= BigInt(byte);
+            hash = (hash * primo) & mascara;
+        });
+        return hash.toString(16).padStart(16, '0');
+    }
+
+    function gerarAssinaturaPlanoAjusteLocacao(plano = {}, opcoes = {}) {
+        if (plano?.valido !== true || (Array.isArray(plano?.bloqueios) && plano.bloqueios.length > 0)) {
+            return {
+                ok: false,
+                executavel: false,
+                codigo: 'PLANO_INVALIDO',
+                assinatura: '',
+                algoritmo: 'fnv1a64',
+                payloadCanonico: null
+            };
+        }
+        const locacaoId = normalizarIdentificadorDominio(plano?.referencia?.locacaoId);
+        const revisaoEsperada = Number(opcoes.revisaoEsperada);
+        if (!locacaoId || !Number.isSafeInteger(revisaoEsperada) || revisaoEsperada < 0) {
+            return {
+                ok: false,
+                executavel: false,
+                codigo: !locacaoId ? 'LOCACAO_ID_INVALIDO' : 'REVISAO_ESPERADA_INVALIDA',
+                assinatura: '',
+                algoritmo: 'fnv1a64',
+                payloadCanonico: null
+            };
+        }
+
+        try {
+            const normalizarPeriodo = (periodo = {}) => ({
+                inicio: textoSeguro(periodo?.inicio, '').trim(),
+                fim: textoSeguro(periodo?.fim, '').trim()
+            });
+            const normalizarAjuste = (ajuste = {}, tipo = '') => ({
+                tipo,
+                pecaId: normalizarIdentificadorDominio(ajuste?.pecaId),
+                itemIds: normalizarItemIdsAssinatura(ajuste?.itemIds),
+                quantidade: normalizarInteiroAssinatura(
+                    ajuste?.quantidade ?? ajuste?.quantidadePendente ?? 0,
+                    `ajustes.${tipo}.quantidade`
+                ),
+                periodo: tipo === 'reprogramarPeriodo'
+                    ? {
+                        atual: normalizarPeriodo(ajuste?.periodoAtual),
+                        pretendido: normalizarPeriodo(ajuste?.periodoPretendido)
+                    }
+                    : (ajuste?.periodo ? normalizarPeriodo(ajuste.periodo) : null)
+            });
+            const itens = (Array.isArray(plano?.itens) ? plano.itens : []).map((item) => ({
+                itemId: normalizarIdentificadorDominio(item?.itemId),
+                pecaIdAtual: normalizarIdentificadorDominio(item?.pecaIdAtual),
+                pecaIdPretendido: normalizarIdentificadorDominio(item?.pecaIdPretendido),
+                origemAtual: textoSeguro(item?.origemAtual, '').trim().toLowerCase(),
+                origemPretendida: textoSeguro(item?.origemPretendida, '').trim().toLowerCase(),
+                quantidades: {
+                    propriaReservada: normalizarInteiroAssinatura(item?.quantidades?.propriaReservada, 'item.propriaReservada'),
+                    propriaPretendida: normalizarInteiroAssinatura(item?.quantidades?.propriaPretendida, 'item.propriaPretendida'),
+                    terceirizadaAtual: normalizarInteiroAssinatura(item?.quantidades?.terceirizadaAtual, 'item.terceirizadaAtual'),
+                    terceirizadaPretendida: normalizarInteiroAssinatura(item?.quantidades?.terceirizadaPretendida, 'item.terceirizadaPretendida'),
+                    pendenteAtual: normalizarInteiroAssinatura(item?.quantidades?.pendenteAtual, 'item.pendenteAtual'),
+                    pendentePretendida: normalizarInteiroAssinatura(item?.quantidades?.pendentePretendida, 'item.pendentePretendida')
+                }
+            }));
+            if (itens.some((item) => !item.itemId)) throw new TypeError('itemId inválido para assinatura.');
+
+            const ajustes = {};
+            ['reservar', 'liberar', 'manter', 'reprogramarPeriodo'].forEach((tipo) => {
+                const lista = Array.isArray(plano?.ajustes?.[tipo]) ? plano.ajustes[tipo] : [];
+                ajustes[tipo] = ordenarColecaoCanonica(lista.map((ajuste) => normalizarAjuste(ajuste, tipo)));
+                if (ajustes[tipo].some((ajuste) => !ajuste.pecaId)) {
+                    throw new TypeError(`pecaId inválido em ajustes.${tipo}.`);
+                }
+            });
+            const payloadCanonico = {
+                versao: 1,
+                locacaoId,
+                revisaoEsperada,
+                referencia: {
+                    statusReserva: textoSeguro(plano?.referencia?.statusReserva, '').trim().toLowerCase(),
+                    snapshotVersao: normalizarInteiroAssinatura(
+                        plano?.referencia?.snapshotVersao,
+                        'referencia.snapshotVersao'
+                    )
+                },
+                periodo: {
+                    atual: normalizarPeriodo(plano?.periodo?.atual),
+                    pretendido: normalizarPeriodo(plano?.periodo?.pretendido)
+                },
+                itens: ordenarColecaoCanonica(itens),
+                ajustes
+            };
+            const canonico = serializarCanonicoAssinatura(payloadCanonico);
+            return {
+                ok: true,
+                executavel: true,
+                codigo: 'SUCESSO',
+                assinatura: `ajuste-reserva-v1:fnv1a64:${gerarFingerprintFnv1a64(canonico)}`,
+                algoritmo: 'fnv1a64',
+                payloadCanonico
+            };
+        } catch (erro) {
+            return {
+                ok: false,
+                executavel: false,
+                codigo: 'PLANO_NAO_ASSINAVEL',
+                assinatura: '',
+                algoritmo: 'fnv1a64',
+                payloadCanonico: null,
+                erro: textoSeguro(erro?.message, 'Falha ao gerar assinatura do plano.')
+            };
+        }
+    }
+
+    function verificarEstadoOperacaoLocacao(entrada = {}) {
+        const validacaoOperacao = validarOperacaoIdLocacao(entrada.operacaoId);
+        const assinaturaPlano = textoSeguro(entrada.assinaturaPlano, '').trim();
+        const locacaoIdOriginal = entrada?.locacao?.id ?? entrada?.locacao?.locacaoId;
+        const locacaoIdEsperado = normalizarReferenciaLocacaoEstrita(locacaoIdOriginal);
+        if (!validacaoOperacao.valido || !assinaturaPlano || !locacaoIdEsperado) {
+            return {
+                valido: false,
+                estado: 'inconsistente',
+                codigo: !validacaoOperacao.valido
+                    ? 'OPERACAO_ID_INVALIDO'
+                    : (!assinaturaPlano ? 'ASSINATURA_AUSENTE' : 'LOCACAO_ID_INVALIDO'),
+                evidencias: { controle: 0, movimentacoes: 0, historicos: 0 }
+            };
+        }
+
+        const operacaoId = validacaoOperacao.operacaoId;
+        const controle = normalizarControleEdicaoLocacao(entrada.locacao);
+        if (!controle.valido) {
+            return {
+                valido: false,
+                estado: 'inconsistente',
+                codigo: 'CONTROLE_EDICAO_INVALIDO',
+                evidencias: { controle: 0, movimentacoes: 0, historicos: 0 }
+            };
+        }
+        const movimentosOperacao = (Array.isArray(entrada.movimentacoes) ? entrada.movimentacoes : [])
+            .filter((registro) => normalizarOperacaoIdLocacao(registro?.operacaoId) === operacaoId);
+        const historicosOperacao = (Array.isArray(entrada.historicoOperacional) ? entrada.historicoOperacional : [])
+            .filter((registro) => normalizarOperacaoIdLocacao(registro?.operacaoId) === operacaoId);
+        const evidenciasOperacao = [...movimentosOperacao, ...historicosOperacao];
+        const evidenciaSemLocacao = evidenciasOperacao.some((registro) => (
+            !normalizarReferenciaLocacaoEstrita(registro?.locacaoId)
+        ));
+        const evidenciaOutraLocacao = evidenciasOperacao.some((registro) => {
+            const referencia = normalizarReferenciaLocacaoEstrita(registro?.locacaoId);
+            return referencia && referencia !== locacaoIdEsperado;
+        });
+        if (evidenciaOutraLocacao || evidenciaSemLocacao) {
+            return {
+                valido: false,
+                estado: 'inconsistente',
+                codigo: evidenciaOutraLocacao
+                    ? 'OPERACAO_ID_ASSOCIADO_A_OUTRA_LOCACAO'
+                    : 'EVIDENCIA_SEM_LOCACAO_ID',
+                evidencias: {
+                    controle: controle.ultimaOperacaoId === operacaoId ? 1 : 0,
+                    movimentacoes: movimentosOperacao.length,
+                    historicos: historicosOperacao.length
+                }
+            };
+        }
+        const movimentos = movimentosOperacao.filter((registro) => (
+            normalizarReferenciaLocacaoEstrita(registro.locacaoId) === locacaoIdEsperado
+        ));
+        const historicos = historicosOperacao.filter((registro) => (
+            normalizarReferenciaLocacaoEstrita(registro.locacaoId) === locacaoIdEsperado
+        ));
+        const controlePresente = controle.ultimaOperacaoId === operacaoId;
+        const esperadoMovimentacoes = (Array.isArray(entrada?.plano?.ajustes?.reservar)
+            ? entrada.plano.ajustes.reservar.length : 0)
+            + (Array.isArray(entrada?.plano?.ajustes?.liberar) ? entrada.plano.ajustes.liberar.length : 0);
+        const esperadoHistoricos = 1;
+        const assinaturasEncontradas = [
+            ...movimentos.map((registro) => textoSeguro(registro?.assinaturaPlano, '').trim()),
+            ...historicos.map((registro) => textoSeguro(registro?.assinaturaPlano, '').trim())
+        ].filter(Boolean);
+        const assinaturaDivergente = assinaturasEncontradas.some((assinatura) => assinatura !== assinaturaPlano);
+        const chavesMovimento = movimentos.map((registro) => textoSeguro(
+            registro?.chaveIdempotencia || registro?.id || registro?.movimentacaoId,
+            ''
+        ).trim()).filter(Boolean);
+        const movimentoSemChave = movimentos.length > chavesMovimento.length;
+        const movimentosDuplicados = new Set(chavesMovimento).size !== chavesMovimento.length;
+        const excessoRegistros = movimentos.length > esperadoMovimentacoes || historicos.length > esperadoHistoricos;
+        const possuiVestigio = controlePresente || movimentos.length > 0 || historicos.length > 0;
+
+        if (!possuiVestigio) {
+            return {
+                valido: true,
+                estado: 'nao_executada',
+                codigo: 'OPERACAO_NAO_EXECUTADA',
+                evidencias: { controle: 0, movimentacoes: 0, historicos: 0 },
+                esperado: { movimentacoes: esperadoMovimentacoes, historicos: esperadoHistoricos }
+            };
+        }
+        if (assinaturaDivergente || movimentoSemChave || movimentosDuplicados || excessoRegistros) {
+            return {
+                valido: false,
+                estado: 'inconsistente',
+                codigo: assinaturaDivergente
+                    ? 'ASSINATURA_DIVERGENTE'
+                    : (movimentoSemChave
+                        ? 'MOVIMENTACAO_SEM_CHAVE_IDEMPOTENTE'
+                        : (movimentosDuplicados ? 'REGISTRO_DUPLICADO_INCOMPATIVEL' : 'REGISTROS_EXCEDENTES')),
+                evidencias: {
+                    controle: controlePresente ? 1 : 0,
+                    movimentacoes: movimentos.length,
+                    historicos: historicos.length
+                },
+                esperado: { movimentacoes: esperadoMovimentacoes, historicos: esperadoHistoricos }
+            };
+        }
+
+        const completa = controlePresente
+            && movimentos.length === esperadoMovimentacoes
+            && historicos.length === esperadoHistoricos
+            && assinaturasEncontradas.length === movimentos.length + historicos.length;
+        return {
+            valido: completa,
+            estado: completa ? 'concluida' : 'parcial',
+            codigo: completa ? 'OPERACAO_CONCLUIDA' : 'OPERACAO_PARCIAL',
+            evidencias: {
+                controle: controlePresente ? 1 : 0,
+                movimentacoes: movimentos.length,
+                historicos: historicos.length
+            },
+            esperado: { movimentacoes: esperadoMovimentacoes, historicos: esperadoHistoricos }
+        };
+    }
+
+    function prepararRegistroOperacaoConcluida(entrada = {}) {
+        const revisao = prepararProximaRevisaoLocacao(entrada.locacao, {
+            operacaoId: entrada.operacaoId,
+            revisaoEsperada: entrada.revisaoEsperada,
+            atualizadoEm: entrada.atualizadoEm,
+            atualizadoPor: entrada.atualizadoPor
+        });
+        const assinaturaPlano = textoSeguro(entrada.assinaturaPlano, '').trim();
+        const locacaoId = entrada?.locacao?.id ?? entrada?.locacao?.locacaoId;
+        const locacaoIdValido = normalizarReferenciaLocacaoEstrita(locacaoId);
+        if (!revisao.valido || !assinaturaPlano || !locacaoIdValido) {
+            return {
+                valido: false,
+                bloqueios: [
+                    ...revisao.bloqueios,
+                    ...(!assinaturaPlano ? ['ASSINATURA_AUSENTE'] : []),
+                    ...(!locacaoIdValido ? ['LOCACAO_ID_INVALIDO'] : [])
+                ],
+                controleEdicao: null,
+                registroHistorico: null
+            };
+        }
+        return {
+            valido: true,
+            bloqueios: [],
+            controleEdicao: revisao.controleEdicao,
+            registroHistorico: {
+                locacaoId,
+                operacaoId: revisao.controleEdicao.ultimaOperacaoId,
+                assinaturaPlano,
+                revisaoAnterior: revisao.revisaoAtual,
+                revisaoNova: revisao.revisaoPretendida,
+                data: revisao.controleEdicao.atualizadoEm,
+                usuario: revisao.controleEdicao.atualizadoPor,
+                acao: 'ajuste_reserva_locacao'
+            }
+        };
+    }
+
+    const CHAVES_CHECKPOINT_OPERACIONAL_LOCACAO = [
+        'locacoes',
+        'pecas',
+        'movimentacoesEstoque',
+        'devolucoes',
+        'logsAuditoria'
+    ];
+
+    function criarCheckpointOperacionalEdicaoLocacao(estado = {}, metadados = {}) {
+        const validacaoOperacao = validarOperacaoIdLocacao(metadados.operacaoId);
+        const assinaturaPlano = textoSeguro(metadados.assinaturaPlano, '').trim();
+        const criadoEm = textoSeguro(metadados.criadoEm, '').trim();
+        const criadoEmValido = criadoEm && Number.isFinite(Date.parse(criadoEm));
+        if (!validacaoOperacao.valido || !validarAssinaturaPlanoLocacao(assinaturaPlano)
+            || !criadoEmValido) {
+            return {
+                ok: false,
+                codigo: 'METADADOS_CHECKPOINT_INVALIDOS',
+                checkpoint: null
+            };
+        }
+        const conteudo = {};
+        CHAVES_CHECKPOINT_OPERACIONAL_LOCACAO.forEach((chave) => {
+            conteudo[chave] = estado?.[chave];
+        });
+        const clonagem = clonarJsonPersistivelEstrito(conteudo);
+        if (!clonagem.ok) {
+            return { ok: false, codigo: clonagem.codigo, checkpoint: null, erro: clonagem.erro };
+        }
+        return {
+            ok: true,
+            codigo: 'SUCESSO',
+            checkpoint: {
+                tipo: 'checkpoint_operacional_edicao_locacao',
+                versao: 1,
+                completoParaPersistencia: false,
+                operacaoId: validacaoOperacao.operacaoId,
+                assinaturaPlano,
+                criadoEm,
+                estado: clonagem.valor
+            }
+        };
+    }
+
+    function restaurarCheckpointOperacionalEdicaoLocacao(checkpoint = {}) {
+        const clonagemCheckpoint = clonarJsonPersistivelEstrito(checkpoint);
+        if (!clonagemCheckpoint.ok) {
+            return {
+                ok: false,
+                codigo: clonagemCheckpoint.codigo,
+                estado: null,
+                erro: clonagemCheckpoint.erro
+            };
+        }
+        const checkpointPersistivel = clonagemCheckpoint.valor;
+        if (checkpointPersistivel?.tipo !== 'checkpoint_operacional_edicao_locacao'
+            || checkpointPersistivel?.versao !== 1
+            || checkpointPersistivel?.completoParaPersistencia !== false
+            || !validarOperacaoIdLocacao(checkpointPersistivel?.operacaoId).valido
+            || !validarAssinaturaPlanoLocacao(checkpointPersistivel?.assinaturaPlano)
+            || typeof checkpointPersistivel?.criadoEm !== 'string'
+            || !checkpointPersistivel.criadoEm
+            || !Number.isFinite(Date.parse(checkpointPersistivel.criadoEm))
+            || !checkpointPersistivel?.estado
+            || typeof checkpointPersistivel.estado !== 'object'
+            || Array.isArray(checkpointPersistivel.estado)
+            || CHAVES_CHECKPOINT_OPERACIONAL_LOCACAO.some((chave) => (
+                !Object.prototype.hasOwnProperty.call(checkpointPersistivel.estado, chave)
+                || !Array.isArray(checkpointPersistivel.estado[chave])
+            ))) {
+            return {
+                ok: false,
+                codigo: 'CHECKPOINT_OPERACIONAL_INVALIDO',
+                estado: null
+            };
+        }
+        return { ok: true, codigo: 'SUCESSO', estado: checkpointPersistivel.estado };
+    }
+
     function normalizarFinanceiroLocacao(locacao = {}) {
         const valorTotal = Math.max(0, valorMonetarioSeguro(
             locacao?.financeiro?.valorTotal,
@@ -2032,6 +2664,15 @@
     window.obterEstoqueFisicoUtilizavelPeriodo = obterEstoqueFisicoUtilizavelPeriodo;
     window.consultarDisponibilidadeItemPeriodo = consultarDisponibilidadeItemPeriodo;
     window.planejarAjusteReservaLocacao = planejarAjusteReservaLocacao;
+    window.validarOperacaoIdLocacao = validarOperacaoIdLocacao;
+    window.normalizarControleEdicaoLocacao = normalizarControleEdicaoLocacao;
+    window.prepararProximaRevisaoLocacao = prepararProximaRevisaoLocacao;
+    window.clonarJsonPersistivelEstrito = clonarJsonPersistivelEstrito;
+    window.gerarAssinaturaPlanoAjusteLocacao = gerarAssinaturaPlanoAjusteLocacao;
+    window.verificarEstadoOperacaoLocacao = verificarEstadoOperacaoLocacao;
+    window.prepararRegistroOperacaoConcluida = prepararRegistroOperacaoConcluida;
+    window.criarCheckpointOperacionalEdicaoLocacao = criarCheckpointOperacionalEdicaoLocacao;
+    window.restaurarCheckpointOperacionalEdicaoLocacao = restaurarCheckpointOperacionalEdicaoLocacao;
     window.reservarEstoqueLocacao = reservarEstoqueLocacao;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
