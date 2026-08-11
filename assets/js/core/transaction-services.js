@@ -30,6 +30,8 @@
         'locacoes',
         'devolucoes'
     ]);
+    const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);
+    const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
     const travasPorLocacao = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
 
@@ -463,6 +465,124 @@
             resultado[chave] = ordenarChavesCanonicas(valor[chave], [...caminho, chave]);
             return resultado;
         }, {});
+    }
+
+    function canonicalizarFingerprintRecuperacao(valor, caminho = []) {
+        if (Array.isArray(valor)) {
+            const itens = valor.map((item, indice) => (
+                canonicalizarFingerprintRecuperacao(item, [...caminho, indice])
+            ));
+            if (caminho.length === 1 && COLECOES_SEM_ORDEM_SEMANTICA.has(caminho[0])) {
+                return itens.map((item, indice) => {
+                    const idCanonico = item && typeof item === 'object'
+                        ? referenciaEstrita(item.id ?? item.locacaoId)
+                        : '';
+                    return {
+                        item,
+                        indice,
+                        chave: `${idCanonico ? `0:${idCanonico}` : '1:sem-id'}:${JSON.stringify(item)}`
+                    };
+                }).sort((a, b) => {
+                    if (a.chave < b.chave) return -1;
+                    if (a.chave > b.chave) return 1;
+                    return a.indice - b.indice;
+                }).map((registro) => registro.item);
+            }
+            return itens;
+        }
+        if (!valor || typeof valor !== 'object') return valor;
+        return Object.keys(valor).sort().reduce((resultado, chave) => {
+            if (caminho.length === 0 && CHAVES_METADADOS_PERSISTENCIA.has(chave)) return resultado;
+            resultado[chave] = canonicalizarFingerprintRecuperacao(valor[chave], [...caminho, chave]);
+            return resultado;
+        }, {});
+    }
+
+    function removerProvasTecnicasOperacao(valor, identidade, escopo) {
+        const referenciaLocacao = referenciaEstrita(identidade.locacaoId);
+        const registroAlvo = (registro) => registro?.operacaoId === identidade.operacaoId
+            && registro?.assinaturaPlano === identidade.assinaturaPlano
+            && referenciaEstrita(registro?.locacaoId) === referenciaLocacao;
+        const limparLocacao = (locacao) => {
+            if (referenciaEstrita(locacao?.id ?? locacao?.locacaoId) !== referenciaLocacao) return;
+            (Array.isArray(locacao.historicoOperacional) ? locacao.historicoOperacional : [])
+                .filter(registroAlvo)
+                .forEach((registro) => delete registro[CAMPO_PROVAS_RECUPERACAO]);
+        };
+        if (escopo === 'locacao') {
+            limparLocacao(valor);
+            return;
+        }
+        (Array.isArray(valor?.locacoes) ? valor.locacoes : []).forEach(limparLocacao);
+        (Array.isArray(valor?.logsAuditoria) ? valor.logsAuditoria : [])
+            .filter(registroAlvo)
+            .forEach((registro) => delete registro[CAMPO_PROVAS_RECUPERACAO]);
+    }
+
+    function fingerprintFnv1a64(texto) {
+        let hash = 0xcbf29ce484222325n;
+        const primo = 0x100000001b3n;
+        for (let indice = 0; indice < texto.length; indice += 1) {
+            hash ^= BigInt(texto.charCodeAt(indice));
+            hash = BigInt.asUintN(64, hash * primo);
+        }
+        return hash.toString(16).padStart(16, '0');
+    }
+
+    function gerarFingerprintRecuperacao(valor, clonar, identidade, escopo) {
+        const clonagem = resultadoClonagem(clonar, valor);
+        if (!clonagem.ok) return clonagem;
+        removerProvasTecnicasOperacao(clonagem.valor, identidade, escopo);
+        const json = JSON.stringify(canonicalizarFingerprintRecuperacao(clonagem.valor));
+        return {
+            ok: true,
+            codigo: 'SUCESSO',
+            fingerprint: `recuperacao-estado-v1:fnv1a64:${fingerprintFnv1a64(json)}`
+        };
+    }
+
+    function anexarProvasRecuperacao(construcao, estadoAnterior, locacaoAnterior,
+        entrada, revisaoPosterior, clonar) {
+        const identidade = {
+            locacaoId: entrada.locacaoId,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano: entrada.assinaturaPlanoEsperada
+        };
+        const estadoDepois = gerarFingerprintRecuperacao(
+            construcao.candidato, clonar, identidade, 'estado'
+        );
+        const estadoAntes = gerarFingerprintRecuperacao(
+            estadoAnterior, clonar, identidade, 'estado'
+        );
+        const locacaoAntes = gerarFingerprintRecuperacao(
+            locacaoAnterior, clonar, identidade, 'locacao'
+        );
+        const locacaoDepois = gerarFingerprintRecuperacao(
+            construcao.locacaoCandidata, clonar, identidade, 'locacao'
+        );
+        const resultados = [estadoAntes, estadoDepois, locacaoAntes, locacaoDepois];
+        const falha = resultados.find((resultado) => !resultado.ok);
+        if (falha) return falha;
+        const provas = {
+            versao: 1,
+            fingerprintEstadoAnterior: estadoAntes.fingerprint,
+            fingerprintEstadoPosterior: estadoDepois.fingerprint,
+            fingerprintLocacaoAnterior: locacaoAntes.fingerprint,
+            fingerprintLocacaoPosterior: locacaoDepois.fingerprint,
+            revisaoAnterior: entrada.revisaoEsperada,
+            revisaoPosterior,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano: entrada.assinaturaPlanoEsperada
+        };
+        construcao.historico[CAMPO_PROVAS_RECUPERACAO] = { ...provas };
+        const auditoria = construcao.candidato.logsAuditoria.find((registro) => (
+            registro?.operacaoId === entrada.operacaoId
+            && referenciaEstrita(registro?.locacaoId) === referenciaEstrita(entrada.locacaoId)
+            && registro?.assinaturaPlano === entrada.assinaturaPlanoEsperada
+        ));
+        if (!auditoria) return { ok: false, codigo: 'AUDITORIA_OPERACAO_AUSENTE_OU_DUPLICADA' };
+        auditoria[CAMPO_PROVAS_RECUPERACAO] = { ...provas };
+        return { ok: true, codigo: 'SUCESSO' };
     }
 
     function copiarPeriodo(periodo) {
@@ -923,6 +1043,17 @@
                 dependencias
             );
             if (!construcao.ok) return resultadoBase(construcao.codigo);
+            const provasRecuperacao = anexarProvasRecuperacao(
+                construcao,
+                estado,
+                localizacao.locacao,
+                { ...entrada, revisaoEsperada },
+                registroOperacao.controleEdicao.revisao,
+                dependencias.clonarJsonPersistivelEstrito
+            );
+            if (!provasRecuperacao.ok) {
+                return resultadoBase(provasRecuperacao.codigo || 'FALHA_PROVAS_RECUPERACAO');
+            }
             const originalDepoisCandidato = resultadoClonagem(dependencias.clonarJsonPersistivelEstrito, estado);
             if (!originalDepoisCandidato.ok || originalDepoisCandidato.json !== originalAntes.json) {
                 return resultadoBase('ESTADO_ORIGINAL_MODIFICADO_ANTES_DA_PERSISTENCIA', {

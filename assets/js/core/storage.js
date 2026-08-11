@@ -128,6 +128,81 @@ function validarEstruturaSnapshotPersistivelCompleto(snapshot = {}) {
     return { valido: true, codigo: 'SUCESSO', camposAusentes: [] };
 }
 
+function validarChaveArmazenamentoSnapshot(chave) {
+    return typeof chave === 'string'
+        && chave.length > 0
+        && chave.length <= 160
+        && !/\s/.test(chave);
+}
+
+function lerSnapshotLocalConfirmavel(opcoes = {}) {
+    const armazenamento = opcoes.armazenamento;
+    const chaveFoiFornecida = Object.prototype.hasOwnProperty.call(opcoes, 'chave');
+    const chaveInformada = chaveFoiFornecida ? opcoes.chave : STORAGE_KEY;
+    if (!validarChaveArmazenamentoSnapshot(chaveInformada)) {
+        return { ok: false, codigo: 'CHAVE_ARMAZENAMENTO_INVALIDA', snapshot: null, json: '' };
+    }
+    if (!armazenamento || typeof armazenamento.getItem !== 'function') {
+        return { ok: false, codigo: 'ARMAZENAMENTO_INVALIDO', snapshot: null, json: '' };
+    }
+
+    let json;
+    try {
+        json = armazenamento.getItem(chaveInformada);
+    } catch (erro) {
+        return {
+            ok: false,
+            codigo: 'FALHA_LEITURA_SNAPSHOT',
+            snapshot: null,
+            json: '',
+            erro: String(erro?.message || 'Falha ao ler o snapshot persistido.')
+        };
+    }
+    if (typeof json !== 'string' || !json) {
+        return { ok: false, codigo: 'SNAPSHOT_PERSISTIDO_AUSENTE', snapshot: null, json: '' };
+    }
+
+    let snapshot;
+    try {
+        snapshot = JSON.parse(json);
+    } catch (erro) {
+        return {
+            ok: false,
+            codigo: 'SNAPSHOT_PERSISTIDO_JSON_INVALIDO',
+            snapshot: null,
+            json: '',
+            erro: String(erro?.message || 'JSON persistido inválido.')
+        };
+    }
+    const estrutura = validarEstruturaSnapshotPersistivelCompleto(snapshot);
+    if (!estrutura.valido) {
+        return {
+            ok: false,
+            codigo: estrutura.codigo,
+            snapshot: null,
+            json: '',
+            camposAusentes: estrutura.camposAusentes || [],
+            camposInvalidos: estrutura.camposInvalidos || []
+        };
+    }
+    const clonagem = obterClonagemPersistivelEstrita(snapshot);
+    return clonagem.ok
+        ? {
+            ok: true,
+            codigo: 'SUCESSO',
+            chave: chaveInformada,
+            snapshot: clonagem.valor,
+            json: clonagem.json
+        }
+        : {
+            ok: false,
+            codigo: clonagem.codigo,
+            snapshot: null,
+            json: '',
+            erro: clonagem.erro
+        };
+}
+
 function prepararSnapshotPersistivelCompleto(estado = {}, metadados = {}) {
     if (estado?.tipo === 'checkpoint_operacional_edicao_locacao'
         || estado?.completoParaPersistencia === false) {
@@ -215,10 +290,7 @@ function persistirSnapshotLocalConfirmavel(snapshot = {}, opcoes = {}) {
     const armazenamento = opcoes.armazenamento;
     const chaveFoiFornecida = Object.prototype.hasOwnProperty.call(opcoes, 'chave');
     const chaveInformada = chaveFoiFornecida ? opcoes.chave : STORAGE_KEY;
-    const chaveValida = typeof chaveInformada === 'string'
-        && chaveInformada.length > 0
-        && chaveInformada.length <= 160
-        && !/\s/.test(chaveInformada);
+    const chaveValida = validarChaveArmazenamentoSnapshot(chaveInformada);
     const chave = chaveValida ? chaveInformada : '';
     if (!armazenamento || typeof armazenamento.setItem !== 'function'
         || typeof armazenamento.getItem !== 'function') {
@@ -922,5 +994,7 @@ function carregarLocal() {
 window.gerarSnapshotDadosSistema = gerarSnapshotDadosSistema;
 window.aplicarDadosSistema = aplicarDadosSistema;
 window.CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO;
+window.validarEstruturaSnapshotPersistivelCompleto = validarEstruturaSnapshotPersistivelCompleto;
+window.lerSnapshotLocalConfirmavel = lerSnapshotLocalConfirmavel;
 window.prepararSnapshotPersistivelCompleto = prepararSnapshotPersistivelCompleto;
 window.persistirSnapshotLocalConfirmavel = persistirSnapshotLocalConfirmavel;
