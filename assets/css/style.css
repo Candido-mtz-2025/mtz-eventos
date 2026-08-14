@@ -23864,3 +23864,145 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
         padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
     }
 }
+/* Edição operacional de locação: sessão isolada, sem persistência nesta etapa. */
+.edit-locacao-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, .6);
+    backdrop-filter: blur(4px);
+}
+
+.edit-locacao-modal.active {
+    display: flex;
+}
+
+.modal-editar-locacao-operacional {
+    width: min(1120px, calc(100vw - 32px));
+    max-width: 1120px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+}
+
+.modal-editar-locacao-operacional section {
+    margin-top: 18px;
+}
+
+.edit-locacao-readonly-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+}
+
+.edit-locacao-readonly-grid > div {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-subtle, transparent);
+}
+
+.edit-locacao-readonly-grid dt {
+    color: var(--text-muted);
+    font-size: .75rem;
+}
+
+.edit-locacao-readonly-grid dd {
+    margin: 4px 0 0;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+}
+
+.edit-locacao-date-group {
+    margin: 12px 0 0;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.edit-locacao-date-group .form-row {
+    margin-bottom: 0;
+}
+
+.edit-locacao-section-heading,
+.edit-locacao-add-item,
+.edit-locacao-footer {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.edit-locacao-add-item {
+    flex-wrap: wrap;
+}
+
+.edit-locacao-add-item label {
+    flex-basis: 100%;
+}
+
+.edit-locacao-add-item select {
+    min-width: 220px;
+}
+
+.edit-locacao-items-table {
+    margin-top: 10px;
+    overflow-x: auto;
+}
+
+.edit-locacao-items-table input,
+.edit-locacao-items-table select {
+    min-width: 92px;
+    width: 100%;
+}
+
+.edit-locacao-items-table td:first-child {
+    min-width: 180px;
+}
+
+.edit-locacao-items-table td:first-child small {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.edit-locacao-footer {
+    position: sticky;
+    bottom: 0;
+    margin-top: 18px;
+    padding-top: 12px;
+    background: var(--surface, var(--card-bg));
+}
+
+@media (max-width: 700px) {
+    .edit-locacao-modal {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .modal-editar-locacao-operacional {
+        width: 100%;
+        max-height: 92vh;
+    }
+
+    .edit-locacao-readonly-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .edit-locacao-section-heading,
+    .edit-locacao-add-item,
+    .edit-locacao-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .edit-locacao-add-item select {
+        min-width: 0;
+        width: 100%;
+    }
+}

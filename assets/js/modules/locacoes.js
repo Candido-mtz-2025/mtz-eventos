@@ -2,8 +2,338 @@
 let locacaoEtapaAtual = 1;
 let fluxoLocacaoInicializado = false;
 let indiceSugestaoLocacaoAtiva = -1;
+let sessaoEdicaoLocacao = null;
+let eventosSessaoEdicaoLocacaoRegistrados = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
+
+function obterElegibilidadeEdicaoLocacao(locacao, opcoes = {}) {
+    if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)) {
+        return { permitida: false, codigo: 'LOCACAO_INVALIDA', mensagem: 'A locação não está disponível para edição.' };
+    }
+
+    const statusFluxo = typeof inferirStatusFluxoLocacao === 'function'
+        ? inferirStatusFluxoLocacao(locacao)
+        : String(locacao.statusFluxo || locacao.status || '').trim().toLowerCase();
+    const statusBase = String(locacao.status || '').trim().toLowerCase();
+    if (['cancelado', 'devolvido', 'finalizado'].includes(statusFluxo)
+        || ['cancelado', 'devolvido', 'finalizado', 'historico'].includes(statusBase)) {
+        return {
+            permitida: false,
+            codigo: 'STATUS_NAO_EDITAVEL',
+            mensagem: 'Locações canceladas, devolvidas ou encerradas não podem ser editadas.'
+        };
+    }
+
+    if (opcoes.validarOperacional === false) return { permitida: true, codigo: 'ELEGIVEL', mensagem: '' };
+    if (typeof clonarJsonPersistivelEstrito !== 'function' || typeof planejarAjusteReservaLocacao !== 'function') {
+        return {
+            permitida: false,
+            codigo: 'SERVICO_EDICAO_INDISPONIVEL',
+            mensagem: 'A edição segura não está disponível nesta sessão. Atualize a página e tente novamente.'
+        };
+    }
+
+    const copia = clonarJsonPersistivelEstrito({
+        items: Array.isArray(locacao.items) ? locacao.items : [],
+        dataAluguel: locacao.dataAluguel || '',
+        dataDevolucaoPrevisao: locacao.dataDevolucaoPrevisao || '',
+        datasMontagem: locacao.datasMontagem || {},
+        datasDesmontagem: locacao.datasDesmontagem || {}
+    });
+    if (!copia.ok) {
+        return {
+            permitida: false,
+            codigo: copia.codigo || 'RASCUNHO_INVALIDO',
+            mensagem: 'A locação contém dados que precisam ser conferidos antes da edição.'
+        };
+    }
+
+    const plano = planejarAjusteReservaLocacao(locacao, copia.valor, {
+        pecas: Array.isArray(pecas) ? pecas : [],
+        locacoes: Array.isArray(locacoes) ? locacoes : [],
+        devolucoes: Array.isArray(devolucoes) ? devolucoes : []
+    });
+    if (!plano?.valido) {
+        return {
+            permitida: false,
+            codigo: plano?.bloqueios?.[0]?.codigo || 'INCONSISTENCIA_OPERACIONAL',
+            mensagem: plano?.bloqueios?.[0]?.mensagem
+                || 'A locação possui uma inconsistência operacional que impede a edição.'
+        };
+    }
+
+    return { permitida: true, codigo: 'ELEGIVEL', mensagem: '' };
+}
+
+function obterClienteSessaoEdicaoLocacao(locacao) {
+    const locadorId = String(locacao?.locadorId ?? locacao?.clienteId ?? '');
+    return (Array.isArray(locadores) ? locadores : []).find((item) => String(item?.id ?? '') === locadorId)
+        || locacao?.cliente
+        || locacao?.dadosCliente
+        || {};
+}
+
+function obterTextoOrigemItemEdicaoLocacao(item) {
+    const origem = String(item?.origemCusto || item?.origem || 'nao_informado').trim().toLowerCase();
+    return {
+        proprio: 'Próprio',
+        terceirizado: 'Terceirizado',
+        misto: 'Misto',
+        nao_informado: 'Não informado'
+    }[origem] || origem || 'Não informado';
+}
+
+function escaparAtributoEdicaoLocacao(valor) {
+    return escaparHTML(valor).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function renderizarItensSessaoEdicaoLocacao() {
+    const corpo = document.getElementById('editLocacaoItens');
+    if (!corpo) return;
+    const itens = Array.isArray(sessaoEdicaoLocacao?.rascunho?.items)
+        ? sessaoEdicaoLocacao.rascunho.items
+        : [];
+    if (!itens.length) {
+        corpo.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum item no rascunho.</td></tr>';
+        return;
+    }
+
+    corpo.innerHTML = itens.map((item) => {
+        const itemId = String(item?.itemId || '');
+        const nome = escaparHTML(item?.nome || item?.descricao || 'Item sem descrição');
+        const idSeguro = escaparAtributoEdicaoLocacao(itemId);
+        const nomeAtributo = escaparAtributoEdicaoLocacao(item?.nome || item?.descricao || 'Item sem descrição');
+        const origem = String(item?.origemCusto || item?.origem || 'nao_informado').trim().toLowerCase();
+        const valor = Number(item?.valor ?? item?.valorUnitario ?? 0);
+        return `
+            <tr data-edit-locacao-item="${idSeguro}">
+                <td>
+                    <strong>${nome}</strong>
+                    <small class="muted-note">${idSeguro || 'Item sem ID'}</small>
+                </td>
+                <td><input type="number" min="0" step="1" value="${Math.max(Number(item?.quantidade) || 0, 0)}" data-edit-item-id="${idSeguro}" data-edit-item-campo="quantidade" aria-label="Quantidade total de ${nomeAtributo}"></td>
+                <td>
+                    <select data-edit-item-id="${idSeguro}" data-edit-item-campo="origemCusto" aria-label="Origem de ${nomeAtributo}">
+                        ${['proprio', 'terceirizado', 'misto', 'nao_informado'].map((opcao) => `<option value="${opcao}" ${origem === opcao ? 'selected' : ''}>${obterTextoOrigemItemEdicaoLocacao({ origemCusto: opcao })}</option>`).join('')}
+                    </select>
+                </td>
+                <td><input type="number" min="0" step="1" value="${Math.max(Number(item?.quantidadePropria) || 0, 0)}" data-edit-item-id="${idSeguro}" data-edit-item-campo="quantidadePropria" aria-label="Quantidade própria de ${nomeAtributo}"></td>
+                <td><input type="number" min="0" step="1" value="${Math.max(Number(item?.quantidadeTerceirizada) || 0, 0)}" data-edit-item-id="${idSeguro}" data-edit-item-campo="quantidadeTerceirizada" aria-label="Quantidade terceirizada de ${nomeAtributo}"></td>
+                <td><span>${Number.isFinite(valor) ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00'}</span></td>
+                <td><button type="button" class="btn btn-sm btn-danger table-action-btn" data-action="removerItemSessaoEdicaoLocacao" data-arg="${idSeguro}" aria-label="Remover ${nomeAtributo} do rascunho" title="Remover do rascunho"><i class="bi bi-trash"></i></button></td>
+            </tr>`;
+    }).join('');
+}
+
+function preencherInterfaceSessaoEdicaoLocacao(locacao) {
+    const rascunho = sessaoEdicaoLocacao.rascunho;
+    const cliente = obterClienteSessaoEdicaoLocacao(locacao);
+    const preencher = (id, valor) => {
+        const campo = document.getElementById(id);
+        if (campo) campo.value = valor ?? '';
+    };
+    const texto = (id, valor) => {
+        const campo = document.getElementById(id);
+        if (campo) campo.textContent = valor ?? '-';
+    };
+
+    texto('editLocacaoCodigo', String(locacao.codigo || locacao.id || '-'));
+    texto('editLocacaoCliente', cliente.nome || cliente.razaoSocial || locacao.clienteNome || '-');
+    texto('editLocacaoStatus', String(locacao.statusVisual || locacao.status || '-'));
+    texto('editLocacaoDivisor', String(locacao.divisorFatura ?? locacao.divisor ?? '-'));
+    const valorTotal = typeof calcularValorLocacaoDominio === 'function' ? calcularValorLocacaoDominio(locacao) : Number(locacao.valorTotal || 0);
+    texto('editLocacaoValorTotal', Number(valorTotal || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+    texto('editLocacaoPagamento', locacao.pago ? 'Pago' : 'Pendente');
+
+    preencher('editLocacaoDataAluguel', rascunho.dataAluguel);
+    preencher('editLocacaoDataDevolucao', rascunho.dataDevolucaoPrevisao);
+    preencher('editLocacaoMontagemInicio', rascunho.datasMontagem?.inicio);
+    preencher('editLocacaoMontagemFim', rascunho.datasMontagem?.fim);
+    preencher('editLocacaoMontagemHoraInicio', rascunho.datasMontagem?.horarioInicio || rascunho.datasMontagem?.horaInicio);
+    preencher('editLocacaoMontagemHoraFim', rascunho.datasMontagem?.horarioFim || rascunho.datasMontagem?.horaFim);
+    preencher('editLocacaoDesmontagemInicio', rascunho.datasDesmontagem?.inicio);
+    preencher('editLocacaoDesmontagemFim', rascunho.datasDesmontagem?.fim);
+    preencher('editLocacaoDesmontagemHoraInicio', rascunho.datasDesmontagem?.horarioInicio || rascunho.datasDesmontagem?.horaInicio);
+    preencher('editLocacaoDesmontagemHoraFim', rascunho.datasDesmontagem?.horarioFim || rascunho.datasDesmontagem?.horaFim);
+    const seletorNovoItem = document.getElementById('editLocacaoNovoItem');
+    if (seletorNovoItem) {
+        seletorNovoItem.innerHTML = '<option value="">Selecione...</option>'
+            + (Array.isArray(pecas) ? pecas : []).map((peca) => (
+                `<option value="${escaparAtributoEdicaoLocacao(String(peca?.id ?? ''))}">${escaparHTML(peca?.nome || 'Item sem nome')}</option>`
+            )).join('');
+    }
+    renderizarItensSessaoEdicaoLocacao();
+}
+
+function atualizarRascunhoSessaoEdicaoLocacao(event) {
+    if (!sessaoEdicaoLocacao) return;
+    const campo = event.target;
+    const caminho = campo?.dataset?.editLocacaoCampo;
+    if (caminho) {
+        const partes = caminho.split('.');
+        let alvo = sessaoEdicaoLocacao.rascunho;
+        partes.slice(0, -1).forEach((parte) => {
+            if (!alvo[parte] || typeof alvo[parte] !== 'object') alvo[parte] = {};
+            alvo = alvo[parte];
+        });
+        alvo[partes[partes.length - 1]] = campo.value;
+        return;
+    }
+
+    const itemId = campo?.dataset?.editItemId;
+    const itemCampo = campo?.dataset?.editItemCampo;
+    if (!itemId || !itemCampo) return;
+    const item = sessaoEdicaoLocacao.rascunho.items.find((registro) => String(registro?.itemId || '') === itemId);
+    if (!item) return;
+    item[itemCampo] = campo.type === 'number' ? Number(campo.value) : campo.value;
+}
+
+function registrarEventosSessaoEdicaoLocacao() {
+    if (eventosSessaoEdicaoLocacaoRegistrados) return;
+    const modal = document.getElementById('modalEditarLocacaoOperacional');
+    if (!modal) return;
+    modal.addEventListener('input', atualizarRascunhoSessaoEdicaoLocacao);
+    modal.addEventListener('change', atualizarRascunhoSessaoEdicaoLocacao);
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal && modal.classList.contains('active')) {
+            event.stopImmediatePropagation();
+            cancelarSessaoEdicaoLocacao();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (!sessaoEdicaoLocacao || !modal.classList.contains('active')) return;
+        if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            mostrarToast('O salvamento da edição será habilitado em uma próxima etapa.', 'info', 4200);
+            return;
+        }
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            cancelarSessaoEdicaoLocacao();
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const focaveis = Array.from(modal.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter((elemento) => elemento.offsetParent !== null);
+        if (!focaveis.length) return;
+        const primeiro = focaveis[0];
+        const ultimo = focaveis[focaveis.length - 1];
+        if (event.shiftKey && document.activeElement === primeiro) {
+            event.preventDefault();
+            ultimo.focus();
+        } else if (!event.shiftKey && document.activeElement === ultimo) {
+            event.preventDefault();
+            primeiro.focus();
+        }
+    }, true);
+    eventosSessaoEdicaoLocacaoRegistrados = true;
+}
+
+function abrirEdicaoLocacao(locacaoId, elementoAcionador = null) {
+    if (sessaoEdicaoLocacao) {
+        mostrarToast('Já existe uma edição de locação aberta. Cancele-a antes de iniciar outra.', 'info', 5200);
+        return false;
+    }
+    const correspondencias = (Array.isArray(locacoes) ? locacoes : [])
+        .filter((item) => String(item?.id ?? '') === String(locacaoId ?? ''));
+    if (correspondencias.length !== 1) {
+        mostrarToast('Não foi possível identificar uma única locação para edição.', 'erro');
+        return false;
+    }
+
+    const locacao = correspondencias[0];
+    const elegibilidade = obterElegibilidadeEdicaoLocacao(locacao);
+    if (!elegibilidade.permitida) {
+        mostrarToast(elegibilidade.mensagem, 'erro', 6500);
+        return false;
+    }
+
+    const copiaCompleta = clonarJsonPersistivelEstrito(locacao);
+    if (!copiaCompleta.ok) {
+        mostrarToast('Não foi possível criar um rascunho isolado desta locação.', 'erro');
+        return false;
+    }
+    const rascunho = clonarJsonPersistivelEstrito({
+        items: copiaCompleta.valor.items,
+        dataAluguel: copiaCompleta.valor.dataAluguel,
+        dataDevolucaoPrevisao: copiaCompleta.valor.dataDevolucaoPrevisao,
+        datasMontagem: copiaCompleta.valor.datasMontagem || {},
+        datasDesmontagem: copiaCompleta.valor.datasDesmontagem || {}
+    });
+    if (!rascunho.ok) {
+        mostrarToast('Não foi possível preparar os campos editáveis da locação.', 'erro');
+        return false;
+    }
+
+    sessaoEdicaoLocacao = {
+        locacaoId: String(locacao.id),
+        rascunho: rascunho.valor,
+        originalIsolado: copiaCompleta.valor,
+        acionador: elementoAcionador instanceof HTMLElement ? elementoAcionador : document.activeElement
+    };
+    registrarEventosSessaoEdicaoLocacao();
+    preencherInterfaceSessaoEdicaoLocacao(locacao);
+    const modal = document.getElementById('modalEditarLocacaoOperacional');
+    modal?.classList.add('active');
+    modal?.setAttribute('aria-hidden', 'false');
+    setTimeout(() => document.getElementById('editLocacaoDataAluguel')?.focus({ preventScroll: true }), 0);
+    return true;
+}
+
+function removerItemSessaoEdicaoLocacao(itemId) {
+    if (!sessaoEdicaoLocacao) return false;
+    sessaoEdicaoLocacao.rascunho.items = sessaoEdicaoLocacao.rascunho.items
+        .filter((item) => String(item?.itemId || '') !== String(itemId || ''));
+    renderizarItensSessaoEdicaoLocacao();
+    return true;
+}
+
+function adicionarItemSessaoEdicaoLocacao() {
+    if (!sessaoEdicaoLocacao) return false;
+    const seletor = document.getElementById('editLocacaoNovoItem');
+    const peca = (Array.isArray(pecas) ? pecas : []).find((item) => String(item?.id ?? '') === String(seletor?.value ?? ''));
+    if (!peca) {
+        mostrarToast('Selecione um item para adicionar ao rascunho.', 'erro');
+        seletor?.focus();
+        return false;
+    }
+    const usados = new Set(sessaoEdicaoLocacao.rascunho.items.map((item) => String(item?.itemId || '')).filter(Boolean));
+    const itemId = typeof criarItemIdLocacao === 'function'
+        ? criarItemIdLocacao(sessaoEdicaoLocacao.locacaoId, sessaoEdicaoLocacao.rascunho.items.length, usados)
+        : `loc-${sessaoEdicaoLocacao.locacaoId}-item-${sessaoEdicaoLocacao.rascunho.items.length + 1}`;
+    sessaoEdicaoLocacao.rascunho.items.push({
+        itemId,
+        pecaId: peca.id,
+        nome: peca.nome,
+        valor: Number(peca.valor) || 0,
+        quantidade: 1,
+        origemCusto: 'proprio',
+        quantidadePropria: 1,
+        quantidadeTerceirizada: 0
+    });
+    seletor.value = '';
+    renderizarItensSessaoEdicaoLocacao();
+    return true;
+}
+
+function cancelarSessaoEdicaoLocacao() {
+    if (!sessaoEdicaoLocacao) return false;
+    const acionador = sessaoEdicaoLocacao.acionador;
+    sessaoEdicaoLocacao = null;
+    const modal = document.getElementById('modalEditarLocacaoOperacional');
+    modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
+    const corpo = document.getElementById('editLocacaoItens');
+    if (corpo) corpo.textContent = '';
+    setTimeout(() => {
+        if (acionador instanceof HTMLElement && document.contains(acionador)) acionador.focus({ preventScroll: true });
+    }, 0);
+    return true;
+}
 
 function obterDisponivelPecaLocacao(peca) {
     if (!peca) return 0;
@@ -1756,3 +2086,8 @@ window.atualizarFluxoLocacao = atualizarFluxoLocacao;
 window.fecharSugestoesLocacao = fecharSugestoesLocacao;
 window.abrirHistoricoLocacao = abrirHistoricoLocacao;
 window.reservarEstoqueDaLocacao = reservarEstoqueDaLocacao;
+window.obterElegibilidadeEdicaoLocacao = obterElegibilidadeEdicaoLocacao;
+window.abrirEdicaoLocacao = abrirEdicaoLocacao;
+window.cancelarSessaoEdicaoLocacao = cancelarSessaoEdicaoLocacao;
+window.adicionarItemSessaoEdicaoLocacao = adicionarItemSessaoEdicaoLocacao;
+window.removerItemSessaoEdicaoLocacao = removerItemSessaoEdicaoLocacao;

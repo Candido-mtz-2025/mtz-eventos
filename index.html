@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.57">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.58">
 </head>
 <body>
 
@@ -2871,6 +2871,78 @@
         </div>
     </div>
 
+    <div id="modalEditarLocacaoOperacional" class="edit-locacao-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editLocacaoTitulo" aria-describedby="editLocacaoDescricao">
+        <div class="modal-content modal-editar-locacao-operacional">
+            <div class="modal-header">
+                <div>
+                    <h3 id="editLocacaoTitulo">Editar locação</h3>
+                    <p id="editLocacaoDescricao" class="muted-note">Rascunho isolado. Nesta etapa, nenhuma alteração pode ser salva.</p>
+                </div>
+                <button type="button" class="btn-close-modal" data-action="cancelarSessaoEdicaoLocacao" aria-label="Cancelar edição da locação"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            <section class="edit-locacao-readonly" aria-labelledby="editLocacaoResumoTitulo">
+                <h4 id="editLocacaoResumoTitulo">Dados preservados</h4>
+                <dl class="edit-locacao-readonly-grid">
+                    <div><dt>Código</dt><dd id="editLocacaoCodigo">-</dd></div>
+                    <div><dt>Cliente</dt><dd id="editLocacaoCliente">-</dd></div>
+                    <div><dt>Status</dt><dd id="editLocacaoStatus">-</dd></div>
+                    <div><dt>Divisor financeiro</dt><dd id="editLocacaoDivisor">-</dd></div>
+                    <div><dt>Valor total</dt><dd id="editLocacaoValorTotal">-</dd></div>
+                    <div><dt>Pagamento</dt><dd id="editLocacaoPagamento">-</dd></div>
+                </dl>
+            </section>
+
+            <section aria-labelledby="editLocacaoDatasTitulo">
+                <h4 id="editLocacaoDatasTitulo">Datas operacionais</h4>
+                <div class="form-row">
+                    <div class="form-group"><label for="editLocacaoDataAluguel">Data da locação</label><input id="editLocacaoDataAluguel" type="date" data-edit-locacao-campo="dataAluguel"></div>
+                    <div class="form-group"><label for="editLocacaoDataDevolucao">Previsão de devolução</label><input id="editLocacaoDataDevolucao" type="date" data-edit-locacao-campo="dataDevolucaoPrevisao"></div>
+                </div>
+                <fieldset class="edit-locacao-date-group">
+                    <legend>Montagem</legend>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editLocacaoMontagemInicio">Início</label><input id="editLocacaoMontagemInicio" type="date" data-edit-locacao-campo="datasMontagem.inicio"></div>
+                    <div class="form-group"><label for="editLocacaoMontagemHoraInicio">Horário inicial</label><input id="editLocacaoMontagemHoraInicio" type="time" data-edit-locacao-campo="datasMontagem.horarioInicio"></div>
+                        <div class="form-group"><label for="editLocacaoMontagemFim">Fim</label><input id="editLocacaoMontagemFim" type="date" data-edit-locacao-campo="datasMontagem.fim"></div>
+                    <div class="form-group"><label for="editLocacaoMontagemHoraFim">Horário final</label><input id="editLocacaoMontagemHoraFim" type="time" data-edit-locacao-campo="datasMontagem.horarioFim"></div>
+                    </div>
+                </fieldset>
+                <fieldset class="edit-locacao-date-group">
+                    <legend>Desmontagem</legend>
+                    <div class="form-row">
+                        <div class="form-group"><label for="editLocacaoDesmontagemInicio">Início</label><input id="editLocacaoDesmontagemInicio" type="date" data-edit-locacao-campo="datasDesmontagem.inicio"></div>
+                    <div class="form-group"><label for="editLocacaoDesmontagemHoraInicio">Horário inicial</label><input id="editLocacaoDesmontagemHoraInicio" type="time" data-edit-locacao-campo="datasDesmontagem.horarioInicio"></div>
+                        <div class="form-group"><label for="editLocacaoDesmontagemFim">Fim</label><input id="editLocacaoDesmontagemFim" type="date" data-edit-locacao-campo="datasDesmontagem.fim"></div>
+                    <div class="form-group"><label for="editLocacaoDesmontagemHoraFim">Horário final</label><input id="editLocacaoDesmontagemHoraFim" type="time" data-edit-locacao-campo="datasDesmontagem.horarioFim"></div>
+                    </div>
+                </fieldset>
+            </section>
+
+            <section aria-labelledby="editLocacaoItensTitulo">
+                <div class="edit-locacao-section-heading">
+                    <div><h4 id="editLocacaoItensTitulo">Itens</h4><p class="muted-note">Valores comerciais permanecem somente para leitura.</p></div>
+                    <div class="edit-locacao-add-item">
+                        <label for="editLocacaoNovoItem">Adicionar item ao rascunho</label>
+                        <select id="editLocacaoNovoItem"><option value="">Selecione...</option></select>
+                        <button type="button" class="btn btn-secondary btn-sm" data-action="adicionarItemSessaoEdicaoLocacao"><i class="bi bi-plus-lg"></i> Adicionar</button>
+                    </div>
+                </div>
+                <div class="table-responsive edit-locacao-items-table">
+                    <table>
+                        <thead><tr><th>Item</th><th>Total</th><th>Origem</th><th>Própria</th><th>Terceirizada</th><th>Valor</th><th>Ação</th></tr></thead>
+                        <tbody id="editLocacaoItens"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="edit-locacao-footer">
+                <button type="button" class="btn btn-secondary" data-action="cancelarSessaoEdicaoLocacao">Cancelar e descartar</button>
+                <button type="button" class="btn btn-primary" disabled aria-disabled="true" title="O salvamento será habilitado em uma etapa futura"><i class="bi bi-lock"></i> Confirmar alterações</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast"></div>
 
     
@@ -2888,7 +2960,7 @@
     <script src="./assets/js/core/recovery-services.js?v=1.1"></script>
     <script src="./assets/js/core/state-adapter.js?v=1.0"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.6"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.7"></script>
     <script src="./assets/js/modules/propostas.js?v=4.16"></script>
     <script src="./assets/js/modules/clientes.js?v=2.1"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -2903,7 +2975,7 @@
     <script src="./assets/js/modules/whatsapp.js?v=1.1"></script>
     <script src="./assets/js/modules/transporte.js?v=1.2"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.1"></script>
-    <script src="./assets/js/render/locacoes.js?v=15.5"></script>
+    <script src="./assets/js/render/locacoes.js?v=15.6"></script>
     <script src="./assets/js/render/cadastros.js?v=3.5"></script>
     <script src="./assets/js/render/estoque.js?v=2.2"></script>
     <script src="./assets/js/render/dashboard.js?v=1.6"></script>
