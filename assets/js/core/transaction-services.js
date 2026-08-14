@@ -1104,7 +1104,7 @@
                 });
             }
             try {
-                const publicado = dependencias.publicarEstadoConfirmado(estadoConfirmado.valor);
+                const publicado = dependencias.publicarEstadoConfirmado(estadoConfirmado.valor, estado);
                 if (publicado === false) throw new Error('Publicação do estado recusada.');
             } catch (_erro) {
                 return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', {

@@ -10,8 +10,55 @@ const SYNC_TIMEOUT_MS = 15000;
 let sincronizacaoEmAndamento = false;
 let sincronizacaoPendente = null;
 
+function definirCampoPersistivelSeguro(destino, chave, valor) {
+    Object.defineProperty(destino, chave, {
+        configurable: true,
+        enumerable: true,
+        writable: true,
+        value: valor
+    });
+}
+
+function obterCamposFuturosSnapshot(estadoRaiz) {
+    if (!estadoRaiz || typeof estadoRaiz !== 'object' || Array.isArray(estadoRaiz)) {
+        return Object.create(null);
+    }
+    const prototipo = Object.getPrototypeOf(estadoRaiz);
+    if (prototipo !== Object.prototype && prototipo !== null) {
+        throw new TypeError('A raiz operacional possui protótipo não persistível.');
+    }
+
+    const extras = Reflect.ownKeys(estadoRaiz).reduce((resultado, chave) => {
+        if (typeof chave !== 'string') {
+            throw new TypeError('A raiz operacional possui campo Symbol não persistível.');
+        }
+        const descritor = Object.getOwnPropertyDescriptor(estadoRaiz, chave);
+        if (!descritor?.enumerable || descritor.get || descritor.set) {
+            throw new TypeError(`Campo não persistível na raiz operacional: ${chave}.`);
+        }
+        if (!CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO?.includes(chave)
+            && !['versao', 'data', 'ultimaEdicao'].includes(chave)) {
+            definirCampoPersistivelSeguro(resultado, chave, descritor.value);
+        }
+        return resultado;
+    }, Object.create(null));
+    const clonagem = obterClonagemPersistivelEstrita(extras);
+    if (!clonagem.ok) {
+        const erro = new TypeError(clonagem.erro?.mensagem || 'Campo futuro não persistível.');
+        erro.codigo = clonagem.codigo;
+        erro.caminho = clonagem.erro?.caminho;
+        throw erro;
+    }
+    return clonagem.valor;
+}
+
 function gerarSnapshotDadosSistema() {
+    const estadoRaiz = typeof window.obterEstadoMemoriaAtual === 'function'
+        ? window.obterEstadoMemoriaAtual()
+        : null;
+    const extras = obterCamposFuturosSnapshot(estadoRaiz);
     return {
+        ...extras,
         locadores: Array.isArray(locadores) ? locadores : [],
         pecas: Array.isArray(pecas) ? pecas : [],
         locacoes: Array.isArray(locacoes) ? locacoes : [],
@@ -250,10 +297,10 @@ function prepararSnapshotPersistivelCompleto(estado = {}, metadados = {}) {
         .filter((chave) => !chavesProtegidas.has(chave));
     const snapshot = { versao, data, ultimaEdicao };
     CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO.forEach((chave) => {
-        snapshot[chave] = estadoPersistivel[chave];
+        definirCampoPersistivelSeguro(snapshot, chave, estadoPersistivel[chave]);
     });
     camposExtrasPreservados.forEach((chave) => {
-        snapshot[chave] = estadoPersistivel[chave];
+        definirCampoPersistivelSeguro(snapshot, chave, estadoPersistivel[chave]);
     });
     const estrutura = validarEstruturaSnapshotPersistivelCompleto(snapshot);
     if (!estrutura.valido) {
@@ -508,27 +555,49 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         ? dadosNormalizados.config
         : {};
 
-    locadores = Array.isArray(dadosNormalizados.locadores) ? dadosNormalizados.locadores : [];
-    pecas = Array.isArray(dadosNormalizados.pecas) ? dadosNormalizados.pecas : [];
-    locacoes = Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [];
-    propostas = Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [];
-    devolucoes = Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [];
-    movimentacoesEstoque = Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [];
-    transportes = Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [];
-    tipos = Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [];
-    usuarios = Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [];
-    config = { ...baseConfig, ...configEntrada };
-    config.schemaVersion = STORAGE_VERSION;
-    logsAuditoria = Array.isArray(dadosNormalizados.logsAuditoria) ? dadosNormalizados.logsAuditoria : [];
-    modelosChecklist = Array.isArray(dadosNormalizados.modelosChecklist) ? dadosNormalizados.modelosChecklist : [];
-    checklistsGerados = Array.isArray(dadosNormalizados.checklistsGerados) ? dadosNormalizados.checklistsGerados : [];
-    checklistMontagem = Array.isArray(dadosNormalizados.checklistMontagem) ? dadosNormalizados.checklistMontagem : [];
-    checklistConferencia = dadosNormalizados.checklistConferencia && typeof dadosNormalizados.checklistConferencia === 'object'
+    const estadoNormalizado = {
+        ...dadosNormalizados,
+        locadores: Array.isArray(dadosNormalizados.locadores) ? dadosNormalizados.locadores : [],
+        pecas: Array.isArray(dadosNormalizados.pecas) ? dadosNormalizados.pecas : [],
+        locacoes: Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [],
+        propostas: Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [],
+        devolucoes: Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [],
+        movimentacoesEstoque: Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [],
+        transportes: Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [],
+        tipos: Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [],
+        usuarios: Array.isArray(dadosNormalizados.usuarios) ? dadosNormalizados.usuarios : [],
+        config: { ...baseConfig, ...configEntrada, schemaVersion: STORAGE_VERSION },
+        logsAuditoria: Array.isArray(dadosNormalizados.logsAuditoria) ? dadosNormalizados.logsAuditoria : [],
+        modelosChecklist: Array.isArray(dadosNormalizados.modelosChecklist) ? dadosNormalizados.modelosChecklist : [],
+        checklistsGerados: Array.isArray(dadosNormalizados.checklistsGerados) ? dadosNormalizados.checklistsGerados : [],
+        checklistMontagem: Array.isArray(dadosNormalizados.checklistMontagem) ? dadosNormalizados.checklistMontagem : [],
+        checklistConferencia: dadosNormalizados.checklistConferencia && typeof dadosNormalizados.checklistConferencia === 'object'
         ? dadosNormalizados.checklistConferencia
-        : {};
-    checklistEtapasMontagem = Array.isArray(dadosNormalizados.checklistEtapasMontagem)
-        ? dadosNormalizados.checklistEtapasMontagem
-        : [];
+        : {},
+        checklistEtapasMontagem: Array.isArray(dadosNormalizados.checklistEtapasMontagem)
+            ? dadosNormalizados.checklistEtapasMontagem
+            : []
+    };
+    if (typeof window.publicarEstadoConfirmado === 'function') {
+        window.publicarEstadoConfirmado(estadoNormalizado, window.obterEstadoMemoriaAtual());
+    } else {
+        locadores = estadoNormalizado.locadores;
+        pecas = estadoNormalizado.pecas;
+        locacoes = estadoNormalizado.locacoes;
+        propostas = estadoNormalizado.propostas;
+        devolucoes = estadoNormalizado.devolucoes;
+        movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
+        transportes = estadoNormalizado.transportes;
+        tipos = estadoNormalizado.tipos;
+        usuarios = estadoNormalizado.usuarios;
+        config = estadoNormalizado.config;
+        logsAuditoria = estadoNormalizado.logsAuditoria;
+        modelosChecklist = estadoNormalizado.modelosChecklist;
+        checklistsGerados = estadoNormalizado.checklistsGerados;
+        checklistMontagem = estadoNormalizado.checklistMontagem;
+        checklistConferencia = estadoNormalizado.checklistConferencia;
+        checklistEtapasMontagem = estadoNormalizado.checklistEtapasMontagem;
+    }
     window.movimentacoesEstoque = movimentacoesEstoque;
 
     if (resultadoMigracao?.houveMudanca) {

@@ -432,16 +432,42 @@
     }
 
     // A célula da referência raiz permanece privada; a porta pública só permite leitura.
-    function criarPortaEstadoConfirmadoAtomica(estadoInicial) {
+    function criarPortaEstadoConfirmadoAtomica(estadoInicial, opcoes = {}) {
         if (!estadoInicial || typeof estadoInicial !== 'object') return null;
-        const contexto = { estado: estadoInicial, publicacoesConfirmadas: 0, publicador: null };
+        const publicarNaRaiz = typeof opcoes.publicarNaRaiz === 'function'
+            ? opcoes.publicarNaRaiz
+            : null;
+        const contexto = {
+            estado: estadoInicial,
+            publicacoesConfirmadas: 0,
+            publicador: null,
+            publicarNaRaiz
+        };
         const publicador = (estadoAnterior, estadoConfirmado) => {
             if (contexto.estado !== estadoAnterior) {
                 return { ok: false, codigo: 'REFERENCIA_RAIZ_DIVERGENTE' };
             }
-            contexto.estado = estadoConfirmado;
+            let estadoPublicado = estadoConfirmado;
+            if (contexto.publicarNaRaiz) {
+                const resultado = contexto.publicarNaRaiz(estadoAnterior, estadoConfirmado);
+                if (!resultado?.ok || resultado.publicacaoRealizada !== true
+                    || !resultado.estadoPublicado || typeof resultado.estadoPublicado !== 'object') {
+                    return {
+                        ok: false,
+                        codigo: resultado?.codigo || 'PUBLICACAO_RAIZ_RECUSADA',
+                        publicacaoRealizada: resultado?.publicacaoRealizada === true
+                    };
+                }
+                estadoPublicado = resultado.estadoPublicado;
+            }
+            contexto.estado = estadoPublicado;
             contexto.publicacoesConfirmadas += 1;
-            return { ok: true, codigo: 'PUBLICACAO_ATOMICA_CONFIRMADA' };
+            return {
+                ok: true,
+                codigo: 'PUBLICACAO_ATOMICA_CONFIRMADA',
+                publicacaoRealizada: true,
+                estadoPublicado
+            };
         };
         const porta = Object.freeze({
             obterEstadoAtual: () => contexto.estado,
@@ -778,14 +804,16 @@
 
         const publicacoesAntes = contexto.publicacoesConfirmadas;
         let erroPublicacao = false;
+        let resultadoPublicacao = null;
         try {
-            contexto.publicador(estadoAnterior, estadoConfirmado);
+            resultadoPublicacao = contexto.publicador(estadoAnterior, estadoConfirmado);
         } catch (_erro) {
             erroPublicacao = true;
         }
 
         // Depois da troca, somente a célula privada é consultada: nenhuma dependência externa é chamada.
-        const publicacaoRealizada = contexto.estado === estadoConfirmado;
+        const publicacaoRealizada = resultadoPublicacao?.publicacaoRealizada === true
+            && contexto.estado === resultadoPublicacao.estadoPublicado;
         const contadorCoerente = contexto.publicacoesConfirmadas === publicacoesAntes + 1;
         if (publicacaoRealizada && contadorCoerente) {
             return {
