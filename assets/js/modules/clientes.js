@@ -157,7 +157,7 @@ function encontrarLocadorDuplicado(dados, idIgnorar = null) {
     const documento = normalizarDocumentoCliente(dados?.documento);
 
     return locadores.find((locador) => {
-        if (idIgnorar != null && String(locador.id) === String(idIgnorar)) return false;
+        if (idIgnorar != null && idsEntidadeExatos(locador.id, idIgnorar)) return false;
 
         const mesmoNome = normalizarTextoCliente(locador.nome) === nome;
         const mesmoDocumento = documento && normalizarDocumentoCliente(locador.documento) === documento;
@@ -200,7 +200,7 @@ function salvarLocador() {
     salvarLocal();
     renderTudo();
     if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'locador', id: novoId, limparBusca: true });
+        focarRegistroRecemSalvo({ tipo: 'locador', id: criarReferenciaTipadaCliente(novoId), limparBusca: true });
     }
     sincronizar('salvar');
 
@@ -211,17 +211,19 @@ function salvarLocador() {
 }
 
 function abrirEditarLocador(id) {
-    const c = locadores.find((x) => String(x.id) === String(id));
+    const resolucao = resolverClientePorReferenciaTipada(locadores, id);
+    const c = resolucao.encontrado ? resolucao.cliente : null;
     if (!c) return;
 
-    document.getElementById('editLocId').value = c.id;
+    document.getElementById('editLocId').value = criarReferenciaTipadaCliente(c.id);
     preencherFormularioCliente('editLoc', c);
     document.getElementById('modalEditarLocador').classList.add('active');
 }
 
 function salvarEdicaoLocador() {
-    const id = document.getElementById('editLocId').value;
-    const c = locadores.find((x) => String(x.id) === String(id));
+    const referencia = document.getElementById('editLocId').value;
+    const resolucao = resolverClientePorReferenciaTipada(locadores, referencia);
+    const c = resolucao.encontrado ? resolucao.cliente : null;
     if (!c) return;
 
     const dados = obterDadosClienteFormulario('editLoc');
@@ -245,7 +247,7 @@ function salvarEdicaoLocador() {
             telefone,
             documento
         },
-        id
+        c.id
     );
     if (duplicado) {
         mostrarToast(`Já existe cliente parecido: ${duplicado.nome}.`, 'erro');
@@ -258,7 +260,7 @@ function salvarEdicaoLocador() {
     salvarLocal();
     renderTudo();
     if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'locador', id: c.id, limparBusca: true });
+        focarRegistroRecemSalvo({ tipo: 'locador', id: criarReferenciaTipadaCliente(c.id), limparBusca: true });
     }
     sincronizar('salvar');
 

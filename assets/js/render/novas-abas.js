@@ -111,7 +111,9 @@
     }
 
     function obterNomeCliente(locadorId) {
-        return (Array.isArray(locadores) ? locadores : []).find((item) => String(item.id) === String(locadorId))?.nome || 'Removido';
+        const resultado = resolverClientePorIdExato(locadores, locadorId);
+        if (resultado.encontrado) return resultado.cliente.nome || 'Removido';
+        return resultado.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Removido';
     }
 
     function inferirStatusFluxo(locacaoNormalizada) {

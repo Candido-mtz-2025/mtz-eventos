@@ -101,11 +101,6 @@ function renderLocacoes() {
         .toLowerCase();
     const termo = normalizar(termoRaw);
 
-    // Evita buscas repetidas em locadores.find(...) para cada linha.
-    const mapaLocadoresPorId = new Map(
-        (Array.isArray(locadores) ? locadores : []).map((locador) => [String(locador.id), locador])
-    );
-
     atualizarFiltroVisualLocacoes();
     atualizarResumoVisualLocacoes();
     
@@ -127,7 +122,10 @@ function renderLocacoes() {
                 if (div <= 0) div = 1;
                 return total / div;
             })();
-        const clienteNome = mapaLocadoresPorId.get(String(l.locadorId))?.nome || 'Removido';
+        const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+        const clienteNome = clienteResolvido.encontrado
+            ? clienteResolvido.cliente.nome
+            : (clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Removido');
         const pago = typeof normalizada?.pago === 'boolean'
             ? normalizada.pago
             : Boolean(l.pago);

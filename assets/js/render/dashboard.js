@@ -364,7 +364,10 @@ function renderStats() {
         const locacaoNormalizada = typeof normalizarLocacaoDominio === 'function'
             ? normalizarLocacaoDominio(locacao, { hoje })
             : locacao;
-        const cliente = locadores.find((c) => c.id === locacao.locadorId)?.nome || 'Cliente removido';
+        const clienteResolvido = resolverClientePorIdExato(locadores, locacao.locadorId);
+        const cliente = clienteResolvido.encontrado
+            ? (clienteResolvido.cliente.nome || 'Cliente removido')
+            : (clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Cliente removido');
         const previsao = obterDataLocal(locacao.dataDevolucaoPrevisao);
         const diffDias = previsao ? Math.round((previsao - hoje) / 86400000) : null;
         const statusVisual = String(locacaoNormalizada?.statusVisual || locacao.status || '').toLowerCase();

@@ -284,6 +284,84 @@ function sanitizarTexto(valor) {
     return div.innerHTML;
 }
 
+function normalizarIdEntidadeExato(id) {
+    if (typeof id === 'string') {
+        return id.trim() ? { valido: true, tipo: 'string', valor: id } : { valido: false };
+    }
+    if (typeof id === 'number' && Number.isFinite(id)) {
+        // JSON representa -0 como 0; a identidade e a referencia de interface devem concordar.
+        return { valido: true, tipo: 'number', valor: Object.is(id, -0) ? 0 : id };
+    }
+    return { valido: false };
+}
+
+function idsEntidadeExatos(idA, idB) {
+    const a = normalizarIdEntidadeExato(idA);
+    const b = normalizarIdEntidadeExato(idB);
+    return a.valido && b.valido && a.tipo === b.tipo && Object.is(a.valor, b.valor);
+}
+
+function resolverRegistroPorIdExato(colecao, id) {
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido) {
+        return { encontrado: false, estado: 'invalido', codigo: 'ID_INVALIDO', registro: null, quantidade: 0 };
+    }
+
+    const correspondencias = (Array.isArray(colecao) ? colecao : []).filter((registro) => (
+        registro && typeof registro === 'object' && !Array.isArray(registro)
+        && Object.prototype.hasOwnProperty.call(registro, 'id')
+        && idsEntidadeExatos(registro.id, identidade.valor)
+    ));
+    if (correspondencias.length === 1) {
+        return {
+            encontrado: true,
+            estado: 'encontrado',
+            codigo: 'REGISTRO_ENCONTRADO',
+            registro: correspondencias[0],
+            quantidade: 1
+        };
+    }
+    return {
+        encontrado: false,
+        estado: correspondencias.length > 1 ? 'duplicado' : 'ausente',
+        codigo: correspondencias.length > 1 ? 'ID_DUPLICADO' : 'REGISTRO_AUSENTE',
+        registro: null,
+        quantidade: correspondencias.length
+    };
+}
+
+function resolverClientePorIdExato(clientes, id) {
+    const resultado = resolverRegistroPorIdExato(clientes, id);
+    return { ...resultado, cliente: resultado.registro };
+}
+
+function criarReferenciaTipadaCliente(id) {
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido) return '';
+    return `cliente:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}`;
+}
+
+function resolverClientePorReferenciaTipada(clientes, referencia) {
+    if (typeof referencia !== 'string' || !referencia.startsWith('cliente:')) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, cliente: null, quantidade: 0 };
+    }
+    let dados;
+    try {
+        dados = JSON.parse(decodeURIComponent(referencia.slice('cliente:'.length)));
+    } catch (_erro) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, cliente: null, quantidade: 0 };
+    }
+    if (!Array.isArray(dados) || dados.length !== 2) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, cliente: null, quantidade: 0 };
+    }
+    const [tipo, id] = dados;
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido || identidade.tipo !== tipo || criarReferenciaTipadaCliente(id) !== referencia) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, cliente: null, quantidade: 0 };
+    }
+    return resolverClientePorIdExato(clientes, identidade.valor);
+}
+
 function sanitizarImagemURL(valor) {
     const bruto = String(valor || '').trim();
     if (!bruto) return '';
@@ -425,6 +503,12 @@ function atualizarMetaBusca(id, opcoes = {}) {
 
 window.sanitizarTexto = sanitizarTexto;
 window.sanitizarImagemURL = sanitizarImagemURL;
+window.normalizarIdEntidadeExato = normalizarIdEntidadeExato;
+window.idsEntidadeExatos = idsEntidadeExatos;
+window.resolverRegistroPorIdExato = resolverRegistroPorIdExato;
+window.resolverClientePorIdExato = resolverClientePorIdExato;
+window.criarReferenciaTipadaCliente = criarReferenciaTipadaCliente;
+window.resolverClientePorReferenciaTipada = resolverClientePorReferenciaTipada;
 window.criarEstadoUI = criarEstadoUI;
 window.criarEstadoPainel = criarEstadoPainel;
 window.criarLinhaTabelaEstado = criarLinhaTabelaEstado;

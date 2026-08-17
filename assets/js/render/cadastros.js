@@ -64,6 +64,7 @@ function renderLocadores() {
     const fragment = document.createDocumentFragment();
     
     clientesFiltrados.forEach((c) => {
+        const referenciaCliente = criarReferenciaTipadaCliente(c.id);
         const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.nome || '') : (c.nome || '');
         const documento = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.documento || '') : (c.documento || '');
         const email = typeof sanitizarTexto === 'function' ? sanitizarTexto(c.email || '-') : (c.email || '-');
@@ -71,7 +72,7 @@ function renderLocadores() {
         const localidadeBruta = [c.cidade, c.uf].filter(Boolean).join(' / ');
         const localidade = typeof sanitizarTexto === 'function' ? sanitizarTexto(localidadeBruta) : localidadeBruta;
         const tr = document.createElement('tr');
-        tr.setAttribute('data-locador-id', String(c.id));
+        tr.setAttribute('data-locador-id', referenciaCliente);
         tr.innerHTML = `
             <td>
                 <div class="table-cell-title">${nome}</div>
@@ -81,13 +82,13 @@ function renderLocadores() {
             <td>${telefone}</td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-info table-action-btn" title="Editar cliente" aria-label="Editar cliente" data-action="abrirEditarLocador" data-arg="${c.id}">
+                    <button class="btn btn-sm btn-info table-action-btn" title="Editar cliente" aria-label="Editar cliente" data-action="abrirEditarLocador" data-arg="${referenciaCliente}">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm btn-warning table-action-btn" title="Gerar relatório anual" aria-label="Gerar relatório anual" data-action="gerarRelatorioAnual" data-arg="${c.id}">
+                    <button class="btn btn-sm btn-warning table-action-btn" title="Gerar relatório anual" aria-label="Gerar relatório anual" data-action="gerarRelatorioAnual" data-arg="${referenciaCliente}">
                         <i class="bi bi-file-text"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger table-action-btn" title="Excluir cliente" aria-label="Excluir cliente" data-acesso="admin" data-action="removerItem" data-arg="locadores" data-arg2="${c.id}">
+                    <button class="btn btn-sm btn-danger table-action-btn" title="Excluir cliente" aria-label="Excluir cliente" data-acesso="admin" data-action="removerItem" data-arg="locadores" data-arg2="${referenciaCliente}">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -210,10 +211,15 @@ function renderTipos() {
     function updateSelects() { 
         // 1. Clientes
         const c = document.getElementById('aluguelCliente');
-        if(c) c.innerHTML='<option value="">Selecione...</option>'+locadores.map((x) => {
-            const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');
-            return `<option value="${x.id}">${nome}</option>`;
-        }).join(''); 
+        if (c) {
+            const opcoesClientes = (Array.isArray(locadores) ? locadores : []).map((cliente) => {
+                const referencia = criarReferenciaTipadaCliente(cliente?.id);
+                if (!referencia) return '';
+                const nomeSeguro = escaparHTML(String(cliente?.nome || ''));
+                return `<option value="${referencia}">${nomeSeguro}</option>`;
+            }).join('');
+            c.innerHTML = `<option value="">Selecione...</option>${opcoesClientes}`;
+        }
         
         // 2. PEÇAS: REMOVIDO! (Agora usamos busca inteligente)
         
@@ -235,7 +241,10 @@ function renderTipos() {
                         : getQtdPendenteItem(item) > 0
                 ));
         }).map((l) => {
-            const nomeBruto = locadores.find((x) => x.id == l.locadorId)?.nome || 'Cliente';
+            const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+            const nomeBruto = clienteResolvido.encontrado
+                ? (clienteResolvido.cliente.nome || 'Cliente')
+                : (clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Cliente removido');
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(nomeBruto) : nomeBruto;
             return `<option value="${l.id}">#${l.id.toString().slice(-4)} - ${nome}</option>`;
         }).join(''); 

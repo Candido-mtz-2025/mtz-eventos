@@ -34,6 +34,39 @@
     const TEXTO_PADRAO_OBS_PAGAMENTO = '50% na aprovacao e 50% na montagem/desmontagem, conforme alinhamento comercial.';
     const TEXTO_PADRAO_INCLUSO = 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.';
     const TEXTO_PADRAO_NAO_INCLUSO = 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.';
+    // Estes campos nascem do cadastro; ao serem editados, passam a representar um cliente manual.
+    // Classificacao e incidencia fiscal, evento e condicoes comerciais pertencem a proposta.
+    const CAMPOS_DERIVADOS_CLIENTE_PROPOSTA = Object.freeze([
+        { id: 'propClienteNome', tipo: 'valor' },
+        { id: 'propClienteDocumento', tipo: 'valor' },
+        { id: 'propClienteTelefone', tipo: 'valor' },
+        { id: 'propClienteEmail', tipo: 'valor' },
+        { id: 'propClienteCep', tipo: 'valor' },
+        { id: 'propClienteRua', tipo: 'valor' },
+        { id: 'propClienteNumero', tipo: 'valor' },
+        { id: 'propClienteComplemento', tipo: 'valor' },
+        { id: 'propClienteBairro', tipo: 'valor' },
+        { id: 'propClienteCidade', tipo: 'valor' },
+        { id: 'propClienteUf', tipo: 'valor' },
+        { id: 'propClienteEndereco', tipo: 'valor' },
+        { id: 'propClientePrecisaNf', tipo: 'checked' },
+        { id: 'propFiscalRazaoSocial', tipo: 'valor' },
+        { id: 'propFiscalNomeFantasia', tipo: 'valor' },
+        { id: 'propFiscalCpfCnpj', tipo: 'valor' },
+        { id: 'propFiscalIE', tipo: 'valor' },
+        { id: 'propFiscalIM', tipo: 'valor' },
+        { id: 'propFiscalEndereco', tipo: 'valor' },
+        { id: 'propFiscalCidade', tipo: 'valor' },
+        { id: 'propFiscalUF', tipo: 'valor' },
+        { id: 'propFiscalCEP', tipo: 'valor' },
+        { id: 'propFiscalEmail', tipo: 'valor' },
+        { id: 'propFiscalContatoFinanceiro', tipo: 'valor' },
+        { id: 'propFiscalUsarEnderecoCliente', tipo: 'checked' }
+    ]);
+    const IDS_CAMPOS_DERIVADOS_CLIENTE_PROPOSTA = new Set(
+        CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.map((campo) => campo.id)
+    );
+    let estadoVinculoClienteProposta = null;
     const CATEGORIA_ITEM_PROPOSTA_PADRAO = 'outros';
     const CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME = 'Outros';
     const CATEGORIA_MAO_OBRA_PROPOSTA = 'mao-de-obra';
@@ -5267,7 +5300,8 @@
         const fiscalOrigem = origem.dadosFiscais && typeof origem.dadosFiscais === 'object'
             ? origem.dadosFiscais
             : {};
-        const id = textoSeguro(origem.id ?? origem.clienteId, '');
+        const idOrigem = origem.id ?? origem.clienteId;
+        const id = normalizarIdEntidadeExato(idOrigem).valido ? idOrigem : '';
         const nome = textoSeguro(origem.nome ?? origem.nomeEmpresa ?? origem.nomeFantasia, '');
         const documento = textoSeguro(origem.documento ?? origem.cpfCnpj ?? fiscalOrigem.cpfCnpj, '');
         const telefone = textoSeguro(origem.telefone ?? origem.whatsapp, '');
@@ -5350,31 +5384,16 @@
     }
 
     function obterClienteCadastradoProposta(id) {
-        if (!id || !Array.isArray(locadores)) return null;
-        return locadores.find((cliente) => String(cliente.id) === String(id)) || null;
+        if (!Array.isArray(locadores)) return null;
+        const resultado = typeof id === 'string' && id.startsWith('cliente:')
+            ? resolverClientePorReferenciaTipada(locadores, id)
+            : resolverClientePorIdExato(locadores, id);
+        return resultado.encontrado ? resultado.cliente : null;
     }
 
-    function renderizarSelectClientesProposta(clienteIdAtual = '') {
-        const select = document.getElementById('propClienteCadastrado');
-        if (!select) return;
-
-        const valorAtual = textoSeguro(clienteIdAtual || document.getElementById('propClienteId')?.value || select.value, '');
-        const opcoes = (Array.isArray(locadores) ? locadores : []).map((cliente) => {
-            const nome = sanitizar(textoSeguro(cliente?.nome, 'Cliente sem nome'));
-            const documento = textoSeguro(cliente?.documento, '');
-            const complemento = documento ? ` - ${sanitizar(documento)}` : '';
-            return `<option value="${sanitizar(cliente.id)}">${nome}${complemento}</option>`;
-        }).join('');
-
-        select.innerHTML = `<option value="">Selecione um cliente...</option>${opcoes}`;
-        if (valorAtual) select.value = valorAtual;
-    }
-
-    function preencherClientePropostaPorCadastro(cliente) {
+    function obterMapaCamposClienteProposta(cliente) {
         const c = montarClientePropostaNormalizado(cliente || {});
-        const mapa = {
-            propClienteId: c.id,
-            propClienteCadastrado: c.id,
+        return {
             propClienteNome: c.nome,
             propClienteDocumento: c.documento,
             propClienteTelefone: c.telefone,
@@ -5387,6 +5406,8 @@
             propClienteCidade: c.cidade,
             propClienteUf: c.uf,
             propClienteEndereco: c.endereco,
+            propClientePrecisaNf: c.precisaNotaFiscal
+                || Boolean(c.cpfCnpj || c.razaoSocial || c.inscricaoEstadual || c.inscricaoMunicipal),
             propFiscalRazaoSocial: c.razaoSocial,
             propFiscalNomeFantasia: c.nomeFantasia,
             propFiscalCpfCnpj: c.cpfCnpj,
@@ -5397,39 +5418,189 @@
             propFiscalUF: c.ufFiscal,
             propFiscalCEP: c.cepFiscal,
             propFiscalEmail: c.emailFiscal,
-            propFiscalContatoFinanceiro: c.contatoFinanceiro
+            propFiscalContatoFinanceiro: c.contatoFinanceiro,
+            propFiscalUsarEnderecoCliente: c.dadosFiscais?.usarMesmoEnderecoCliente === true
         };
+    }
 
-        Object.entries(mapa).forEach(([id, valor]) => {
-            const el = document.getElementById(id);
-            if (el) el.value = valor ?? '';
+    function lerCamposVinculoClienteProposta() {
+        return Object.fromEntries(CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.map((campo) => [
+            campo.id,
+            campo.tipo === 'checked'
+                ? document.getElementById(campo.id)?.checked === true
+                : document.getElementById(campo.id)?.value ?? ''
+        ]));
+    }
+
+    function aplicarCamposVinculoClienteProposta(valores) {
+        CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.forEach((configuracao) => {
+            const campo = document.getElementById(configuracao.id);
+            if (!campo) return;
+            if (configuracao.tipo === 'checked') {
+                campo.checked = valores?.[configuracao.id] === true;
+            } else {
+                campo.value = valores?.[configuracao.id] ?? '';
+            }
         });
-        const precisaNfEl = document.getElementById('propClientePrecisaNf');
-        if (precisaNfEl) {
-            precisaNfEl.checked = c.precisaNotaFiscal || Boolean(c.cpfCnpj || c.razaoSocial || c.inscricaoEstadual || c.inscricaoMunicipal);
-        }
-        const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
-        if (usarEnderecoFiscalEl) usarEnderecoFiscalEl.checked = c.dadosFiscais?.usarMesmoEnderecoCliente === true;
+    }
 
-        atualizarAvisoClienteCadastroProposta(Boolean(c.id));
+    function registrarEstadoVinculoClienteProposta(referencia) {
+        estadoVinculoClienteProposta = referencia
+            ? { referencia, campos: lerCamposVinculoClienteProposta() }
+            : null;
+    }
+
+    function limparVinculoClienteProposta(opcoes = {}) {
+        const select = document.getElementById('propClienteCadastrado');
+        const idEl = document.getElementById('propClienteId');
+        if (select) select.value = '';
+        if (idEl) idEl.value = '';
+        estadoVinculoClienteProposta = null;
+        if (opcoes.limparCampos !== false) {
+            aplicarCamposVinculoClienteProposta({});
+            sincronizarFiscalClienteProposta();
+        }
+        atualizarAvisoClienteCadastroProposta(false);
+        atualizarExperienciaGuiadaProposta();
+    }
+
+    function sincronizarVinculoClienteProposta(referenciaPreferida, opcoes = {}) {
+        const select = document.getElementById('propClienteCadastrado');
+        const idEl = document.getElementById('propClienteId');
+        const referencia = referenciaPreferida === undefined
+            ? (idEl?.value || select?.value || '')
+            : referenciaPreferida;
+
+        if (!referencia) {
+            if (select) select.value = '';
+            if (idEl) idEl.value = '';
+            estadoVinculoClienteProposta = null;
+            if (opcoes.limparSemReferencia === true) limparVinculoClienteProposta();
+            return { valido: true, estado: 'manual', cliente: null, referencia: '' };
+        }
+
+        const resultado = resolverClientePorReferenciaTipada(locadores, referencia);
+        if (!resultado.encontrado) {
+            limparVinculoClienteProposta({ limparCampos: opcoes.limparInvalido !== false });
+            return { valido: false, estado: resultado.estado, cliente: null, referencia: '' };
+        }
+
+        const referenciaCanonica = criarReferenciaTipadaCliente(resultado.cliente.id);
+        if (select) select.value = referenciaCanonica;
+        if (idEl) idEl.value = referenciaCanonica;
+        if (opcoes.aplicarCadastro === true) {
+            aplicarCamposVinculoClienteProposta(obterMapaCamposClienteProposta(resultado.cliente));
+        }
+        registrarEstadoVinculoClienteProposta(referenciaCanonica);
+        atualizarAvisoClienteCadastroProposta(true);
+        return { valido: true, estado: 'encontrado', cliente: resultado.cliente, referencia: referenciaCanonica };
+    }
+
+    function renderizarSelectClientesProposta(clienteIdAtual) {
+        const select = document.getElementById('propClienteCadastrado');
+        if (!select) return;
+
+        const idEl = document.getElementById('propClienteId');
+        const origemAtual = clienteIdAtual === undefined
+            ? (idEl?.value || select.value || '')
+            : clienteIdAtual;
+        const opcoes = (Array.isArray(locadores) ? locadores : []).map((cliente) => {
+            const referencia = criarReferenciaTipadaCliente(cliente?.id);
+            if (!referencia) return '';
+            const nome = sanitizar(textoSeguro(cliente?.nome, 'Cliente sem nome'));
+            const documento = textoSeguro(cliente?.documento, '');
+            const complemento = documento ? ` - ${sanitizar(documento)}` : '';
+            return `<option value="${referencia}">${nome}${complemento}</option>`;
+        }).join('');
+
+        select.innerHTML = `<option value="">Selecione um cliente...</option>${opcoes}`;
+        sincronizarVinculoClienteProposta(origemAtual, {
+            aplicarCadastro: false,
+            limparInvalido: true,
+            limparSemReferencia: false
+        });
+    }
+
+    function preencherClientePropostaPorCadastro(cliente) {
+        const c = montarClientePropostaNormalizado(cliente || {});
+        const referenciaCliente = criarReferenciaTipadaCliente(c.id);
+        if (!referenciaCliente) {
+            limparVinculoClienteProposta();
+            return;
+        }
+        aplicarCamposVinculoClienteProposta(obterMapaCamposClienteProposta(c));
         sincronizarFiscalClienteProposta();
+        sincronizarVinculoClienteProposta(referenciaCliente, { aplicarCadastro: false });
         atualizarExperienciaGuiadaProposta();
     }
 
     function selecionarClienteProposta() {
         const select = document.getElementById('propClienteCadastrado');
-        const cliente = obterClienteCadastradoProposta(select?.value);
-        const idEl = document.getElementById('propClienteId');
-
-        if (!cliente) {
-            if (idEl) idEl.value = '';
-            atualizarAvisoClienteCadastroProposta(false);
-            atualizarExperienciaGuiadaProposta();
+        const referencia = select?.value || '';
+        if (!referencia) {
+            limparVinculoClienteProposta();
             return;
         }
 
-        preencherClientePropostaPorCadastro(cliente);
-        mostrarToast(`Dados de ${cliente.nome || 'cliente'} carregados.`);
+        const resultado = resolverClientePorReferenciaTipada(locadores, referencia);
+        if (!resultado.encontrado) {
+            limparVinculoClienteProposta();
+            mostrarToast(resultado.estado === 'duplicado'
+                ? 'O cliente selecionado possui um identificador duplicado. Revise o cadastro.'
+                : 'O cliente selecionado não está mais disponível. Selecione outro cliente.', 'erro');
+            return;
+        }
+
+        preencherClientePropostaPorCadastro(resultado.cliente);
+        mostrarToast(`Dados de ${resultado.cliente.nome || 'cliente'} carregados.`);
+    }
+
+    function validarVinculoClientePropostaAntesSalvar() {
+        const select = document.getElementById('propClienteCadastrado');
+        const idEl = document.getElementById('propClienteId');
+        const referenciaVisual = select?.value || '';
+        const referenciaInterna = idEl?.value || '';
+
+        if (!referenciaVisual && !referenciaInterna) return true;
+        if (!referenciaVisual || !referenciaInterna || referenciaVisual !== referenciaInterna) {
+            limparVinculoClienteProposta();
+            mostrarToast('O cliente visível não corresponde ao vínculo interno. Selecione o cliente novamente.', 'erro', 6500);
+            focarPropostaSemRolagem(select);
+            return false;
+        }
+
+        const resultado = resolverClientePorReferenciaTipada(locadores, referenciaInterna);
+        if (!resultado.encontrado) {
+            limparVinculoClienteProposta();
+            mostrarToast(resultado.estado === 'duplicado'
+                ? 'O cliente vinculado possui um identificador duplicado. Revise o cadastro antes de salvar.'
+                : 'O cliente vinculado não existe mais. Selecione outro cliente antes de salvar.', 'erro', 6500);
+            focarPropostaSemRolagem(select);
+            return false;
+        }
+
+        const referenciaCanonica = criarReferenciaTipadaCliente(resultado.cliente.id);
+        if (!estadoVinculoClienteProposta || estadoVinculoClienteProposta.referencia !== referenciaCanonica) {
+            limparVinculoClienteProposta();
+            mostrarToast('Não foi possível confirmar a origem dos dados do cliente. Selecione o cliente novamente.', 'erro', 6500);
+            focarPropostaSemRolagem(select);
+            return false;
+        }
+
+        const camposAtuais = lerCamposVinculoClienteProposta();
+        const divergente = CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.some(({ id }) => (
+            camposAtuais[id] !== estadoVinculoClienteProposta.campos[id]
+        ));
+        if (divergente) {
+            limparVinculoClienteProposta({ limparCampos: false });
+            mostrarToast('Os dados alterados foram mantidos como cliente manual. Revise-os antes de salvar novamente.', 'erro', 6500);
+            focarPropostaSemRolagem(select);
+            return false;
+        }
+
+        if (select) select.value = referenciaCanonica;
+        if (idEl) idEl.value = referenciaCanonica;
+        return true;
     }
 
     function irParaClientesCadastro() {
@@ -5671,17 +5842,15 @@
             observacoesComerciais: textoSeguro(escopoOrig.observacoesComerciais, escopoPadrao.observacoesComerciais)
         };
 
-        const clienteId = textoSeguro(
-            proposta.clienteId ?? proposta.cliente?.clienteId ?? proposta.cliente?.id ?? proposta.locadorId,
-            ''
-        );
+        const clienteIdOrigem = proposta.clienteId ?? proposta.cliente?.clienteId ?? proposta.cliente?.id ?? proposta.locadorId;
+        const clienteId = normalizarIdEntidadeExato(clienteIdOrigem).valido ? clienteIdOrigem : '';
         const clienteOrigem = proposta.cliente && Object.keys(proposta.cliente || {}).length
             ? proposta.cliente
             : (proposta.clienteSnapshot || {});
         const cliente = montarClientePropostaNormalizado({
             ...clienteOrigem,
-            id: clienteOrigem.id || clienteId,
-            clienteId: clienteOrigem.clienteId || clienteId,
+            id: clienteOrigem.id ?? clienteId,
+            clienteId: clienteOrigem.clienteId ?? clienteId,
             clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal
         });
         const clienteSnapshot = montarClienteSnapshotProposta(proposta.clienteSnapshot || cliente);
@@ -5912,6 +6081,9 @@
     }
 
     function coletarDadosFormulario(validar = true) {
+        if (validar && !validarVinculoClientePropostaAntesSalvar()) {
+            return null;
+        }
         if (validar && !validarQuantidadesMistasProposta({ exibirMensagem: true, focar: true })) {
             return null;
         }
@@ -5929,7 +6101,10 @@
         const percentualNF = parsePercentualInput('propPercentualNF', 0, 99.99);
         const tipoCalculoNF = normalizarTipoCalculoNF(document.getElementById('propTipoCalculoNF')?.value, 'descontar');
         const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
-        const clienteId = textoSeguro(document.getElementById('propClienteId')?.value || document.getElementById('propClienteCadastrado')?.value);
+        const referenciaCliente = document.getElementById('propClienteId')?.value
+            || document.getElementById('propClienteCadastrado')?.value;
+        const clienteCadastrado = obterClienteCadastradoProposta(referenciaCliente);
+        const clienteId = clienteCadastrado?.id ?? '';
         const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
 
         const resumo = calcularResumoProposta({
@@ -6130,6 +6305,8 @@
     function preencherFormularioComProposta(proposta) {
         const p = normalizarProposta(proposta);
         renderizarSelectClientesProposta(p.clienteId);
+        const clienteCadastrado = obterClienteCadastradoProposta(p.clienteId);
+        const referenciaCliente = clienteCadastrado ? criarReferenciaTipadaCliente(clienteCadastrado.id) : '';
         const mapa = {
             propostaIdAtual: p.id,
             propCodigo: p.codigo,
@@ -6137,8 +6314,8 @@
             propResponsavel: p.responsavelProposta,
             propValidadeDias: p.financeiro.validadePropostaDias,
             propValidadeData: p.financeiro.validadePropostaData,
-            propClienteId: p.clienteId,
-            propClienteCadastrado: p.clienteId,
+            propClienteId: referenciaCliente,
+            propClienteCadastrado: referenciaCliente,
             propClienteNome: p.cliente.nome,
             propClienteDocumento: p.cliente.documento,
             propClienteTelefone: p.cliente.telefone,
@@ -6245,8 +6422,9 @@
         if (precisaNfEl) precisaNfEl.checked = p.clientePrecisaNotaFiscal === true || p.cliente.precisaNotaFiscal === true;
         const usarEnderecoFiscalEl = document.getElementById('propFiscalUsarEnderecoCliente');
         if (usarEnderecoFiscalEl) usarEnderecoFiscalEl.checked = p.cliente.dadosFiscais?.usarMesmoEnderecoCliente === true;
-        atualizarAvisoClienteCadastroProposta(Boolean(p.clienteId));
         sincronizarFiscalClienteProposta();
+        registrarEstadoVinculoClienteProposta(referenciaCliente);
+        atualizarAvisoClienteCadastroProposta(Boolean(referenciaCliente));
 
         renderLinhasItensProposta(p.itens);
         sincronizarValidadePorData();
@@ -6795,7 +6973,9 @@
     }
 
     function encontrarOuCriarClienteDaProposta(proposta) {
-        const clienteVinculado = obterClienteCadastradoProposta(proposta?.clienteId || proposta?.cliente?.id || proposta?.cliente?.clienteId);
+        const clienteVinculado = obterClienteCadastradoProposta(
+            proposta?.clienteId ?? proposta?.cliente?.id ?? proposta?.cliente?.clienteId
+        );
         if (clienteVinculado) return clienteVinculado;
 
         const clienteProposta = montarClientePropostaNormalizado(proposta?.clienteSnapshot || proposta?.cliente || {});
@@ -7156,7 +7336,7 @@
                 convertidoPor: responsavelConversao
             },
             locadorId: cliente.id,
-            clienteId: textoSeguro(proposta.clienteId || clienteSnapshot.id || cliente.id),
+            clienteId: cliente.id,
             clienteSnapshot,
             cliente: clonarDadosConversaoProposta(clienteSnapshot, {}),
             dadosFiscaisCliente: clonarDadosConversaoProposta(
@@ -9456,7 +9636,12 @@
 
         document.addEventListener('input', (event) => {
             const campoCliente = event.target?.closest?.('#tab-propostas [data-proposta-grupo="cliente"] input, #tab-propostas [data-proposta-grupo="cliente"] textarea');
-            if (!campoCliente || campoCliente !== event.target) return;
+            const campoVinculado = event.target instanceof HTMLElement
+                && IDS_CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.has(event.target.id);
+            if ((!campoCliente || campoCliente !== event.target) && !campoVinculado) return;
+            if (campoVinculado && document.getElementById('propClienteId')?.value) {
+                limparVinculoClienteProposta({ limparCampos: false });
+            }
             window.__mtzPropostaResumoPendente = true;
         });
 
@@ -9507,6 +9692,9 @@
             const precisaNf = event.target?.closest?.('#tab-propostas #propClientePrecisaNf');
             const usarEndereco = event.target?.closest?.('#tab-propostas #propFiscalUsarEnderecoCliente');
             if ((!precisaNf || precisaNf !== event.target) && (!usarEndereco || usarEndereco !== event.target)) return;
+            if (document.getElementById('propClienteId')?.value) {
+                limparVinculoClienteProposta({ limparCampos: false });
+            }
             sincronizarFiscalClienteProposta();
             executarPropostaMantendoScroll(() => atualizarExperienciaGuiadaProposta(), event.target);
         });

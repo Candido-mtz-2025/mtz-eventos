@@ -307,7 +307,8 @@ function carregarItensDevolucao() {
     const submissaoId = obterSubmissaoDevolucao(l.id);
     div.dataset.devolucaoSubmissaoId = submissaoId;
 
-    const cliente = locadores.find(x => x.id === l.locadorId);
+    const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+    const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
     const itensPendentes = (l.items || [])
         .map((item, itemIndex) => ({ item, itemIndex }))
         .filter(({ item }) => getQtdPendenteItem(item) > 0);
@@ -641,7 +642,8 @@ function confirmarDevolucao() {
             }
             sincronizar('salvar');
 
-            const cliente = locadores.find(x => x.id === l.locadorId);
+            const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+            const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
             registrarLog('devolucao', devolucaoTotal ? 'criar' : 'parcial', `Devolução ${devolucaoTotal ? 'total' : 'parcial'}: ${cliente?.nome || 'Cliente'} - ${itensDevolvidos.length} item(ns)`);
             mostrarToast(devolucaoTotal ? 'Devolução total registrada!' : 'Devolução parcial registrada!');
         } catch (erro) {

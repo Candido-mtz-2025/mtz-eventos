@@ -72,7 +72,10 @@ function prepararModalRelatorio(id, titulo) {
     const l = locacoes.find(x => x.id === id);
     if (!l) return;
 
-    const c = locadores.find(x => x.id === l.locadorId) || { nome: 'Removido', email: '-', telefone: '-' };
+    const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+    const c = clienteResolvido.encontrado
+        ? clienteResolvido.cliente
+        : { nome: clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Removido', email: '-', telefone: '-' };
     const isRomaneio = titulo.includes('ROMANEIO');
 
     let totalItens = 0;
@@ -211,7 +214,10 @@ function gerarReciboDevolucao(devolucaoId) {
     if (!d) return mostrarToast('Devolução não encontrada.', 'erro');
 
     const l = locacoes.find(x => x.id === d.locacaoId);
-    const c = locadores.find(x => x.id === (l ? l.locadorId : 0)) || { nome: 'Removido', telefone: '-' };
+    const clienteResolvido = resolverClientePorIdExato(locadores, l?.locadorId);
+    const c = clienteResolvido.encontrado
+        ? clienteResolvido.cliente
+        : { nome: clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Removido', telefone: '-' };
     const itens = Array.isArray(d.itens) && d.itens.length ? d.itens : (l?.items || []).map(item => ({
         nome: item.nome,
         quantidadeDevolvida: item.quantidade,
@@ -298,11 +304,12 @@ function gerarRelatorio(id) {
     prepararModalRelatorio(id, 'CONTRATO DE LOCAÇÃO');
 }
 
-function gerarRelatorioAnual(clienteId) {
-    const c = locadores.find(x => x.id === clienteId);
+function gerarRelatorioAnual(clienteReferencia) {
+    const clienteResolvido = resolverClientePorReferenciaTipada(locadores, clienteReferencia);
+    const c = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
     if (!c) return;
 
-    const historico = locacoes.filter(l => l.locadorId === clienteId);
+    const historico = locacoes.filter((l) => idsEntidadeExatos(l.locadorId, c.id));
     let somaItens = 0;
     let somaFinal = 0;
 

@@ -228,7 +228,7 @@ function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
         itens: itensPersistidos,
         conferencia: conferenciaPersistida,
         origemSnapshot: checklistAnterior.origemSnapshot || {
-            clienteId: locacao.clienteId || locacao.locadorId || '',
+            clienteId: locacao.clienteId ?? locacao.locadorId ?? '',
             cliente: clonarDadoChecklist(locacao.clienteSnapshot || locacao.cliente || {}, {}),
             dadosFiscais: clonarDadoChecklist(locacao.dadosFiscaisCliente || {}, {}),
             evento: clonarDadoChecklist(locacao.evento || {
@@ -261,9 +261,8 @@ function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
 }
 
 function preencherCabecalhoChecklistDaLocacao(locacao, dadosPersistidos = null) {
-    const cliente = Array.isArray(locadores)
-        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
-        : null;
+    const clienteResolvido = resolverClientePorIdExato(locadores, locacao.locadorId);
+    const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
     const dados = dadosPersistidos && typeof dadosPersistidos === 'object' ? dadosPersistidos : {};
     const cidadeUf = [locacao.cidadeEvento || locacao.evento?.cidadeEvento, locacao.ufEvento || locacao.evento?.ufEvento]
         .filter(Boolean)
@@ -498,9 +497,8 @@ function mostrarChecklistDaLocacao(locacao, mensagem) {
 }
 
 function preencherChecklistComLocacao(locacao, itens) {
-    const cliente = Array.isArray(locadores)
-        ? locadores.find((item) => String(item.id) === String(locacao.locadorId))
-        : null;
+    const clienteResolvido = resolverClientePorIdExato(locadores, locacao.locadorId);
+    const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
     const jaExistia = Boolean(locacao.checklist?.idChecklist || locacao.checklist?.criadoEm);
 
     checklistMontagem = itens.map((item) => criarItemChecklistDaLocacao(item, locacao));

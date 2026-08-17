@@ -2,7 +2,8 @@
     function enviarZap(id) {
         const l = locacoes.find(x => x.id === id);
         if(!l) return;
-        const c = locadores.find(x => x.id === l.locadorId);
+        const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
+        const c = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
         
         if (!c || !c.telefone) {
             return mostrarToast("Cliente sem telefone cadastrado!", "erro");

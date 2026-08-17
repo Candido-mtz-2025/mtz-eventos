@@ -6,8 +6,15 @@ function removerItem(t, id) {
 
         confirmarAcao("Tem certeza que deseja excluir este registro?", () => {
             if(t === 'locadores') {
-                const item = locadores.find(x => x.id == id);
-                locadores = locadores.filter(x => x.id !== id);
+                const resolucao = resolverClientePorReferenciaTipada(locadores, id);
+                const item = resolucao.encontrado ? resolucao.cliente : null;
+                if (!item) {
+                    mostrarToast(resolucao.estado === 'duplicado'
+                        ? 'O cadastro possui um identificador duplicado e não pode ser excluído por esta ação.'
+                        : 'Cliente não encontrado.', 'erro');
+                    return;
+                }
+                locadores = locadores.filter((cliente) => cliente !== item);
                 registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
             }
             if(t === 'pecas') {

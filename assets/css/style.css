@@ -23979,6 +23979,93 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
     background: var(--surface, var(--card-bg));
 }
 
+.edit-locacao-review[hidden],
+.edit-locacao-footer[hidden],
+#editLocacaoEditor[hidden] {
+    display: none !important;
+}
+
+.edit-locacao-review {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-subtle, transparent);
+}
+
+.edit-locacao-review-heading,
+.edit-locacao-review-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.edit-locacao-review-heading {
+    align-items: start;
+}
+
+.edit-locacao-review-summary {
+    justify-self: end;
+    max-width: 420px;
+    text-align: right;
+}
+
+.edit-locacao-review-grid article {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface, var(--card-bg));
+}
+
+.edit-locacao-change-list,
+.edit-locacao-review-alerts ul {
+    display: grid;
+    gap: 9px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.edit-locacao-change-list li {
+    display: grid;
+    gap: 3px;
+    overflow-wrap: anywhere;
+}
+
+.edit-locacao-change-list li span {
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.edit-locacao-review-alerts {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.edit-locacao-review-alerts.has-warnings {
+    border-color: var(--warning, #b7791f);
+    background: color-mix(in srgb, var(--warning, #b7791f) 10%, transparent);
+}
+
+.edit-locacao-validation {
+    min-height: 1.35em;
+    margin: 12px 0 0;
+    color: var(--danger, #b42318);
+    font-size: .86rem;
+    font-weight: 650;
+}
+
+.edit-locacao-modal[aria-busy="true"] .modal-content {
+    cursor: progress;
+}
+
+.edit-locacao-modal [aria-invalid="true"] {
+    border-color: var(--danger, #b42318) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #b42318) 18%, transparent) !important;
+}
+
 @media (max-width: 700px) {
     .edit-locacao-modal {
         align-items: flex-end;
@@ -24004,5 +24091,15 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
     .edit-locacao-add-item select {
         min-width: 0;
         width: 100%;
+    }
+
+    .edit-locacao-review-heading,
+    .edit-locacao-review-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .edit-locacao-review-summary {
+        justify-self: start;
+        text-align: left;
     }
 }

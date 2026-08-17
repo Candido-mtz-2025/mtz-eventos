@@ -65,8 +65,8 @@
     function obterClientePorLocacao(locacao) {
         if (!locacao) return null;
         const idCliente = locacao.locadorId ?? locacao.clienteId;
-        if (!Array.isArray(locadores)) return null;
-        return locadores.find((cliente) => String(cliente.id) === String(idCliente)) || null;
+        const resultado = resolverClientePorIdExato(locadores, idCliente);
+        return resultado.encontrado ? resultado.cliente : null;
     }
 
     function obterNomeClienteLocacao(locacao) {
