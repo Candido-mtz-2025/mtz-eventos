@@ -2083,28 +2083,53 @@ function abrirSuporteSistema() {
 }
 
 function irParaLocacaoPorCodigo(locacaoId) {
-    const idNormalizado = String(locacaoId ?? '').replace(/[^\d]/g, '');
-    if (!idNormalizado) {
+    const valorRecebido = locacaoId;
+    let resultadoLocacao = null;
+    if (typeof valorRecebido === 'string' && valorRecebido.startsWith('locacao:')
+        && typeof resolverLocacaoPorReferenciaTipada === 'function') {
+        resultadoLocacao = resolverLocacaoPorReferenciaTipada(valorRecebido, locacoes);
+    } else if (typeof resolverLocacaoPorIdExato === 'function') {
+        const textoLegado = String(valorRecebido ?? '').trim();
+        const candidatosLegados = (Array.isArray(locacoes) ? locacoes : []).filter((locacao) => (
+            normalizarIdEntidadeExato(locacao?.id).valido
+            && String(locacao.id) === textoLegado
+        ));
+        resultadoLocacao = candidatosLegados.length === 1
+            ? resolverLocacaoPorIdExato(candidatosLegados[0].id, locacoes)
+            : {
+                encontrado: false,
+                estado: candidatosLegados.length > 1 ? 'duplicado' : 'ausente',
+                locacao: null
+            };
+    }
+    if (!resultadoLocacao?.encontrado) {
         if (typeof mostrarToast === 'function') {
-            mostrarToast('Código da locação inválido para abrir detalhe.', 'erro');
+            const mensagem = resultadoLocacao?.estado === 'duplicado'
+                ? 'Não foi possível abrir a locação porque o identificador é ambíguo.'
+                : 'Código da locação inválido ou não encontrado para abrir detalhe.';
+            mostrarToast(mensagem, 'erro');
         }
         return false;
     }
+    const locacaoResolvida = resultadoLocacao.locacao;
+    const referenciaTipada = criarReferenciaTipadaLocacao(locacaoResolvida.id);
+    const termoBusca = String(locacaoResolvida.id);
+    const obterLinhaExata = () => Array.from(document.querySelectorAll('#tblLocacoes tr[data-locacao-ref]'))
+        .find((linha) => linha.dataset.locacaoRef === referenciaTipada) || null;
 
     return navegarComFocoAtalho({
         tabId: 'locacoes',
         preparar: () => {
-            aplicarBuscaLocacoesAtalho(idNormalizado);
+            aplicarBuscaLocacoesAtalho(termoBusca);
             const filtroAplicado = aplicarFiltroLocacoesInterno('todos');
             if (!filtroAplicado && typeof renderLocacoes === 'function') {
                 renderLocacoes();
             }
         },
-        resolverAlvo: () => document.querySelector(`#tblLocacoes tr[data-locacao-id="${idNormalizado}"]`)
-            || obterAlvoListaLocacoes(),
+        resolverAlvo: () => obterLinhaExata() || obterAlvoListaLocacoes(),
         alinhamento: 'start',
         focarCustom: (alvoLista) => {
-            const linha = document.querySelector(`#tblLocacoes tr[data-locacao-id="${idNormalizado}"]`);
+            const linha = obterLinhaExata();
             if (linha) {
                 rolarParaElementoAtalho(linha, 'center');
                 destacarAlvoAtalho(linha, 1500);

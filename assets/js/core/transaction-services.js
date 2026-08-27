@@ -34,6 +34,33 @@
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
     const travasPorLocacao = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
+    let prepararAutorizacaoPublicacaoConfiavel = null;
+    let cancelarAutorizacaoPublicacaoConfiavel = null;
+    let consultarConfirmacaoPublicacaoConfiavel = null;
+
+    function registrarFronteiraPublicacaoConfiavel(api) {
+        if (consultarConfirmacaoPublicacaoConfiavel
+            || !api || typeof api !== 'object'
+            || typeof api.prepararAutorizacaoPublicacao !== 'function'
+            || typeof api.cancelarAutorizacaoPublicacao !== 'function'
+            || typeof api.consultarConfirmacaoPublicacao !== 'function') return false;
+        prepararAutorizacaoPublicacaoConfiavel = api.prepararAutorizacaoPublicacao;
+        cancelarAutorizacaoPublicacaoConfiavel = api.cancelarAutorizacaoPublicacao;
+        consultarConfirmacaoPublicacaoConfiavel = api.consultarConfirmacaoPublicacao;
+        try {
+            delete window.__registrarFronteiraPublicacaoTransacional;
+        } catch (_erro) {
+            // O registro e de uso unico mesmo quando o ambiente impede a remocao.
+        }
+        return true;
+    }
+
+    Object.defineProperty(window, '__registrarFronteiraPublicacaoTransacional', {
+        configurable: true,
+        enumerable: false,
+        writable: false,
+        value: registrarFronteiraPublicacaoConfiavel
+    });
 
     function clonarRetornoPublico(valor, referencias = new WeakMap()) {
         if (valor === null || typeof valor !== 'object') return valor;
@@ -53,6 +80,7 @@
             aplicado: opcoes.aplicado === true,
             idempotente: opcoes.idempotente === true,
             requerRecuperacao: opcoes.requerRecuperacao === true,
+            publicacaoRealizada: opcoes.publicacaoRealizada === true,
             bloqueios: clonarRetornoPublico(Array.isArray(opcoes.bloqueios) ? opcoes.bloqueios : []),
             avisos: clonarRetornoPublico(Array.isArray(opcoes.avisos) ? opcoes.avisos : []),
             operacao: clonarRetornoPublico(opcoes.operacao || null),
@@ -80,6 +108,15 @@
             : null;
     }
 
+    function inteiroLegadoNaoNegativo(valor) {
+        if (typeof valor === 'number' && Number.isSafeInteger(valor) && valor >= 0) return valor;
+        if (typeof valor === 'string' && /^\d+$/.test(valor.trim())) {
+            const numero = Number(valor);
+            return Number.isSafeInteger(numero) ? numero : null;
+        }
+        return null;
+    }
+
     function textoObrigatorio(valor, limite = 500) {
         return typeof valor === 'string' && valor.trim() && valor.length <= limite
             ? valor.trim()
@@ -99,6 +136,214 @@
         return resultado && typeof resultado === 'object'
             ? resultado
             : { ok: false, codigo: 'FALHA_CLONAGEM', valor: null, json: '' };
+    }
+
+    function clonarJsonInterno(valor) {
+        try {
+            const json = JSON.stringify(valor);
+            if (typeof json !== 'string') {
+                return { ok: false, codigo: 'ESTADO_NAO_SERIALIZAVEL', valor: null, json: '' };
+            }
+            return { ok: true, codigo: 'SUCESSO', valor: JSON.parse(json), json };
+        } catch (_erro) {
+            return { ok: false, codigo: 'ESTADO_NAO_SERIALIZAVEL', valor: null, json: '' };
+        }
+    }
+
+    function clonarDescartavel(valor) {
+        const clonagem = clonarJsonInterno(valor);
+        return clonagem.ok ? clonagem.valor : null;
+    }
+
+    function prepararEstadoOperacionalInterno(snapshot) {
+        const clonagem = clonarJsonInterno(snapshot);
+        if (!clonagem.ok || !clonagem.valor || typeof clonagem.valor !== 'object'
+            || Array.isArray(clonagem.valor)) return clonagem;
+        CHAVES_METADADOS_PERSISTENCIA.forEach((chave) => delete clonagem.valor[chave]);
+        const jsonEstrutural = JSON.stringify(clonagem.valor);
+        const canonico = ordenarChavesCanonicas(clonagem.valor);
+        const json = JSON.stringify(canonico);
+        return {
+            ok: true,
+            codigo: 'SUCESSO',
+            valor: clonagem.valor,
+            json,
+            jsonEstrutural,
+            fingerprint: fingerprintFnv1a64(json)
+        };
+    }
+
+    function validarValorExternoPersistivel(valor, vistos = new WeakSet()) {
+        if (valor === null || typeof valor === 'string' || typeof valor === 'boolean') return true;
+        if (typeof valor === 'number') return Number.isFinite(valor);
+        if (typeof valor !== 'object' || vistos.has(valor)) return false;
+        const prototipo = Object.getPrototypeOf(valor);
+        if (prototipo !== Object.prototype && prototipo !== Array.prototype) return false;
+        vistos.add(valor);
+        const chaves = Reflect.ownKeys(valor);
+        if (chaves.some((chave) => typeof chave === 'symbol')) return false;
+        const descritores = Object.getOwnPropertyDescriptors(valor);
+        if (Array.isArray(valor)) {
+            const descritorLength = descritores.length;
+            if (!descritorLength || descritorLength.value !== valor.length
+                || descritorLength.enumerable !== false || descritorLength.writable !== true) return false;
+            for (let indice = 0; indice < valor.length; indice += 1) {
+                if (!Object.prototype.hasOwnProperty.call(descritores, String(indice))) return false;
+            }
+        }
+        return chaves.every((chave) => {
+            const descritor = descritores[chave];
+            if (Array.isArray(valor) && chave === 'length') return true;
+            return descritor
+                && Object.prototype.hasOwnProperty.call(descritor, 'value')
+                && typeof descritor.get === 'undefined'
+                && typeof descritor.set === 'undefined'
+                && descritor.enumerable === true
+                && validarValorExternoPersistivel(descritor.value, vistos);
+        });
+    }
+
+    function validarSnapshotReservaExterno(snapshot) {
+        const objetoSimples = (valor) => valor && typeof valor === 'object'
+            && !Array.isArray(valor) && Object.getPrototypeOf(valor) === Object.prototype;
+        const chavesExatas = (valor, esperadas) => {
+            const atuais = Object.keys(valor).sort();
+            const previstas = esperadas.slice().sort();
+            return atuais.length === previstas.length
+                && atuais.every((chave, indice) => chave === previstas[indice]);
+        };
+        const quantidadeValida = (valor) => typeof valor === 'number'
+            && Number.isFinite(valor) && valor >= 0;
+        if (!objetoSimples(snapshot)
+            || !chavesExatas(snapshot, ['versao', 'origem', 'capturadoEm', 'statusReserva', 'periodo', 'itens'])
+            || snapshot.versao !== 1
+            || typeof snapshot.origem !== 'string'
+            || typeof snapshot.capturadoEm !== 'string'
+            || typeof snapshot.statusReserva !== 'string'
+            || !objetoSimples(snapshot.periodo)
+            || !chavesExatas(snapshot.periodo, ['inicio', 'fim', 'completo'])
+            || ![null, 'string'].includes(snapshot.periodo.inicio === null ? null : typeof snapshot.periodo.inicio)
+            || ![null, 'string'].includes(snapshot.periodo.fim === null ? null : typeof snapshot.periodo.fim)
+            || typeof snapshot.periodo.completo !== 'boolean'
+            || !Array.isArray(snapshot.itens)) return false;
+        return snapshot.itens.every((item) => objetoSimples(item)
+            && chavesExatas(item, ['pecaId', 'quantidadePropria', 'quantidadePendente', 'itemIds'])
+            && typeof item.pecaId === 'string'
+            && quantidadeValida(item.quantidadePropria)
+            && quantidadeValida(item.quantidadePendente)
+            && item.quantidadePendente <= item.quantidadePropria
+            && Array.isArray(item.itemIds)
+            && item.itemIds.every((itemId) => typeof itemId === 'string' && itemId.length > 0));
+    }
+
+    function normalizarDataSnapshotReserva(valor) {
+        const texto = valor == null ? '' : String(valor).trim();
+        if (!texto) return '';
+        const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+        const brasileiro = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        const partes = iso
+            ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+            : brasileiro
+                ? [Number(brasileiro[3]), Number(brasileiro[2]), Number(brasileiro[1])]
+                : null;
+        if (!partes) return '';
+        const [ano, mes, dia] = partes;
+        const dataUtc = new Date(Date.UTC(ano, mes - 1, dia));
+        if (dataUtc.getUTCFullYear() !== ano || dataUtc.getUTCMonth() !== mes - 1
+            || dataUtc.getUTCDate() !== dia) return '';
+        return `${String(ano).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+    }
+
+    function inteiroDominioNaoNegativo(valor) {
+        const numero = Number(valor);
+        return Number.isFinite(numero) ? Math.max(0, Math.trunc(numero)) : 0;
+    }
+
+    function quantidadePropriaSnapshot(item) {
+        const quantidadeTotal = inteiroDominioNaoNegativo(item?.quantidade);
+        const possuiOrigem = Object.prototype.hasOwnProperty.call(item || {}, 'origemCusto');
+        const origem = item?.origemCusto == null ? '' : String(item.origemCusto).trim().toLowerCase();
+        if (!possuiOrigem || !origem || origem === 'nao_informado') return quantidadeTotal;
+        if (origem === 'terceirizado') return 0;
+        if (origem === 'proprio') return quantidadeTotal;
+        if (origem === 'misto') {
+            return Math.min(inteiroDominioNaoNegativo(item?.quantidadePropria), quantidadeTotal);
+        }
+        return quantidadeTotal;
+    }
+
+    function normalizarItemIdSnapshot(valor) {
+        const itemId = valor == null ? '' : String(valor).trim();
+        return itemId.length <= 160 && /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(itemId)
+            ? itemId
+            : '';
+    }
+
+    function atribuirItemIdsSnapshot(locacaoId, itens) {
+        const lista = Array.isArray(itens) ? itens : [];
+        const primeiraOcorrencia = new Map();
+        lista.forEach((item, indice) => {
+            const itemId = normalizarItemIdSnapshot(item?.itemId);
+            if (itemId && !primeiraOcorrencia.has(itemId)) primeiraOcorrencia.set(itemId, indice);
+        });
+        const usados = new Set(primeiraOcorrencia.keys());
+        const parteLocacao = String(locacaoId ?? 'nova').trim().replace(/[^a-zA-Z0-9_-]+/g, '-') || 'nova';
+        return lista.map((item, indice) => {
+            const informado = normalizarItemIdSnapshot(item?.itemId);
+            if (informado && primeiraOcorrencia.get(informado) === indice) return { item, itemId: informado };
+            let numeroItem = indice + 1;
+            let itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+            while (usados.has(itemId)) {
+                numeroItem += 1;
+                itemId = `loc-${parteLocacao}-item-${numeroItem}`;
+            }
+            usados.add(itemId);
+            return { item, itemId };
+        });
+    }
+
+    function criarSnapshotReservaInterno(locacao, opcoes) {
+        const agrupados = new Map();
+        atribuirItemIdsSnapshot(locacao?.id, locacao?.items).forEach(({ item, itemId }) => {
+            const pecaId = item?.pecaId == null ? '' : String(item.pecaId).trim();
+            const chave = pecaId ? `peca:${pecaId}` : `sem-vinculo:${itemId}`;
+            const quantidadePropria = quantidadePropriaSnapshot(item);
+            const quantidadePendente = Math.max(
+                quantidadePropria
+                - inteiroDominioNaoNegativo(item?.devolvidos)
+                - inteiroDominioNaoNegativo(item?.avariadosEstoqueProprio),
+                0
+            );
+            const atual = agrupados.get(chave) || {
+                pecaId,
+                quantidadePropria: 0,
+                quantidadePendente: 0,
+                itemIds: []
+            };
+            atual.quantidadePropria += quantidadePropria;
+            atual.quantidadePendente += quantidadePendente;
+            atual.itemIds.push(itemId);
+            agrupados.set(chave, atual);
+        });
+        const inicio = normalizarDataSnapshotReserva(locacao?.datasMontagem?.inicio || locacao?.dataAluguel || '');
+        const fim = normalizarDataSnapshotReserva(
+            locacao?.datasDesmontagem?.fim || locacao?.datasDesmontagem?.inicio
+            || locacao?.dataDevolucaoPrevisao || ''
+        );
+        const inicioMs = inicio ? Date.parse(`${inicio}T00:00:00Z`) : null;
+        const fimMs = fim ? Date.parse(`${fim}T00:00:00Z`) : null;
+        return {
+            versao: 1,
+            origem: String(opcoes.origem),
+            capturadoEm: String(opcoes.capturadoEm),
+            statusReserva: String(opcoes.statusReserva ?? ''),
+            periodo: {
+                inicio,
+                fim,
+                completo: Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs >= inicioMs
+            },
+            itens: Array.from(agrupados.values())
+        };
     }
 
     function localizarLocacaoUnica(locacoes, locacaoId) {
@@ -210,7 +455,9 @@
             && registro?.assinaturaPlano === assinatura
         ));
         const quantidadeReservar = inteiroSeguroNaoNegativo(historico?.resumoMovimentacoes?.reservar);
-        const quantidadeLiberar = inteiroSeguroNaoNegativo(historico?.resumoMovimentacoes?.liberar);
+        const quantidadeEvidencias = inteiroSeguroNaoNegativo(historico?.resumoMovimentacoes?.evidencias);
+        const quantidadeLiberar = inteiroSeguroNaoNegativo(historico?.resumoMovimentacoes?.liberar)
+            ?? quantidadeEvidencias;
         const movimentos = (Array.isArray(estado?.movimentacoesEstoque) ? estado.movimentacoesEstoque : [])
             .filter((registro) => registro?.operacaoId === operacaoId
                 && referenciaEstrita(registro?.locacaoId) === referencia);
@@ -1163,5 +1410,612 @@
         }
     }
 
+    function gerarAssinaturaDevolucaoLocacao(entrada = {}) {
+        const locacaoRef = referenciaEstrita(entrada.locacaoId);
+        const dataDevolucao = textoObrigatorio(entrada.dataDevolucao, 10);
+        const itens = (Array.isArray(entrada.itens) ? entrada.itens : []).map((item) => ({
+            itemIndex: inteiroSeguroNaoNegativo(item?.itemIndex),
+            itemId: textoObrigatorio(item?.itemId, 200),
+            quantidadeDevolvida: inteiroSeguroNaoNegativo(item?.quantidadeDevolvida),
+            quantidadeAvaria: inteiroSeguroNaoNegativo(item?.quantidadeAvaria),
+            observacao: typeof item?.observacao === 'string' ? item.observacao.trim().slice(0, 1000) : ''
+        }));
+        if (!locacaoRef || !/^\d{4}-\d{2}-\d{2}$/.test(dataDevolucao) || itens.length === 0
+            || itens.some((item) => item.itemIndex === null || item.quantidadeDevolvida === null
+                || item.quantidadeAvaria === null || (item.quantidadeDevolvida + item.quantidadeAvaria) <= 0)) {
+            return { ok: false, codigo: 'DADOS_DEVOLUCAO_INVALIDOS', assinatura: '' };
+        }
+        const canonico = JSON.stringify({
+            locacaoRef,
+            dataDevolucao,
+            itens: itens.slice().sort((a, b) => (
+                a.itemIndex - b.itemIndex || a.itemId.localeCompare(b.itemId)
+            ))
+        });
+        return {
+            ok: true,
+            codigo: 'SUCESSO',
+            assinatura: `devolucao-locacao-v1:fnv1a64:${fingerprintFnv1a64(canonico)}`,
+            itens,
+            dataDevolucao
+        };
+    }
+
+    function evidenciasDevolucaoLocacao(estado, entrada, assinatura) {
+        const referencia = referenciaEstrita(entrada.locacaoId);
+        const daOperacao = (registro) => registro?.operacaoId === entrada.operacaoId;
+        const coerente = (registro) => daOperacao(registro)
+            && referenciaEstrita(registro?.locacaoId) === referencia
+            && registro?.assinaturaPlano === assinatura;
+        const devolucoesOperacao = (Array.isArray(estado?.devolucoes) ? estado.devolucoes : []).filter(daOperacao);
+        const movimentosOperacao = (Array.isArray(estado?.movimentacoesEstoque)
+            ? estado.movimentacoesEstoque : []).filter(daOperacao);
+        const historicosOperacao = historicosGlobais(estado?.locacoes).filter(daOperacao);
+        const auditoriasOperacao = auditoriasDaOperacao(estado, entrada.operacaoId);
+        const todos = [...devolucoesOperacao, ...movimentosOperacao, ...historicosOperacao, ...auditoriasOperacao];
+        if (todos.length === 0) return { estado: 'nao_executada', completo: false, quantidadeMovimentos: 0 };
+        if (todos.some((registro) => !coerente(registro))) {
+            return { estado: 'inconsistente', completo: false, codigo: 'OPERACAO_ID_ASSOCIADO_A_EVIDENCIA_DIVERGENTE' };
+        }
+        const devolucoesCoerentes = devolucoesOperacao.filter(coerente);
+        const movimentosCoerentes = movimentosOperacao.filter(coerente);
+        const historicosCoerentes = historicosOperacao.filter(coerente);
+        const auditoriasCoerentes = auditoriasOperacao.filter(coerente);
+        const esperadoMovimentos = devolucoesCoerentes.length === 1
+            ? (Array.isArray(devolucoesCoerentes[0].itens) ? devolucoesCoerentes[0].itens : [])
+                .reduce((total, item) => total
+                    + (inteiroSeguroNaoNegativo(item?.quantidadeDevolvida) > 0 ? 1 : 0)
+                    + (inteiroSeguroNaoNegativo(item?.quantidadeAvaria) > 0 ? 1 : 0), 0)
+            : -1;
+        const localizacao = localizarLocacaoUnica(estado?.locacoes, entrada.locacaoId);
+        const controle = localizacao.locacao ? localizacao.locacao.controleEdicao : null;
+        const controleCoerente = controle?.ultimaOperacaoId === entrada.operacaoId;
+        const completo = devolucoesCoerentes.length === 1
+            && historicosCoerentes.length === 1
+            && auditoriasCoerentes.length === 1
+            && esperadoMovimentos >= 0
+            && movimentosCoerentes.length === esperadoMovimentos
+            && controleCoerente;
+        return {
+            estado: completo ? 'concluida' : 'parcial',
+            completo,
+            codigo: completo ? 'OPERACAO_CONCLUIDA' : 'OPERACAO_PARCIAL',
+            quantidadeMovimentos: movimentosCoerentes.length
+        };
+    }
+
+    function localizarPecaUnica(pecas, pecaId) {
+        if (!Array.isArray(pecas)) return { peca: null, indice: -1, quantidade: 0 };
+        const correspondencias = [];
+        pecas.forEach((peca, indice) => {
+            const mesmoTipo = typeof peca?.id === typeof pecaId;
+            if (mesmoTipo && Object.is(peca?.id, pecaId)) correspondencias.push(indice);
+        });
+        return {
+            peca: correspondencias.length === 1 ? pecas[correspondencias[0]] : null,
+            indice: correspondencias.length === 1 ? correspondencias[0] : -1,
+            quantidade: correspondencias.length
+        };
+    }
+
+    function chaveMovimentacaoDevolucao(entrada, itemId, pecaId, tipo) {
+        const pecaRef = `${typeof pecaId}:${JSON.stringify(pecaId)}`;
+        return [
+            'devolucao-locacao-v1',
+            entrada.operacaoId,
+            referenciaEstrita(entrada.locacaoId),
+            itemId,
+            pecaRef,
+            tipo
+        ].join('|');
+    }
+
+    function construirCandidatoDevolucao(estado, localizacao, entrada, assinatura, dadosAssinados,
+        registroOperacao, checkpoint, dependencias) {
+        const clonagem = clonarJsonInterno(estado);
+        if (!clonagem.ok) return clonagem;
+        const candidato = clonagem.valor;
+        const locacao = candidato.locacoes[localizacao.indice];
+        const indicesUsados = new Set();
+        const itensDevolucao = [];
+        const movimentacoes = [];
+        const chavesExistentes = new Set((Array.isArray(candidato.movimentacoesEstoque)
+            ? candidato.movimentacoesEstoque : []).map((item) => item?.chaveIdempotencia).filter(Boolean));
+
+        for (const solicitado of dadosAssinados.itens) {
+            if (indicesUsados.has(solicitado.itemIndex)) {
+                return { ok: false, codigo: 'ITEM_DEVOLUCAO_DUPLICADO' };
+            }
+            indicesUsados.add(solicitado.itemIndex);
+            const item = locacao.items?.[solicitado.itemIndex];
+            const itemOriginal = localizacao.locacao.items?.[solicitado.itemIndex];
+            if (!item || !itemOriginal) return { ok: false, codigo: 'ITEM_DEVOLUCAO_NAO_ENCONTRADO' };
+            const itemIdAtual = textoObrigatorio(itemOriginal.itemId, 200);
+            if (solicitado.itemId && solicitado.itemId !== itemIdAtual) {
+                return { ok: false, codigo: 'ITEM_ID_DIVERGENTE' };
+            }
+            const itemParaCalculo = clonarDescartavel(itemOriginal);
+            if (!itemParaCalculo) return { ok: false, codigo: 'ITEM_DEVOLUCAO_NAO_SERIALIZAVEL' };
+            const pendente = dependencias.obterQuantidadePendenteDevolucaoItem(itemParaCalculo);
+            if (!Number.isSafeInteger(pendente) || pendente < 0) {
+                return { ok: false, codigo: 'QUANTIDADE_PENDENTE_INVALIDA' };
+            }
+            const totalInformado = solicitado.quantidadeDevolvida + solicitado.quantidadeAvaria;
+            if (totalInformado > pendente) return { ok: false, codigo: 'QUANTIDADE_DEVOLUCAO_EXCEDENTE' };
+            const identidadeItem = itemIdAtual || `indice-${solicitado.itemIndex}`;
+            const pecaId = itemOriginal.pecaId;
+            const criarMovimento = (tipo, quantidade) => {
+                if (quantidade <= 0) return null;
+                const chave = chaveMovimentacaoDevolucao(entrada, identidadeItem, pecaId, tipo);
+                if (chavesExistentes.has(chave)) return { erro: 'CHAVE_MOVIMENTACAO_DUPLICADA' };
+                chavesExistentes.add(chave);
+                return {
+                    id: chave,
+                    movimentacaoId: chave,
+                    chaveIdempotencia: chave,
+                    tipoMovimentacao: tipo,
+                    subtipoMovimentacao: tipo === 'avaria' ? 'avaria_devolucao' : 'entrada_devolucao',
+                    quantidade,
+                    pecaId,
+                    pecaNome: itemOriginal.nome,
+                    locacaoId: entrada.locacaoId,
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano: assinatura,
+                    itemId: itemIdAtual,
+                    origemEvento: entrada.operacaoId,
+                    observacao: solicitado.observacao
+                        || `${tipo === 'avaria' ? 'Avaria' : 'Devolução'} registrada em ${dadosAssinados.dataDevolucao}.`,
+                    dataHora: entrada.atualizadoEm,
+                    usuario: entrada.atualizadoPor,
+                    saldoAntes: pendente,
+                    saldoDepois: Math.max(pendente - totalInformado, 0),
+                    saldoInformativo: 'quantidade_propria_pendente_item',
+                    statusProcessamento: 'confirmado'
+                };
+            };
+            const movimentoDevolucao = criarMovimento('devolucao', solicitado.quantidadeDevolvida);
+            const movimentoAvaria = criarMovimento('avaria', solicitado.quantidadeAvaria);
+            if (movimentoDevolucao?.erro || movimentoAvaria?.erro) {
+                return { ok: false, codigo: 'CHAVE_MOVIMENTACAO_DUPLICADA' };
+            }
+            if (movimentoDevolucao) movimentacoes.push(movimentoDevolucao);
+            if (movimentoAvaria) movimentacoes.push(movimentoAvaria);
+
+            item.devolvidos = (inteiroLegadoNaoNegativo(item.devolvidos) ?? 0) + solicitado.quantidadeDevolvida;
+            item.avariadosEstoqueProprio = (inteiroLegadoNaoNegativo(item.avariadosEstoqueProprio) ?? 0)
+                + solicitado.quantidadeAvaria;
+            if (solicitado.quantidadeAvaria > 0) {
+                const pecaLocalizada = localizarPecaUnica(candidato.pecas, pecaId);
+                if (pecaLocalizada.quantidade !== 1) {
+                    return { ok: false, codigo: pecaLocalizada.quantidade > 1 ? 'PECA_ID_DUPLICADO' : 'PECA_NAO_ENCONTRADA' };
+                }
+                const avariadoAtual = inteiroLegadoNaoNegativo(pecaLocalizada.peca.avariado) ?? 0;
+                pecaLocalizada.peca.avariado = avariadoAtual + solicitado.quantidadeAvaria;
+            }
+            itensDevolucao.push({
+                itemIndex: solicitado.itemIndex,
+                itemId: itemIdAtual,
+                pecaId,
+                nome: itemOriginal.nome,
+                quantidadeLocada: inteiroLegadoNaoNegativo(itemOriginal.quantidade) ?? 0,
+                quantidadeDevolvida: solicitado.quantidadeDevolvida,
+                quantidadeAvaria: solicitado.quantidadeAvaria,
+                quantidadePendenteAntes: pendente,
+                quantidadePendenteApos: Math.max(pendente - totalInformado, 0),
+                valorUnitario: Number.isFinite(Number(itemOriginal.valor)) ? Number(itemOriginal.valor) : 0,
+                observacao: solicitado.observacao
+            });
+        }
+
+        const itensParaConferencia = clonarDescartavel(Array.isArray(locacao.items) ? locacao.items : []);
+        if (!itensParaConferencia) return { ok: false, codigo: 'ITENS_DEVOLUCAO_NAO_SERIALIZAVEIS' };
+        const devolucaoTotal = itensParaConferencia.every((item) => (
+            dependencias.obterQuantidadePendenteDevolucaoItem(item) === 0
+        ));
+        locacao.status = devolucaoTotal ? 'devolvido' : 'ativo';
+        if (devolucaoTotal) locacao.statusFluxo = 'devolvido';
+        locacao.controleEdicao = registroOperacao.controleEdicao;
+        const movimentacaoIds = movimentacoes.map((movimento) => movimento.id);
+        const historicoAlteracao = {
+            id: `historico-devolucao-${entrada.operacaoId}`,
+            data: entrada.atualizadoEm,
+            acao: devolucaoTotal ? 'devolucao_total' : 'devolucao_parcial',
+            descricao: devolucaoTotal
+                ? 'Locação encerrada com devolução total dos itens.'
+                : 'Devolução parcial registrada para a locação.',
+            origem: 'devolucoes',
+            status: locacao.status,
+            statusFluxo: locacao.statusFluxo || '',
+            usuario: entrada.atualizadoPor,
+            locacaoId: entrada.locacaoId,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano: assinatura
+        };
+        locacao.historicoAlteracoes = [
+            ...(Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : []),
+            historicoAlteracao
+        ].slice(-240);
+        const historico = {
+            ...registroOperacao.registroHistorico,
+            acao: 'devolucao_locacao',
+            descricao: historicoAlteracao.descricao,
+            assinaturaPlano: assinatura,
+            resumoMovimentacoes: { reservar: 0, evidencias: movimentacoes.length },
+            movimentacaoIds,
+            devolucaoTotal,
+            checkpoint: { tipo: checkpoint.tipo, versao: checkpoint.versao, criadoEm: checkpoint.criadoEm }
+        };
+        locacao.historicoOperacional = [
+            ...(Array.isArray(locacao.historicoOperacional) ? locacao.historicoOperacional : []),
+            historico
+        ];
+        if (devolucaoTotal) {
+            const reservaAnterior = locacao.estoqueReserva && typeof locacao.estoqueReserva === 'object'
+                ? locacao.estoqueReserva : {};
+            locacao.estoqueReserva = {
+                ...reservaAnterior,
+                status: 'liberado',
+                liberadoEm: entrada.atualizadoEm,
+                liberadoPor: entrada.atualizadoPor,
+                motivo: 'devolucao_total',
+                movimentacaoIds: Array.from(new Set([
+                    ...(Array.isArray(reservaAnterior.movimentacaoIds) ? reservaAnterior.movimentacaoIds : []),
+                    ...movimentacaoIds
+                ]))
+            };
+        }
+        const locacaoDescartavel = clonarDescartavel(locacao);
+        if (!locacaoDescartavel) return { ok: false, codigo: 'LOCACAO_CANDIDATA_NAO_SERIALIZAVEL' };
+        const opcoesSnapshot = {
+            origem: 'devolucao_transacional',
+            capturadoEm: entrada.atualizadoEm,
+            statusReserva: locacao.estoqueReserva?.status
+        };
+        const snapshotReservaInterno = criarSnapshotReservaInterno(locacao, opcoesSnapshot);
+        let snapshotReservaExterno;
+        try {
+            snapshotReservaExterno = dependencias.criarSnapshotReservaLocacao(
+                locacaoDescartavel,
+                clonarDescartavel(opcoesSnapshot)
+            );
+            if (!validarValorExternoPersistivel(snapshotReservaExterno)) {
+                return { ok: false, codigo: 'SNAPSHOT_RESERVA_EXTERNO_NAO_CONFIAVEL' };
+            }
+        } catch (_erro) {
+            return { ok: false, codigo: 'SNAPSHOT_RESERVA_EXTERNO_NAO_CONFIAVEL' };
+        }
+        const snapshotReserva = clonarJsonInterno(snapshotReservaExterno);
+        if (!snapshotReserva.ok || !validarSnapshotReservaExterno(snapshotReserva.valor)) {
+            return { ok: false, codigo: 'SNAPSHOT_RESERVA_INVALIDO' };
+        }
+        const externoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReserva.valor));
+        const internoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReservaInterno));
+        if (externoCanonico !== internoCanonico) {
+            return { ok: false, codigo: 'SNAPSHOT_RESERVA_DIVERGENTE' };
+        }
+        if (locacao.estoqueReserva && typeof locacao.estoqueReserva === 'object') {
+            locacao.estoqueReserva.snapshot = snapshotReservaInterno;
+        }
+        candidato.movimentacoesEstoque = [
+            ...(Array.isArray(candidato.movimentacoesEstoque) ? candidato.movimentacoesEstoque : []),
+            ...movimentacoes
+        ];
+        const devolucao = {
+            id: `devolucao-${entrada.operacaoId}`,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano: assinatura,
+            locacaoId: entrada.locacaoId,
+            criadoEm: entrada.atualizadoEm,
+            criadoPor: entrada.atualizadoPor,
+            dataDevolucao: dadosAssinados.dataDevolucao,
+            tipo: devolucaoTotal ? 'total' : 'parcial',
+            obs: devolucaoTotal ? 'Total' : 'Parcial',
+            itens: itensDevolucao
+        };
+        candidato.devolucoes = [...(Array.isArray(candidato.devolucoes) ? candidato.devolucoes : []), devolucao];
+        const auditoria = {
+            id: `auditoria-devolucao-${entrada.operacaoId}`,
+            timestamp: entrada.atualizadoEm,
+            data: entrada.atualizadoEm,
+            tipo: 'devolucao',
+            acao: devolucaoTotal ? 'criar' : 'parcial',
+            descricao: historicoAlteracao.descricao,
+            usuario: entrada.atualizadoPor,
+            entidade: 'locacao',
+            entidadeId: entrada.locacaoId,
+            locacaoId: entrada.locacaoId,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano: assinatura,
+            quantidadeMovimentacoes: movimentacoes.length
+        };
+        candidato.logsAuditoria = [...(Array.isArray(candidato.logsAuditoria) ? candidato.logsAuditoria : []), auditoria];
+        return { ok: true, codigo: 'SUCESSO', candidato, locacaoCandidata: locacao, historico, devolucao, movimentacoes };
+    }
+
+    function executarDevolucaoLocacaoTransacional(entrada = {}, dependencias = {}) {
+        const locacaoRef = referenciaEstrita(entrada?.locacaoId);
+        const operacao = dependencias?.validarOperacaoIdLocacao?.(entrada?.operacaoId);
+        const atualizadoEm = textoObrigatorio(entrada?.atualizadoEm, 40);
+        const atualizadoPor = textoObrigatorio(entrada?.atualizadoPor, 320);
+        const assinatura = gerarAssinaturaDevolucaoLocacao(entrada);
+        if (!locacaoRef || !operacao?.valido || !atualizadoEm || !atualizadoPor || !assinatura.ok) {
+            return resultadoBase('ENTRADA_DEVOLUCAO_INVALIDA');
+        }
+        const funcoesObrigatorias = [
+            'normalizarControleEdicaoLocacao', 'prepararRegistroOperacaoConcluida',
+            'criarCheckpointOperacionalEdicaoLocacao', 'clonarJsonPersistivelEstrito',
+            'criarSnapshotReservaLocacao', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarEstadoConfirmado', 'atualizarMetadadoSincronizacao',
+            'obterQuantidadePendenteDevolucaoItem'
+        ];
+        if (!dependencias || !dependencias.armazenamento
+            || funcoesObrigatorias.some((nome) => typeof dependencias[nome] !== 'function')) {
+            return resultadoBase('DEPENDENCIAS_TRANSACIONAIS_INVALIDAS');
+        }
+        if (travasPorLocacao.has(locacaoRef)) {
+            return resultadoBase('LOCACAO_BLOQUEADA_POR_OPERACAO');
+        }
+        travasPorLocacao.add(locacaoRef);
+        try {
+            const estadoAtivo = dependencias.estadoAtual || dependencias.obterEstadoMemoriaAtual?.();
+            const snapshotAutoritativo = clonarJsonInterno(estadoAtivo);
+            if (!snapshotAutoritativo.ok) return resultadoBase(snapshotAutoritativo.codigo);
+            const estado = snapshotAutoritativo.valor;
+            const localizacao = localizarLocacaoUnica(estado?.locacoes, entrada.locacaoId);
+            if (localizacao.quantidade !== 1) {
+                return resultadoBase(localizacao.quantidade > 1 ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_NAO_ENCONTRADA');
+            }
+            const evidenciasMemoria = evidenciasDevolucaoLocacao(estado, entrada, assinatura.assinatura);
+            if (evidenciasMemoria.completo) {
+                return resultadoBase('OPERACAO_JA_CONCLUIDA', {
+                    ok: true, aplicado: true, idempotente: true,
+                    operacao: { locacaoId: entrada.locacaoId, operacaoId: entrada.operacaoId, assinaturaPlano: assinatura.assinatura }
+                });
+            }
+            if (evidenciasMemoria.estado !== 'nao_executada') {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const leituraPersistidaExterna = dependencias.lerSnapshotLocalConfirmavel({
+                armazenamento: dependencias.armazenamento,
+                ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {})
+            });
+            const leituraPersistidaInterna = clonarJsonInterno(leituraPersistidaExterna);
+            const leituraPersistida = leituraPersistidaInterna.ok ? leituraPersistidaInterna.valor : null;
+            if (leituraPersistida?.ok) {
+                const persistidoIsolado = clonarJsonInterno(leituraPersistida.snapshot);
+                if (!persistidoIsolado.ok) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+                const evidenciasPersistidas = evidenciasDevolucaoLocacao(
+                    persistidoIsolado.valor, entrada, assinatura.assinatura
+                );
+                if (evidenciasPersistidas.estado !== 'nao_executada') {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+            } else if (leituraPersistida?.codigo !== 'SNAPSHOT_PERSISTIDO_AUSENTE') {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            const locacaoControle = clonarDescartavel(localizacao.locacao);
+            if (!locacaoControle) return resultadoBase('LOCACAO_NAO_SERIALIZAVEL');
+            const controleExterno = dependencias.normalizarControleEdicaoLocacao(locacaoControle);
+            const controleIsolado = clonarJsonInterno(controleExterno);
+            const controle = controleIsolado.ok ? controleIsolado.valor : null;
+            if (!controle?.valido) return resultadoBase('CONTROLE_EDICAO_INVALIDO');
+            const estadoCheckpoint = clonarDescartavel(estado);
+            if (!estadoCheckpoint) return resultadoBase('ESTADO_NAO_SERIALIZAVEL');
+            const checkpointExterno = dependencias.criarCheckpointOperacionalEdicaoLocacao(estadoCheckpoint, {
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano: assinatura.assinatura,
+                criadoEm: atualizadoEm
+            });
+            const checkpointIsolado = clonarJsonInterno(checkpointExterno);
+            const checkpoint = checkpointIsolado.ok ? checkpointIsolado.valor : null;
+            if (!checkpoint?.ok) return resultadoBase(checkpoint?.codigo || 'FALHA_CHECKPOINT');
+            const registroExterno = dependencias.prepararRegistroOperacaoConcluida({
+                locacao: clonarDescartavel(localizacao.locacao),
+                operacaoId: entrada.operacaoId,
+                revisaoEsperada: controle.revisao,
+                assinaturaPlano: assinatura.assinatura,
+                atualizadoEm,
+                atualizadoPor
+            });
+            const registroIsolado = clonarJsonInterno(registroExterno);
+            const registroOperacao = registroIsolado.ok ? registroIsolado.valor : null;
+            if (!registroOperacao?.valido) return resultadoBase('REGISTRO_OPERACAO_INVALIDO');
+            const construcao = construirCandidatoDevolucao(
+                estado, localizacao, entrada, assinatura.assinatura, assinatura,
+                registroOperacao, checkpoint.checkpoint, dependencias
+            );
+            if (!construcao.ok) return resultadoBase(construcao.codigo);
+            const provas = anexarProvasRecuperacao(
+                construcao, estado, localizacao.locacao,
+                { ...entrada, revisaoEsperada: controle.revisao, assinaturaPlanoEsperada: assinatura.assinatura },
+                registroOperacao.controleEdicao.revisao,
+                clonarJsonInterno
+            );
+            if (!provas.ok) return resultadoBase(provas.codigo || 'FALHA_PROVAS_RECUPERACAO');
+            const raizAntesPersistencia = clonarJsonInterno(estadoAtivo);
+            if (!raizAntesPersistencia.ok || raizAntesPersistencia.json !== snapshotAutoritativo.json) {
+                return resultadoBase('ESTADO_ORIGINAL_MODIFICADO_ANTES_DA_PERSISTENCIA', { requerRecuperacao: true });
+            }
+            const evidenciasCandidato = evidenciasDevolucaoLocacao(
+                construcao.candidato, entrada, assinatura.assinatura
+            );
+            if (!evidenciasCandidato.completo) return resultadoBase('EVIDENCIAS_OPERACAO_INCOMPLETAS');
+            const candidatoValido = clonarJsonInterno(construcao.candidato);
+            if (!candidatoValido.ok) return resultadoBase(candidatoValido.codigo);
+            const candidatoOperacional = prepararEstadoOperacionalInterno(candidatoValido.valor);
+            if (!candidatoOperacional.ok) return resultadoBase(candidatoOperacional.codigo);
+            const candidatoParaPreparacao = clonarDescartavel(ordenarChavesCanonicas(candidatoValido.valor));
+            const metadadosParaPreparacao = clonarDescartavel(entrada.persistencia || {});
+            if (!candidatoParaPreparacao || !metadadosParaPreparacao) {
+                return resultadoBase('FALHA_PREPARACAO_SNAPSHOT');
+            }
+            const snapshotPreparadoExterno = dependencias.prepararSnapshotPersistivelCompleto(
+                candidatoParaPreparacao, metadadosParaPreparacao
+            );
+            const snapshotPreparadoRetorno = clonarJsonInterno(snapshotPreparadoExterno);
+            const snapshotPreparado = snapshotPreparadoRetorno.ok ? snapshotPreparadoRetorno.valor : null;
+            if (!snapshotPreparado?.ok) {
+                return resultadoBase(snapshotPreparado?.codigo || 'FALHA_PREPARACAO_SNAPSHOT');
+            }
+            const snapshotEsperado = clonarJsonInterno(snapshotPreparado.snapshot);
+            if (!snapshotEsperado.ok) return resultadoBase('SNAPSHOT_PREPARADO_INVALIDO');
+            const operacionalPreparado = prepararEstadoOperacionalInterno(snapshotEsperado.valor);
+            if (!operacionalPreparado.ok || operacionalPreparado.json !== candidatoOperacional.json) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const snapshotParaPersistencia = clonarDescartavel(snapshotEsperado.valor);
+            if (!snapshotParaPersistencia) return resultadoBase('SNAPSHOT_PREPARADO_INVALIDO');
+            const persistenciaExterna = dependencias.persistirSnapshotLocalConfirmavel(
+                snapshotParaPersistencia,
+                {
+                    armazenamento: dependencias.armazenamento,
+                    ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {})
+                }
+            );
+            const persistenciaInterna = clonarJsonInterno(persistenciaExterna);
+            const persistencia = persistenciaInterna.ok ? persistenciaInterna.valor : null;
+            if (!persistencia?.ok || persistencia.confirmado !== true) {
+                return resultadoBase(
+                    persistencia?.requerRecuperacao ? 'PERSISTENCIA_INDETERMINADA' : (persistencia?.codigo || 'FALHA_PERSISTENCIA'),
+                    { requerRecuperacao: persistencia?.requerRecuperacao === true }
+                );
+            }
+            const releituraConfirmadaExterna = dependencias.lerSnapshotLocalConfirmavel({
+                armazenamento: dependencias.armazenamento,
+                ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {})
+            });
+            const releituraConfirmadaInterna = clonarJsonInterno(releituraConfirmadaExterna);
+            const releituraConfirmada = releituraConfirmadaInterna.ok ? releituraConfirmadaInterna.valor : null;
+            const releituraIsolada = releituraConfirmada?.ok
+                ? clonarJsonInterno(releituraConfirmada.snapshot)
+                : { ok: false };
+            if (!releituraIsolada.ok || releituraIsolada.json !== snapshotEsperado.json) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            const raizAntesPublicacao = clonarJsonInterno(estadoAtivo);
+            if (!raizAntesPublicacao.ok || raizAntesPublicacao.json !== snapshotAutoritativo.json) {
+                return resultadoBase('ESTADO_MEMORIA_MODIFICADO_DURANTE_PERSISTENCIA', { requerRecuperacao: true });
+            }
+            const estadoConfirmado = clonarJsonInterno(releituraIsolada.valor);
+            if (!estadoConfirmado.ok) {
+                return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            }
+            const publicacaoEsperada = prepararEstadoOperacionalInterno(estadoConfirmado.valor);
+            if (!publicacaoEsperada.ok) {
+                return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            }
+            const estadoParaPublicador = clonarDescartavel(estadoConfirmado.valor);
+            if (!estadoParaPublicador) {
+                return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            }
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(publicacaoEsperada.jsonEstrutural);
+            let autorizacaoPublicacao = null;
+            try {
+                autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                    operacaoId: entrada.operacaoId,
+                    fingerprintPublicacaoEsperado,
+                    estadoAnterior: estadoAtivo
+                }) || null;
+            } catch (_erro) {
+                autorizacaoPublicacao = null;
+            }
+            if (!autorizacaoPublicacao) {
+                return resultadoBase('FRONTEIRA_PUBLICACAO_INDISPONIVEL', {
+                    requerRecuperacao: true,
+                    publicacaoRealizada: false
+                });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarEstadoConfirmado(estadoParaPublicador, estadoAtivo, {
+                    jsonOperacionalEsperado: publicacaoEsperada.jsonEstrutural,
+                    autorizacaoPublicacao,
+                    exigirConfirmacaoInterna: true
+                });
+            } catch (erro) {
+                erroPublicacao = erro;
+            }
+            let confirmacaoPublicacao = null;
+            try {
+                confirmacaoPublicacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                    operacaoId: entrada.operacaoId,
+                    fingerprintPublicacaoEsperado,
+                    estadoAnterior: estadoAtivo,
+                    autorizacaoPublicacao
+                }) || null;
+            } catch (_erro) {
+                confirmacaoPublicacao = null;
+            }
+            if (confirmacaoPublicacao?.confirmada !== true
+                || confirmacaoPublicacao.trocas !== 1) {
+                try {
+                    cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao);
+                } catch (_erro) {
+                    // A falha continua sem publicacao; nao ha rollback a executar.
+                }
+                return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', {
+                    requerRecuperacao: true,
+                    publicacaoRealizada: false
+                });
+            }
+            const publicacaoComExcecao = erroPublicacao !== null;
+            registrarConclusaoConfirmada(dependencias.armazenamento, {
+                locacaoId: entrada.locacaoId,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano: assinatura.assinatura,
+                chaveArmazenamento: persistencia.chave,
+                revisaoConfirmada: registroOperacao.controleEdicao.revisao
+            });
+            const operacaoPublica = {
+                locacaoId: entrada.locacaoId,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano: assinatura.assinatura,
+                devolucaoId: construcao.devolucao.id,
+                tipo: construcao.devolucao.tipo,
+                movimentacoes: construcao.movimentacoes.length
+            };
+            try {
+                const atualizado = dependencias.atualizarMetadadoSincronizacao({
+                    locacaoId: entrada.locacaoId,
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano: assinatura.assinatura,
+                    ultimaEdicao: entrada.persistencia?.ultimaEdicao
+                });
+                if (atualizado === false) throw new Error('Marcador recusado.');
+            } catch (_erro) {
+                return resultadoBase('DEVOLUCAO_APLICADA', {
+                    ok: true, aplicado: true,
+                    publicacaoRealizada: true,
+                    avisos: [
+                        ...(publicacaoComExcecao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []),
+                        { codigo: 'METADADO_SYNC_PENDENTE' }
+                    ],
+                    operacao: operacaoPublica, renderizar: true, sincronizar: false
+                });
+            }
+            return resultadoBase('DEVOLUCAO_APLICADA', {
+                ok: true, aplicado: true,
+                publicacaoRealizada: true,
+                avisos: [
+                    ...(publicacaoComExcecao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []),
+                    ...(persistencia.aviso ? [{ codigo: persistencia.aviso }] : [])
+                ],
+                operacao: operacaoPublica, renderizar: true, sincronizar: true
+            });
+        } catch (erro) {
+            return resultadoBase('FALHA_TRANSACIONAL_NAO_TRATADA', {
+                bloqueios: [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
+            });
+        } finally {
+            travasPorLocacao.delete(locacaoRef);
+        }
+    }
+
+    window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
+    window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

@@ -1538,7 +1538,7 @@
 
     function validarAssinaturaPlanoLocacao(assinatura) {
         return typeof assinatura === 'string'
-            && /^ajuste-reserva-v1:fnv1a64:[a-f0-9]{16}$/.test(assinatura);
+            && /^(?:ajuste-reserva|devolucao-locacao)-v1:fnv1a64:[a-f0-9]{16}$/.test(assinatura);
     }
 
     function validarOperacaoIdLocacao(operacaoId) {

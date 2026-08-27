@@ -226,6 +226,8 @@ function renderTipos() {
         // 3. Devoluções
         const d = document.getElementById('devLocacao');
         if(d) d.innerHTML='<option value="">Selecione...</option>'+locacoes.filter((l) => {
+            const identidadeLocacao = resolverLocacaoPorIdExato(l?.id, locacoes);
+            if (!identidadeLocacao.encontrado || identidadeLocacao.locacao !== l) return false;
             if (typeof locacaoTemPendenciaDevolucaoInterna === 'function') {
                 return locacaoTemPendenciaDevolucaoInterna(l);
             }
@@ -241,12 +243,13 @@ function renderTipos() {
                         : getQtdPendenteItem(item) > 0
                 ));
         }).map((l) => {
+            const referenciaLocacao = criarReferenciaTipadaLocacao(l.id);
             const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
             const nomeBruto = clienteResolvido.encontrado
                 ? (clienteResolvido.cliente.nome || 'Cliente')
                 : (clienteResolvido.estado === 'duplicado' ? 'Cadastro ambíguo' : 'Cliente removido');
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(nomeBruto) : nomeBruto;
-            return `<option value="${l.id}">#${l.id.toString().slice(-4)} - ${nome}</option>`;
+            return `<option value="${referenciaLocacao}">#${sanitizarTexto(String(l.id).slice(-4))} - ${nome}</option>`;
         }).join(''); 
         
         // 4. Tipos (garante um "Geral" real para evitar id inválido = 0)

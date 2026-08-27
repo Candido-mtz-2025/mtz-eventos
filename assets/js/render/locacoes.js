@@ -353,6 +353,10 @@ function renderLocacoes() {
         const edicaoPermitida = typeof obterElegibilidadeEdicaoLocacao === 'function'
             && obterElegibilidadeEdicaoLocacao(l, { validarOperacional: false }).permitida;
         tr.setAttribute('data-locacao-id', String(l.id));
+        if (typeof criarReferenciaTipadaLocacao === 'function') {
+            const referenciaTipada = criarReferenciaTipadaLocacao(l.id);
+            if (referenciaTipada) tr.setAttribute('data-locacao-ref', referenciaTipada);
+        }
         tr.className = `locacao-row locacao-row--${statusVisual}`;
         tr.innerHTML = `
             <td>

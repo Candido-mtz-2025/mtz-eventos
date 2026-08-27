@@ -27,7 +27,7 @@
 
     function assinaturaValida(valor) {
         return typeof valor === 'string'
-            && /^ajuste-reserva-v1:fnv1a64:[a-f0-9]{16}$/.test(valor);
+            && /^(?:ajuste-reserva|devolucao-locacao)-v1:fnv1a64:[a-f0-9]{16}$/.test(valor);
     }
 
     function fingerprintRecuperacaoValido(valor) {

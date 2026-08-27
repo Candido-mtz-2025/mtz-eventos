@@ -31,12 +31,9 @@ function renderDevolucoes() {
     };
     atualizarKpiVisualDevolucoes();
 
-    // Evita buscas O(n²) em locações/clientes quando há muitos registros de devolução.
-    const mapaLocacoesPorId = new Map(
-        (Array.isArray(locacoes) ? locacoes : []).map((locacao) => [String(locacao.id), locacao])
-    );
     const listaComContexto = devolucoes.map((registro) => {
-        const locacao = mapaLocacoesPorId.get(String(registro.locacaoId)) || null;
+        const locacaoResolvida = resolverLocacaoPorIdExato(registro.locacaoId, locacoes);
+        const locacao = locacaoResolvida.encontrado ? locacaoResolvida.locacao : null;
         const clienteResolvido = locacao
             ? resolverClientePorIdExato(locadores, locacao.locadorId)
             : { encontrado: false, estado: 'ausente', cliente: null };
@@ -50,7 +47,7 @@ function renderDevolucoes() {
             ...registro,
             locacao,
             cliente,
-            clienteCadastroAmbiguo: clienteResolvido.estado === 'duplicado',
+            clienteCadastroAmbiguo: locacaoResolvida.estado === 'duplicado' || clienteResolvido.estado === 'duplicado',
             tipoNormalizado,
             qtdItens
         };
@@ -148,15 +145,19 @@ function renderDevolucoes() {
             : (registro.clienteCadastroAmbiguo ? 'Cadastro ambíguo' : 'Removido');
         const cliente = typeof sanitizarTexto === 'function' ? sanitizarTexto(clienteBruto) : clienteBruto;
         const locacaoId = registro.locacao ? `#${registro.locacao.id.toString().slice(-4)}` : '#----';
-        const locacaoIdCompleto = String(registro.locacao?.id || registro.locacaoId || '').trim();
+        const locacaoIdCompleto = String(registro.locacao?.id ?? registro.locacaoId ?? '').trim();
         const tipo = registro.tipoNormalizado === 'parcial' ? 'Parcial' : 'Concluído';
         const badge = registro.tipoNormalizado === 'parcial' ? 'badge-warning' : 'badge-success';
         const itensTexto = registro.qtdItens > 0 ? `| ${registro.qtdItens} item(ns)` : '';
+        const referenciaDevolucao = typeof criarReferenciaTipadaDevolucao === 'function'
+            ? criarReferenciaTipadaDevolucao(registro.id)
+            : '';
         const rowClasses = ['devolucao-row', `devolucao-row--${registro.tipoNormalizado}`];
         let rowActionAttr = '';
-        if (locacaoIdCompleto) {
+        if (registro.locacao && locacaoIdCompleto) {
+            const referenciaLocacao = criarReferenciaTipadaLocacao(registro.locacao.id);
             rowClasses.push('devolucao-row-action');
-            rowActionAttr = ` data-action="irParaLocacaoPorCodigo" data-arg="${locacaoIdCompleto}" title="Abrir locação #${locacaoIdCompleto.slice(-4)}"`;
+            rowActionAttr = ` data-action="irParaLocacaoPorCodigo" data-arg="${sanitizarTexto(referenciaLocacao)}" title="Abrir locação #${sanitizarTexto(locacaoIdCompleto.slice(-4))}"`;
         }
 
         return `
@@ -172,7 +173,7 @@ function renderDevolucoes() {
                 <td><span class="badge ${badge}">${tipo}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-secondary table-action-btn" title="Imprimir recibo" aria-label="Imprimir recibo" data-action="gerarReciboDevolucao" data-arg="${registro.id}">
+                        <button class="btn btn-sm btn-secondary table-action-btn" title="Imprimir recibo" aria-label="Imprimir recibo" data-action="gerarReciboDevolucao" data-arg="${sanitizarTexto(referenciaDevolucao)}">
                             <i class="bi bi-printer"></i>
                         </button>
                     </div>

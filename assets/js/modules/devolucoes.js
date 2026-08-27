@@ -3,6 +3,52 @@ let devolucaoEmProcessamento = false;
 let devolucaoSubmissaoId = '';
 let devolucaoSubmissaoLocacaoId = '';
 
+function criarReferenciaTipadaLocacao(id) {
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido) return '';
+    return `locacao:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}`;
+}
+
+function resolverLocacaoPorIdExato(id, colecao = locacoes) {
+    const resultado = resolverRegistroPorIdExato(colecao, id);
+    return { ...resultado, locacao: resultado.registro };
+}
+
+function resolverLocacaoPorReferenciaTipada(referencia, colecao = locacoes) {
+    if (typeof referencia !== 'string' || !referencia.startsWith('locacao:')) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, locacao: null, quantidade: 0 };
+    }
+
+    let dados;
+    try {
+        dados = JSON.parse(decodeURIComponent(referencia.slice('locacao:'.length)));
+    } catch (_erro) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, locacao: null, quantidade: 0 };
+    }
+
+    if (!Array.isArray(dados) || dados.length !== 2) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, locacao: null, quantidade: 0 };
+    }
+
+    const [tipo, id] = dados;
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido || identidade.tipo !== tipo || criarReferenciaTipadaLocacao(id) !== referencia) {
+        return { encontrado: false, estado: 'invalido', codigo: 'REFERENCIA_INVALIDA', registro: null, locacao: null, quantidade: 0 };
+    }
+
+    return resolverLocacaoPorIdExato(identidade.valor, colecao);
+}
+
+function obterMensagemIdentidadeLocacaoDevolucao(resultado) {
+    if (resultado?.estado === 'duplicado') {
+        return 'Existem locações com o mesmo identificador. Corrija o cadastro antes de registrar a devolução.';
+    }
+    if (resultado?.estado === 'invalido') {
+        return 'A referência da locação é inválida. Atualize a lista e selecione novamente.';
+    }
+    return 'A locação selecionada não está mais disponível. Atualize a lista e tente novamente.';
+}
+
 function obterDataLocalIsoDevolucao(data = new Date()) {
     const dataLocal = data instanceof Date ? data : new Date(data);
     if (Number.isNaN(dataLocal.getTime())) return '';
@@ -24,10 +70,9 @@ function limparErroLocacaoDevolucao() {
     }
 }
 
-function informarErroLocacaoDevolucao() {
+function informarErroLocacaoDevolucao(texto = 'Selecione uma locação pendente para registrar a devolução.') {
     const campo = document.getElementById('devLocacao');
     const mensagem = document.getElementById('devLocacaoErro');
-    const texto = 'Selecione uma locação pendente para registrar a devolução.';
 
     campo?.setAttribute('aria-invalid', 'true');
     if (mensagem) {
@@ -97,14 +142,15 @@ function gerarOperacaoIdDevolucao() {
 
 function renovarSubmissaoDevolucao(locacaoId = '') {
     devolucaoSubmissaoId = gerarOperacaoIdDevolucao();
-    devolucaoSubmissaoLocacaoId = String(locacaoId || '');
+    devolucaoSubmissaoLocacaoId = criarReferenciaTipadaLocacao(locacaoId);
     return devolucaoSubmissaoId;
 }
 
 function obterSubmissaoDevolucao(locacaoId) {
-    const idLocacao = String(locacaoId || '');
-    if (!devolucaoSubmissaoId || devolucaoSubmissaoLocacaoId !== idLocacao) {
-        return renovarSubmissaoDevolucao(idLocacao);
+    const referenciaLocacao = criarReferenciaTipadaLocacao(locacaoId);
+    if (!referenciaLocacao) return '';
+    if (!devolucaoSubmissaoId || devolucaoSubmissaoLocacaoId !== referenciaLocacao) {
+        return renovarSubmissaoDevolucao(locacaoId);
     }
     return devolucaoSubmissaoId;
 }
@@ -263,14 +309,14 @@ function normalizarAssinaturaItensDevolucao(itens = []) {
 }
 
 function encontrarDevolucaoPossivelmenteDuplicada(dadosDevolucao) {
-    const locacaoId = Number(dadosDevolucao?.locacaoId || 0);
+    const identidadeLocacao = normalizarIdEntidadeExato(dadosDevolucao?.locacaoId);
     const dataDevolucao = String(dadosDevolucao?.dataDevolucao || '').trim();
     const assinatura = normalizarAssinaturaItensDevolucao(dadosDevolucao?.itens || []);
 
-    if (!locacaoId || !dataDevolucao || !assinatura) return null;
+    if (!identidadeLocacao.valido || !dataDevolucao || !assinatura) return null;
 
     return devolucoes.find((registro) => {
-        if (Number(registro?.locacaoId || 0) !== locacaoId) return false;
+        if (!idsEntidadeExatos(registro?.locacaoId, identidadeLocacao.valor)) return false;
         if (String(registro?.dataDevolucao || '').trim() !== dataDevolucao) return false;
         const assinaturaExistente = normalizarAssinaturaItensDevolucao(registro?.itens || []);
         return assinaturaExistente === assinatura;
@@ -278,12 +324,12 @@ function encontrarDevolucaoPossivelmenteDuplicada(dadosDevolucao) {
 }
 
 function carregarItensDevolucao() {
-    const id = document.getElementById('devLocacao').value;
+    const referenciaLocacao = document.getElementById('devLocacao').value;
     const div = document.getElementById('divItensDevolucao');
     if (!div) return;
 
     div.innerHTML = "";
-    if (!id) {
+    if (!referenciaLocacao) {
         div.innerHTML = criarEstadoDevolucaoPainel({
             tipo: 'info',
             titulo: 'Selecione uma locação',
@@ -293,13 +339,15 @@ function carregarItensDevolucao() {
         return;
     }
 
-    const l = locacoes.find(x => x.id == id);
+    const resultadoLocacao = resolverLocacaoPorReferenciaTipada(referenciaLocacao);
+    const l = resultadoLocacao.encontrado ? resultadoLocacao.locacao : null;
     if (!l) {
         div.innerHTML = criarEstadoDevolucaoPainel({
             tipo: 'error',
-            titulo: 'Locação não encontrada',
-            mensagem: 'Atualize a lista e tente novamente.'
+            titulo: resultadoLocacao.estado === 'duplicado' ? 'Identificador duplicado' : 'Locação não encontrada',
+            mensagem: obterMensagemIdentidadeLocacaoDevolucao(resultadoLocacao)
         });
+        informarErroLocacaoDevolucao(obterMensagemIdentidadeLocacaoDevolucao(resultadoLocacao));
         focarCampoDevolucao('devLocacao');
         return;
     }
@@ -398,8 +446,8 @@ function validarQtdDevolucao(input) {
 function confirmarDevolucao() {
     if (devolucaoEmProcessamento) return;
 
-    const id = document.getElementById('devLocacao').value;
-    if (!id) {
+    const referenciaLocacao = document.getElementById('devLocacao').value;
+    if (!referenciaLocacao) {
         informarErroLocacaoDevolucao();
         return;
     }
@@ -411,9 +459,10 @@ function confirmarDevolucao() {
         return;
     }
 
-    const l = locacoes.find(x => x.id == id);
+    const resultadoLocacao = resolverLocacaoPorReferenciaTipada(referenciaLocacao);
+    const l = resultadoLocacao.encontrado ? resultadoLocacao.locacao : null;
     if (!l) {
-        mostrarToast("Locação não encontrada.", "erro");
+        informarErroLocacaoDevolucao(obterMensagemIdentidadeLocacaoDevolucao(resultadoLocacao));
         focarCampoDevolucao('devLocacao');
         return;
     }
@@ -460,6 +509,7 @@ function confirmarDevolucao() {
         const { item, itemIndex, pendenteAntes, qtdDevolvida, qtdAvaria, obs } = registro;
         itensDevolvidos.push({
             itemIndex,
+            itemId: String(item.itemId || '').trim(),
             pecaId: item.pecaId,
             nome: item.nome,
             quantidadeLocada: parseInt(item.quantidade, 10) || 0,
@@ -491,183 +541,93 @@ function confirmarDevolucao() {
 
     const concluirRegistroDevolucao = () => {
         if (devolucaoEmProcessamento) return;
-        if (devolucoes.some((registro) => String(registro?.operacaoId || '') === operacaoId)) {
-            mostrarToast('Esta operação de devolução já foi registrada.', 'info');
-            return;
-        }
-
         devolucaoEmProcessamento = true;
         atualizarEstadoBotaoRegistroDevolucao();
-
-        const estadoAnteriorItens = pendencias.map(({ item }) => ({
-            item,
-            devolvidos: item.devolvidos,
-            avariadosEstoqueProprio: item.avariadosEstoqueProprio
-        }));
-        const estadoAnteriorPecas = new Map();
-        pendencias.forEach(({ item }) => {
-            const peca = Array.isArray(pecas)
-                ? pecas.find((registroPeca) => String(registroPeca?.id || '') === String(item.pecaId || ''))
-                : null;
-            if (peca && !estadoAnteriorPecas.has(peca)) estadoAnteriorPecas.set(peca, peca.avariado);
-        });
-        const estadoAnteriorLocacao = {
-            status: l.status,
-            statusFluxo: l.statusFluxo,
-            estoqueReserva: l.estoqueReserva && typeof l.estoqueReserva === 'object'
-                ? JSON.parse(JSON.stringify(l.estoqueReserva))
-                : l.estoqueReserva,
-            historicoAlteracoes: Array.isArray(l.historicoAlteracoes)
-                ? l.historicoAlteracoes.slice()
-                : l.historicoAlteracoes
-        };
-        const movimentacoesAnteriores = Array.isArray(movimentacoesEstoque)
-            ? movimentacoesEstoque.slice()
-            : [];
-        const devolucoesAnteriores = devolucoes.slice();
-        const movimentacoesRegistradas = [];
-
+        let resultado = null;
         try {
-            if (typeof registrarMovimentacaoEstoque !== 'function') {
-                throw new Error('Serviço de movimentação de estoque indisponível.');
+            if (typeof criarDependenciasExecutorAjusteLocacao !== 'function'
+                || typeof executarDevolucaoLocacaoTransacional !== 'function') {
+                throw new Error('Infraestrutura transacional de devoluções indisponível.');
             }
-
-            pendencias.forEach((registro) => {
-                const { item, itemIndex, qtdDevolvida, qtdAvaria, obs } = registro;
-                const pecaIdMov = String(item.pecaId || '');
-
-                if (qtdDevolvida > 0) {
-                    const movimentacao = registrarMovimentacaoEstoque({
-                        id: `mov-${operacaoId}-${itemIndex}-devolucao`,
-                        chaveIdempotencia: `devolucao|op:${operacaoId}|item:${itemIndex}|peca:${pecaIdMov}`,
-                        tipoMovimentacao: 'devolucao',
-                        quantidade: Math.max(0, Math.trunc(qtdDevolvida)),
-                        pecaId: pecaIdMov,
-                        pecaNome: item.nome,
-                        locacaoId: String(l.id),
-                        origemEvento: operacaoId,
-                        observacao: obs ? `Devolução: ${obs}` : `Devolução registrada em ${dataDevolucao}.`
-                    });
-                    if (!movimentacao) throw new Error(`Falha ao registrar devolução de "${item.nome}".`);
-                    movimentacoesRegistradas.push(movimentacao);
-                }
-
-                if (qtdAvaria > 0) {
-                    const movimentacao = registrarMovimentacaoEstoque({
-                        id: `mov-${operacaoId}-${itemIndex}-avaria`,
-                        chaveIdempotencia: `avaria|op:${operacaoId}|item:${itemIndex}|peca:${pecaIdMov}`,
-                        tipoMovimentacao: 'avaria',
-                        quantidade: Math.max(0, Math.trunc(qtdAvaria)),
-                        pecaId: pecaIdMov,
-                        pecaNome: item.nome,
-                        locacaoId: String(l.id),
-                        origemEvento: operacaoId,
-                        observacao: obs ? `Avaria: ${obs}` : `Avaria registrada em ${dataDevolucao}.`
-                    });
-                    if (!movimentacao) throw new Error(`Falha ao registrar avaria de "${item.nome}".`);
-                    movimentacoesRegistradas.push(movimentacao);
-                }
-            });
-
-            pendencias.forEach((registro) => {
-                const { item, qtdDevolvida, qtdAvaria } = registro;
-                item.devolvidos = (parseInt(item.devolvidos, 10) || 0) + qtdDevolvida;
-                item.avariadosEstoqueProprio = (parseInt(item.avariadosEstoqueProprio, 10) || 0) + qtdAvaria;
-
-                if (qtdAvaria > 0 && Array.isArray(pecas)) {
-                    const peca = pecas.find((registroPeca) => String(registroPeca?.id || '') === String(item.pecaId || ''));
-                    if (peca) peca.avariado = (parseInt(peca.avariado, 10) || 0) + qtdAvaria;
-                }
-            });
-
-            const agora = new Date().toISOString();
-            const responsavel = obterResponsavelDevolucao();
-            l.status = devolucaoTotal ? 'devolvido' : 'ativo';
-            if (devolucaoTotal) {
-                if (typeof atualizarStatusLocacaoDominio === 'function') {
-                    atualizarStatusLocacaoDominio(l, 'devolvido', {
-                        acao: 'devolucao_total',
-                        descricao: 'Locação encerrada com devolução total dos itens.',
-                        origem: 'devolucoes',
-                        usuario: responsavel
-                    });
-                }
-
-                const reservaAnterior = l.estoqueReserva && typeof l.estoqueReserva === 'object'
-                    ? l.estoqueReserva
-                    : {};
-                l.estoqueReserva = {
-                    ...reservaAnterior,
-                    status: 'liberado',
-                    liberadoEm: agora,
-                    liberadoPor: responsavel,
-                    motivo: 'devolucao_total',
-                    movimentacaoIds: Array.from(new Set([
-                        ...(Array.isArray(reservaAnterior.movimentacaoIds) ? reservaAnterior.movimentacaoIds : []),
-                        ...movimentacoesRegistradas.map((movimentacao) => movimentacao.id).filter(Boolean)
-                    ]))
-                };
-                if (typeof registrarHistoricoLocacaoDominio === 'function') {
-                    registrarHistoricoLocacaoDominio(l, {
-                        acao: 'estoque_reserva_liberada',
-                        descricao: 'Reserva de estoque liberada após devolução total.',
-                        origem: 'devolucoes',
-                        usuario: responsavel
-                    });
-                }
-            } else if (typeof registrarHistoricoLocacaoDominio === 'function') {
-                registrarHistoricoLocacaoDominio(l, {
-                    acao: 'devolucao_parcial',
-                    descricao: 'Devolução parcial registrada para a locação.',
-                    origem: 'devolucoes',
-                    usuario: responsavel
-                });
-            }
-            const novaDevolucaoId = Date.now();
-
-            devolucoes.push({
-                id: novaDevolucaoId,
+            const instante = new Date();
+            const atualizadoEm = instante.toISOString();
+            const dependencias = criarDependenciasExecutorAjusteLocacao({ armazenamento: localStorage });
+            resultado = executarDevolucaoLocacaoTransacional({
+                locacaoId: l.id,
                 operacaoId,
-                criadoEm: agora,
-                criadoPor: responsavel,
-                ...dadosNovaDevolucao
-            });
-
-            if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
-            salvarLocal();
-            renderTudo();
-            limparFormularioDevolucaoAposRegistro();
-            if (typeof focarRegistroRecemSalvo === 'function') {
-                focarRegistroRecemSalvo({ tipo: 'devolucao', id: novaDevolucaoId, limparBusca: false });
-            }
-            sincronizar('salvar');
-
-            const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
-            const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
-            registrarLog('devolucao', devolucaoTotal ? 'criar' : 'parcial', `Devolução ${devolucaoTotal ? 'total' : 'parcial'}: ${cliente?.nome || 'Cliente'} - ${itensDevolvidos.length} item(ns)`);
-            mostrarToast(devolucaoTotal ? 'Devolução total registrada!' : 'Devolução parcial registrada!');
+                dataDevolucao,
+                itens: itensDevolvidos.map((item) => ({
+                    itemIndex: item.itemIndex,
+                    itemId: item.itemId,
+                    quantidadeDevolvida: item.quantidadeDevolvida,
+                    quantidadeAvaria: item.quantidadeAvaria,
+                    observacao: item.observacao
+                })),
+                atualizadoEm,
+                atualizadoPor: obterResponsavelDevolucao(),
+                persistencia: {
+                    versao: window.SCHEMA_VERSION_V12 || '12.6',
+                    data: atualizadoEm,
+                    ultimaEdicao: instante.getTime()
+                }
+            }, dependencias);
         } catch (erro) {
-            estadoAnteriorItens.forEach((estado) => {
-                estado.item.devolvidos = estado.devolvidos;
-                estado.item.avariadosEstoqueProprio = estado.avariadosEstoqueProprio;
-            });
-            estadoAnteriorPecas.forEach((avariado, peca) => {
-                peca.avariado = avariado;
-            });
-            l.status = estadoAnteriorLocacao.status;
-            l.statusFluxo = estadoAnteriorLocacao.statusFluxo;
-            l.estoqueReserva = estadoAnteriorLocacao.estoqueReserva;
-            l.historicoAlteracoes = estadoAnteriorLocacao.historicoAlteracoes;
-            if (Array.isArray(movimentacoesEstoque)) {
-                movimentacoesEstoque.splice(0, movimentacoesEstoque.length, ...movimentacoesAnteriores);
-            }
-            devolucoes.splice(0, devolucoes.length, ...devolucoesAnteriores);
-            mostrarToast(erro?.message || 'Não foi possível registrar a devolução.', 'erro');
+            resultado = {
+                ok: false,
+                codigo: 'FALHA_INTEGRACAO_TRANSACIONAL',
+                bloqueios: [{ mensagem: String(erro?.message || erro) }],
+                efeitos: { renderizar: false, sincronizar: false }
+            };
         } finally {
             devolucaoEmProcessamento = false;
-            atualizarResumoConferenciaDevolucao();
-            atualizarEstadoBotaoRegistroDevolucao({ informado: 0, temInvalido: false });
+            atualizarEstadoBotaoRegistroDevolucao();
         }
+
+        if ((resultado?.codigo === 'DEVOLUCAO_APLICADA' || resultado?.codigo === 'OPERACAO_JA_CONCLUIDA')
+            && resultado.ok) {
+            const idempotente = resultado.codigo === 'OPERACAO_JA_CONCLUIDA';
+            limparFormularioDevolucaoAposRegistro();
+            if (resultado?.efeitos?.renderizar === true && typeof renderTudo === 'function') {
+                try {
+                    renderTudo();
+                } catch (erro) {
+                    console.error('Devolução confirmada, mas a atualização visual falhou:', erro);
+                }
+            }
+            const devolucaoId = resultado?.operacao?.devolucaoId;
+            if (devolucaoId && typeof focarRegistroRecemSalvo === 'function') {
+                focarRegistroRecemSalvo({ tipo: 'devolucao', id: devolucaoId, limparBusca: false });
+            }
+            if (resultado?.efeitos?.sincronizar === true && typeof sincronizar === 'function') {
+                try {
+                    const sincronizacao = sincronizar('salvar');
+                    if (sincronizacao && typeof sincronizacao.catch === 'function') {
+                        sincronizacao.catch((erro) => console.error('Sincronização da devolução ficou pendente:', erro));
+                    }
+                } catch (erro) {
+                    console.error('Sincronização da devolução não iniciou:', erro);
+                }
+            }
+            const syncPendente = (resultado?.avisos || []).some((aviso) => aviso?.codigo === 'METADADO_SYNC_PENDENTE');
+            if (syncPendente) {
+                mostrarToast('Devolução aplicada. A atualização de sincronização ficou pendente.', 'info', 7200);
+            } else {
+                mostrarToast(idempotente
+                    ? 'Esta devolução já estava registrada.'
+                    : (resultado?.operacao?.tipo === 'total'
+                        ? 'Devolução total registrada!'
+                        : 'Devolução parcial registrada!'));
+            }
+            return;
+        }
+        if (resultado?.requerRecuperacao
+            || ['OPERACAO_REQUER_RECUPERACAO', 'ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', 'PERSISTENCIA_INDETERMINADA'].includes(resultado?.codigo)) {
+            mostrarToast('A devolução exige recuperação explícita. Nenhuma nova tentativa automática foi feita.', 'erro', 8500);
+            return;
+        }
+        const mensagem = resultado?.bloqueios?.[0]?.mensagem
+            || 'Não foi possível registrar a devolução com segurança.';
+        mostrarToast(mensagem, 'erro', 7200);
     };
 
     const devolucaoDuplicada = encontrarDevolucaoPossivelmenteDuplicada(dadosNovaDevolucao);
@@ -717,6 +677,9 @@ window.preencherDevolucaoCompleta = preencherDevolucaoCompleta;
 window.limparConferenciaDevolucao = limparConferenciaDevolucao;
 window.atualizarResumoConferenciaDevolucao = atualizarResumoConferenciaDevolucao;
 window.onInputConferenciaDevolucao = onInputConferenciaDevolucao;
+window.criarReferenciaTipadaLocacao = criarReferenciaTipadaLocacao;
+window.resolverLocacaoPorIdExato = resolverLocacaoPorIdExato;
+window.resolverLocacaoPorReferenciaTipada = resolverLocacaoPorReferenciaTipada;
 
 window.addEventListener('load', () => {
     setTimeout(() => {

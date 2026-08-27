@@ -69,8 +69,19 @@ function getFooterMTZ() {
 }
 
 function prepararModalRelatorio(id, titulo) {
-    const l = locacoes.find(x => x.id === id);
-    if (!l) return;
+    const locacaoResolvida = typeof resolverLocacaoPorIdExato === 'function'
+        ? resolverLocacaoPorIdExato(id, locacoes)
+        : { encontrado: false, estado: 'invalido', locacao: null };
+    if (!locacaoResolvida.encontrado) {
+        const mensagem = locacaoResolvida.estado === 'duplicado'
+            ? 'O documento não pode ser gerado porque o identificador da locação está duplicado.'
+            : (locacaoResolvida.estado === 'invalido'
+                ? 'O documento não pode ser gerado porque o identificador da locação é inválido.'
+                : 'O documento não pode ser gerado porque a locação não foi encontrada.');
+        mostrarToast(mensagem, 'erro');
+        return false;
+    }
+    const l = locacaoResolvida.locacao;
 
     const clienteResolvido = resolverClientePorIdExato(locadores, l.locadorId);
     const c = clienteResolvido.encontrado
@@ -203,17 +214,93 @@ function gerarRomaneio(id) {
     prepararModalRelatorio(id, 'ROMANEIO DE SEPARAÇÃO');
 }
 
+function criarReferenciaTipadaDevolucao(id) {
+    const identidade = typeof normalizarIdEntidadeExato === 'function'
+        ? normalizarIdEntidadeExato(id)
+        : { valido: false };
+    if (!identidade.valido) return '';
+    return `devolucao:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}`;
+}
+
+function resolverDevolucaoParaRecibo(identificador) {
+    let id = identificador;
+    if (typeof identificador === 'string' && identificador.startsWith('devolucao:')) {
+        let dados;
+        try {
+            dados = JSON.parse(decodeURIComponent(identificador.slice('devolucao:'.length)));
+        } catch (_erro) {
+            dados = null;
+        }
+        if (!Array.isArray(dados) || dados.length !== 2) {
+            return { encontrado: false, estado: 'invalido', devolucao: null };
+        }
+        const [tipo, valor] = dados;
+        const identidade = normalizarIdEntidadeExato(valor);
+        if (!identidade.valido || identidade.tipo !== tipo || criarReferenciaTipadaDevolucao(valor) !== identificador) {
+            return { encontrado: false, estado: 'invalido', devolucao: null };
+        }
+        id = identidade.valor;
+    }
+
+    const resultado = typeof resolverRegistroPorIdExato === 'function'
+        ? resolverRegistroPorIdExato(devolucoes, id)
+        : { encontrado: false, estado: 'invalido', registro: null };
+    return { ...resultado, devolucao: resultado.registro || null };
+}
+
+function informarFalhaReciboDevolucao(resultado) {
+    const mensagem = resultado?.estado === 'duplicado'
+        ? 'O recibo não pode ser gerado porque o identificador da devolução está duplicado.'
+        : (resultado?.estado === 'invalido'
+            ? 'O recibo não pode ser gerado porque o identificador da devolução é inválido.'
+            : 'Devolução não encontrada.');
+    mostrarToast(mensagem, 'erro');
+    return false;
+}
+
 function gerarRecibo(id) {
-    const ultima = devolucoes.slice().reverse().find(d => d.locacaoId === id);
-    if (ultima) return gerarReciboDevolucao(ultima.id);
-    prepararModalRelatorio(id, 'RECIBO DE DEVOLUÇÃO');
+    const locacaoResolvida = typeof resolverLocacaoPorIdExato === 'function'
+        ? resolverLocacaoPorIdExato(id, locacoes)
+        : { encontrado: false, estado: 'invalido', locacao: null };
+    if (!locacaoResolvida.encontrado) {
+        return prepararModalRelatorio(id, 'RECIBO DE DEVOLUÇÃO');
+    }
+    const ultima = devolucoes.slice().reverse().find(d => (
+        typeof idsEntidadeExatos === 'function'
+            ? idsEntidadeExatos(d.locacaoId, locacaoResolvida.locacao.id)
+            : d.locacaoId === locacaoResolvida.locacao.id
+    ));
+    if (ultima) {
+        const devolucaoResolvida = resolverDevolucaoParaRecibo(ultima.id);
+        if (!devolucaoResolvida.encontrado || devolucaoResolvida.devolucao !== ultima) {
+            return informarFalhaReciboDevolucao(devolucaoResolvida);
+        }
+        return renderizarReciboDevolucao(devolucaoResolvida.devolucao);
+    }
+    return prepararModalRelatorio(locacaoResolvida.locacao.id, 'RECIBO DE DEVOLUÇÃO');
 }
 
 function gerarReciboDevolucao(devolucaoId) {
-    const d = devolucoes.find(x => x.id === devolucaoId);
-    if (!d) return mostrarToast('Devolução não encontrada.', 'erro');
+    const devolucaoResolvida = resolverDevolucaoParaRecibo(devolucaoId);
+    if (!devolucaoResolvida.encontrado) return informarFalhaReciboDevolucao(devolucaoResolvida);
+    return renderizarReciboDevolucao(devolucaoResolvida.devolucao);
+}
 
-    const l = locacoes.find(x => x.id === d.locacaoId);
+function renderizarReciboDevolucao(d) {
+
+    const locacaoResolvida = typeof resolverLocacaoPorIdExato === 'function'
+        ? resolverLocacaoPorIdExato(d.locacaoId, locacoes)
+        : { encontrado: false, estado: 'invalido', locacao: null };
+    if (!locacaoResolvida.encontrado) {
+        const mensagem = locacaoResolvida.estado === 'duplicado'
+            ? 'O recibo não pode ser gerado porque o identificador da locação está duplicado.'
+            : (locacaoResolvida.estado === 'invalido'
+                ? 'O recibo não pode ser gerado porque o identificador da locação é inválido.'
+                : 'O recibo não pode ser gerado porque a locação não foi encontrada.');
+        mostrarToast(mensagem, 'erro');
+        return false;
+    }
+    const l = locacaoResolvida.locacao;
     const clienteResolvido = resolverClientePorIdExato(locadores, l?.locadorId);
     const c = clienteResolvido.encontrado
         ? clienteResolvido.cliente
@@ -299,6 +386,8 @@ function gerarReciboDevolucao(devolucaoId) {
         document.getElementById('modalRelatorio').classList.add('active');
     }
 }
+
+window.criarReferenciaTipadaDevolucao = criarReferenciaTipadaDevolucao;
 
 function gerarRelatorio(id) {
     prepararModalRelatorio(id, 'CONTRATO DE LOCAÇÃO');
