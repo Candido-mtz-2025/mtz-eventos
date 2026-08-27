@@ -136,251 +136,229 @@ function limparFormularioCadastroPeca() {
     if (foto) foto.value = '';
 }
     
-function salvarPeca() {
-    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode cadastrar ou alterar valores de estoque.')) {
-        return;
-    }
-
-    const n = (document.getElementById('pecaNome').value || '').trim();
-    const codigo = (document.getElementById('pecaCod').value || '').trim();
-    const medida = (document.getElementById('pecaMedida').value || '').trim();
-    const barras = (document.getElementById('pecaBar').value || '').trim();
-    const valor = parseFloat(document.getElementById('pecaValor').value);
-    const quantidade = parseInt(document.getElementById('pecaQtd').value, 10);
-    const tipoId = resolverTipoSelecionado(document.getElementById('pecaTipo').value);
-
-    if (!n) {
-        mostrarToast("Informe o nome da peca.", "erro");
-        document.getElementById('pecaNome')?.focus();
-        return;
-    }
-    if (!Number.isFinite(valor) || valor < 0) {
-        mostrarToast("Informe um valor valido (maior ou igual a zero).", "erro");
-        document.getElementById('pecaValor')?.focus();
-        return;
-    }
-    if (!Number.isInteger(quantidade) || quantidade < 0) {
-        mostrarToast("Informe uma quantidade valida (maior ou igual a zero).", "erro");
-        document.getElementById('pecaQtd')?.focus();
-        return;
-    }
-
-    const duplicada = encontrarPecaDuplicada({
-        nome: n,
-        codigo,
-        barras,
-        medida,
-        tipoId
+// Inclusao e edicao sao apenas rascunhos nesta etapa, sem executor ou persistencia.
+(() => {
+    let sessao = null;
+    let abrindo = false;
+    let dialogoPreparado = null;
+    const campos = Object.freeze({
+        sessaoPecaNome: 'nome', sessaoPecaCodigo: 'codigo', sessaoPecaMedida: 'medida',
+        sessaoPecaBarras: 'barras', sessaoPecaQuantidade: 'quantidadeTotal', sessaoPecaPreco: 'valor'
     });
-    if (duplicada) {
-        if (codigo && normalizarIdentificadorEstoque(duplicada.codigo) === normalizarIdentificadorEstoque(codigo)) {
-            mostrarToast("Ja existe item com esse codigo.", "erro");
-            document.getElementById('pecaCod')?.focus();
-            return;
-        }
 
-        if (barras && normalizarIdentificadorEstoque(duplicada.barras || duplicada.codigoBarras) === normalizarIdentificadorEstoque(barras)) {
-            mostrarToast("Ja existe item com esse codigo de barras.", "erro");
-            document.getElementById('pecaBar')?.focus();
-            return;
-        }
-
-        mostrarToast(`Item possivelmente duplicado: ${duplicada.nome}.`, "erro");
-        document.getElementById('pecaNome')?.focus();
-        return;
+    function referencia(tipo, id) {
+        const identidade = normalizarIdEntidadeExato(id);
+        return identidade.valido
+            ? `${tipo}:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}` : '';
     }
 
-    const novoId = Date.now();
-    const novaPecaBase = {
-        id: novoId,
-        nome: n,
-        codigo,
-        valor,
-        quantidade,
-        quantidadeTotal: quantidade,
-        disponivel: quantidade,
-        reservado: 0,
-        manutencao: 0,
-        avariado: 0,
-        perdido: 0,
-        localizacao: '',
-        historicoMovimentacoes: [],
-        codigoInterno: codigo,
-        qrCode: barras,
-        status: 'ativo',
-        tipoId,
-        medida,
-        barras,
+    function resolver(ref, tipo, colecao) {
+        const invalido = { encontrado: false, estado: 'invalido', registro: null };
+        if (typeof ref !== 'string' || !ref.startsWith(`${tipo}:`)) return invalido;
+        try {
+            const dados = JSON.parse(decodeURIComponent(ref.slice(tipo.length + 1)));
+            if (!Array.isArray(dados) || dados.length !== 2) return invalido;
+            const identidade = normalizarIdEntidadeExato(dados[1]);
+            if (!identidade.valido || identidade.tipo !== dados[0] || referencia(tipo, dados[1]) !== ref) return invalido;
+            return resolverRegistroPorIdExato(colecao, identidade.valor);
+        } catch (_erro) {
+            return invalido;
+        }
+    }
 
-        grupoChecklist: document.getElementById('pecaGrupoChecklist').value || 'outros',
-        familiaEstrutural: document.getElementById('pecaFamiliaEstrutural').value || '',
-        subtipoEstrutural: document.getElementById('pecaSubtipoEstrutural').value || '',
-        podeComporEstrutura: document.getElementById('pecaPodeCompor').value === 'sim'
+    function clonar(valor) {
+        const resultado = clonarJsonPersistivelEstrito(valor);
+        if (!resultado.ok) throw new Error('O item contém dados inválidos para uma edição segura.');
+        return resultado.valor;
+    }
+
+    function numero(valor) {
+        if (typeof valor === 'number') return Number.isFinite(valor) ? valor : NaN;
+        if (typeof valor !== 'string' || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(valor.trim())) return NaN;
+        const convertido = Number(valor);
+        return Number.isFinite(convertido) ? convertido : NaN;
+    }
+
+    function erroCampo(id, mensagem) {
+        const campo = document.getElementById(id);
+        const erro = document.getElementById(`${id}Erro`);
+        if (!campo || !erro) return;
+        const descricoes = new Set((campo.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+        descricoes.delete(erro.id);
+        if (mensagem) {
+            campo.setAttribute('aria-invalid', 'true');
+            descricoes.add(erro.id);
+        } else campo.removeAttribute('aria-invalid');
+        if (descricoes.size) campo.setAttribute('aria-describedby', [...descricoes].join(' '));
+        else campo.removeAttribute('aria-describedby');
+        if (erro.textContent !== mensagem) erro.textContent = mensagem;
+        erro.hidden = !mensagem;
+    }
+
+    function validar(focar = false) {
+        if (!sessao) return { valido: false, erros: [] };
+        const erros = [];
+        const adicionar = (campo, mensagem) => erros.push({ campo, mensagem });
+        const nome = document.getElementById('sessaoPecaNome').value.trim();
+        const quantidade = numero(document.getElementById('sessaoPecaQuantidade').value);
+        const preco = numero(document.getElementById('sessaoPecaPreco').value);
+        const categoria = resolver(document.getElementById('sessaoPecaCategoria').value, 'categoria', tipos);
+        if (!nome) adicionar('sessaoPecaNome', 'Informe o nome da peça.');
+        if (!categoria.encontrado) adicionar('sessaoPecaCategoria', categoria.estado === 'duplicado'
+            ? 'A categoria está duplicada. Confira o cadastro.' : 'Selecione uma categoria válida e sem ambiguidade.');
+        if (!Number.isSafeInteger(quantidade) || quantidade < 0) {
+            adicionar('sessaoPecaQuantidade', 'Informe uma quantidade total inteira e não negativa.');
+        } else if (!Number.isSafeInteger(sessao.comprometido) || sessao.comprometido < 0) {
+            adicionar('sessaoPecaQuantidade', 'Os saldos comprometidos são inválidos. Confira o cadastro antes de continuar.');
+        } else if (quantidade < sessao.comprometido) {
+            adicionar('sessaoPecaQuantidade', `A quantidade total não pode ser inferior às ${sessao.comprometido} unidades comprometidas.`);
+        }
+        if (!Number.isFinite(preco) || preco < 0) adicionar('sessaoPecaPreco', 'Informe um preço numérico maior ou igual a zero.');
+        for (const id of ['sessaoPecaNome', 'sessaoPecaCategoria', 'sessaoPecaQuantidade', 'sessaoPecaPreco']) {
+            erroCampo(id, erros.find(e => e.campo === id)?.mensagem || '');
+        }
+        document.getElementById('sessaoPecaConfirmar').disabled = true;
+        if (focar && erros.length) document.getElementById(erros[0].campo).focus();
+        return { valido: erros.length === 0, erros };
+    }
+
+    function atualizar(evento) {
+        if (!sessao) return;
+        const controle = evento.target;
+        const chave = campos[controle.id];
+        if (chave) {
+            const valor = controle.value;
+            const numerico = chave === 'quantidadeTotal' || chave === 'valor';
+            const convertido = numero(valor);
+            sessao.rascunho[chave] = numerico && Number.isFinite(convertido) ? convertido : valor;
+        } else if (controle.id === 'sessaoPecaCategoria') {
+            const categoria = resolver(controle.value, 'categoria', tipos);
+            sessao.rascunho.tipoId = categoria.encontrado ? categoria.registro.id : null;
+        }
+        validar();
+    }
+
+    function descartar() {
+        const foco = sessao?.foco;
+        sessao = null;
+        const dialogo = document.getElementById('dialogSessaoPeca');
+        document.getElementById('formSessaoPeca')?.reset();
+        document.getElementById('sessaoPecaCategoria')?.replaceChildren();
+        for (const id of ['sessaoPecaNome', 'sessaoPecaCategoria', 'sessaoPecaQuantidade', 'sessaoPecaPreco']) erroCampo(id, '');
+        if (dialogo?.open) dialogo.close();
+        if (foco?.isConnected) foco.focus({ preventScroll: true });
+        return true;
+    }
+
+    function prepararDialogo(dialogo) {
+        if (dialogoPreparado === dialogo) return;
+        dialogoPreparado = dialogo;
+        dialogo.addEventListener('input', atualizar);
+        dialogo.addEventListener('change', atualizar);
+        dialogo.addEventListener('cancel', evento => { evento.preventDefault(); descartar(); });
+        dialogo.addEventListener('close', () => { if (!dialogo.open && sessao) descartar(); });
+        dialogo.addEventListener('click', evento => {
+            const limite = dialogo.getBoundingClientRect();
+            const backdrop = evento.target === dialogo && (evento.clientX < limite.left
+                || evento.clientX > limite.right || evento.clientY < limite.top || evento.clientY > limite.bottom);
+            if (backdrop || evento.target.closest('[data-fechar-sessao-peca]')) descartar();
+        });
+        dialogo.addEventListener('keydown', evento => {
+            evento.stopPropagation();
+            if (evento.key === 'Escape') { evento.preventDefault(); descartar(); }
+            if (evento.key === 'Tab') {
+                const controles = [...dialogo.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled])')];
+                const primeiro = controles[0];
+                const ultimo = controles[controles.length - 1];
+                if (evento.shiftKey && document.activeElement === primeiro) {
+                    evento.preventDefault();
+                    ultimo?.focus();
+                } else if (!evento.shiftKey && document.activeElement === ultimo) {
+                    evento.preventDefault();
+                    primeiro?.focus();
+                }
+            }
+            if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 's') {
+                evento.preventDefault();
+                validar(true);
+            }
+        });
+        document.getElementById('formSessaoPeca').addEventListener('submit', evento => {
+            evento.preventDefault();
+            validar(true);
+        });
+    }
+
+    function abrir(ref, edicao = false) {
+        if (sessao || abrindo) {
+            mostrarToast('Já existe uma sessão de peça aberta. Cancele-a antes de iniciar outra.', 'info');
+            return false;
+        }
+        abrindo = true;
+        try {
+            if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode incluir ou editar peças.')) return false;
+            const dialogo = document.getElementById('dialogSessaoPeca');
+            if (!dialogo || typeof dialogo.showModal !== 'function') throw new Error('O editor de peças não está disponível neste navegador.');
+            let original;
+            if (edicao) {
+                const resultado = resolver(ref, 'peca', pecas);
+                if (!resultado.encontrado) throw new Error(resultado.estado === 'duplicado'
+                    ? 'O identificador da peça está duplicado. A edição foi bloqueada.' : 'A peça não foi encontrada ou sua referência é inválida.');
+                original = clonar(resultado.registro);
+            } else original = { nome: '', codigo: '', medida: '', barras: '', valor: 0, quantidadeTotal: 1,
+                tipoId: null, reservado: 0, manutencao: 0, avariado: 0, perdido: 0 };
+            const rascunho = clonar(original);
+            const saldos = ['reservado', 'manutencao', 'avariado', 'perdido']
+                .map(chave => original[chave] === undefined ? 0 : numero(original[chave]));
+            const comprometido = saldos.every(n => Number.isSafeInteger(n) && n >= 0)
+                ? saldos.reduce((soma, n) => soma + n, 0) : NaN;
+            prepararDialogo(dialogo);
+            sessao = { modo: edicao ? 'edicao' : 'inclusao', rascunho, comprometido, foco: document.activeElement };
+            const categoria = document.getElementById('sessaoPecaCategoria');
+            categoria.replaceChildren(new Option('Selecione uma categoria', ''));
+            tipos.forEach(tipo => {
+                if (resolverRegistroPorIdExato(tipos, tipo?.id).encontrado) {
+                    categoria.add(new Option(tipo.nome || 'Sem nome', referencia('categoria', tipo.id)));
+                }
+            });
+            categoria.value = referencia('categoria', original.tipoId);
+            for (const [id, chave] of Object.entries(campos)) {
+                document.getElementById(id).value = chave === 'quantidadeTotal'
+                    ? (original.quantidadeTotal ?? original.quantidade ?? '') : (original[chave] ?? '');
+            }
+            document.getElementById('sessaoPecaTitulo').textContent = edicao ? 'Editar peça' : 'Incluir peça';
+            document.getElementById('sessaoPecaIdentidade').textContent = !edicao ? 'Novo item'
+                : `ID: ${original.id} (${typeof original.id === 'number' ? 'numérico' : 'textual'})`;
+            document.getElementById('sessaoPecaSaldos').textContent = Number.isSafeInteger(comprometido)
+                ? `Comprometido: ${comprometido} · Reservado: ${saldos[0]} · Manutenção: ${saldos[1]} · Avariado: ${saldos[2]} · Perdido: ${saldos[3]}`
+                : 'Saldos comprometidos precisam de conferência.';
+            document.getElementById('sessaoPecaConfirmar').disabled = true;
+            dialogo.showModal();
+            document.getElementById('sessaoPecaNome').focus();
+            validar(true);
+            return true;
+        } catch (erro) {
+            if (sessao) descartar();
+            mostrarToast(erro.message || 'Não foi possível abrir a sessão de peça.', 'erro');
+            return false;
+        } finally {
+            abrindo = false;
+        }
+    }
+
+    window.criarReferenciaTipadaPeca = id => referencia('peca', id);
+    window.criarReferenciaTipadaCategoriaPeca = id => referencia('categoria', id);
+    window.abrirInclusaoPeca = () => abrir();
+    window.abrirEditarPeca = ref => abrir(ref, true);
+    window.cancelarSessaoPeca = descartar;
+    window.validarSessaoPeca = () => validar(true);
+    window.obterRascunhoSessaoPeca = () => sessao ? clonar(sessao.rascunho) : null;
+    // Compatibilidade com atalhos antigos: nenhuma chamada pode persistir nesta etapa.
+    window.salvarPeca = window.salvarEdicaoPeca = () => {
+        validar(true);
+        return false;
     };
-
-    const novaPeca = typeof normalizarPecaDominio === 'function'
-        ? normalizarPecaDominio(novaPecaBase)
-        : novaPecaBase;
-    pecas.push(novaPeca);
-
-    if (typeof registrarMovimentacaoEstoque === 'function') {
-        const quantidadeMov = Math.max(0, Math.trunc(quantidade));
-        registrarMovimentacaoEstoque({
-            id: `mov-${novoId}-entrada-cadastro`,
-            chaveIdempotencia: `entrada|origem:cadastro|peca:${String(novaPeca.id)}|codigo:${normalizarIdentificadorEstoque(novaPeca.codigo || codigo)}|q:${quantidadeMov}`,
-            tipoMovimentacao: 'entrada',
-            quantidade: quantidadeMov,
-            pecaId: String(novaPeca.id),
-            pecaNome: novaPeca.nome,
-            origemEvento: 'cadastro_estoque',
-            observacao: `Cadastro manual do item ${novaPeca.codigo || codigo || String(novaPeca.id)}.`
-        });
-    }
-
-    limparFormularioCadastroPeca();
-    salvarLocal();
-    renderTudo();
-    if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'peca', id: novoId, limparBusca: true });
-    }
-    sincronizar('salvar');
-    mostrarToast("Item Salvo!");
-}
-
-  function abrirEditarPeca(id) {
-    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode editar itens de estoque.')) {
-        return;
-    }
-
-    const p = pecas.find(x => String(x.id) === String(id));
-    if (!p) {
-        mostrarToast("Item não encontrado!", "erro");
-        return;
-    }
-
-    document.getElementById('editPecaId').value = p.id;
-    document.getElementById('editPecaCod').value = p.codigo || '';
-    document.getElementById('editPecaNome').value = p.nome || '';
-    document.getElementById('editPecaMedida').value = p.medida || '';
-    document.getElementById('editPecaValor').value = p.valor || 0;
-    document.getElementById('editPecaQtd').value = p.quantidade || 0;
-    document.getElementById('editPecaBar').value = p.barras || p.codigoBarras || '';
-
-    updateSelects();
-    const sel = document.getElementById('editPecaTipo');
-    if (sel) sel.value = p.tipoId || 0;
-
-    document.getElementById('editPecaGrupoChecklist').value = p.grupoChecklist || 'outros';
-    document.getElementById('editPecaFamiliaEstrutural').value = p.familiaEstrutural || '';
-    document.getElementById('editPecaSubtipoEstrutural').value = p.subtipoEstrutural || '';
-    document.getElementById('editPecaPodeCompor').value = p.podeComporEstrutura ? 'sim' : 'nao';
-
-    document.getElementById('modalEditarPeca').classList.add('active');
-}
-function salvarEdicaoPeca() {
-    if (typeof validarPermissao === 'function' && !validarPermissao('editar_valor', 'Somente administrador pode salvar alterações de valores/estoque.')) {
-        return;
-    }
-
-    const id = document.getElementById('editPecaId').value;
-    const p = pecas.find(x => String(x.id) === String(id));
-
-    if (!p) {
-        mostrarToast("Item não encontrado para salvar!", "erro");
-        return;
-    }
-
-    const novoCodigo = (document.getElementById('editPecaCod').value || '').trim();
-    const novoNome = (document.getElementById('editPecaNome').value || '').trim();
-    const novaMedida = (document.getElementById('editPecaMedida').value || '').trim();
-    const novoBarras = (document.getElementById('editPecaBar').value || '').trim();
-    const novoTipoId = resolverTipoSelecionado(document.getElementById('editPecaTipo').value);
-    const novaQtd = parseInt(document.getElementById('editPecaQtd').value) || 0;
-    const pAtual = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(p) : p;
-    const qtdAnterior = parseInt(pAtual.quantidadeTotal ?? pAtual.quantidade, 10) || 0;
-    const diff = novaQtd - qtdAnterior;
-
-    if (!novoNome) {
-        mostrarToast("Informe o nome da peca.", "erro");
-        document.getElementById('editPecaNome')?.focus();
-        return;
-    }
-
-    const duplicada = encontrarPecaDuplicada(
-        {
-            nome: novoNome,
-            codigo: novoCodigo,
-            barras: novoBarras,
-            medida: novaMedida,
-            tipoId: novoTipoId
-        },
-        id
-    );
-    if (duplicada) {
-        if (novoCodigo && normalizarIdentificadorEstoque(duplicada.codigo) === normalizarIdentificadorEstoque(novoCodigo)) {
-            mostrarToast("Ja existe item com esse codigo.", "erro");
-            document.getElementById('editPecaCod')?.focus();
-            return;
-        }
-
-        if (novoBarras && normalizarIdentificadorEstoque(duplicada.barras || duplicada.codigoBarras) === normalizarIdentificadorEstoque(novoBarras)) {
-            mostrarToast("Ja existe item com esse codigo de barras.", "erro");
-            document.getElementById('editPecaBar')?.focus();
-            return;
-        }
-
-        mostrarToast(`Item possivelmente duplicado: ${duplicada.nome}.`, "erro");
-        document.getElementById('editPecaNome')?.focus();
-        return;
-    }
-
-    p.codigo = novoCodigo;
-    p.nome = novoNome;
-    p.medida = novaMedida;
-    p.valor = parseFloat(document.getElementById('editPecaValor').value) || 0;
-    p.tipoId = novoTipoId;
-    p.quantidadeTotal = novaQtd;
-    p.quantidade = novaQtd;
-    p.disponivel = (p.disponivel || 0) + diff;
-    p.barras = novoBarras;
-
-    p.grupoChecklist = document.getElementById('editPecaGrupoChecklist').value || 'outros';
-    p.familiaEstrutural = document.getElementById('editPecaFamiliaEstrutural').value || '';
-    p.subtipoEstrutural = document.getElementById('editPecaSubtipoEstrutural').value || '';
-    p.podeComporEstrutura = document.getElementById('editPecaPodeCompor').value === 'sim';
-
-    if (typeof normalizarPecaDominio === 'function') {
-        Object.assign(p, normalizarPecaDominio(p));
-    }
-
-    if (diff !== 0 && typeof registrarMovimentacaoEstoque === 'function') {
-        const quantidadeMov = Math.abs(Math.trunc(diff));
-        registrarMovimentacaoEstoque({
-            id: `mov-${p.id}-ajuste-${qtdAnterior}-${novaQtd}`,
-            chaveIdempotencia: `ajuste|origem:manual|peca:${String(p.id)}|codigo:${normalizarIdentificadorEstoque(p.codigo || novoCodigo)}|de:${qtdAnterior}|para:${novaQtd}`,
-            tipoMovimentacao: 'ajuste',
-            quantidade: quantidadeMov,
-            pecaId: String(p.id),
-            pecaNome: p.nome,
-            origemEvento: 'ajuste_manual_estoque',
-            observacao: `Ajuste manual de quantidade: ${qtdAnterior} -> ${novaQtd}.`
-        });
-    }
-
-    document.getElementById('modalEditarPeca').classList.remove('active');
-    document.getElementById('editPecaId').value = "";
-
-    salvarLocal();
-    sincronizar('salvar');
-    if (typeof focarRegistroRecemSalvo === 'function') {
-        focarRegistroRecemSalvo({ tipo: 'peca', id: p.id, limparBusca: true });
-    } else {
-        renderEstoque();
-    }
-
-    registrarLog('item', 'editar', `Item atualizado: ${p.nome}`);
-    mostrarToast("Item atualizado!");
-}
+})();
 
 
 window.estoqueSelecionados = new Set();
@@ -423,9 +401,6 @@ function excluirSelecionadosEstoque(){
     classeConfirmar: "btn-danger"
   });
 }
-window.salvarPeca = salvarPeca;
-window.abrirEditarPeca = abrirEditarPeca;
-window.salvarEdicaoPeca = salvarEdicaoPeca;
 window.onSelectEstoque = onSelectEstoque;
 window.toggleSelecionarTodosEstoque = toggleSelecionarTodosEstoque;
 window.excluirSelecionadosEstoque = excluirSelecionadosEstoque;

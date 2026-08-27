@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.59">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.60">
 </head>
 <body>
 
@@ -581,62 +581,9 @@
                     <input type="file" id="inputExcel" class="hidden-file-input" accept=".xlsx, .xls" data-change="processarExcelInteligente" data-arg="__this__">
 
                     <div class="panel-block">
-                        <h3>Novo Item</h3>
-                        <div class="form-row">
-                            <div class="form-group"><label>Código</label><input type="text" id="pecaCod"></div>
-                            <div class="form-group"><label>Categoria</label><select id="pecaTipo"></select></div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Nome</label><input type="text" id="pecaNome"></div>
-                            <div class="form-group"><label>Medida</label><input type="text" id="pecaMedida"></div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Foto (URL ou Arquivo)</label><input type="file" id="pecaFoto" accept="image/*"></div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group"><label>Valor (R$)</label><input type="number" id="pecaValor" step="0.01"></div>
-                            <div class="form-group"><label>Qtd Total</label><input type="number" id="pecaQtd" value="1"></div>
-                            <div class="form-group">
-                                <label>Cód Barras</label>
-                                <div class="inline-input-action">
-                                    <input type="text" id="pecaBar">
-                                    <button class="btn btn-secondary btn-icon" data-action="iniciarScanner" data-arg="cadastro"><i class="bi bi-qr-code"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Grupo Checklist</label>
-                                <select id="pecaGrupoChecklist">
-                                    <option value="estrutura">Estrutura</option>
-                                    <option value="moveis">Móveis</option>
-                                    <option value="eletrica">Elétrica</option>
-                                    <option value="cobertura">Cobertura</option>
-                                    <option value="acabamento">Acabamento</option>
-                                    <option value="outros">Outros</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Família Estrutural</label>
-                                <input type="text" id="pecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Subtipo Estrutural</label>
-                                <input type="text" id="pecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
-                            </div>
-                            <div class="form-group">
-                                <label>Pode compor estrutura?</label>
-                                <select id="pecaPodeCompor">
-                                    <option value="sim">Sim</option>
-                                    <option value="nao">Não</option>
-                                </select>
-                            </div>
-                        </div>
                         <div class="inline-chip-row">
-                            <button class="btn btn-primary" data-acesso="admin" data-action="salvarPeca">Salvar Item</button>
-                            <button class="btn btn-secondary" data-action="abrirModalModeloChecklist">Criar Modelo de Estrutura</button>
+                            <button type="button" id="abrirInclusaoPeca" class="btn btn-primary" data-acesso="admin" data-action="abrirInclusaoPeca"><i class="bi bi-plus-lg" aria-hidden="true"></i> Incluir peça</button>
+                            <button type="button" class="btn btn-secondary" data-action="abrirModalModeloChecklist">Criar Modelo de Estrutura</button>
                         </div>
                     </div>
 
@@ -2648,66 +2595,57 @@
         </div>
     </div>
     
-    <div id="modalEditarPeca" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Editar Item</h3>
-                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalEditarPeca">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+    <dialog id="dialogSessaoPeca" class="peca-session-dialog" aria-labelledby="sessaoPecaTitulo" aria-describedby="sessaoPecaEstado">
+        <form id="formSessaoPeca" novalidate>
+            <div class="peca-session-header">
+                <div><h3 id="sessaoPecaTitulo">Incluir peça</h3><small id="sessaoPecaIdentidade"></small></div>
+                <button type="button" class="btn-close-modal" data-fechar-sessao-peca aria-label="Fechar sessão de peça"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
-            <input type="hidden" id="editPecaId">
-            <div class="form-row">
-                <div class="form-group"><label>Código</label><input type="text" id="editPecaCod"></div>
-                <div class="form-group"><label>Tipo</label><select id="editPecaTipo"></select></div>
+            <p id="sessaoPecaEstado" role="status">Rascunho não salvo. Confirmação indisponível nesta etapa.</p>
+            <p id="sessaoPecaSaldos" class="peca-session-balances"></p>
+            <div class="peca-session-grid">
+                <div class="form-group">
+                    <label for="sessaoPecaNome">Nome</label>
+                    <input id="sessaoPecaNome" type="text" required>
+                    <small id="sessaoPecaNomeErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaCategoria">Categoria</label>
+                    <select id="sessaoPecaCategoria" required></select>
+                    <small id="sessaoPecaCategoriaErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaCodigo">Código</label>
+                    <input id="sessaoPecaCodigo" type="text" >
+                    <small id="sessaoPecaCodigoErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaMedida">Medida</label>
+                    <input id="sessaoPecaMedida" type="text" >
+                    <small id="sessaoPecaMedidaErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaPreco">Preço (R$)</label>
+                    <input id="sessaoPecaPreco" type="number" min="0" step="0.01" required>
+                    <small id="sessaoPecaPrecoErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaQuantidade">Quantidade total</label>
+                    <input id="sessaoPecaQuantidade" type="number" min="0" step="1" required>
+                    <small id="sessaoPecaQuantidadeErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
+                <div class="form-group">
+                    <label for="sessaoPecaBarras">Código de barras</label>
+                    <input id="sessaoPecaBarras" type="text" >
+                    <small id="sessaoPecaBarrasErro" class="peca-session-error" role="alert" hidden></small>
+                </div>
             </div>
-            <div class="form-row">
-                <div class="form-group"><label>Nome</label><input type="text" id="editPecaNome"></div>
-                <div class="form-group"><label>Medida</label><input type="text" id="editPecaMedida"></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label>Valor</label><input type="number" id="editPecaValor" step="0.01"></div>
-                <div class="form-group"><label>Qtd</label><input type="number" id="editPecaQtd"></div>
-            </div>
-            <div class="form-group"><label>Cód Barras</label><input type="text" id="editPecaBar"></div>
-            <div class="section-gap">
-                <div class="form-row">
-    <div class="form-group">
-        <label>Grupo Checklist</label>
-        <select id="editPecaGrupoChecklist">
-            <option value="estrutura">Estrutura</option>
-            <option value="moveis">Móveis</option>
-            <option value="eletrica">Elétrica</option>
-            <option value="cobertura">Cobertura</option>
-            <option value="acabamento">Acabamento</option>
-            <option value="outros">Outros</option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label>Família Estrutural</label>
-        <input type="text" id="editPecaFamiliaEstrutural" placeholder="Ex: Q15, Q30, Tenda">
-    </div>
-</div>
-
-<div class="form-row">
-    <div class="form-group">
-        <label>Subtipo Estrutural</label>
-        <input type="text" id="editPecaSubtipoEstrutural" placeholder="Ex: barra, cubo, sapata, lona">
-    </div>
-
-    <div class="form-group">
-        <label>Pode compor estrutura?</label>
-        <select id="editPecaPodeCompor">
-            <option value="sim">Sim</option>
-            <option value="nao">Não</option>
-        </select>
-    </div>
-</div>
-                <button class="btn btn-primary full-width-btn" data-action="salvarEdicaoPeca">Salvar</button>
-            </div>
-        </div>
-    </div>
+            <footer class="peca-session-footer">
+                <button type="button" class="btn btn-secondary" data-fechar-sessao-peca>Cancelar</button>
+                <button type="button" id="sessaoPecaConfirmar" class="btn btn-primary" disabled aria-disabled="true" aria-describedby="sessaoPecaEstado">Confirmar alterações</button>
+            </footer>
+        </form>
+    </dialog>
 
     <div id="modalScanner" class="modal">
         <div class="modal-content">
@@ -2996,7 +2934,7 @@
     <script src="./assets/js/modules/propostas.js?v=4.19"></script>
     <script src="./assets/js/modules/clientes.js?v=2.2"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
-    <script src="./assets/js/modules/estoque.js?v=2.5"></script>
+    <script src="./assets/js/modules/estoque.js?v=2.6"></script>
     <script src="./assets/js/modules/checklist.js?v=1.5"></script>
     <script src="./assets/js/modules/config.js?v=1.1"></script>
     <script src="./assets/js/modules/importacao.js?v=1.1"></script>
@@ -3009,12 +2947,12 @@
     <script src="./assets/js/modules/shared-actions.js?v=1.2"></script>
     <script src="./assets/js/render/locacoes.js?v=15.8"></script>
     <script src="./assets/js/render/cadastros.js?v=3.8"></script>
-    <script src="./assets/js/render/estoque.js?v=2.2"></script>
+    <script src="./assets/js/render/estoque.js?v=2.3"></script>
     <script src="./assets/js/render/dashboard.js?v=1.7"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
     <script src="./assets/js/render/novas-abas.js?v=1.5"></script>
     <script src="./assets/js/ui/eventos.js?v=2.6"></script>
-    <script src="./assets/js/core/app.js?v=23.13"></script>
+    <script src="./assets/js/core/app.js?v=23.14"></script>
         
 </body>
 </html>

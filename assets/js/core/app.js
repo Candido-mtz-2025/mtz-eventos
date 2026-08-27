@@ -1786,38 +1786,7 @@ function irParaEstoqueBusca() {
 }
 
 function irParaEstoqueCadastro() {
-    const abaAtual = obterAbaAtivaAtual();
-    const campoCodigo = document.getElementById('pecaCod');
-    if (abaAtual === 'estoque' && campoCodigo) {
-        const alvo = campoCodigo.closest('.panel-block')
-            || campoCodigo.closest('.card')
-            || campoCodigo;
-        focarCampoImediato('pecaCod', true);
-        rolarParaElementoAtalho(alvo, 'start');
-        destacarAlvoAtalho(alvo, 1300);
-        focarCampoDepoisDaRolagem('pecaCod', true);
-        return true;
-    }
-
-    navegarComFocoAtalho({
-        tabId: 'estoque',
-        render: () => {
-            if (typeof renderEstoque === 'function') renderEstoque();
-        },
-        resolverAlvo: () => document.getElementById('pecaCod')?.closest('.panel-block')
-            || document.getElementById('pecaCod')
-            || document.querySelector('#tab-estoque .panel-block')
-            || document.querySelector('#tab-estoque .card'),
-        resolverFoco: () => primeiroElementoVisivelPorSeletores([
-            '#pecaCod',
-            '#pecaNome',
-            '#pecaTipo',
-            '#tab-estoque .panel-block input',
-            '#tab-estoque .panel-block select'
-        ]),
-        alinhamento: 'start',
-        mensagemFalha: 'Formulário do estoque não encontrado.'
-    });
+    return typeof abrirInclusaoPeca === 'function' ? abrirInclusaoPeca() : false;
 }
 
 function irParaChecklistOperacional() {

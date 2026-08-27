@@ -103,7 +103,9 @@ function renderEstoque() {
 
   // Evita varreduras repetidas em `tipos.find(...)` durante filtro/sort/render.
   const mapaTiposNomePorId = new Map(
-    (Array.isArray(tipos) ? tipos : []).map((tipo) => [String(tipo.id), tipo.nome || ''])
+    (Array.isArray(tipos) ? tipos : [])
+      .filter(tipo => resolverRegistroPorIdExato(tipos, tipo?.id).encontrado)
+      .map(tipo => [tipo.id, tipo.nome || ''])
   );
 
   let itensFiltrados = pecas.filter((pecaOriginal) => {
@@ -111,7 +113,7 @@ function renderEstoque() {
     const nome = normalizar(p?.nome || '');
     const codigo = normalizar(p?.codigo || '');
     const medida = normalizar(p?.medida || '');
-    const nomeTipo = mapaTiposNomePorId.get(String(p?.tipoId)) || '';
+    const nomeTipo = mapaTiposNomePorId.get(p?.tipoId) || '';
     const categoria = nomeTipo ? normalizar(nomeTipo) : '';
 
     const atendeBusca = nome.includes(termo) || 
@@ -143,8 +145,8 @@ function renderEstoque() {
 
   // --- PARTE NOVA: ORDENAÇÃO ---
   itensFiltrados.sort((a, b) => {
-      const tipoA = mapaTiposNomePorId.get(String(a.tipoId)) || "ZZZ";
-      const tipoB = mapaTiposNomePorId.get(String(b.tipoId)) || "ZZZ";
+      const tipoA = mapaTiposNomePorId.get(a.tipoId) || "ZZZ";
+      const tipoB = mapaTiposNomePorId.get(b.tipoId) || "ZZZ";
 
       // 1. Compara Categorias
       const comparacaoCategoria = tipoA.localeCompare(tipoB, undefined, {numeric: true});
@@ -178,7 +180,9 @@ function renderEstoque() {
 
   itensFiltrados.forEach((pecaOriginal) => {
     const p = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(pecaOriginal) : pecaOriginal;
-    const nomeTipo = mapaTiposNomePorId.get(String(p.tipoId)) || '';
+    const nomeTipo = mapaTiposNomePorId.get(p.tipoId) || '';
+    const referenciaPeca = criarReferenciaTipadaPeca(pecaOriginal.id);
+    const edicaoPermitida = resolverRegistroPorIdExato(pecas, pecaOriginal.id).encontrado;
     const fotoSegura = typeof sanitizarImagemURL === 'function' ? sanitizarImagemURL(p.foto) : (p.foto || '');
     const codigoSeguro = typeof sanitizarTexto === 'function' ? sanitizarTexto(p.codigo || '') : (p.codigo || '');
     const tipoSeguro = typeof sanitizarTexto === 'function'
@@ -223,7 +227,7 @@ function renderEstoque() {
       </td>
       <td class="col-actions">
         <div class="actions-cell">
-          <button class="btn btn-sm btn-info table-action-btn" title="Editar item" aria-label="Editar item" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${p.id}"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-info table-action-btn" title="Editar item" aria-label="Editar item" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${sanitizarTexto(referenciaPeca)}" ${edicaoPermitida ? '' : 'disabled'}><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-danger table-action-btn" title="Excluir item" aria-label="Excluir item" data-acesso="admin" data-action="removerItem" data-arg="pecas" data-arg2="${p.id}"><i class="bi bi-trash"></i></button>
         </div>
       </td>

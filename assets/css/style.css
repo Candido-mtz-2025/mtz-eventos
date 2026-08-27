@@ -24103,3 +24103,40 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
         text-align: left;
     }
 }
+
+.peca-session-dialog {
+    width: min(680px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
+    max-height: calc(100dvh - 24px);
+    box-sizing: border-box;
+    margin: auto;
+    padding: 22px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface, var(--card-bg));
+    color: var(--text-main);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+}
+
+.peca-session-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.peca-session-header, .peca-session-footer { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+.peca-session-header h3 { margin: 0; font-size: 20px; }
+.peca-session-header .btn-close-modal { flex: 0 0 36px; width: 36px; height: 36px; position: static; }
+.peca-session-dialog p { margin: 12px 0; }
+.peca-session-balances { font-size: 13px; color: var(--text-muted); }
+.peca-session-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.peca-session-grid .form-group { min-width: 0; margin: 0; }
+.peca-session-grid input, .peca-session-grid select { width: 100%; min-width: 0; box-sizing: border-box; }
+.peca-session-footer { margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
+.peca-session-footer .btn { white-space: normal; }
+.peca-session-error { display: block; margin-top: 5px; color: var(--danger, #b42318); }
+.peca-session-error[hidden] { display: none; }
+.peca-session-dialog [aria-invalid="true"] { border-color: var(--danger, #b42318); }
+.peca-session-dialog :focus-visible { outline: 3px solid var(--primary, #166534); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+    .peca-session-dialog { padding: 16px; }
+    .peca-session-grid { grid-template-columns: minmax(0, 1fr); }
+    .peca-session-footer .btn { flex: 1 1 130px; }
+}
