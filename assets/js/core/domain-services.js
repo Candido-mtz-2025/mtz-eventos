@@ -162,6 +162,7 @@
         const solicitado = inteiroLegadoNaoNegativo(contexto.solicitado, 0);
         const disponivel = inteiroLegadoNaoNegativo(consulta.disponivel, 0);
         const tipo = textoSeguro(contexto.tipo, '').trim().toLowerCase();
+        if (consulta.motivo === 'peca_inativa') return `${item}: peça inativa; novos usos estão bloqueados.`;
 
         if (tipo === 'intervalo_invalido' || consulta.motivo === 'intervalo_incompleto') {
             return 'Informe um período operacional válido para consultar a disponibilidade do estoque.';
@@ -564,7 +565,7 @@
                 : obterIntervaloOperacionalLocacao(intervaloOuLocacao);
         const quantidadeFisicaUtilizavel = peca ? obterEstoqueFisicoUtilizavelPeriodo(peca) : 0;
 
-        if (!peca || !intervalo.completo) {
+        if (!peca || !pecaAceitaNovoUso(peca) || !intervalo.completo) {
             return {
                 disponivel: 0,
                 quantidadeFisicaUtilizavel,
@@ -575,7 +576,7 @@
                 intervalo,
                 conflitos: [],
                 valido: false,
-                motivo: peca ? 'intervalo_incompleto' : 'item_nao_encontrado'
+                motivo: !peca ? 'item_nao_encontrado' : !pecaAceitaNovoUso(peca) ? 'peca_inativa' : 'intervalo_incompleto'
             };
         }
 
@@ -2495,6 +2496,8 @@
             };
         }
 
+        const inativa = encontrarPecaInativaVinculada(locacao.items, obterPecasParaReserva());
+        if (inativa) return { ok: false, bloqueios: [`${inativa.nome}: peça inativa; nova reserva bloqueada.`], movimentacoes: [] };
         if (typeof recalcularDisponibilidade === 'function') {
             recalcularDisponibilidade(true);
         }
@@ -2640,6 +2643,35 @@
         };
     }
 
+    function pecaAceitaNovoUso(peca) {
+        return !!peca && textoSeguro(peca.status, '').trim().toLowerCase() !== 'inativo';
+    }
+
+    function criarReferenciaPecaEstoque(id) {
+        const identidade = window.normalizarIdEntidadeExato(id);
+        return identidade.valido ? `peca:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}` : '';
+    }
+
+    function encontrarPecaInativaVinculada(itens, lista) {
+        return (Array.isArray(lista) ? lista : []).find(p => p && !pecaAceitaNovoUso(p)
+            && (Array.isArray(itens) ? itens : []).some(i => (i?.pecaId ?? i?.idPeca ?? i?.peca ?? i?.id) === p.id)) || null;
+    }
+
+    function resolverReferenciaPecaEstoque(referencia, lista) {
+        const invalida = { encontrado: false, estado: 'invalido', registro: null };
+        if (typeof referencia !== 'string' || !referencia.startsWith('peca:')) return invalida;
+        try {
+            const par = JSON.parse(decodeURIComponent(referencia.slice(5)));
+            if (!Array.isArray(par) || par.length !== 2 || typeof par[1] !== par[0]
+                || !criarReferenciaPecaEstoque(par[1]) || criarReferenciaPecaEstoque(par[1]) !== referencia) return invalida;
+            return window.resolverRegistroPorIdExato(lista, par[1]);
+        } catch (_erro) { return invalida; }
+    }
+
+    window.pecaAceitaNovoUso = pecaAceitaNovoUso;
+    window.encontrarPecaInativaVinculada = encontrarPecaInativaVinculada;
+    window.criarReferenciaPecaEstoque = criarReferenciaPecaEstoque;
+    window.resolverReferenciaPecaEstoque = resolverReferenciaPecaEstoque;
     window.normalizarValorMonetarioLegado = normalizarValorMonetarioLegado;
     window.normalizarDataPeriodoEstoque = normalizarDataPeriodoEstoque;
     window.normalizarIntervaloPeriodoEstoque = normalizarIntervaloPeriodoEstoque;

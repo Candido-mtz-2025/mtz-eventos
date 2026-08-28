@@ -90,6 +90,7 @@ function atualizarResumoExecutivoEstoque() {
 function renderEstoque() {
   const termoRaw = DOM.get('buscaEstoque')?.value || '';
   const filtroRapido = obterFiltroRapidoEstoqueAtual();
+  const filtroSituacao = DOM.get('filtroSituacaoEstoque')?.value || 'ativos';
   
   const normalizar = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   
@@ -109,6 +110,8 @@ function renderEstoque() {
   );
 
   let itensFiltrados = pecas.filter((pecaOriginal) => {
+    const ativo = pecaAceitaNovoUso(pecaOriginal);
+    if (filtroSituacao === 'ativos' && !ativo || filtroSituacao === 'inativos' && ativo) return false;
     const p = typeof normalizarPecaDominio === 'function' ? normalizarPecaDominio(pecaOriginal) : pecaOriginal;
     const nome = normalizar(p?.nome || '');
     const codigo = normalizar(p?.codigo || '');
@@ -173,6 +176,7 @@ function renderEstoque() {
             : 'Cadastre uma peça para iniciar o estoque.'
       })
       : `<tr class="table-empty-row"><td colspan="8">${mensagemFallback}</td></tr>`;
+    window.atualizarContadorSelecaoEstoque?.();
     return;
   }
 
@@ -199,9 +203,11 @@ function renderEstoque() {
       p.disponivel === 0 ? 'stock-critical' :
       p.disponivel <= 3 ? 'stock-warning' : 'stock-ok';
 
-    const marcado = (window.estoqueSelecionados && window.estoqueSelecionados.has(p.id)) ? 'checked' : '';
+    const referenciaSegura = sanitizarTexto(referenciaPeca);
+    const marcado = window.estoqueSelecionados?.has(referenciaPeca) ? 'checked' : '';
 
     const tr = document.createElement('tr');
+    tr.setAttribute('data-peca-referencia', referenciaPeca);
     tr.setAttribute('data-peca-id', String(p.id));
     const classeLinha =
       p.disponivel === 0 ? 'estoque-row estoque-row--critical' :
@@ -210,8 +216,8 @@ function renderEstoque() {
     tr.className = classeLinha;
     tr.innerHTML = `
       <td class="table-select-col">
-        <input class="chk-estoque" type="checkbox" data-id="${p.id}" ${marcado}
-               data-change="onSelectEstoque" data-arg="${p.id}" data-arg2="__checked__">
+        <input class="chk-estoque" type="checkbox" aria-label="Selecionar ${nomeSeguro}" ${marcado} ${edicaoPermitida ? '' : 'disabled'}
+               data-change="onSelectEstoque" data-arg="${referenciaSegura}" data-arg2="__checked__">
       </td>
       <td>${thumb}</td>
       <td><span class="table-code">${codigoSeguro}</span></td>
@@ -219,6 +225,7 @@ function renderEstoque() {
       <td>
         <div class="table-cell-title">${nomeSeguro}</div>
         <div class="table-cell-sub">${medidaSegura || '-'}</div>
+        ${pecaAceitaNovoUso(pecaOriginal) ? '' : '<span class="stock-pill">INATIVO</span>'}
       </td>
       <td>R$ ${Number(p.valor || 0).toFixed(2)}</td>
       <td>
@@ -228,7 +235,7 @@ function renderEstoque() {
       <td class="col-actions">
         <div class="actions-cell">
           <button class="btn btn-sm btn-info table-action-btn" title="Editar item" aria-label="Editar item" data-acesso="admin" data-action="abrirEditarPeca" data-arg="${sanitizarTexto(referenciaPeca)}" ${edicaoPermitida ? '' : 'disabled'}><i class="bi bi-pencil"></i></button>
-          <button class="btn btn-sm btn-danger table-action-btn" title="Excluir item" aria-label="Excluir item" data-acesso="admin" data-action="removerItem" data-arg="pecas" data-arg2="${p.id}"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-sm btn-danger table-action-btn" title="Revisar exclusão ou inativação" aria-label="Revisar exclusão ou inativação" data-acesso="admin" data-action="abrirExclusaoPeca" data-arg="${referenciaSegura}" ${edicaoPermitida ? '' : 'disabled'}><i class="bi bi-trash"></i></button>
         </div>
       </td>
     `;
@@ -238,6 +245,7 @@ function renderEstoque() {
 
   tbody.innerHTML = '';
   tbody.appendChild(fragment);
+  window.atualizarContadorSelecaoEstoque?.();
   if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
 }
 

@@ -153,6 +153,7 @@ function limparFormularioCadastroPeca() {
     }
 
     function resolver(ref, tipo, colecao) {
+        if (tipo === 'peca') return resolverReferenciaPecaEstoque(ref, colecao);
         const invalido = { encontrado: false, estado: 'invalido', registro: null };
         if (typeof ref !== 'string' || !ref.startsWith(`${tipo}:`)) return invalido;
         try {
@@ -392,7 +393,7 @@ function limparFormularioCadastroPeca() {
     }
 
     function abrir(ref, edicao = false) {
-        if (sessao || abrindo) {
+        if (sessao || abrindo || window.sessaoDestinacaoPecasAtiva?.()) {
             mostrarToast('Já existe uma sessão de peça aberta. Cancele-a antes de iniciar outra.', 'info');
             return false;
         }
@@ -458,13 +459,14 @@ function limparFormularioCadastroPeca() {
         }
     }
 
-    window.criarReferenciaTipadaPeca = id => referencia('peca', id);
+    window.criarReferenciaTipadaPeca = criarReferenciaPecaEstoque;
     window.criarReferenciaTipadaCategoriaPeca = id => referencia('categoria', id);
     window.abrirInclusaoPeca = () => abrir();
     window.abrirEditarPeca = ref => abrir(ref, true);
     window.cancelarSessaoPeca = descartar;
     window.validarSessaoPeca = () => validar(true);
     window.obterRascunhoSessaoPeca = () => sessao ? clonar(sessao.rascunho) : null;
+    window.sessaoPecaAtiva = () => !!sessao || abrindo;
     window.confirmarSessaoPeca = confirmar;
     window.salvarPeca = window.salvarEdicaoPeca = confirmar;
 })();
@@ -472,17 +474,22 @@ function limparFormularioCadastroPeca() {
 
 window.estoqueSelecionados = new Set();
 
-function onSelectEstoque(id, checked){
-  id = Number(id);
-  if (checked) window.estoqueSelecionados.add(id);
-  else window.estoqueSelecionados.delete(id);
+function onSelectEstoque(referencia, checked){
+  if (checked && !resolverReferenciaPecaEstoque(referencia, pecas).encontrado) {
+    mostrarToast('Identidade de peça inválida, ausente ou duplicada.', 'erro');
+    return false;
+  }
+  if (checked) window.estoqueSelecionados.add(referencia);
+  else window.estoqueSelecionados.delete(referencia);
+  window.atualizarContadorSelecaoEstoque?.();
+  return true;
 }
 
 function toggleSelecionarTodosEstoque(marcar) {
-  const checks = document.querySelectorAll('.chk-estoque');
+  const checks = document.querySelectorAll('.chk-estoque:not(:disabled)');
   checks.forEach(chk => {
     chk.checked = marcar;
-    onSelectEstoque(chk.dataset.id, marcar);
+    onSelectEstoque(chk.dataset.arg, marcar);
   });
 }
 
@@ -492,23 +499,7 @@ function excluirSelecionadosEstoque(){
   }
 
   if (window.estoqueSelecionados.size === 0) return mostrarToast('Selecione pelo menos 1 item.', 'erro');
-  confirmarAcao(`Excluir ${window.estoqueSelecionados.size} item(ns) do estoque?`, () => {
-    const ids = new Set([...window.estoqueSelecionados].map(Number));
-    const removidos = pecas.filter(p => ids.has(p.id));
-    pecas = pecas.filter(p => !ids.has(p.id));
-
-    removidos.forEach(p => registrarLog('item', 'deletar', `Item removido (lote): ${p.nome} ID ${p.id}`));
-
-    window.estoqueSelecionados.clear();
-    salvarLocal();
-    renderEstoque();
-    sincronizar('salvar');
-    mostrarToast('Itens excluidos!');
-  }, {
-    titulo: "Excluir itens",
-    textoConfirmar: "Excluir",
-    classeConfirmar: "btn-danger"
-  });
+  return window.abrirDestinacaoPecas([...window.estoqueSelecionados]);
 }
 window.onSelectEstoque = onSelectEstoque;
 window.toggleSelecionarTodosEstoque = toggleSelecionarTodosEstoque;
@@ -516,6 +507,8 @@ window.excluirSelecionadosEstoque = excluirSelecionadosEstoque;
 // ===== MODELOS DE CHECKLIST / ESTRUTURA =====
 
 function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual') {
+    const inativa = encontrarPecaInativaVinculada(itens, pecas);
+    if (inativa) { mostrarToast(`${inativa.nome}: peça inativa; novo modelo bloqueado.`, 'erro'); return null; }
     nome = (nome || '').trim();
     familiaEstrutural = (familiaEstrutural || '').trim();
 
@@ -539,7 +532,7 @@ function salvarModeloChecklist(nome, familiaEstrutural, itens, origem = 'manual'
             pecaId: item.pecaId,
             nome: item.nome || '',
             qtd: parseInt(item.qtd) || 0
-        })).filter(item => item.pecaId && item.qtd > 0)
+        })).filter(item => normalizarIdEntidadeExato(item.pecaId).valido && item.qtd > 0)
     };
 
     if (modelo.itens.length === 0) {
@@ -617,12 +610,15 @@ function atualizarSelectModeloChecklist() {
     const select = document.getElementById('modeloChecklistPeca');
     if (!select) return;
 
-    const pecasEstruturais = pecas.filter(p => p.podeComporEstrutura);
+    const pecasEstruturais = pecas.filter(p => p.podeComporEstrutura && pecaAceitaNovoUso(p) && resolverRegistroPorIdExato(pecas, p.id).encontrado);
 
     select.innerHTML = '<option value="">Selecione uma peça</option>';
 
     pecasEstruturais.forEach(p => {
-        select.innerHTML += `<option value="${p.id}">${p.nome}${p.medida ? ' - ' + p.medida : ''}</option>`;
+        const option = document.createElement('option');
+        option.value = criarReferenciaPecaEstoque(p.id);
+        option.textContent = `${p.nome}${p.medida ? ' - ' + p.medida : ''}`;
+        select.appendChild(option);
     });
 }
 
@@ -673,13 +669,13 @@ function adicionarItemModeloChecklist() {
         return;
     }
 
-    const peca = pecas.find(p => String(p.id) === String(pecaId));
-    if (!peca) {
+    const peca = resolverReferenciaPecaEstoque(pecaId, pecas).registro;
+    if (!peca || !pecaAceitaNovoUso(peca)) {
         mostrarToast("Peça não encontrada.", "erro");
         return;
     }
 
-    const existente = itensModeloChecklistTemp.find(item => String(item.pecaId) === String(pecaId));
+    const existente = itensModeloChecklistTemp.find(item => item.pecaId === peca.id);
 
     if (existente) {
         existente.qtd += qtd;
@@ -740,6 +736,8 @@ function removerItemModeloChecklistTemp(index) {
     renderItensModeloChecklistTemp();
 }
 function salvarModeloChecklistForm() {
+    const inativa = encontrarPecaInativaVinculada(itensModeloChecklistTemp, pecas);
+    if (inativa) { mostrarToast(`${inativa.nome}: peça inativa; modelo bloqueado.`, 'erro'); return; }
     const id = document.getElementById('modeloChecklistId').value;
     const nome = document.getElementById('modeloChecklistNome').value.trim();
     const familia = document.getElementById('modeloChecklistFamilia').value.trim();
@@ -826,6 +824,8 @@ function excluirModeloChecklistUI(id) {
 
 function gerarChecklistModelo(id) {
     const modelo = buscarModeloChecklist(id);
+    const inativa = encontrarPecaInativaVinculada(modelo?.itens, pecas);
+    if (inativa) { mostrarToast(`${inativa.nome}: peça inativa; novo checklist bloqueado.`, 'erro'); return; }
 
     if (!modelo) {
         mostrarToast("Modelo não encontrado.", "erro");
@@ -835,7 +835,7 @@ function gerarChecklistModelo(id) {
     const grupos = {};
 
     modelo.itens.forEach(itemModelo => {
-        const peca = pecas.find(p => String(p.id) === String(itemModelo.pecaId));
+        const peca = resolverRegistroPorIdExato(pecas, itemModelo.pecaId).registro;
         if (!peca) return;
 
         const grupo = peca.grupoChecklist || 'outros';

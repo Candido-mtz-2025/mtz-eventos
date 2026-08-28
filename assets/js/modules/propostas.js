@@ -7074,6 +7074,10 @@
                 : quantidade;
             const descricao = textoSeguro(calculado.descricao || item?.descricao, 'Item sem descrição');
             const peca = encontrarPecaPorDescricao(calculado);
+            if (peca && !pecaAceitaNovoUso(peca)) {
+                bloqueios.push(`${descricao}: peça inativa; conversão em nova locação bloqueada.`);
+                return;
+            }
 
             if (quantidadeEstoque <= 0) return;
 

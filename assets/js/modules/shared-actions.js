@@ -1,5 +1,6 @@
 // Ações compartilhadas entre módulos
 function removerItem(t, id) {
+        if (t === 'pecas') return abrirExclusaoPeca(id);
         if (typeof validarPermissao === 'function' && !validarPermissao('excluir_registro', 'Somente administrador pode excluir registros.')) {
             return;
         }
@@ -16,11 +17,6 @@ function removerItem(t, id) {
                 }
                 locadores = locadores.filter((cliente) => cliente !== item);
                 registrarLog('cliente', 'deletar', `Cliente removido: ${item?.nome || 'ID:'+id}`);
-            }
-            if(t === 'pecas') {
-                const item = pecas.find(x => x.id == id);
-                pecas = pecas.filter(x => x.id !== id);
-                registrarLog('item', 'deletar', `Item removido: ${item?.nome || 'ID:'+id}`);
             }
             if(t === 'tipos') {
                 const item = tipos.find(x => x.id == id);

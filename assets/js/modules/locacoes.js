@@ -396,7 +396,7 @@ function preencherInterfaceSessaoEdicaoLocacao(locacao) {
     const seletorNovoItem = document.getElementById('editLocacaoNovoItem');
     if (seletorNovoItem) {
         seletorNovoItem.innerHTML = '<option value="">Selecione...</option>'
-            + (Array.isArray(pecas) ? pecas : []).map((peca) => (
+            + (Array.isArray(pecas) ? pecas : []).filter(pecaAceitaNovoUso).map((peca) => (
                 `<option value="${escaparAtributoEdicaoLocacao(String(peca?.id ?? ''))}">${escaparHTML(peca?.nome || 'Item sem nome')}</option>`
             )).join('');
     }
@@ -894,7 +894,7 @@ function adicionarItemSessaoEdicaoLocacao() {
     if (!sessaoEdicaoLocacao || sessaoEdicaoLocacao.executando || sessaoEdicaoLocacao.etapa !== 'edicao') return false;
     const seletor = document.getElementById('editLocacaoNovoItem');
     const peca = (Array.isArray(pecas) ? pecas : []).find((item) => String(item?.id ?? '') === String(seletor?.value ?? ''));
-    if (!peca) {
+    if (!peca || !pecaAceitaNovoUso(peca)) {
         mostrarToast('Selecione um item para adicionar ao rascunho.', 'erro');
         seletor?.focus();
         return false;
@@ -969,6 +969,11 @@ function consultarDisponibilidadePecaFormularioLocacao(peca, opcoes = {}) {
 
 function validarDisponibilidadeCarrinhoLocacao(opcoes = {}) {
     const exibirErro = opcoes.exibirErro !== false;
+    const inativa = encontrarPecaInativaVinculada(carrinhoLocacao, pecas);
+    if (inativa) {
+        if (exibirErro) { mostrarToast(`${inativa.nome}: peça inativa; nova locação bloqueada.`, 'erro'); focarCampoLocacao('inputBuscaPeca'); }
+        return false;
+    }
     const intervalo = obterIntervaloFormularioLocacao();
     if (!intervalo?.completo || typeof consultarDisponibilidadeItemPeriodo !== 'function') {
         return false;
@@ -1452,6 +1457,7 @@ function filtrarItensLocacao(evento) {
     };
 
     const filtrados = pecas
+        .filter(pecaAceitaNovoUso)
         .map((p) => ({ p, s: scorePeca(p) }))
         .filter((x) => x.s >= 0)
         .sort((a, b) => b.s - a.s)
@@ -1955,7 +1961,7 @@ function addItemCarrinho() {
     }
 
     var p = pecas.find(function (x) { return x.id == id; });
-    if (!p) {
+    if (!p || !pecaAceitaNovoUso(p)) {
         mostrarToast('Item nao encontrado.', 'erro');
         focarCampoLocacao('inputBuscaPeca');
         return;

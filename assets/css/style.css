@@ -24120,6 +24120,7 @@ body:has(> .pwa-install-button:not(.is-suspended)) #appArea > .container {
 }
 
 .peca-session-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+#dialogDestinacaoPecas [hidden] { display: none !important; }
 .peca-session-header, .peca-session-footer { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .peca-session-header h3 { margin: 0; font-size: 20px; }
 .peca-session-header .btn-close-modal { flex: 0 0 36px; width: 36px; height: 36px; position: static; }

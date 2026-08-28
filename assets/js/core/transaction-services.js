@@ -2023,6 +2023,7 @@
     const lerSnapshotPecaInterno = window.lerSnapshotLocalConfirmavel;
     const validarSnapshotPecaInterno = window.validarEstruturaSnapshotPersistivelCompleto;
     const chaveSnapshotPeca = typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup';
+    const resolverReferenciaPecaInterna = window.resolverReferenciaPecaEstoque;
     let transacaoPecaAtiva = false;
 
     function copiarDadosPeca(valor) {
@@ -2178,6 +2179,7 @@
         try {
             const estado = copiarDadosPeca(estadoRecebido);
             const op = copiarDadosPeca(operacao);
+            if (op.tipo === 'destinacao_pecas') return verificarDestinacaoPecas(estado, op);
             const auditorias = estado.logsAuditoria.filter(x => x.operacaoId === op.operacaoId);
             const historicos = estado.pecas.flatMap(p => (p.historicoOperacional || []).map(h => ({ p, h })))
                 .filter(x => x.h.operacaoId === op.operacaoId);
@@ -2195,6 +2197,136 @@
             return { estado: completo ? 'concluida' : 'inconsistente', completo,
                 ...(completo ? { ultimaEdicao: h.ultimaEdicao } : {}) };
         } catch (_erro) { return { estado: 'inconsistente', completo: false }; }
+    }
+
+    function analisarVinculosPecaInterno(peca, estado) {
+        const vinculos = [];
+        const adicionar = (classe, colecao, registroId, motivo) => vinculos.push({ classe, colecao, registroId: registroId ?? null, motivo });
+        const referencia = (valor) => valor === peca.id;
+        const contem = (valor, itemLegado = false) => {
+            if (!valor || typeof valor !== 'object') return false;
+            if (itemLegado && referencia(valor.id)) return true;
+            return Object.entries(valor).some(([chave, filho]) => {
+                if (['pecaId', 'idPeca', 'peca'].includes(chave) && referencia(filho)) return true;
+                if (chave === 'pecaIds' && Array.isArray(filho) && filho.some(referencia)) return true;
+                if (['items', 'itens'].includes(chave) && Array.isArray(filho) && filho.some(i => contem(i, true))) return true;
+                return contem(filho);
+            });
+        };
+        const encerrada = l => ['cancelado', 'devolvido'].includes(l.status)
+            || ['cancelado', 'devolvido'].includes(l.statusFluxo) || l.estoqueReserva?.status === 'liberado'
+            || estado.devolucoes.some(d => d.locacaoId === l.id && d.tipo === 'total');
+        const saldos = ['reservado', 'manutencao', 'avariado', 'perdido'].map(k => inteiroLegadoNaoNegativo(peca[k] ?? 0));
+        if (saldos.some(v => v === null) || saldos.slice(0, 3).some(v => v > 0)) {
+            adicionar('operacional', 'pecas', peca.id, 'Saldos reservados, em manutenção ou avariados precisam de liberação/conferência.');
+        }
+        const total = inteiroLegadoNaoNegativo(peca.quantidadeTotal ?? peca.quantidade);
+        const disponivel = inteiroLegadoNaoNegativo(peca.disponivel ?? total);
+        if (total === null || disponivel === null || disponivel > total
+            || total - disponivel > saldos.reduce((s, v) => s + (v || 0), 0)) {
+            adicionar('operacional', 'pecas', peca.id, 'Existe saldo indisponível ou inconsistente sem origem confirmada.');
+        }
+        if (saldos[3] > 0 || (peca.historicoOperacional?.length || peca.historicoMovimentacoes?.length)) {
+            adicionar('historico', 'pecas', peca.id, 'A peça possui histórico ou perda registrada.');
+        }
+        for (const [chave, valor] of Object.entries(peca)) {
+            if (!['historicoOperacional', 'historicoMovimentacoes'].includes(chave) && contem({ [chave]: valor })) {
+                adicionar('operacional', 'pecas', peca.id, 'Vínculo operacional adicional no cadastro da peça precisa de conferência.');
+            }
+        }
+        for (const [colecao, dados] of Object.entries(estado)) {
+            if (colecao === 'pecas') {
+                for (const outra of dados) if (outra !== peca && contem(outra)) adicionar('operacional', colecao, outra.id, 'Outra peça ou estrutura utiliza este item.');
+                continue;
+            }
+            const registros = Array.isArray(dados) ? dados : [dados];
+            for (const registro of registros) {
+                if (!contem(registro)) continue;
+                let historico = ['movimentacoesEstoque', 'logsAuditoria', 'propostas'].includes(colecao);
+                if (colecao === 'locacoes') historico = encerrada(registro)
+                    && !(contem(registro.checklist) && registro.checklist.concluido !== true && registro.checklist.status !== 'concluido');
+                if (colecao === 'devolucoes') {
+                    const locacao = resolverIdentidadePeca(estado.locacoes, registro.locacaoId);
+                    historico = registro.tipo === 'total' || (locacao.encontrado && encerrada(locacao.registro));
+                }
+                if (colecao === 'checklistsGerados') historico = registro.concluido === true;
+                adicionar(historico ? 'historico' : 'operacional', colecao, registro.id,
+                    historico ? 'Referência histórica preservada.' : 'Vínculo operacional precisa ser encerrado ou removido na origem.');
+            }
+        }
+        // Movimentos antigos normalizaram IDs numericos para texto. Nao apaga a
+        // peca quando essa origem nao permite distinguir a identidade com certeza.
+        if (typeof peca.id === 'number' && estado.movimentacoesEstoque.some(m =>
+            m.origemEvento !== 'edicao_transacional_estoque' && m.pecaId === JSON.stringify(peca.id))) {
+            adicionar('historico', 'movimentacoesEstoque', null, 'Referência legada textual preservada conservadoramente.');
+        }
+        return vinculos;
+    }
+
+    function planejarDestinacaoPecas(entradaRecebida, estadoRecebido) {
+        try {
+            const entrada = copiarDadosPeca(entradaRecebida), estado = operacionalPeca(estadoRecebido);
+            const bloqueios = [], itens = [], vistos = new Set();
+            if (!Array.isArray(entrada.referencias) || !entrada.referencias.length) return { ok: false, codigo: 'REFERENCIA_INVALIDA', itens: [], bloqueios: [] };
+            if (entrada.revisaoEsperada !== revisaoEstadoPeca(estado)) return { ok: false, codigo: 'REVISAO_DIVERGENTE', itens: [], bloqueios: [] };
+            for (const ref of entrada.referencias) {
+                const r = resolverReferenciaPecaInterna(ref, estado.pecas);
+                const codigo = vistos.has(ref) ? 'REFERENCIA_REPETIDA' : r.estado === 'duplicado' ? 'PECA_ID_DUPLICADO'
+                    : r.estado === 'ausente' ? 'PECA_AUSENTE' : !r.encontrado ? 'REFERENCIA_INVALIDA' : '';
+                vistos.add(ref);
+                if (codigo) { itens.push({ referencia: ref, acao: 'invalida', codigo }); bloqueios.push({ codigo, mensagem: 'Identidade ausente, inválida, duplicada ou repetida no lote.' }); continue; }
+                const peca = r.registro, vinculos = analisarVinculosPecaInterno(peca, estado);
+                const bloqueada = vinculos.some(v => v.classe === 'operacional');
+                const acao = bloqueada ? 'bloqueada' : peca.status === 'inativo' ? 'manter'
+                    : vinculos.length ? 'inativar' : 'excluir';
+                const codigoItem = bloqueada ? 'PECA_COM_VINCULO_OPERACIONAL' : vinculos.length ? 'PECA_COM_VINCULO_HISTORICO' : '';
+                itens.push({ referencia: ref, pecaId: peca.id, nome: peca.nome || 'Sem nome', acao, codigo: codigoItem, vinculos });
+                if (bloqueada) bloqueios.push({ codigo: codigoItem, mensagem: `${peca.nome || 'Peça'}: vínculo operacional impede exclusão ou inativação.` });
+            }
+            const plano = { modo: 'destinacao', referencias: entrada.referencias, revisaoEsperada: entrada.revisaoEsperada, itens };
+            return { ...plano, ok: !bloqueios.length, codigo: bloqueios[0]?.codigo || 'PLANO_ESTOQUE_VALIDO', bloqueios,
+                assinatura: `peca-destinacao-v1:${fingerprintFnv1a64(jsonCanonicoPeca(plano))}` };
+        } catch (_erro) { return { ok: false, codigo: 'DADOS_NAO_PERSISTIVEIS', itens: [], bloqueios: [] }; }
+    }
+
+    function verificarDestinacaoPecas(estado, op) {
+        const auditorias = estado.logsAuditoria.filter(a => a.operacaoId === op.operacaoId);
+        const movimentos = estado.movimentacoesEstoque.filter(m => m.operacaoId === op.operacaoId);
+        const historicos = estado.pecas.flatMap(p => (p.historicoOperacional || []).filter(h => h.operacaoId === op.operacaoId).map(h => ({ p, h })));
+        if (!auditorias.length && !movimentos.length && !historicos.length) return { completo: false, estado: 'nao_executada' };
+        const a = auditorias[0];
+        const completo = auditorias.length === 1 && !movimentos.length && a.tipoOperacao === 'destinacao_pecas'
+            && a.assinaturaPlano === op.assinaturaPlano && Array.isArray(a.itens)
+            && jsonCanonicoPeca(a.referencias) === jsonCanonicoPeca(op.referencias)
+            && a.itens.length === op.referencias.length && new Set(a.itens.map(i => i.referencia)).size === a.itens.length
+            && historicos.length === a.itens.filter(i => i.acao === 'inativar').length
+            && a.itens.every(i => {
+                if (!op.referencias.includes(i.referencia)) return false;
+                const r = resolverIdentidadePeca(estado.pecas, i.pecaId);
+                if (i.acao === 'excluir') return r.estado === 'ausente';
+                if (!r.encontrado || r.registro.status !== 'inativo') return false;
+                if (i.acao === 'manter') return true;
+                const hs = historicos.filter(x => x.p.id === i.pecaId && x.h.assinaturaPlano === op.assinaturaPlano);
+                return i.acao === 'inativar' && hs.length === 1;
+            });
+        return { completo, estado: completo ? 'concluida' : 'inconsistente', ...(completo ? { ultimaEdicao: a.ultimaEdicao } : {}) };
+    }
+
+    function aplicarDestinacaoNoCandidato(candidato, plano, entrada, operacao) {
+        const itens = plano.itens.map(({ referencia, pecaId, nome, acao }) => ({ referencia, pecaId, nome, acao }));
+        const auditoria = { ...operacao, id: `audit-peca-${entrada.operacaoId}`, tipoOperacao: 'destinacao_pecas', tipo: 'item', acao: 'destinacao',
+            timestamp: entrada.atualizadoEm, data: entrada.atualizadoEm, usuario: entrada.atualizadoPor,
+            ultimaEdicao: entrada.persistencia?.ultimaEdicao, descricao: 'Exclusão/inativação segura do estoque', itens };
+        for (const item of itens) {
+            const p = resolverIdentidadePeca(candidato.pecas, item.pecaId).registro;
+            if (item.acao === 'excluir') candidato.pecas = candidato.pecas.filter(x => x !== p);
+            if (item.acao === 'inativar') {
+                p.status = 'inativo';
+                p.historicoOperacional = [...(p.historicoOperacional || []), { operacaoId: entrada.operacaoId,
+                    assinaturaPlano: operacao.assinaturaPlano, pecaId: p.id, acao: 'inativar', dataHora: entrada.atualizadoEm, usuario: entrada.atualizadoPor }];
+            }
+        }
+        candidato.logsAuditoria.unshift(copiarDadosPeca(auditoria));
     }
 
     function executarAlteracaoPecaTransacional(entradaRecebida, dependencias = {}) {
@@ -2216,7 +2348,10 @@
             const raiz = dependencias.obterEstadoMemoriaAtual();
             const estado = operacionalPeca(raiz);
             const jsonInicial = jsonCanonicoPeca(estado);
-            operacao = { pecaId: entrada.pecaId, operacaoId: entrada.operacaoId, assinaturaPlano: entrada.assinaturaPlanoEsperada };
+            const destinacao = entrada.modo === 'destinacao';
+            operacao = destinacao
+                ? { tipo: 'destinacao_pecas', referencias: entrada.referencias, operacaoId: entrada.operacaoId, assinaturaPlano: entrada.assinaturaPlanoEsperada }
+                : { pecaId: entrada.pecaId, operacaoId: entrada.operacaoId, assinaturaPlano: entrada.assinaturaPlanoEsperada };
             const evidencia = verificarOperacaoPeca(estado, operacao);
             const opcoesStorage = { armazenamento: dependencias.armazenamento };
             const leitura = lerBasePersistidaPeca(opcoesStorage);
@@ -2233,10 +2368,18 @@
                     return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
                 }
             } else if (leitura.codigo !== 'SNAPSHOT_PERSISTIDO_AUSENTE') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const plano = planejarAlteracaoPeca(entrada, estado);
+            const plano = destinacao ? planejarDestinacaoPecas(entrada, estado) : planejarAlteracaoPeca(entrada, estado);
             if (!plano.ok) return resultadoBase(plano.codigo, { bloqueios: plano.bloqueios });
             if (plano.assinatura !== entrada.assinaturaPlanoEsperada) return resultadoBase('ASSINATURA_DIVERGENTE');
+            if (destinacao && plano.itens.every(i => i.acao === 'manter')) {
+                if (!leitura.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                return resultadoBase('PECA_INATIVADA', { ok: true, idempotente: true });
+            }
             const candidato = copiarDadosPeca(estado);
+            if (destinacao) {
+                if (candidato.logsAuditoria.some(a => a.id === `audit-peca-${entrada.operacaoId}`)) return resultadoBase('IDENTIDADE_OPERACAO_DUPLICADA');
+                aplicarDestinacaoNoCandidato(candidato, plano, entrada, operacao);
+            } else {
             const peca = copiarDadosPeca(plano.peca);
             const movimentoId = `mov-peca-${entrada.operacaoId}`;
             const registrarMovimento = entrada.modo === 'inclusao' || plano.delta !== 0;
@@ -2266,6 +2409,7 @@
             candidato.logsAuditoria.unshift({ ...copiarDadosPeca(historico), id: `audit-peca-${entrada.operacaoId}`,
                 tipo: 'item', timestamp: entrada.atualizadoEm, data: entrada.atualizadoEm,
                 acao: entrada.modo === 'inclusao' ? 'criar' : 'editar', descricao: `${entrada.modo === 'inclusao' ? 'Inclusão' : 'Edição'} da peça ${peca.nome}` });
+            }
             if (!verificarOperacaoPeca(candidato, operacao).completo) return resultadoBase('EVIDENCIAS_OPERACAO_INCOMPLETAS');
             const preparado = prepararSnapshotPecaInterno(copiarDadosPeca(candidato), copiarDadosPeca(entrada.persistencia));
             if (!preparado.ok) return resultadoBase(preparado.codigo);
@@ -2302,7 +2446,10 @@
             autorizacao = null;
             commit = prova?.confirmada === true && prova.trocas === 1;
             if (!commit) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
-            return resultadoBase(entrada.modo === 'inclusao' ? 'PECA_INCLUIDA' : 'PECA_ATUALIZADA', {
+            const codigoSucesso = destinacao ? (plano.itens.length > 1 ? 'LOTE_ESTOQUE_APLICADO'
+                : plano.itens[0].acao === 'excluir' ? 'PECA_EXCLUIDA' : 'PECA_INATIVADA')
+                : entrada.modo === 'inclusao' ? 'PECA_INCLUIDA' : 'PECA_ATUALIZADA';
+            return resultadoBase(codigoSucesso, {
                 ok: true, aplicado: true, publicacaoRealizada: true, operacao, renderizar: true,
                 avisos: [{ codigo: 'METADADO_SYNC_PENDENTE' },
                     ...(falhouPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []),
@@ -2338,6 +2485,7 @@
     }
 
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
+    window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
     window.verificarOperacaoPeca = verificarOperacaoPeca;
     window.executarAlteracaoPecaTransacional = executarAlteracaoPecaTransacional;

@@ -9,6 +9,7 @@ function popularChecklistModeloSelect() {
     select.innerHTML = '<option value="">Selecione um modelo</option>';
 
     modelos.forEach(modelo => {
+        if (encontrarPecaInativaVinculada(modelo.itens, pecas)) return;
         const option = document.createElement('option');
         option.value = modelo.id;
         option.textContent = `${modelo.nome}${modelo.familiaEstrutural ? ' - ' + modelo.familiaEstrutural : ''}`;
@@ -70,18 +71,20 @@ function adicionarModeloAoChecklist() {
         return;
     }
 
+    const inativa = encontrarPecaInativaVinculada(modelo.itens, pecas);
+    if (inativa) { mostrarToast(`${inativa.nome}: peça inativa; inclusão no checklist bloqueada.`, 'erro'); return; }
     modelo.itens.forEach(itemModelo => {
-        const pecaId = itemModelo.pecaId || itemModelo.idPeca || itemModelo.peca || itemModelo.id;
+        const pecaId = itemModelo.pecaId ?? itemModelo.idPeca ?? itemModelo.peca ?? itemModelo.id;
         const quantidadeModelo = Number(itemModelo.quantidade || itemModelo.qtd || 0);
         if (!Number.isFinite(quantidadeModelo) || quantidadeModelo <= 0) return;
 
-        const peca = pecas.find(p => String(p.id) === String(pecaId));
+        const peca = resolverRegistroPorIdExato(pecas, pecaId).registro;
         if (!peca) {
             console.warn('Peça não encontrada para o item do modelo:', itemModelo);
             return;
         }
 
-        const existente = checklistMontagem.find(item => String(item.pecaId) === String(pecaId));
+        const existente = checklistMontagem.find(item => item.pecaId === pecaId);
 
         if (existente) {
             existente.quantidade += quantidadeModelo;
@@ -497,6 +500,11 @@ function mostrarChecklistDaLocacao(locacao, mensagem) {
 }
 
 function preencherChecklistComLocacao(locacao, itens) {
+    const inativa = encontrarPecaInativaVinculada(itens, pecas);
+    if (inativa && !locacao.checklist?.idChecklist && !locacao.checklist?.criadoEm) {
+        mostrarToast(`${inativa.nome}: peça inativa; novo checklist bloqueado.`, 'erro');
+        return false;
+    }
     const clienteResolvido = resolverClientePorIdExato(locadores, locacao.locadorId);
     const cliente = clienteResolvido.encontrado ? clienteResolvido.cliente : null;
     const jaExistia = Boolean(locacao.checklist?.idChecklist || locacao.checklist?.criadoEm);
