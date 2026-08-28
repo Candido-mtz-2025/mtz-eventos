@@ -2379,7 +2379,8 @@
             ...movimentacao,
             id: textoSeguro(movimentacao.id, `mov-${Date.now()}-${indice + 1}`),
             chaveIdempotencia: textoSeguro(movimentacao.chaveIdempotencia, ''),
-            pecaId: textoSeguro(movimentacao.pecaId, ''),
+            pecaId: movimentacao.origemEvento === 'edicao_transacional_estoque'
+                ? movimentacao.pecaId : textoSeguro(movimentacao.pecaId, ''),
             pecaNome: textoSeguro(movimentacao.pecaNome, ''),
             tipoMovimentacao,
             quantidade,

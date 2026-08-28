@@ -136,7 +136,7 @@ function limparFormularioCadastroPeca() {
     if (foto) foto.value = '';
 }
     
-// Inclusao e edicao sao apenas rascunhos nesta etapa, sem executor ou persistencia.
+// Somente o executor publica o rascunho; o formulario nunca altera as colecoes.
 (() => {
     let sessao = null;
     let abrindo = false;
@@ -214,16 +214,116 @@ function limparFormularioCadastroPeca() {
             adicionar('sessaoPecaQuantidade', `A quantidade total não pode ser inferior às ${sessao.comprometido} unidades comprometidas.`);
         }
         if (!Number.isFinite(preco) || preco < 0) adicionar('sessaoPecaPreco', 'Informe um preço numérico maior ou igual a zero.');
-        for (const id of ['sessaoPecaNome', 'sessaoPecaCategoria', 'sessaoPecaQuantidade', 'sessaoPecaPreco']) {
+        let plano = null;
+        if (!erros.length) {
+            plano = planejarAlteracaoPeca(entradaPlanejamento(), obterEstadoMemoriaAtual());
+            for (const bloqueio of plano.bloqueios || []) {
+                const id = Object.keys(campos).find(id => campos[id] === bloqueio.campo)
+                    || (bloqueio.campo === 'tipoId' ? 'sessaoPecaCategoria' : '');
+                if (id) adicionar(id, bloqueio.mensagem);
+            }
+        }
+        for (const id of [...Object.keys(campos), 'sessaoPecaCategoria']) {
             erroCampo(id, erros.find(e => e.campo === id)?.mensagem || '');
         }
-        document.getElementById('sessaoPecaConfirmar').disabled = true;
+        const valido = erros.length === 0 && plano?.ok === true && !sessao.bloqueada;
+        const botao = document.getElementById('sessaoPecaConfirmar');
+        botao.disabled = !valido || sessao.executando;
+        botao.setAttribute('aria-disabled', botao.disabled ? 'true' : 'false');
+        if (!sessao.executando && !sessao.bloqueada) {
+            document.getElementById('sessaoPecaEstado').textContent = plano?.codigo === 'SEM_ALTERACOES'
+                ? 'Não há alterações para confirmar.'
+                : plano && !plano.ok ? (plano.bloqueios?.[0]?.mensagem || 'Revise os dados da peça.')
+                : valido ? 'Alterações prontas para confirmação.' : 'Preencha os campos indicados.';
+        }
         if (focar && erros.length) document.getElementById(erros[0].campo).focus();
-        return { valido: erros.length === 0, erros };
+        return { valido, erros, plano };
+    }
+
+    function entradaPlanejamento() {
+        const r = sessao.rascunho;
+        return { modo: sessao.modo, pecaId: sessao.pecaId, revisaoEsperada: sessao.revisao,
+            dadosEditados: { nome: r.nome, codigo: r.codigo || '', medida: r.medida || '', barras: r.barras || '',
+                tipoId: r.tipoId, quantidadeTotal: r.quantidadeTotal, valor: r.valor } };
+    }
+
+    function bloquearControles(processando) {
+        const dialogo = document.getElementById('dialogSessaoPeca');
+        dialogo.setAttribute('aria-busy', processando ? 'true' : 'false');
+        dialogo.querySelectorAll('input, select, button').forEach(c => {
+            c.disabled = processando || (sessao?.bloqueada && !c.hasAttribute('data-fechar-sessao-peca'));
+        });
+        document.getElementById('sessaoPecaConfirmar').textContent = processando ? 'Processando...' : 'Confirmar alterações';
+    }
+
+    async function confirmar() {
+        if (!sessao || sessao.executando || sessao.bloqueada || !validar(true).valido) return false;
+        const atual = sessao;
+        atual.executando = true;
+        bloquearControles(true);
+        document.getElementById('sessaoPecaEstado').textContent = 'Processando. Aguarde a confirmação do armazenamento.';
+        let resultado;
+        try {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            const entrada = entradaPlanejamento();
+            const plano = planejarAlteracaoPeca(entrada, obterEstadoMemoriaAtual());
+            if (!plano.ok) resultado = { ...plano, efeitos: {} };
+            else {
+                const instante = new Date();
+                const dependencias = criarDependenciasExecutorPeca({ armazenamento: localStorage });
+                resultado = executarAlteracaoPecaTransacional({ ...entrada, operacaoId: atual.operacaoId,
+                    assinaturaPlanoEsperada: plano.assinatura, atualizadoEm: instante.toISOString(),
+                    atualizadoPor: localStorage.getItem('usuarioEmail') || 'Offline',
+                    persistencia: { versao: window.SCHEMA_VERSION_V12 || '12.6', data: instante.toISOString(), ultimaEdicao: instante.getTime() }
+                }, dependencias);
+                if (resultado.ok && resultado.aplicado) {
+                    if (!verificarOperacaoPeca(obterEstadoMemoriaAtual(), resultado.operacao).completo) {
+                        resultado = { ok: false, codigo: 'OPERACAO_REQUER_RECUPERACAO', requerRecuperacao: true, efeitos: {} };
+                    } else resultado = concluirMetadadoOperacaoPeca(resultado, dependencias);
+                }
+            }
+        } catch (_erro) {
+            resultado = { ok: false, codigo: 'FALHA_INTEGRACAO_ESTOQUE', requerRecuperacao: true, efeitos: {} };
+        } finally {
+            atual.executando = false;
+            bloquearControles(false);
+        }
+        if (resultado.ok && resultado.aplicado) {
+            descartar();
+            if (resultado.efeitos?.renderizar) {
+                try { renderEstoque(); } catch (_erro) { mostrarToast('Peça salva. Reabra a aba para atualizar a lista.', 'info'); }
+                const acionador = [...document.querySelectorAll('[data-action="abrirEditarPeca"]')]
+                    .find(botao => botao.getAttribute('data-arg') === referencia('peca', atual.pecaId));
+                (acionador || document.getElementById('abrirInclusaoPeca'))?.focus({ preventScroll: true });
+            }
+            if (resultado.efeitos?.sincronizar) {
+                try { Promise.resolve(sincronizar('salvar')).catch(() => mostrarToast('Peça salva localmente. Sincronização pendente.', 'info')); }
+                catch (_erro) { mostrarToast('Peça salva localmente. Sincronização pendente.', 'info'); }
+            }
+            mostrarToast(resultado.avisos?.some(a => a.codigo === 'METADADO_SYNC_PENDENTE')
+                ? 'Peça salva localmente. O marcador de sincronização ficou pendente.'
+                : resultado.idempotente ? 'Esta operação já estava concluída.' : 'Peça salva com segurança.', 'info');
+            return true;
+        }
+        const mensagens = {
+            REVISAO_DIVERGENTE: 'O estoque foi modificado. Feche e reabra a peça para revisar os dados atuais.',
+            PECA_AUSENTE: 'A peça foi removida. Feche esta sessão.',
+            PECA_ID_DUPLICADO: 'A identidade da peça está duplicada. Confira o cadastro.',
+            FALHA_PERSISTENCIA: 'Não foi possível salvar. O rascunho foi mantido; tente novamente.',
+            OPERACAO_ESTOQUE_EM_ANDAMENTO: 'Outra operação está em andamento. Aguarde antes de confirmar.'
+        };
+        atual.bloqueada = resultado.requerRecuperacao || ['REVISAO_DIVERGENTE', 'PECA_AUSENTE', 'PECA_ID_DUPLICADO'].includes(resultado.codigo);
+        bloquearControles(false);
+        const validacao = validar(true);
+        document.getElementById('sessaoPecaEstado').textContent = resultado.requerRecuperacao
+            ? 'A operação exige recuperação explícita. Não tente registrar novamente. Feche a sessão e confira o estado persistido.'
+            : resultado.bloqueios?.[0]?.mensagem || mensagens[resultado.codigo] || 'Não foi possível confirmar. Revise os dados.';
+        if (atual.bloqueada || !validacao.erros.length) document.getElementById('sessaoPecaEstado').focus();
+        return false;
     }
 
     function atualizar(evento) {
-        if (!sessao) return;
+        if (!sessao || sessao.executando || sessao.bloqueada) return;
         const controle = evento.target;
         const chave = campos[controle.id];
         if (chave) {
@@ -239,12 +339,13 @@ function limparFormularioCadastroPeca() {
     }
 
     function descartar() {
+        if (sessao?.executando) return false;
         const foco = sessao?.foco;
         sessao = null;
         const dialogo = document.getElementById('dialogSessaoPeca');
         document.getElementById('formSessaoPeca')?.reset();
         document.getElementById('sessaoPecaCategoria')?.replaceChildren();
-        for (const id of ['sessaoPecaNome', 'sessaoPecaCategoria', 'sessaoPecaQuantidade', 'sessaoPecaPreco']) erroCampo(id, '');
+        for (const id of [...Object.keys(campos), 'sessaoPecaCategoria']) erroCampo(id, '');
         if (dialogo?.open) dialogo.close();
         if (foco?.isConnected) foco.focus({ preventScroll: true });
         return true;
@@ -262,6 +363,7 @@ function limparFormularioCadastroPeca() {
             const backdrop = evento.target === dialogo && (evento.clientX < limite.left
                 || evento.clientX > limite.right || evento.clientY < limite.top || evento.clientY > limite.bottom);
             if (backdrop || evento.target.closest('[data-fechar-sessao-peca]')) descartar();
+            else if (evento.target.id === 'sessaoPecaConfirmar') confirmar();
         });
         dialogo.addEventListener('keydown', evento => {
             evento.stopPropagation();
@@ -280,12 +382,12 @@ function limparFormularioCadastroPeca() {
             }
             if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 's') {
                 evento.preventDefault();
-                validar(true);
+                confirmar();
             }
         });
         document.getElementById('formSessaoPeca').addEventListener('submit', evento => {
             evento.preventDefault();
-            validar(true);
+            confirmar();
         });
     }
 
@@ -308,12 +410,22 @@ function limparFormularioCadastroPeca() {
             } else original = { nome: '', codigo: '', medida: '', barras: '', valor: 0, quantidadeTotal: 1,
                 tipoId: null, reservado: 0, manutencao: 0, avariado: 0, perdido: 0 };
             const rascunho = clonar(original);
+            const estado = obterEstadoMemoriaAtual();
+            const revisao = capturarRevisaoEstoque(estado);
+            if (!revisao.ok) throw new Error('O estado contém dados inválidos para uma transação segura.');
+            const sufixo = crypto.randomUUID();
+            const pecaId = edicao ? original.id : `peca-${sufixo}`;
+            if (!edicao && resolverRegistroPorIdExato(estado.pecas, pecaId).estado !== 'ausente') throw new Error('Não foi possível criar uma identidade única. Reabra a sessão.');
+            rascunho.quantidadeTotal = numero(original.quantidadeTotal ?? original.quantidade ?? '');
+            rascunho.valor = numero(original.valor);
             const saldos = ['reservado', 'manutencao', 'avariado', 'perdido']
                 .map(chave => original[chave] === undefined ? 0 : numero(original[chave]));
             const comprometido = saldos.every(n => Number.isSafeInteger(n) && n >= 0)
                 ? saldos.reduce((soma, n) => soma + n, 0) : NaN;
             prepararDialogo(dialogo);
-            sessao = { modo: edicao ? 'edicao' : 'inclusao', rascunho, comprometido, foco: document.activeElement };
+            sessao = { modo: edicao ? 'edicao' : 'inclusao', rascunho, comprometido, foco: document.activeElement,
+                pecaId, operacaoId: `estoque-${sufixo}`, revisao: revisao.revisao, executando: false, bloqueada: false };
+            bloquearControles(false);
             const categoria = document.getElementById('sessaoPecaCategoria');
             categoria.replaceChildren(new Option('Selecione uma categoria', ''));
             tipos.forEach(tipo => {
@@ -353,11 +465,8 @@ function limparFormularioCadastroPeca() {
     window.cancelarSessaoPeca = descartar;
     window.validarSessaoPeca = () => validar(true);
     window.obterRascunhoSessaoPeca = () => sessao ? clonar(sessao.rascunho) : null;
-    // Compatibilidade com atalhos antigos: nenhuma chamada pode persistir nesta etapa.
-    window.salvarPeca = window.salvarEdicaoPeca = () => {
-        validar(true);
-        return false;
-    };
+    window.confirmarSessaoPeca = confirmar;
+    window.salvarPeca = window.salvarEdicaoPeca = confirmar;
 })();
 
 

@@ -2015,6 +2015,333 @@
         }
     }
 
+    // Pecas usam a mesma persistencia e a mesma prova privada; nao ha saldo paralelo.
+    const camposPecaEditaveis = Object.freeze(['nome', 'codigo', 'medida', 'barras', 'tipoId', 'valor', 'quantidadeTotal']);
+    const resolverIdentidadePeca = window.resolverRegistroPorIdExato;
+    const validarIdentidadePeca = window.normalizarIdEntidadeExato;
+    const prepararSnapshotPecaInterno = window.prepararSnapshotPersistivelCompleto;
+    const lerSnapshotPecaInterno = window.lerSnapshotLocalConfirmavel;
+    const validarSnapshotPecaInterno = window.validarEstruturaSnapshotPersistivelCompleto;
+    const chaveSnapshotPeca = typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup';
+    let transacaoPecaAtiva = false;
+
+    function copiarDadosPeca(valor) {
+        if (!validarValorExternoPersistivel(valor)) throw new Error('DADOS_NAO_PERSISTIVEIS');
+        return JSON.parse(JSON.stringify(valor));
+    }
+
+    function canonicoPeca(valor) {
+        if (Array.isArray(valor)) return valor.map(canonicoPeca);
+        if (!valor || typeof valor !== 'object') return valor;
+        const copia = {};
+        Object.keys(valor).sort().forEach(chave => Object.defineProperty(copia, chave, {
+            value: canonicoPeca(valor[chave]), enumerable: true, writable: true, configurable: true
+        }));
+        return copia;
+    }
+
+    function jsonCanonicoPeca(valor) { return JSON.stringify(canonicoPeca(valor)); }
+
+    function operacionalPeca(snapshot) {
+        const estado = copiarDadosPeca(snapshot);
+        CHAVES_METADADOS_PERSISTENCIA.forEach(chave => delete estado[chave]);
+        return estado;
+    }
+
+    function lerBasePersistidaPeca(opcoes) {
+        const leitura = lerSnapshotPecaInterno(opcoes);
+        if (leitura.ok || leitura.codigo === 'SNAPSHOT_PERSISTIDO_AUSENTE') return leitura;
+        // salvarLocal legado nao inclui ultimaEdicao no JSON. Aceita somente a
+        // estrutura completa, sem esse campo, e ainda exige igualdade com a raiz.
+        try {
+            const snapshot = copiarDadosPeca(JSON.parse(opcoes.armazenamento.getItem(chaveSnapshotPeca)));
+            if (!snapshot || Object.hasOwn(snapshot, 'ultimaEdicao')) return leitura;
+            if (!validarSnapshotPecaInterno({ ...snapshot, ultimaEdicao: 0 }).valido) return leitura;
+            return { ok: true, snapshot, legado: true };
+        } catch (_erro) { return leitura; }
+    }
+
+    function revisaoEstadoPeca(estado) {
+        return `peca-estado-v1:${fingerprintFnv1a64(jsonCanonicoPeca(operacionalPeca(estado)))}`;
+    }
+
+    function capturarRevisaoEstoque(estado) {
+        try { return { ok: true, revisao: revisaoEstadoPeca(estado) }; }
+        catch (_erro) { return { ok: false, codigo: 'DADOS_NAO_PERSISTIVEIS' }; }
+    }
+
+    function planejarAlteracaoPeca(entrada, estadoRecebido) {
+        try {
+            const dados = copiarDadosPeca(entrada);
+            const estado = operacionalPeca(estadoRecebido);
+            const rejeitar = (codigo, campo, mensagem) => ({ ok: false, valido: false, codigo,
+                bloqueios: [{ codigo, campo, mensagem }] });
+            if (!['inclusao', 'edicao'].includes(dados.modo) || !validarIdentidadePeca(dados.pecaId).valido) {
+                return rejeitar('PECA_ID_INVALIDO', 'nome', 'A identidade da peça é inválida.');
+            }
+            const resolucao = resolverIdentidadePeca(estado.pecas, dados.pecaId);
+            if (resolucao.estado === 'duplicado' || (dados.modo === 'inclusao' && resolucao.encontrado)) {
+                return rejeitar('PECA_ID_DUPLICADO', 'nome', 'A identidade da peça já existe ou está duplicada.');
+            }
+            if (dados.modo === 'edicao' && !resolucao.encontrado) {
+                return rejeitar('PECA_AUSENTE', 'nome', 'A peça foi removida. Feche esta sessão.');
+            }
+            if (dados.revisaoEsperada !== revisaoEstadoPeca(estado)) {
+                return rejeitar('REVISAO_DIVERGENTE', '', 'O estoque foi modificado. Feche e reabra a peça para revisar os dados atuais.');
+            }
+            const editados = dados.dadosEditados;
+            if (!editados || typeof editados !== 'object' || Array.isArray(editados)
+                || Object.keys(editados).some(chave => !camposPecaEditaveis.includes(chave))) {
+                return rejeitar('CAMPO_NAO_AUTORIZADO', '', 'O rascunho contém campos não autorizados.');
+            }
+            const atual = resolucao.registro;
+            const prevista = atual ? { ...atual, ...editados } : {
+                id: dados.pecaId, reservado: 0, manutencao: 0, avariado: 0, perdido: 0,
+                localizacao: '', status: 'ativo', historicoMovimentacoes: [], ...editados
+            };
+            if (typeof prevista.nome !== 'string' || !prevista.nome.trim()) {
+                return rejeitar('NOME_OBRIGATORIO', 'nome', 'Informe o nome da peça.');
+            }
+            prevista.nome = prevista.nome.trim();
+            for (const chave of ['codigo', 'medida', 'barras']) {
+                if (typeof prevista[chave] !== 'string') return rejeitar('TEXTO_INVALIDO', chave, 'Informe um texto válido.');
+                prevista[chave] = prevista[chave].trim();
+            }
+            if (!atual) { prevista.codigoInterno = prevista.codigo; prevista.qrCode = prevista.barras; }
+            if (!resolverIdentidadePeca(estado.tipos, prevista.tipoId).encontrado) {
+                return rejeitar('CATEGORIA_INVALIDA', 'tipoId', 'Selecione uma categoria existente e sem duplicidade.');
+            }
+            const total = prevista.quantidadeTotal;
+            if (!Number.isSafeInteger(total) || total < 0) {
+                return rejeitar('QUANTIDADE_INVALIDA', 'quantidadeTotal', 'Informe uma quantidade inteira, segura e não negativa.');
+            }
+            if (typeof prevista.valor !== 'number' || !Number.isFinite(prevista.valor) || prevista.valor < 0) {
+                return rejeitar('PRECO_INVALIDO', 'valor', 'Informe um preço finito maior ou igual a zero.');
+            }
+            const totalAnterior = atual ? inteiroLegadoNaoNegativo(atual.quantidadeTotal ?? atual.quantidade) : 0;
+            if (totalAnterior === null) return rejeitar('SALDOS_INVALIDOS', 'quantidadeTotal', 'A quantidade anterior precisa de conferência.');
+            // Ausencia legada de reservado: conserva a diferenca que ja estava indisponivel.
+            const saldoLegado = atual?.disponivel === undefined ? totalAnterior : inteiroLegadoNaoNegativo(atual.disponivel);
+            if (saldoLegado === null || saldoLegado > totalAnterior) return rejeitar('SALDOS_INVALIDOS', 'quantidadeTotal', 'O saldo anterior precisa de conferência.');
+            const saldos = ['reservado', 'manutencao', 'avariado', 'perdido'].map(chave => {
+                if (prevista[chave] === undefined) return chave === 'reservado' ? totalAnterior - saldoLegado : 0;
+                return inteiroLegadoNaoNegativo(prevista[chave]);
+            });
+            const comprometido = saldos.reduce((soma, valor) => soma + valor, 0);
+            if (saldos.includes(null) || !Number.isSafeInteger(comprometido) || comprometido > totalAnterior && atual) {
+                return rejeitar('SALDOS_INVALIDOS', 'quantidadeTotal', 'Os saldos comprometidos precisam de conferência.');
+            }
+            if (total < comprometido) return rejeitar('QUANTIDADE_COMPROMETIDA', 'quantidadeTotal',
+                `A quantidade total não pode ser inferior às ${comprometido} unidades comprometidas.`);
+            const identificador = valor => typeof valor === 'string' ? valor.trim().toLowerCase() : '';
+            const texto = valor => identificador(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            for (const peca of estado.pecas) {
+                if (peca === atual) continue;
+                if (prevista.codigo && identificador(prevista.codigo) === identificador(peca.codigo)) {
+                    return rejeitar('CODIGO_DUPLICADO', 'codigo', 'Já existe uma peça com esse código.');
+                }
+                if (prevista.barras && identificador(prevista.barras) === identificador(peca.barras || peca.codigoBarras)) {
+                    return rejeitar('BARRAS_DUPLICADAS', 'barras', 'Já existe uma peça com esse código de barras.');
+                }
+                if (texto(prevista.nome) === texto(peca.nome) && ((prevista.medida && texto(prevista.medida) === texto(peca.medida))
+                    || prevista.tipoId === peca.tipoId)) {
+                    return rejeitar('PECA_POSSIVELMENTE_DUPLICADA', 'nome', 'Já existe uma peça com esse nome e categoria ou medida.');
+                }
+            }
+            const alteracoes = camposPecaEditaveis.filter(chave => {
+                if (!atual) return true;
+                const anterior = chave === 'quantidadeTotal' ? totalAnterior
+                    : ['codigo', 'medida', 'barras'].includes(chave) ? (atual[chave] ?? '') : atual[chave];
+                return prevista[chave] !== anterior;
+            });
+            if (!alteracoes.length) return rejeitar('SEM_ALTERACOES', '', 'Não há alterações para confirmar.');
+            const revisao = atual?.controleEdicaoEstoque === undefined ? 0 : atual.controleEdicaoEstoque?.revisao;
+            if (!Number.isSafeInteger(revisao) || revisao < 0 || revisao === Number.MAX_SAFE_INTEGER) {
+                return rejeitar('CONTROLE_EDICAO_INVALIDO', '', 'O controle de revisão precisa de conferência.');
+            }
+            for (const chave of ['historicoOperacional', 'historicoMovimentacoes']) {
+                if (prevista[chave] !== undefined && !Array.isArray(prevista[chave])) return rejeitar('HISTORICO_INVALIDO', '', 'O histórico da peça precisa de conferência.');
+            }
+            const delta = total - totalAnterior;
+            // Conserva indisponibilidades legadas adicionais, sem liberar saldo por editar nome/preco.
+            const disponibilidadeAnterior = Math.min(saldoLegado, totalAnterior - comprometido);
+            prevista.quantidade = total;
+            prevista.disponivel = Math.min(total - comprometido, Math.max(0, disponibilidadeAnterior + delta));
+            ['reservado', 'manutencao', 'avariado', 'perdido'].forEach((chave, indice) => { prevista[chave] = saldos[indice]; });
+            const plano = { modo: dados.modo, pecaId: dados.pecaId, revisaoEsperada: dados.revisaoEsperada,
+                revisaoPosterior: revisao + 1, alteracoes, delta, totalAnterior, disponibilidadeAnterior, peca: prevista };
+            return { ok: true, valido: true, ...plano, assinatura: `peca-plano-v1:${fingerprintFnv1a64(jsonCanonicoPeca(plano))}`, bloqueios: [] };
+        } catch (_erro) { return { ok: false, valido: false, codigo: 'DADOS_NAO_PERSISTIVEIS', bloqueios: [] }; }
+    }
+
+    function verificarOperacaoPeca(estadoRecebido, operacao) {
+        try {
+            const estado = copiarDadosPeca(estadoRecebido);
+            const op = copiarDadosPeca(operacao);
+            const auditorias = estado.logsAuditoria.filter(x => x.operacaoId === op.operacaoId);
+            const historicos = estado.pecas.flatMap(p => (p.historicoOperacional || []).map(h => ({ p, h })))
+                .filter(x => x.h.operacaoId === op.operacaoId);
+            const movimentos = estado.movimentacoesEstoque.filter(x => x.operacaoId === op.operacaoId);
+            if (!auditorias.length && !historicos.length && !movimentos.length) return { estado: 'nao_executada', completo: false };
+            const registro = resolverIdentidadePeca(estado.pecas, op.pecaId);
+            const corresponde = x => x.pecaId === op.pecaId && x.assinaturaPlano === op.assinaturaPlano;
+            const h = historicos[0]?.h;
+            const completo = registro.encontrado && auditorias.length === 1 && historicos.length === 1
+                && historicos[0].p.id === op.pecaId && corresponde(h) && corresponde(auditorias[0])
+                && Array.isArray(h.movimentacaoIds) && movimentos.length === h.movimentacaoIds.length
+                && movimentos.every(m => corresponde(m) && h.movimentacaoIds.includes(m.id))
+                && new Set(movimentos.map(m => m.id)).size === movimentos.length
+                && registro.registro.controleEdicaoEstoque?.revisao >= h.revisaoPosterior;
+            return { estado: completo ? 'concluida' : 'inconsistente', completo,
+                ...(completo ? { ultimaEdicao: h.ultimaEdicao } : {}) };
+        } catch (_erro) { return { estado: 'inconsistente', completo: false }; }
+    }
+
+    function executarAlteracaoPecaTransacional(entradaRecebida, dependencias = {}) {
+        if (transacaoPecaAtiva) return resultadoBase('OPERACAO_ESTOQUE_EM_ANDAMENTO');
+        transacaoPecaAtiva = true;
+        let escritaTentada = false;
+        let autorizacao = null;
+        let commit = false;
+        let operacao = null;
+        try {
+            const entrada = copiarDadosPeca(entradaRecebida);
+            if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId || '')
+                || typeof entrada.operacaoId !== 'string' || !textoObrigatorio(entrada.atualizadoEm, 40)
+                || entrada.operacaoId.trim() !== entrada.operacaoId
+                || !textoObrigatorio(entrada.atualizadoPor, 320)) return resultadoBase('ENTRADA_INVALIDA');
+            for (const nome of ['obterEstadoMemoriaAtual', 'persistirSnapshotLocalConfirmavel', 'publicarSnapshotAutorizado']) {
+                if (typeof dependencias[nome] !== 'function') return resultadoBase('DEPENDENCIAS_TRANSACIONAIS_INVALIDAS');
+            }
+            const raiz = dependencias.obterEstadoMemoriaAtual();
+            const estado = operacionalPeca(raiz);
+            const jsonInicial = jsonCanonicoPeca(estado);
+            operacao = { pecaId: entrada.pecaId, operacaoId: entrada.operacaoId, assinaturaPlano: entrada.assinaturaPlanoEsperada };
+            const evidencia = verificarOperacaoPeca(estado, operacao);
+            const opcoesStorage = { armazenamento: dependencias.armazenamento };
+            const leitura = lerBasePersistidaPeca(opcoesStorage);
+            if (evidencia.completo) {
+                if (!leitura.ok || !verificarOperacaoPeca(leitura.snapshot, operacao).completo
+                    || jsonCanonicoPeca(operacionalPeca(leitura.snapshot)) !== jsonInicial) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+                return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true, operacao });
+            }
+            if (evidencia.estado !== 'nao_executada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (leitura.ok) {
+                if (jsonCanonicoPeca(operacionalPeca(leitura.snapshot)) !== jsonInicial) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+            } else if (leitura.codigo !== 'SNAPSHOT_PERSISTIDO_AUSENTE') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const plano = planejarAlteracaoPeca(entrada, estado);
+            if (!plano.ok) return resultadoBase(plano.codigo, { bloqueios: plano.bloqueios });
+            if (plano.assinatura !== entrada.assinaturaPlanoEsperada) return resultadoBase('ASSINATURA_DIVERGENTE');
+            const candidato = copiarDadosPeca(estado);
+            const peca = copiarDadosPeca(plano.peca);
+            const movimentoId = `mov-peca-${entrada.operacaoId}`;
+            const registrarMovimento = entrada.modo === 'inclusao' || plano.delta !== 0;
+            if (candidato.movimentacoesEstoque.some(m => m.id === movimentoId)
+                || candidato.logsAuditoria.some(a => a.id === `audit-peca-${entrada.operacaoId}`)) return resultadoBase('IDENTIDADE_OPERACAO_DUPLICADA');
+            const historico = { ...operacao, id: `hist-peca-${entrada.operacaoId}`, acao: entrada.modo,
+                dataHora: entrada.atualizadoEm, usuario: entrada.atualizadoPor, ultimaEdicao: entrada.persistencia?.ultimaEdicao,
+                revisaoPosterior: plano.revisaoPosterior, campos: plano.alteracoes,
+                quantidadeAnterior: plano.totalAnterior, quantidadePosterior: peca.quantidadeTotal,
+                movimentacaoIds: registrarMovimento ? [movimentoId] : [] };
+            peca.historicoOperacional = [...(peca.historicoOperacional || []), copiarDadosPeca(historico)];
+            peca.controleEdicaoEstoque = { ...(peca.controleEdicaoEstoque || {}), revisao: plano.revisaoPosterior,
+                ultimaOperacaoId: entrada.operacaoId, assinaturaPlano: plano.assinatura, atualizadoEm: entrada.atualizadoEm };
+            if (registrarMovimento) {
+                candidato.movimentacoesEstoque.unshift({ ...operacao, id: movimentoId, chaveIdempotencia: movimentoId,
+                    tipoMovimentacao: entrada.modo === 'inclusao' ? 'entrada' : 'ajuste',
+                    quantidade: Math.abs(plano.delta), deltaQuantidade: plano.delta,
+                    pecaNome: peca.nome, dataHora: entrada.atualizadoEm, usuario: entrada.atualizadoPor,
+                    locacaoId: '', locacaoRef: '', valorEstimado: 0,
+                    saldoAntes: plano.disponibilidadeAnterior, saldoDepois: peca.disponivel,
+                    origemEvento: 'edicao_transacional_estoque', statusProcessamento: 'auditoria',
+                    observacao: `Quantidade total: ${plano.totalAnterior} -> ${peca.quantidadeTotal}.` });
+                peca.historicoMovimentacoes = [...(peca.historicoMovimentacoes || []), movimentoId];
+            }
+            if (entrada.modo === 'inclusao') candidato.pecas.push(peca);
+            else candidato.pecas[candidato.pecas.findIndex(p => p.id === entrada.pecaId)] = peca;
+            candidato.logsAuditoria.unshift({ ...copiarDadosPeca(historico), id: `audit-peca-${entrada.operacaoId}`,
+                tipo: 'item', timestamp: entrada.atualizadoEm, data: entrada.atualizadoEm,
+                acao: entrada.modo === 'inclusao' ? 'criar' : 'editar', descricao: `${entrada.modo === 'inclusao' ? 'Inclusão' : 'Edição'} da peça ${peca.nome}` });
+            if (!verificarOperacaoPeca(candidato, operacao).completo) return resultadoBase('EVIDENCIAS_OPERACAO_INCOMPLETAS');
+            const preparado = prepararSnapshotPecaInterno(copiarDadosPeca(candidato), copiarDadosPeca(entrada.persistencia));
+            if (!preparado.ok) return resultadoBase(preparado.codigo);
+            const esperado = copiarDadosPeca(preparado.snapshot);
+            const jsonEsperado = jsonCanonicoPeca(esperado);
+            if (jsonCanonicoPeca(operacionalPeca(esperado)) !== jsonCanonicoPeca(candidato)) return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            if (dependencias.obterEstadoMemoriaAtual() !== raiz || jsonCanonicoPeca(operacionalPeca(raiz)) !== jsonInicial) return resultadoBase('REVISAO_DIVERGENTE');
+            escritaTentada = true;
+            let resposta;
+            try { resposta = copiarDadosPeca(dependencias.persistirSnapshotLocalConfirmavel(copiarDadosPeca(esperado), { ...opcoesStorage })); }
+            catch (_erro) { resposta = null; }
+            // A resposta externa nao e prova: a releitura independente sempre decide.
+            const releitura = lerBasePersistidaPeca(opcoesStorage);
+            if (!releitura.ok || jsonCanonicoPeca(releitura.snapshot) !== jsonEsperado) {
+                const naoGravado = releitura.ok && jsonCanonicoPeca(operacionalPeca(releitura.snapshot)) === jsonInicial
+                    || !leitura.ok && releitura.codigo === 'SNAPSHOT_PERSISTIDO_AUSENTE';
+                return resultadoBase(naoGravado ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: !naoGravado });
+            }
+            const confirmado = operacionalPeca(releitura.snapshot);
+            const ultimaRaiz = dependencias.obterEstadoMemoriaAtual();
+            if (ultimaRaiz !== raiz || jsonCanonicoPeca(operacionalPeca(raiz)) !== jsonInicial) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const jsonPublicacao = JSON.stringify(confirmado);
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacao);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raiz });
+            if (!autorizacao) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            let falhouPublicacao = false;
+            try { dependencias.publicarSnapshotAutorizado(copiarDadosPeca(confirmado), {
+                jsonOperacionalEsperado: jsonPublicacao, autorizacaoPublicacao: autorizacao, exigirConfirmacaoInterna: true
+            }); } catch (_erro) { falhouPublicacao = true; }
+            // Daqui em diante, somente a fronteira privada e operacoes internas.
+            const prova = consultarConfirmacaoPublicacaoConfiavel({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raiz, autorizacaoPublicacao: autorizacao });
+            autorizacao = null;
+            commit = prova?.confirmada === true && prova.trocas === 1;
+            if (!commit) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            return resultadoBase(entrada.modo === 'inclusao' ? 'PECA_INCLUIDA' : 'PECA_ATUALIZADA', {
+                ok: true, aplicado: true, publicacaoRealizada: true, operacao, renderizar: true,
+                avisos: [{ codigo: 'METADADO_SYNC_PENDENTE' },
+                    ...(falhouPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []),
+                    ...(!resposta?.ok ? [{ codigo: 'PERSISTENCIA_CONFIRMADA_POR_RELEITURA' }] : [])]
+            });
+        } catch (_erro) {
+            return resultadoBase(commit ? 'PECA_ATUALIZADA' : 'FALHA_TRANSACIONAL_ESTOQUE', {
+                ok: commit, aplicado: commit, publicacaoRealizada: commit, operacao,
+                requerRecuperacao: !commit && escritaTentada, renderizar: commit,
+                avisos: commit ? [{ codigo: 'METADADO_SYNC_PENDENTE' }] : []
+            });
+        } finally {
+            if (autorizacao) cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao);
+            transacaoPecaAtiva = false;
+        }
+    }
+
+    // Pos-transacao explicita: nunca executada pelo nucleo, nem em falhas pre-commit.
+    function concluirMetadadoOperacaoPeca(resultado, dependencias) {
+        const retorno = copiarDadosPeca(resultado);
+        if (!retorno.ok || !retorno.aplicado || retorno.idempotente) return retorno;
+        try {
+            const estado = operacionalPeca(dependencias.obterEstadoMemoriaAtual());
+            const prova = verificarOperacaoPeca(estado, retorno.operacao);
+            if (!prova.completo) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true, publicacaoRealizada: retorno.publicacaoRealizada });
+            const atualizado = dependencias.atualizarMetadadoSincronizacao({ ultimaEdicao: prova.ultimaEdicao });
+            const marcador = dependencias.obterMetadadoSincronizacaoAtual();
+            if (atualizado !== true || marcador !== `${prova.ultimaEdicao}`) return retorno;
+            retorno.avisos = retorno.avisos.filter(a => a.codigo !== 'METADADO_SYNC_PENDENTE');
+            retorno.efeitos.sincronizar = true;
+        } catch (_erro) { /* A publicacao confirmada nao e desfeita por falha do marcador. */ }
+        return retorno;
+    }
+
+    window.capturarRevisaoEstoque = capturarRevisaoEstoque;
+    window.planejarAlteracaoPeca = planejarAlteracaoPeca;
+    window.verificarOperacaoPeca = verificarOperacaoPeca;
+    window.executarAlteracaoPecaTransacional = executarAlteracaoPecaTransacional;
+    window.concluirMetadadoOperacaoPeca = concluirMetadadoOperacaoPeca;
     window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
     window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
