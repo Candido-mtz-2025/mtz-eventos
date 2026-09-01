@@ -33,6 +33,7 @@
     const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
     const travasPorLocacao = new Set();
+    const travasReaberturaChecklist = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
     let cancelarAutorizacaoPublicacaoConfiavel = null;
@@ -2484,12 +2485,336 @@
         return retorno;
     }
 
+    function verificarEvidenciasReaberturaChecklist(estado, entrada) {
+        const localizacao = localizarLocacaoUnica(estado?.locacoes, entrada.locacaoId);
+        if (localizacao.quantidade !== 1) {
+            return {
+                estado: 'inconsistente',
+                codigo: localizacao.quantidade > 1 ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_NAO_ENCONTRADA'
+            };
+        }
+        const locacao = localizacao.locacao;
+        const checklist = locacao?.checklist;
+        const referenciaAlvo = referenciaEstrita(entrada.locacaoId);
+        const historicosGlobaisOperacao = Array.isArray(estado?.locacoes)
+            ? estado.locacoes.flatMap((registro) => Array.isArray(registro?.historicoAlteracoes)
+                ? registro.historicoAlteracoes.filter((historico) => historico?.operacaoId === entrada.operacaoId)
+                    .map((historico) => ({ historico, locacaoId: registro?.id ?? registro?.locacaoId }))
+                : [])
+            : [];
+        const historicos = Array.isArray(locacao?.historicoAlteracoes)
+            ? locacao.historicoAlteracoes.filter((registro) => registro?.operacaoId === entrada.operacaoId
+                && referenciaEstrita(registro?.locacaoId) === referenciaAlvo
+                && registro?.acao === 'checklist_reaberto')
+            : [];
+        const auditoriasOperacao = Array.isArray(estado?.logsAuditoria)
+            ? estado.logsAuditoria.filter((registro) => registro?.operacaoId === entrada.operacaoId)
+            : [];
+        const auditorias = auditoriasOperacao
+            .filter((registro) => referenciaEstrita(registro?.locacaoId) === referenciaAlvo
+                && registro?.tipo === 'checklist' && registro?.acao === 'reabrir');
+        const evidenciaOutraLocacao = historicosGlobaisOperacao.some((registro) => (
+            referenciaEstrita(registro.locacaoId) !== referenciaAlvo
+            || referenciaEstrita(registro.historico?.locacaoId) !== referenciaAlvo
+        )) || auditoriasOperacao.some((registro) => referenciaEstrita(registro?.locacaoId) !== referenciaAlvo);
+        const marcador = checklist?.ultimaReaberturaOperacaoId === entrada.operacaoId;
+        const reaberto = checklist?.concluido === false;
+        const coerente = marcador && reaberto && historicos.length === 1 && auditorias.length === 1
+            && typeof checklist.reabertoEm === 'string' && checklist.reabertoEm.length > 0
+            && typeof checklist.reabertoPor === 'string' && checklist.reabertoPor.length > 0
+            && historicos[0].data === checklist.reabertoEm
+            && historicos[0].usuario === checklist.reabertoPor
+            && auditorias[0].timestamp === checklist.reabertoEm
+            && auditorias[0].usuario === checklist.reabertoPor;
+        if (coerente && !evidenciaOutraLocacao
+            && historicosGlobaisOperacao.length === 1 && auditoriasOperacao.length === 1) {
+            return { estado: 'concluida', codigo: 'OPERACAO_JA_CONCLUIDA', localizacao };
+        }
+        const possuiEvidencia = marcador || historicos.length > 0 || auditorias.length > 0 || reaberto;
+        return possuiEvidencia || evidenciaOutraLocacao
+            ? { estado: 'inconsistente', codigo: 'EVIDENCIAS_REABERTURA_INCONSISTENTES', localizacao }
+            : { estado: 'nao_executada', codigo: 'OPERACAO_NAO_EXECUTADA', localizacao };
+    }
+
+    function executarReaberturaChecklistTransacional(entradaRecebida = {}, dependencias = {}) {
+        const entradaClonada = clonarJsonInterno(entradaRecebida);
+        if (!entradaClonada.ok) return resultadoBase('ENTRADA_TRANSACIONAL_INVALIDA');
+        const entrada = entradaClonada.valor;
+        const locacaoRef = referenciaEstrita(entrada.locacaoId);
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
+        const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
+        const persistenciaEntrada = entrada.persistencia;
+        const dependenciasObrigatorias = [
+            'obterEstadoMemoriaAtual',
+            'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel',
+            'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado',
+            'atualizarMetadadoSincronizacao'
+        ];
+        if (!locacaoRef || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
+            || !atualizadoEm || !atualizadoPor
+            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
+            || !Number.isFinite(persistenciaEntrada.ultimaEdicao)
+            || dependenciasObrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias?.armazenamento) {
+            return resultadoBase('ENTRADA_TRANSACIONAL_INVALIDA');
+        }
+        if (travasReaberturaChecklist.has(locacaoRef)) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO', {
+                bloqueios: [{ codigo: 'CHECKLIST_BLOQUEADO_POR_REABERTURA', locacaoId: entrada.locacaoId }]
+            });
+        }
+
+        travasReaberturaChecklist.add(locacaoRef);
+        let autorizacaoPublicacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+
+            // A releitura decide idempotencia e divergencia antes de qualquer candidato ou escrita.
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) {
+                opcoesArmazenamento.chave = persistenciaEntrada.chave;
+            }
+            let leituraInicial;
+            try {
+                leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) {
+                leituraInicial = null;
+            }
+            if (!leituraInicial?.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const persistidoInicial = prepararEstadoOperacionalInterno(leituraInicial.snapshot);
+            if (!persistidoInicial.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const evidenciasMemoria = verificarEvidenciasReaberturaChecklist(memoriaInicial.valor, entrada);
+            const evidenciasPersistidas = verificarEvidenciasReaberturaChecklist(persistidoInicial.valor, entrada);
+            if (evidenciasPersistidas.estado === 'concluida') {
+                if (evidenciasMemoria.estado === 'concluida'
+                    && memoriaInicial.json === persistidoInicial.json) {
+                    return resultadoBase('OPERACAO_JA_CONCLUIDA', {
+                        ok: true,
+                        aplicado: true,
+                        idempotente: true,
+                        operacao: { locacaoId: entrada.locacaoId, operacaoId },
+                        renderizar: true
+                    });
+                }
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciasMemoria.estado !== 'nao_executada'
+                || evidenciasPersistidas.estado !== 'nao_executada'
+                || memoriaInicial.json !== persistidoInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            const locacaoInicial = evidenciasMemoria.localizacao?.locacao;
+            if (!locacaoInicial || locacaoInicial.checklist?.concluido !== true) {
+                return resultadoBase('CHECKLIST_NAO_CONCLUIDO');
+            }
+            const candidatoInterno = clonarJsonInterno(memoriaInicial.valor);
+            if (!candidatoInterno.ok) return resultadoBase(candidatoInterno.codigo);
+            const localizacaoCandidata = localizarLocacaoUnica(candidatoInterno.valor.locacoes, entrada.locacaoId);
+            if (localizacaoCandidata.quantidade !== 1) return resultadoBase('LOCACAO_NAO_RECONCILIADA');
+            const locacaoCandidata = localizacaoCandidata.locacao;
+            const checklist = locacaoCandidata.checklist;
+            checklist.concluido = false;
+            checklist.status = 'gerado';
+            checklist.reabertoEm = atualizadoEm;
+            checklist.reabertoPor = atualizadoPor;
+            checklist.ultimaReaberturaOperacaoId = operacaoId;
+
+            if (!Array.isArray(locacaoCandidata.historicoAlteracoes)) locacaoCandidata.historicoAlteracoes = [];
+            locacaoCandidata.historicoAlteracoes.push({
+                id: operacaoId,
+                data: atualizadoEm,
+                acao: 'checklist_reaberto',
+                descricao: `Checklist reaberto por ${atualizadoPor}.`,
+                origem: 'checklist',
+                status: String(locacaoCandidata.status || ''),
+                statusFluxo: String(locacaoCandidata.statusFluxo || ''),
+                usuario: atualizadoPor,
+                operacaoId,
+                locacaoId: entrada.locacaoId,
+                checklistId: checklist.idChecklist || '',
+                itemIds: (Array.isArray(checklist.itens) ? checklist.itens : [])
+                    .map((item) => clonarDescartavel(item?.itemId))
+                    .filter((itemId) => itemId !== null && itemId !== '')
+            });
+            if (!Array.isArray(candidatoInterno.valor.logsAuditoria)) candidatoInterno.valor.logsAuditoria = [];
+            candidatoInterno.valor.logsAuditoria.unshift({
+                id: operacaoId,
+                timestamp: atualizadoEm,
+                data: atualizadoEm,
+                tipo: 'checklist',
+                acao: 'reabrir',
+                descricao: `Checklist da locação #${String(locacaoCandidata.id).slice(-4)} reaberto.`,
+                usuario: atualizadoPor,
+                operacaoId,
+                locacaoId: entrada.locacaoId,
+                checklistId: checklist.idChecklist || ''
+            });
+            const evidenciaCandidata = verificarEvidenciasReaberturaChecklist(candidatoInterno.valor, entrada);
+            if (evidenciaCandidata.estado !== 'concluida') {
+                return resultadoBase('EVIDENCIAS_REABERTURA_INCOMPLETAS');
+            }
+
+            const candidatoCanonico = ordenarChavesCanonicas(candidatoInterno.valor);
+            let snapshotExterno;
+            try {
+                snapshotExterno = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico),
+                    clonarDescartavel(persistenciaEntrada)
+                );
+            } catch (_erro) {
+                return resultadoBase('FALHA_PREPARACAO_SNAPSHOT');
+            }
+            const snapshotPreparado = clonarJsonInterno(snapshotExterno?.snapshot);
+            if (!snapshotExterno?.ok || !snapshotPreparado.ok) {
+                return resultadoBase(snapshotExterno?.codigo || 'FALHA_PREPARACAO_SNAPSHOT');
+            }
+            const operacionalEsperado = prepararEstadoOperacionalInterno(snapshotPreparado.valor);
+            if (!operacionalEsperado.ok || operacionalEsperado.json !== prepararEstadoOperacionalInterno(candidatoCanonico).json) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const jsonSnapshotEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotPreparado.valor));
+            const jsonPublicacaoEsperado = operacionalEsperado.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+
+            autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior
+            });
+            if (!autorizacaoPublicacao) {
+                return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            }
+
+            let retornoPersistencia = null;
+            try {
+                retornoPersistencia = dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshotPreparado.valor),
+                    { ...opcoesArmazenamento }
+                );
+            } catch (_erro) {
+                retornoPersistencia = null;
+            }
+            let releitura;
+            try {
+                releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) {
+                releitura = null;
+            }
+            const snapshotRelido = clonarJsonInterno(releitura?.snapshot);
+            const jsonRelido = snapshotRelido.ok
+                ? JSON.stringify(ordenarChavesCanonicas(snapshotRelido.valor))
+                : '';
+            if (!releitura?.ok || !snapshotRelido.ok || jsonRelido !== jsonSnapshotEsperado) {
+                const semConfirmacao = leituraInicial?.ok
+                    && snapshotRelido.ok
+                    && JSON.stringify(ordenarChavesCanonicas(leituraInicial.snapshot)) === jsonRelido;
+                return resultadoBase(semConfirmacao ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: !semConfirmacao || retornoPersistencia?.requerRecuperacao === true
+                });
+            }
+            persistenciaConfirmada = true;
+            const operacionalConfirmado = prepararEstadoOperacionalInterno(snapshotRelido.valor);
+            if (!operacionalConfirmado.ok || operacionalConfirmado.json !== operacionalEsperado.json) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            const raizAntesPublicacao = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAntesPublicacao = prepararEstadoOperacionalInterno(raizAntesPublicacao);
+            if (raizAntesPublicacao !== raizAnterior || !memoriaAntesPublicacao.ok
+                || memoriaAntesPublicacao.json !== memoriaInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            let excecaoPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalConfirmado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                    autorizacaoPublicacao,
+                    exigirConfirmacaoInterna: true
+                });
+            } catch (erro) {
+                excecaoPublicacao = erro;
+            }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior,
+                autorizacaoPublicacao
+            }) || null;
+            autorizacaoPublicacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    publicacaoRealizada: false
+                });
+            }
+
+            const avisos = excecaoPublicacao
+                ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }]
+                : [];
+            let sincronizar = false;
+            try {
+                sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                    ultimaEdicao: persistenciaEntrada.ultimaEdicao,
+                    locacaoId: entrada.locacaoId,
+                    operacaoId
+                }) === true;
+            } catch (_erro) {
+                sincronizar = false;
+            }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('CHECKLIST_REABERTO', {
+                ok: true,
+                aplicado: true,
+                publicacaoRealizada: true,
+                avisos,
+                operacao: { locacaoId: entrada.locacaoId, operacaoId },
+                renderizar: true,
+                sincronizar
+            });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'CHECKLIST_REABERTO' : 'FALHA_REABERTURA_CHECKLIST', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                operacao: { locacaoId: entrada.locacaoId, operacaoId },
+                renderizar: publicacaoRealizada,
+                sincronizar: false,
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
+            });
+        } finally {
+            if (autorizacaoPublicacao) {
+                try {
+                    cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao);
+                } catch (_erro) {
+                    // A autorizacao e descartada sem tentar publicar novamente.
+                }
+            }
+            travasReaberturaChecklist.delete(locacaoRef);
+        }
+    }
+
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
     window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
     window.verificarOperacaoPeca = verificarOperacaoPeca;
     window.executarAlteracaoPecaTransacional = executarAlteracaoPecaTransacional;
     window.concluirMetadadoOperacaoPeca = concluirMetadadoOperacaoPeca;
+    window.executarReaberturaChecklistTransacional = executarReaberturaChecklistTransacional;
     window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
     window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;

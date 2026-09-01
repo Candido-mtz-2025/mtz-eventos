@@ -4035,6 +4035,10 @@ input[type="file"]::-webkit-file-upload-button {
     display: none !important;
 }
 
+#tab-checklist #checklistReabrir[hidden] {
+    display: none !important;
+}
+
 .checklist-origin-banner i {
     width: 34px;
     height: 34px;

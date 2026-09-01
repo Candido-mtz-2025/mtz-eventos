@@ -352,11 +352,11 @@ function renderLocacoes() {
         const statusPagamentoLabel = l.pago ? 'Marcar como pendente' : 'Marcar como pago';
         const edicaoPermitida = typeof obterElegibilidadeEdicaoLocacao === 'function'
             && obterElegibilidadeEdicaoLocacao(l, { validarOperacional: false }).permitida;
+        const referenciaTipada = typeof criarReferenciaTipadaLocacao === 'function'
+            ? criarReferenciaTipadaLocacao(l.id)
+            : '';
         tr.setAttribute('data-locacao-id', String(l.id));
-        if (typeof criarReferenciaTipadaLocacao === 'function') {
-            const referenciaTipada = criarReferenciaTipadaLocacao(l.id);
-            if (referenciaTipada) tr.setAttribute('data-locacao-ref', referenciaTipada);
-        }
+        if (referenciaTipada) tr.setAttribute('data-locacao-ref', referenciaTipada);
         tr.className = `locacao-row locacao-row--${statusVisual}`;
         tr.innerHTML = `
             <td>
@@ -392,7 +392,7 @@ function renderLocacoes() {
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-romaneio" title="Gerar romaneio" aria-label="Gerar romaneio" data-action="gerarRomaneio" data-arg="${l.id}">
                     <i class="bi bi-truck"></i>
                 </button>
-                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="${checklistTitulo}" aria-label="${checklistTitulo}" data-action="gerarChecklistDaLocacao" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-checklist" title="${checklistTitulo}" aria-label="${checklistTitulo}" data-action="gerarChecklistDaLocacao" data-arg="${referenciaTipada || ''}">
                     <i class="bi bi-clipboard-check"></i>
                 </button>
                 ${(l.statusVisual !== 'devolvido' && l.statusVisual !== 'cancelado') ? `<button class="btn btn-sm ${reservaActionClass} table-action-btn locacao-action-btn locacao-action-reserva" title="${reservaActionLabel}" aria-label="${reservaActionLabel}" data-action="reservarEstoqueDaLocacao" data-arg="${l.id}"><i class="bi bi-box-seam"></i></button>` : ''}
