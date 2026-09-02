@@ -78,6 +78,45 @@ function gerarSnapshotDadosSistema() {
     };
 }
 
+function canonicalizarEstadoOperacionalCarga(valor) {
+    if (Array.isArray(valor)) {
+        return valor.map((item) => canonicalizarEstadoOperacionalCarga(item));
+    }
+    if (!valor || typeof valor !== 'object') return valor;
+    return Object.keys(valor).sort().reduce((resultado, chave) => {
+        definirCampoPersistivelSeguro(
+            resultado,
+            chave,
+            canonicalizarEstadoOperacionalCarga(valor[chave])
+        );
+        return resultado;
+    }, {});
+}
+
+function compararEstadoOperacionalCarregado(dadosPersistidos) {
+    const persistido = obterClonagemPersistivelEstrita(dadosPersistidos);
+    const memoria = obterClonagemPersistivelEstrita(gerarSnapshotDadosSistema());
+    if (!persistido.ok || !memoria.ok) {
+        return {
+            comparavel: false,
+            igual: false,
+            codigo: persistido.codigo || memoria.codigo || 'ESTADO_CARGA_NAO_COMPARAVEL'
+        };
+    }
+
+    ['versao', 'data', 'ultimaEdicao'].forEach((chave) => {
+        delete persistido.valor[chave];
+        delete memoria.valor[chave];
+    });
+    const jsonPersistido = JSON.stringify(canonicalizarEstadoOperacionalCarga(persistido.valor));
+    const jsonMemoria = JSON.stringify(canonicalizarEstadoOperacionalCarga(memoria.valor));
+    return {
+        comparavel: true,
+        igual: jsonPersistido === jsonMemoria,
+        codigo: jsonPersistido === jsonMemoria ? 'ESTADOS_EQUIVALENTES' : 'ESTADO_NORMALIZADO_DIVERGENTE'
+    };
+}
+
 const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'locadores',
     'pecas',
@@ -1010,10 +1049,23 @@ function carregarLocal() {
         }
 
         aplicarDadosSistema(dados, { manterConfigAtual: true, origem: 'localStorage' });
+        const comparacaoCarga = compararEstadoOperacionalCarregado(dados);
 
-        if (window.__mtzUltimaMigracaoV12?.houveMudanca) {
-            salvarLocal();
-            console.log('🧱 Schema v12 aplicado e persistido no armazenamento local.');
+        if (window.__mtzUltimaMigracaoV12?.houveMudanca
+            || (comparacaoCarga.comparavel && !comparacaoCarga.igual)) {
+            if (salvarLocal() !== true) {
+                throw new Error('A normalização operacional não pôde ser persistida.');
+            }
+            const snapshotConfirmado = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+            const confirmacaoCarga = compararEstadoOperacionalCarregado(snapshotConfirmado);
+            if (!confirmacaoCarga.comparavel || !confirmacaoCarga.igual) {
+                throw new Error(`A normalização operacional persistida não foi confirmada: ${confirmacaoCarga.codigo}.`);
+            }
+            console.log(window.__mtzUltimaMigracaoV12?.houveMudanca
+                ? '🧱 Schema v12 aplicado e persistido no armazenamento local.'
+                : '🧱 Normalização operacional confirmada e persistida no armazenamento local.');
+        } else if (!comparacaoCarga.comparavel) {
+            throw new Error(`Não foi possível confirmar o estado operacional carregado: ${comparacaoCarga.codigo}.`);
         }
 
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
