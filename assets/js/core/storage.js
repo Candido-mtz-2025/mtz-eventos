@@ -951,9 +951,11 @@ function tentarRecuperacaoAutomatica() {
 function salvarLocal() {
     cacheDisponibilidade = null;
     try {
+        const ultimaEdicao = Date.now();
         const dados = {
             versao: STORAGE_VERSION,
             data: new Date().toISOString(),
+            ultimaEdicao,
             ...gerarSnapshotDadosSistema()
         };
 
@@ -969,7 +971,7 @@ function salvarLocal() {
         }
 
         localStorage.setItem(STORAGE_KEY, json);
-        localStorage.setItem(STORAGE_EDIT_KEY, String(Date.now()));
+        localStorage.setItem(STORAGE_EDIT_KEY, String(ultimaEdicao));
         return true;
     } catch (erro) {
         console.error('❌ Erro ao salvar:', erro);

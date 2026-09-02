@@ -384,6 +384,15 @@
         };
     }
 
+    function criarDependenciasExecutorConclusaoChecklist(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage),
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     window.obterEstadoMemoriaAtual = obterEstadoMemoriaAtual;
     window.publicarEstadoConfirmado = publicarEstadoConfirmado;
     window.obterMetadadoSincronizacaoAtual = obterMetadadoSincronizacaoAtual;
@@ -392,4 +401,5 @@
     window.criarDependenciasRecuperacaoAjusteLocacao = criarDependenciasRecuperacaoAjusteLocacao;
     window.criarDependenciasExecutorPeca = criarDependenciasExecutorPeca;
     window.criarDependenciasExecutorReaberturaChecklist = criarDependenciasExecutorReaberturaChecklist;
+    window.criarDependenciasExecutorConclusaoChecklist = criarDependenciasExecutorConclusaoChecklist;
 })();

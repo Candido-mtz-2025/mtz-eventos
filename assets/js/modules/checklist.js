@@ -1,4 +1,5 @@
 let reaberturaChecklistEmProcessamento = false;
+let conclusaoChecklistEmProcessamento = false;
 
 function criarReferenciaTipadaLocacaoChecklist(id) {
     const identidade = typeof normalizarIdEntidadeExato === 'function'
@@ -266,6 +267,7 @@ function obterLocacaoChecklistAtual() {
 
 function aplicarEstadoOperacionalChecklist() {
     const concluido = checklistAtualEstaConcluido();
+    const processando = reaberturaChecklistEmProcessamento || conclusaoChecklistEmProcessamento;
     const idsCampos = [
         'checklistCliente',
         'checklistLocal',
@@ -279,19 +281,23 @@ function aplicarEstadoOperacionalChecklist() {
     ];
     idsCampos.forEach((id) => {
         const campo = document.getElementById(id);
-        if (campo) campo.disabled = concluido || reaberturaChecklistEmProcessamento;
+        if (campo) campo.disabled = concluido || processando;
     });
 
     document.querySelectorAll('#listaChecklistMontagem [data-change="atualizarConferenciaChecklist"]')
-        .forEach((campo) => { campo.disabled = concluido || reaberturaChecklistEmProcessamento; });
+        .forEach((campo) => { campo.disabled = concluido || processando; });
 
     const adicionar = document.getElementById('checklistAdicionarModelo');
     const concluir = document.getElementById('checklistConcluir');
     const limpar = document.getElementById('checklistLimpar');
     const reabrir = document.getElementById('checklistReabrir');
-    if (adicionar) adicionar.disabled = concluido || reaberturaChecklistEmProcessamento;
-    if (concluir) concluir.disabled = concluido || reaberturaChecklistEmProcessamento;
-    if (limpar) limpar.disabled = concluido || reaberturaChecklistEmProcessamento;
+    if (adicionar) adicionar.disabled = concluido || processando;
+    if (concluir) {
+        concluir.disabled = concluido || processando;
+        concluir.setAttribute('aria-busy', conclusaoChecklistEmProcessamento ? 'true' : 'false');
+        concluir.textContent = conclusaoChecklistEmProcessamento ? 'Concluindo...' : 'Concluir checklist';
+    }
+    if (limpar) limpar.disabled = concluido || processando;
     if (reabrir) {
         reabrir.hidden = !concluido;
         reabrir.disabled = reaberturaChecklistEmProcessamento;
@@ -325,6 +331,19 @@ function criarOperacaoIdReaberturaChecklist(locacao) {
         checklist.concluidoPor || ''
     ]);
     return `checklist-reabrir-${fingerprintOperacaoChecklist(origem)}`;
+}
+
+function criarOperacaoIdConclusaoChecklist(locacao, checklist) {
+    const referencia = criarReferenciaTipadaLocacaoChecklist(locacao?.id);
+    const origem = JSON.stringify([
+        referencia,
+        checklist?.idChecklist || '',
+        checklist?.ultimaReaberturaOperacaoId || checklist?.criadoEm || '',
+        checklist?.dados || {},
+        checklist?.itens || [],
+        checklist?.conferencia || {}
+    ]);
+    return `checklist-concluir-${fingerprintOperacaoChecklist(origem)}`;
 }
 
 function obterMensagemFalhaReaberturaChecklist(codigo) {
@@ -442,7 +461,7 @@ function registrarHistoricoChecklistLocacao(locacao, acao, descricao) {
     }
 }
 
-function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
+function criarEstadoChecklistDaLocacao(locacao) {
     if (!locacao || !Array.isArray(checklistMontagem)) return false;
 
     const agora = typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString();
@@ -455,7 +474,7 @@ function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
     const itensPersistidos = checklistMontagem.map((item) => clonarDadoChecklist(item, {}));
     const conferenciaPersistida = clonarDadoChecklist(checklistConferencia, {});
 
-    locacao.checklist = {
+    return {
         ...checklistAnterior,
         idChecklist: checklistAnterior.idChecklist || `checklist-${String(locacao.id || '')}`,
         locacaoId: clonarDadoChecklist(locacao.id, ''),
@@ -489,7 +508,12 @@ function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
         ultimaAtualizacao: agora,
         atualizadoPor: obterUsuarioChecklistAtual()
     };
+}
 
+function persistirEstadoChecklistNaLocacao(locacao, opcoes = {}) {
+    const checklist = criarEstadoChecklistDaLocacao(locacao, opcoes);
+    if (!checklist) return false;
+    locacao.checklist = checklist;
     return true;
 }
 
@@ -1236,6 +1260,7 @@ function focarPrimeiraPendenciaChecklist() {
 }
 
 function concluirChecklistDaLocacao() {
+    if (conclusaoChecklistEmProcessamento) return;
     const locacao = obterLocacaoChecklistAtual();
     if (!locacao) {
         mostrarToast('Abra um checklist originado de uma locação antes de concluir.', 'erro');
@@ -1299,33 +1324,83 @@ function concluirChecklistDaLocacao() {
         return;
     }
 
-    const jaConcluido = locacao.checklist?.concluido === true;
-    persistirEstadoChecklistNaLocacao(locacao);
     const agora = typeof obterAgoraIso === 'function' ? obterAgoraIso() : new Date().toISOString();
-    locacao.checklist.concluido = true;
-    locacao.checklist.concluidoEm = agora;
-    locacao.checklist.concluidoPor = obterUsuarioChecklistAtual();
+    const instante = new Date(agora);
+    const atualizadoPor = obterUsuarioChecklistAtual();
+    const checklistPreparado = criarEstadoChecklistDaLocacao(locacao);
+    if (!checklistPreparado || !Number.isFinite(instante.getTime())) {
+        mostrarToast('Não foi possível preparar o checklist para conclusão.', 'erro');
+        return;
+    }
+    checklistPreparado.concluido = true;
+    checklistPreparado.status = 'concluido';
+    checklistPreparado.concluidoEm = agora;
+    checklistPreparado.concluidoPor = atualizadoPor;
+    const operacaoId = criarOperacaoIdConclusaoChecklist(locacao, checklistPreparado);
 
-    if (!jaConcluido) {
-        registrarHistoricoChecklistLocacao(
-            locacao,
-            'checklist_concluido',
-            `Checklist concluído por ${locacao.checklist.concluidoPor}.`
-        );
-        if (typeof registrarLog === 'function') {
-            registrarLog(
-                'checklist',
-                'concluir',
-                `Checklist da locação #${String(locacao.id || '').slice(-4)} concluído.`,
-                { locacaoId: String(locacao.id || ''), checklistId: locacao.checklist.idChecklist || '' }
-            );
-        }
+    if (typeof executarConclusaoChecklistTransacional !== 'function'
+        || typeof criarDependenciasExecutorConclusaoChecklist !== 'function') {
+        mostrarToast('Infraestrutura transacional indisponível para concluir o checklist.', 'erro');
+        return;
     }
 
-    if (typeof salvarLocal === 'function') salvarLocal();
-    atualizarOrigemChecklistLocacao(locacao, dados.cliente);
-    renderChecklistMontagem();
-    mostrarToast(jaConcluido ? 'Checklist já estava concluído.' : 'Checklist concluído com sucesso.');
+    conclusaoChecklistEmProcessamento = true;
+    aplicarEstadoOperacionalChecklist();
+    let resultado;
+    try {
+        resultado = executarConclusaoChecklistTransacional({
+            locacaoId: clonarDadoChecklist(locacao.id, ''),
+            operacaoId,
+            atualizadoEm: agora,
+            atualizadoPor,
+            checklistConcluido: checklistPreparado,
+            persistencia: {
+                versao: window.SCHEMA_VERSION_V12 || '12.6',
+                data: agora,
+                ultimaEdicao: instante.getTime()
+            }
+        }, criarDependenciasExecutorConclusaoChecklist({ armazenamento: localStorage }));
+    } catch (erro) {
+        resultado = { ok: false, codigo: 'FALHA_CONCLUSAO_CHECKLIST', erro: String(erro?.message || erro) };
+    } finally {
+        conclusaoChecklistEmProcessamento = false;
+    }
+
+    if (!resultado?.ok) {
+        aplicarEstadoOperacionalChecklist();
+        const recuperacao = resultado?.requerRecuperacao === true
+            || resultado?.codigo === 'OPERACAO_REQUER_RECUPERACAO';
+        mostrarToast(recuperacao
+            ? 'A conclusão exige recuperação explícita. Nenhuma nova tentativa automática foi feita.'
+            : 'Não foi possível concluir o checklist com segurança.', 'erro', 8000);
+        return;
+    }
+
+    const locacaoPublicada = obterLocacaoChecklistAtual();
+    if (!locacaoPublicada || locacaoPublicada.checklist?.concluido !== true
+        || locacaoPublicada.checklist?.ultimaConclusaoOperacaoId !== resultado.operacao?.operacaoId) {
+        aplicarEstadoOperacionalChecklist();
+        mostrarToast('A conclusão exige recuperação explícita antes de atualizar a tela.', 'erro', 8000);
+        return;
+    }
+    if (resultado.efeitos?.renderizar) {
+        renderChecklistMontagem();
+        document.getElementById('checklistReabrir')?.focus();
+    }
+    const sincronizacaoPendente = resultado.avisos?.some((aviso) => aviso?.codigo === 'METADADO_SYNC_PENDENTE');
+    mostrarToast(sincronizacaoPendente
+        ? 'Checklist concluído. A atualização de sincronização ficou pendente.'
+        : 'Checklist concluído com sucesso.', sincronizacaoPendente ? 'info' : undefined);
+    if (resultado.efeitos?.sincronizar && typeof sincronizar === 'function') {
+        try {
+            const sincronizacao = sincronizar('salvar');
+            if (sincronizacao && typeof sincronizacao.catch === 'function') {
+                sincronizacao.catch((erro) => console.error('Sincronização da conclusão ficou pendente:', erro));
+            }
+        } catch (erro) {
+            console.error('A conclusão foi confirmada, mas a sincronização não iniciou:', erro);
+        }
+    }
 }
 
 function renderChecklistMontagem() {
