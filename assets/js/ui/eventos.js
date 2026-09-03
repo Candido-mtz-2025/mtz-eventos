@@ -304,6 +304,15 @@ function limparMarcacaoAcaoIndisponivel(elemento) {
     }
 }
 
+function reconciliarAcaoDisponivel(elemento, actionName) {
+    if (!(elemento instanceof HTMLElement) || elemento.dataset.actionUnavailable !== '1') return;
+    const nome = resolverNomeAcao(actionName);
+    const disponivel = nome === 'triggerClick'
+        || ACTIONS_ESPECIAIS_DISPATCH.has(nome)
+        || typeof window[nome] === 'function';
+    if (disponivel) limparMarcacaoAcaoIndisponivel(elemento);
+}
+
 function travarBotaoAcao(element, actionName) {
     if (!(element instanceof HTMLButtonElement)) return null;
     if (element.dataset.actionBusy === '1') return false;
@@ -339,6 +348,7 @@ function travarBotaoAcao(element, actionName) {
 
 function runDataAction(actionName, element, event) {
     if (!actionName) return;
+    reconciliarAcaoDisponivel(element, actionName);
     if (element?.dataset?.actionUnavailable === '1') {
         if (typeof mostrarToast === 'function') {
             mostrarToast('Esta ação está indisponível nesta tela.', 'erro');
@@ -485,6 +495,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 document.addEventListener('click', function (event) {
     const actionEl = event.target.closest('[data-action]');
+    if (actionEl) reconciliarAcaoDisponivel(actionEl, actionEl.dataset.action);
     if (actionEl && !actionEl.disabled) {
         runDataAction(actionEl.dataset.action, actionEl, event);
     }
