@@ -256,6 +256,11 @@ function obterRotuloBusy(actionName, element) {
 
 function marcarAcaoIndisponivel(elemento, mensagem) {
     if (!(elemento instanceof HTMLElement)) return;
+    if (typeof elemento.dataset.actionUnavailableDisabledPrev === 'undefined') {
+        elemento.dataset.actionUnavailableDisabledPrev = elemento instanceof HTMLButtonElement && elemento.disabled
+            ? '1'
+            : '0';
+    }
     elemento.dataset.actionUnavailable = '1';
     elemento.classList.add('is-action-unavailable');
     if (typeof elemento.dataset.actionTitlePrev === 'undefined') {
@@ -272,6 +277,10 @@ function marcarAcaoIndisponivel(elemento, mensagem) {
 
 function limparMarcacaoAcaoIndisponivel(elemento) {
     if (!(elemento instanceof HTMLElement)) return;
+    const bloqueioRegistrado = Object.prototype.hasOwnProperty.call(
+        elemento.dataset,
+        'actionUnavailableDisabledPrev'
+    );
     delete elemento.dataset.actionUnavailable;
     elemento.classList.remove('is-action-unavailable');
     if (Object.prototype.hasOwnProperty.call(elemento.dataset, 'actionTitlePrev')) {
@@ -282,11 +291,16 @@ function limparMarcacaoAcaoIndisponivel(elemento) {
     }
 
     if (elemento instanceof HTMLButtonElement) {
-        if (elemento.dataset.actionBusy !== '1') {
-            elemento.disabled = false;
+        if (bloqueioRegistrado) {
+            const estavaDesabilitado = elemento.dataset.actionUnavailableDisabledPrev === '1';
+            delete elemento.dataset.actionUnavailableDisabledPrev;
+            if (elemento.dataset.actionBusy !== '1') elemento.disabled = estavaDesabilitado;
         }
     } else {
-        elemento.setAttribute('aria-disabled', 'false');
+        if (bloqueioRegistrado) {
+            delete elemento.dataset.actionUnavailableDisabledPrev;
+            elemento.setAttribute('aria-disabled', 'false');
+        }
     }
 }
 
