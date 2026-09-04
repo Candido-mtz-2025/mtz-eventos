@@ -437,7 +437,12 @@
             return;
         }
 
-        tabela.innerHTML = filtrados.map((item) => `
+        tabela.innerHTML = filtrados.map((item) => {
+            const referenciaLocacao = typeof criarReferenciaTipadaLocacao === 'function'
+                ? criarReferenciaTipadaLocacao(item.id)
+                : '';
+            const referenciaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(referenciaLocacao) : referenciaLocacao;
+            return `
             <tr data-financeiro-id="${item.id}">
                 <td>#${String(item.id || '').slice(-4)}</td>
                 <td>
@@ -454,13 +459,14 @@
                 <td><span class="badge ${classeBadgeStatus(item.statusPagamento)}">${rotuloStatusPagamento(item.statusPagamento)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${item.id}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
-                        <button class="btn btn-sm btn-warning table-action-btn" data-acesso="admin" data-action="marcarPagamentoParcial" data-arg="${item.id}" title="Marcar pagamento parcial"><i class="bi bi-pie-chart"></i></button>
-                        <button class="btn btn-sm btn-success table-action-btn" data-acesso="admin" data-action="alternarPagamento" data-arg="${item.id}" title="Alternar pagamento"><i class="bi bi-currency-dollar"></i></button>
+                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorCodigo" data-arg="${referenciaSegura}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
+                        <button class="btn btn-sm btn-warning table-action-btn" data-acesso="admin" data-action="marcarPagamentoParcial" data-arg="${referenciaSegura}" title="Marcar pagamento parcial"><i class="bi bi-pie-chart"></i></button>
+                        <button class="btn btn-sm btn-success table-action-btn" data-acesso="admin" data-action="alternarPagamento" data-arg="${referenciaSegura}" title="Quitar saldo da locação"><i class="bi bi-currency-dollar"></i></button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     function calcularKpisAgenda(lista) {

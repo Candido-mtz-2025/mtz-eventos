@@ -6,6 +6,9 @@ let sessaoEdicaoLocacao = null;
 let eventosSessaoEdicaoLocacaoRegistrados = false;
 let execucaoSessaoEdicaoLocacaoEmAndamento = false;
 let sequenciaOperacaoEdicaoLocacao = 0;
+let sessaoRecebimentoLocacao = null;
+let recebimentoLocacaoEmAndamento = false;
+let sequenciaOperacaoRecebimento = 0;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
@@ -1083,8 +1086,39 @@ function formatarValorPromptFinanceiro(valor) {
     });
 }
 
-function obterLocacaoPagamentoPorId(id) {
-    return locacoes.find((x) => String(x.id) === String(id));
+function obterLocacaoPagamentoPorId(referencia) {
+    const resultado = typeof resolverLocacaoPorReferenciaTipada === 'function'
+        ? resolverLocacaoPorReferenciaTipada(referencia, locacoes)
+        : { encontrado: false, estado: 'invalido', locacao: null };
+    if (!resultado.encontrado) {
+        const mensagem = resultado.estado === 'duplicado'
+            ? 'Existem locações com o mesmo identificador. Corrija o cadastro antes de registrar o recebimento.'
+            : resultado.estado === 'ausente'
+                ? 'A locação não foi encontrada. Atualize a lista antes de continuar.'
+                : 'A referência da locação é inválida ou foi alterada.';
+        mostrarToast(mensagem, 'erro');
+        return null;
+    }
+    return resultado.locacao;
+}
+
+function gerarOperacaoIdRecebimentoLocacao() {
+    let sufixo = '';
+    if (globalThis.crypto?.randomUUID) {
+        sufixo = globalThis.crypto.randomUUID().replace(/[^a-z0-9]/gi, '').toLowerCase();
+    } else if (globalThis.crypto?.getRandomValues) {
+        const bytes = new Uint32Array(4);
+        globalThis.crypto.getRandomValues(bytes);
+        sufixo = Array.from(bytes, (valor) => valor.toString(16).padStart(8, '0')).join('');
+    } else {
+        sequenciaOperacaoRecebimento += 1;
+        sufixo = `${Date.now().toString(36)}${sequenciaOperacaoRecebimento.toString(36)}`;
+    }
+    return `recebimento-${sufixo}`.slice(0, 160);
+}
+
+function obterResponsavelRecebimentoLocacao() {
+    return String(localStorage.getItem('usuarioEmail') || window.usuarioAtual?.email || 'sistema_local').trim() || 'sistema_local';
 }
 
 function obterResumoPagamentoLocacao(locacao) {
@@ -1154,39 +1188,65 @@ function atualizarTextoElemento(id, texto) {
     if (el) el.textContent = texto;
 }
 
-function aplicarRecebimentoLocacao(locacao, valorRecebido, origem = 'financeiro') {
-    if (!locacao) return false;
-
-    const resumo = obterResumoPagamentoLocacao(locacao);
-    const calculo = calcularStatusPagamentoLocacao(resumo.valorTotal, valorRecebido);
-
-    locacao.pago = calculo.statusPagamento === 'pago';
-    locacao.financeiro = {
-        ...resumo.financeiroAtual,
-        sinal: calculo.valorRecebido,
-        valorRestante: calculo.novoRestante,
-        statusPagamento: calculo.statusPagamento
-    };
-
-    const normalizada = sincronizarFinanceiroLocacao(locacao);
-    if (normalizada) Object.assign(locacao, normalizada);
-
-    if (typeof registrarHistoricoLocacaoDominio === 'function') {
-        registrarHistoricoLocacaoDominio(locacao, {
-            acao: 'financeiro_status',
-            descricao: `Pagamento atualizado para ${rotuloStatusPagamentoLocacao(calculo.statusPagamento, locacao.pago)}.`,
-            origem
-        });
+function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId) {
+    if (recebimentoLocacaoEmAndamento) return false;
+    if (typeof valorRecebidoTexto !== 'string') {
+        mostrarToast('O valor recebido deve ser informado como texto monetário válido.', 'erro');
+        return false;
     }
-
-    salvarLocal();
-    renderLocacoes();
-    if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
-    renderStats();
-    sincronizar('salvar');
-    mostrarToast(`Pagamento ${rotuloStatusPagamentoLocacao(calculo.statusPagamento, locacao.pago).toLowerCase()} atualizado.`);
-
-    return true;
+    const locacao = obterLocacaoPagamentoPorId(referencia);
+    if (!locacao) return false;
+    const instante = new Date();
+    const atualizadoEm = instante.toISOString();
+    const entrada = {
+        locacaoReferencia: referencia,
+        operacaoId: operacaoId || gerarOperacaoIdRecebimentoLocacao(),
+        valorRecebidoTexto,
+        atualizadoEm,
+        atualizadoPor: obterResponsavelRecebimentoLocacao(),
+        persistencia: {
+            versao: window.SCHEMA_VERSION_V12 || '12.6',
+            data: atualizadoEm,
+            ultimaEdicao: instante.getTime()
+        }
+    };
+    recebimentoLocacaoEmAndamento = true;
+    let resultado;
+    try {
+        const dependencias = criarDependenciasExecutorRecebimentoLocacao({ armazenamento: localStorage });
+        resultado = executarRecebimentoLocacaoTransacional(entrada, dependencias);
+    } catch (erro) {
+        resultado = { ok: false, codigo: 'FALHA_INTEGRACAO_RECEBIMENTO', efeitos: {},
+            bloqueios: [{ mensagem: String(erro?.message || erro) }] };
+    } finally {
+        recebimentoLocacaoEmAndamento = false;
+    }
+    if (resultado?.ok && ['RECEBIMENTO_APLICADO', 'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+        if (resultado.efeitos?.renderizar) {
+            renderLocacoes();
+            if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+            renderStats();
+        }
+        if (resultado.efeitos?.sincronizar && typeof sincronizar === 'function') sincronizar('salvar');
+        const syncPendente = resultado.avisos?.some((aviso) => aviso.codigo === 'METADADO_SYNC_PENDENTE');
+        mostrarToast(syncPendente
+            ? 'Recebimento registrado. A sincronização ficou pendente.'
+            : (resultado.idempotente ? 'Este recebimento já estava registrado.' : 'Recebimento registrado com segurança.'),
+        syncPendente ? 'info' : 'sucesso');
+        return true;
+    }
+    if (resultado?.requerRecuperacao) {
+        mostrarToast('O recebimento exige recuperação explícita. Nenhuma nova tentativa automática foi feita.', 'erro', 8000);
+        return false;
+    }
+    const mensagens = {
+        VALOR_RECEBIMENTO_FORA_DO_LIMITE: 'O valor recebido deve ser maior que zero e não pode superar o total da locação.',
+        VALOR_RECEBIMENTO_SEM_AVANCO: 'Informe um valor acumulado maior que o já recebido. Estornos exigem um fluxo próprio.',
+        LOCACAO_ID_DUPLICADO: 'Existem locações com o mesmo identificador. O recebimento foi bloqueado.',
+        REFERENCIA_LOCACAO_INVALIDA: 'A referência da locação é inválida ou foi alterada.'
+    };
+    mostrarToast(mensagens[resultado?.codigo] || resultado?.bloqueios?.[0]?.mensagem || 'Não foi possível registrar o recebimento.', 'erro');
+    return false;
 }
 
 function solicitarPagamentoPromptLocacao(locacao) {
@@ -1197,13 +1257,7 @@ function solicitarPagamentoPromptLocacao(locacao) {
     );
     if (informado === null) return;
 
-    const valorRecebido = parseValorFinanceiroLocacao(informado);
-    if (!Number.isFinite(valorRecebido)) {
-        mostrarToast('Valor recebido invalido.', 'erro');
-        return;
-    }
-
-    aplicarRecebimentoLocacao(locacao, Math.min(Math.max(valorRecebido, 0), resumo.valorTotal), 'financeiro');
+    aplicarRecebimentoLocacao(criarReferenciaTipadaLocacao(locacao.id), informado);
 }
 
 function focarCampoLocacao(idCampo) {
@@ -2206,52 +2260,26 @@ function irParaLocacoes(f) {
     }, 150);
 }
 
-function alternarPagamento(id) {
+function alternarPagamento(referencia) {
     if (typeof validarPermissao === 'function' && !validarPermissao('alterar_pagamento', 'Somente administrador pode alterar status de pagamento.')) {
         return;
     }
-    const l = locacoes.find((x) => x.id == id);
-    if (l) {
-        const pagoAnterior = !!l.pago;
-        l.pago = !l.pago;
-        const statusPagamento = l.pago ? 'pago' : 'pendente';
-        const {
-            financeiroAtual,
-            valorTotal,
-            sinalAtual: sinal
-        } = obterResumoPagamentoLocacao(l);
-        l.financeiro = {
-            ...financeiroAtual,
-            sinal: l.pago ? valorTotal : sinal,
-            valorRestante: l.pago ? 0 : Math.max(valorTotal - sinal, 0),
-            statusPagamento
-        };
-        const normalizada = sincronizarFinanceiroLocacao(l);
-        if (normalizada) Object.assign(l, normalizada);
-        if (pagoAnterior !== l.pago && typeof registrarHistoricoLocacaoDominio === 'function') {
-            registrarHistoricoLocacaoDominio(l, {
-                acao: 'financeiro_status',
-                descricao: l.pago
-                    ? 'Pagamento marcado como pago.'
-                    : 'Pagamento marcado como pendente.',
-                origem: 'locacoes'
-            });
-        }
-        salvarLocal();
-        renderLocacoes();
-        if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
-        renderStats();
-        sincronizar('salvar');
-        mostrarToast('Pagamento atualizado!');
+    const locacao = obterLocacaoPagamentoPorId(referencia);
+    if (!locacao) return false;
+    const resumo = obterResumoPagamentoLocacao(locacao);
+    if (resumo.recebidoAtual >= resumo.valorTotal) {
+        mostrarToast('A locação já está paga. Estornos exigem um fluxo próprio.', 'info');
+        return false;
     }
+    return aplicarRecebimentoLocacao(referencia, formatarValorPromptFinanceiro(resumo.valorTotal));
 }
 
-function marcarPagamentoParcial(id) {
+function marcarPagamentoParcial(referencia) {
     if (typeof validarPermissao === 'function' && !validarPermissao('alterar_pagamento', 'Somente administrador pode alterar status de pagamento.')) {
         return;
     }
 
-    const locacao = obterLocacaoPagamentoPorId(id);
+    const locacao = obterLocacaoPagamentoPorId(referencia);
     if (!locacao) return;
 
     const modal = document.getElementById('modalPagamentoLocacao');
@@ -2266,7 +2294,11 @@ function marcarPagamentoParcial(id) {
     const resumo = obterResumoPagamentoLocacao(locacao);
     const cliente = resolverClienteLocacaoPorIdPersistido(locacao.locadorId);
 
-    inputId.value = locacao.id;
+    inputId.value = referencia;
+    sessaoRecebimentoLocacao = {
+        referencia,
+        operacaoId: gerarOperacaoIdRecebimentoLocacao()
+    };
     inputValor.value = formatarValorPromptFinanceiro(resumo.recebidoAtual);
     inputValor.dataset.valorMaximo = String(resumo.valorTotal);
 
@@ -2345,26 +2377,22 @@ function salvarPagamentoLocacao() {
     const inputId = document.getElementById('pagamentoLocacaoId');
     if (!inputValor || !inputId) return;
 
-    const locacao = obterLocacaoPagamentoPorId(inputId.value);
+    const referencia = inputId.value;
+    const locacao = obterLocacaoPagamentoPorId(referencia);
     if (!locacao) {
         mostrarToast('Locação não encontrada para atualizar pagamento.', 'erro');
         return;
     }
 
-    const resumo = obterResumoPagamentoLocacao(locacao);
-    const valorInformado = parseValorFinanceiroLocacao(inputValor.value);
-
-    if (!Number.isFinite(valorInformado)) {
-        mostrarToast('Valor recebido inválido.', 'erro');
+    const operacaoId = sessaoRecebimentoLocacao?.referencia === referencia
+        ? sessaoRecebimentoLocacao.operacaoId
+        : '';
+    if (aplicarRecebimentoLocacao(referencia, inputValor.value, operacaoId)) {
+        sessaoRecebimentoLocacao = null;
+    } else {
         focarCampoLocacao('pagamentoLocacaoValorRecebido');
         return;
     }
-
-    aplicarRecebimentoLocacao(
-        locacao,
-        Math.min(Math.max(valorInformado, 0), resumo.valorTotal),
-        'financeiro'
-    );
 
     const modal = document.getElementById('modalPagamentoLocacao');
     if (modal) modal.classList.remove('active');

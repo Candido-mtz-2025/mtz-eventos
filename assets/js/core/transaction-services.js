@@ -34,6 +34,7 @@
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
     const travasPorLocacao = new Set();
     const travasReaberturaChecklist = new Set();
+    const travasRecebimentoLocacao = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
     let cancelarAutorizacaoPublicacaoConfiavel = null;
@@ -3164,6 +3165,415 @@
         }
     }
 
+    function criarReferenciaTipadaLocacaoTransacional(id) {
+        const tipo = typeof id;
+        const valido = tipo === 'string'
+            ? id.trim() !== ''
+            : tipo === 'number' && Number.isFinite(id) && !Object.is(id, -0);
+        return valido && (tipo === 'string' || tipo === 'number')
+            ? `locacao:${encodeURIComponent(JSON.stringify([tipo, id]))}`
+            : '';
+    }
+
+    function resolverReferenciaTipadaLocacaoTransacional(referencia, colecao) {
+        if (typeof referencia !== 'string' || !referencia.startsWith('locacao:')) {
+            return { estado: 'invalido', quantidade: 0, locacao: null };
+        }
+        let dados;
+        try {
+            dados = JSON.parse(decodeURIComponent(referencia.slice(8)));
+        } catch (_erro) {
+            return { estado: 'invalido', quantidade: 0, locacao: null };
+        }
+        if (!Array.isArray(dados) || dados.length !== 2 || !['string', 'number'].includes(dados[0])) {
+            return { estado: 'invalido', quantidade: 0, locacao: null };
+        }
+        const id = dados[1];
+        const idValido = dados[0] === 'string'
+            ? typeof id === 'string' && id.trim() !== ''
+            : typeof id === 'number' && Number.isFinite(id) && !Object.is(id, -0);
+        if (!idValido || typeof id !== dados[0]
+            || criarReferenciaTipadaLocacaoTransacional(id) !== referencia) {
+            return { estado: 'invalido', quantidade: 0, locacao: null };
+        }
+        const correspondencias = (Array.isArray(colecao) ? colecao : []).filter((locacao) => (
+            locacao && typeof locacao === 'object' && !Array.isArray(locacao)
+            && typeof locacao.id === typeof id && Object.is(locacao.id, id)
+        ));
+        return correspondencias.length === 1
+            ? { estado: 'encontrado', quantidade: 1, locacao: correspondencias[0], id }
+            : { estado: correspondencias.length > 1 ? 'duplicado' : 'ausente', quantidade: correspondencias.length, locacao: null };
+    }
+
+    function decomporTextoMonetarioCentavos(texto, { permitirZero = true } = {}) {
+        if (typeof texto !== 'string' || !/^\d+(?:[.,]\d{1,2})?$/.test(texto)) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_FORMATO_INVALIDO' };
+        }
+        const partes = texto.split(/[.,]/);
+        const inteiros = partes[0].replace(/^0+(?=\d)/, '') || '0';
+        const decimais = (partes[1] || '').padEnd(2, '0');
+        let centavosBigInt;
+        try {
+            centavosBigInt = (BigInt(inteiros) * 100n) + BigInt(decimais || '0');
+        } catch (_erro) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_FORMATO_INVALIDO' };
+        }
+        if (centavosBigInt > BigInt(Number.MAX_SAFE_INTEGER)) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_FORA_DO_LIMITE' };
+        }
+        const centavos = Number(centavosBigInt);
+        if (!permitirZero && centavos === 0) return { ok: false, codigo: 'VALOR_MONETARIO_INVALIDO' };
+        return { ok: true, centavos };
+    }
+
+    function converterCentavosParaNumeroPersistivel(centavos) {
+        if (!Number.isSafeInteger(centavos) || centavos < 0) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_FORA_DO_LIMITE' };
+        }
+        const digitos = String(centavos).padStart(3, '0');
+        const textoCanonico = `${digitos.slice(0, -2)}.${digitos.slice(-2)}`;
+        const valor = Number(textoCanonico);
+        if (!Number.isFinite(valor) || Object.is(valor, -0)) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_FORA_DO_LIMITE' };
+        }
+        const retornoDecimal = decomporTextoMonetarioCentavos(String(valor));
+        let valorSerializado;
+        try {
+            valorSerializado = JSON.parse(JSON.stringify(valor));
+        } catch (_erro) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_NAO_PERSISTIVEL' };
+        }
+        const retornoPersistido = decomporTextoMonetarioCentavos(String(valorSerializado));
+        if (!retornoDecimal.ok || retornoDecimal.centavos !== centavos
+            || !retornoPersistido.ok || retornoPersistido.centavos !== centavos) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_NAO_PERSISTIVEL' };
+        }
+        return { ok: true, centavos, valor, textoCanonico };
+    }
+
+    function formatarCentavosParaHistorico(centavos) {
+        const digitos = String(centavos).padStart(3, '0');
+        return `${digitos.slice(0, -2)}.${digitos.slice(-2)}`;
+    }
+
+    function normalizarTextoMonetarioCentavos(texto, opcoes = {}) {
+        const decomposto = decomporTextoMonetarioCentavos(texto, opcoes);
+        if (!decomposto.ok) return decomposto;
+        return converterCentavosParaNumeroPersistivel(decomposto.centavos);
+    }
+
+    function normalizarValorMonetarioLegadoCentavos(valor, opcoes = {}) {
+        if (typeof valor !== 'number' || !Number.isFinite(valor) || Object.is(valor, -0) || valor < 0) {
+            return { ok: false, codigo: 'VALOR_MONETARIO_LEGADO_INVALIDO' };
+        }
+        const texto = String(valor);
+        if (/[eE]/.test(texto)) return { ok: false, codigo: 'VALOR_MONETARIO_LEGADO_AMBIGUO' };
+        const normalizado = normalizarTextoMonetarioCentavos(texto, opcoes);
+        return normalizado.ok ? normalizado : { ok: false, codigo: 'VALOR_MONETARIO_LEGADO_AMBIGUO' };
+    }
+
+    function validarRetornoLeituraSnapshotFinanceiro(retorno) {
+        if (!validarValorExternoPersistivel(retorno)) {
+            return { ok: false, codigo: 'LEITURA_SNAPSHOT_NAO_CONFIAVEL' };
+        }
+        const descritores = Object.getOwnPropertyDescriptors(retorno);
+        const chaves = Object.keys(descritores).sort();
+        const esperadas = ['chave', 'codigo', 'json', 'ok', 'snapshot'];
+        if (chaves.length !== esperadas.length || chaves.some((chave, indice) => chave !== esperadas[indice])
+            || descritores.ok.value !== true || typeof descritores.codigo.value !== 'string'
+            || typeof descritores.chave.value !== 'string' || typeof descritores.json.value !== 'string') {
+            return { ok: false, codigo: 'LEITURA_SNAPSHOT_INVALIDA' };
+        }
+        const clone = clonarJsonInterno(descritores.snapshot.value);
+        return clone.ok ? { ok: true, snapshot: clone.valor, json: descritores.json.value }
+            : { ok: false, codigo: clone.codigo };
+    }
+
+    function validarRetornoPreparacaoSnapshotFinanceiro(retorno) {
+        if (!validarValorExternoPersistivel(retorno)) {
+            return { ok: false, codigo: 'SNAPSHOT_PREPARADO_NAO_CONFIAVEL' };
+        }
+        const descritores = Object.getOwnPropertyDescriptors(retorno);
+        const chaves = Object.keys(descritores).sort();
+        const esperadas = ['camposExtrasPreservados', 'chavesColecoes', 'codigo', 'json', 'ok', 'snapshot'];
+        if (chaves.length !== esperadas.length || chaves.some((chave, indice) => chave !== esperadas[indice])
+            || descritores.ok.value !== true || typeof descritores.codigo.value !== 'string'
+            || typeof descritores.json.value !== 'string'
+            || !Array.isArray(descritores.chavesColecoes.value)
+            || !Array.isArray(descritores.camposExtrasPreservados.value)) {
+            return { ok: false, codigo: 'SNAPSHOT_PREPARADO_NAO_CONFIAVEL' };
+        }
+        const clone = clonarJsonInterno(descritores.snapshot.value);
+        return clone.ok ? { ok: true, snapshot: clone.valor }
+            : { ok: false, codigo: clone.codigo };
+    }
+
+    function assinaturaRecebimentoLocacao(entrada, locacaoId, locacaoReferencia, valorRecebidoCentavos) {
+        const base = ordenarChavesCanonicas({
+            tipo: 'recebimento_locacao_v1',
+            locacaoId,
+            locacaoReferencia,
+            operacaoId: entrada.operacaoId,
+            valorRecebidoCentavos,
+            atualizadoEm: entrada.atualizadoEm,
+            atualizadoPor: entrada.atualizadoPor
+        });
+        return `recebimento-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
+    }
+
+    function verificarEvidenciasRecebimento(estado, entrada, locacaoId, locacaoReferencia, assinatura) {
+        const alvo = (registro) => registro?.operacaoId === entrada.operacaoId;
+        const locacoesEstado = Array.isArray(estado?.locacoes) ? estado.locacoes : [];
+        const registros = [];
+        locacoesEstado.forEach((locacao) => {
+            (Array.isArray(locacao?.financeiro?.lancamentosRecebimentos) ? locacao.financeiro.lancamentosRecebimentos : [])
+                .filter(alvo).forEach((registro) => registros.push({ tipo: 'lancamento', locacao, registro }));
+            (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+                .filter(alvo).forEach((registro) => registros.push({ tipo: 'historico', locacao, registro }));
+        });
+        (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter(alvo).forEach((registro) => registros.push({ tipo: 'auditoria', locacao: null, registro }));
+        if (!registros.length) return { estado: 'nao_executada', completo: false };
+        const coerentes = registros.every(({ locacao, registro }) => (
+            (!locacao || (typeof locacao.id === typeof locacaoId && Object.is(locacao.id, locacaoId)))
+            && typeof registro.locacaoId === typeof locacaoId && Object.is(registro.locacaoId, locacaoId)
+            && Object.prototype.hasOwnProperty.call(registro, 'locacaoReferencia')
+            && registro.locacaoReferencia === locacaoReferencia
+            && registro.assinaturaPlano === assinatura
+        ));
+        const quantidades = ['lancamento', 'historico', 'auditoria'].map((tipo) => registros.filter((item) => item.tipo === tipo).length);
+        return coerentes && quantidades.every((quantidade) => quantidade === 1)
+            ? { estado: 'concluida', completo: true }
+            : { estado: 'parcial', completo: false };
+    }
+
+    function executarRecebimentoLocacaoTransacional(entradaRecebida = {}, dependencias = {}) {
+        if (!validarValorExternoPersistivel(entradaRecebida)) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        const entradaClonada = clonarJsonInterno(entradaRecebida);
+        if (!entradaClonada.ok) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        const entrada = entradaClonada.valor;
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
+        const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
+        const valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(
+            entrada.valorRecebidoTexto, { permitirZero: false });
+        const persistenciaEntrada = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
+            || !atualizadoEm || !atualizadoPor
+            || !valorRecebidoNormalizado.ok
+            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
+            || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao.trim()
+            || persistenciaEntrada.data !== atualizadoEm
+            || !Number.isSafeInteger(persistenciaEntrada.ultimaEdicao) || persistenciaEntrada.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias?.armazenamento) {
+            return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        }
+
+        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+        const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        const resolucao = resolverReferenciaTipadaLocacaoTransacional(entrada.locacaoReferencia, memoriaInicial.valor.locacoes);
+        if (resolucao.estado !== 'encontrado') {
+            const codigo = resolucao.estado === 'duplicado' ? 'LOCACAO_ID_DUPLICADO'
+                : resolucao.estado === 'ausente' ? 'LOCACAO_NAO_ENCONTRADA' : 'REFERENCIA_LOCACAO_INVALIDA';
+            return resultadoBase(codigo);
+        }
+        const locacaoId = resolucao.id;
+        const locacaoReferencia = criarReferenciaTipadaLocacaoTransacional(locacaoId);
+        const locacaoRef = referenciaEstrita(locacaoId);
+        if (!locacaoRef || !locacaoReferencia) return resultadoBase('REFERENCIA_LOCACAO_INVALIDA');
+        if (travasRecebimentoLocacao.has(locacaoRef)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+
+        travasRecebimentoLocacao.add(locacaoRef);
+        let autorizacaoPublicacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const financeiroAtual = resolucao.locacao.financeiro && typeof resolucao.locacao.financeiro === 'object'
+                ? resolucao.locacao.financeiro : {};
+            const totalNormalizado = normalizarValorMonetarioLegadoCentavos(
+                financeiroAtual.valorTotal ?? resolucao.locacao.valorTotalCalculado, { permitirZero: false });
+            if (!totalNormalizado.ok || valorRecebidoNormalizado.centavos > totalNormalizado.centavos) {
+                return resultadoBase('VALOR_RECEBIMENTO_FORA_DO_LIMITE');
+            }
+            const sinalNormalizado = normalizarValorMonetarioLegadoCentavos(financeiroAtual.sinal ?? 0);
+            const restanteInformado = Object.prototype.hasOwnProperty.call(financeiroAtual, 'valorRestante')
+                ? normalizarValorMonetarioLegadoCentavos(financeiroAtual.valorRestante) : null;
+            if (!sinalNormalizado.ok || (restanteInformado && !restanteInformado.ok)
+                || sinalNormalizado.centavos > totalNormalizado.centavos
+                || (restanteInformado && restanteInformado.centavos > totalNormalizado.centavos)) {
+                return resultadoBase('ESTADO_FINANCEIRO_INVALIDO');
+            }
+            const restanteCentavos = restanteInformado
+                ? restanteInformado.centavos : totalNormalizado.centavos - sinalNormalizado.centavos;
+            const recebidoAnteriorCentavos = Math.min(Math.max(sinalNormalizado.centavos,
+                totalNormalizado.centavos - restanteCentavos, 0), totalNormalizado.centavos);
+            const valorTotal = totalNormalizado.valor;
+            const valorRecebido = valorRecebidoNormalizado.valor;
+            const assinatura = assinaturaRecebimentoLocacao(entrada, locacaoId,
+                locacaoReferencia, valorRecebidoNormalizado.centavos);
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
+            let leituraInicial;
+            try { leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leituraInicial = null; }
+            const leituraInicialValidada = validarRetornoLeituraSnapshotFinanceiro(leituraInicial);
+            if (!leituraInicialValidada.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leituraInicialValidada.snapshot);
+            if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evidenciaMemoria = verificarEvidenciasRecebimento(memoriaInicial.valor, entrada,
+                locacaoId, locacaoReferencia, assinatura);
+            const evidenciaPersistida = verificarEvidenciasRecebimento(persistidoInicial.valor, entrada,
+                locacaoId, locacaoReferencia, assinatura);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                if (evidenciaMemoria.completo && evidenciaPersistida.completo && memoriaInicial.json === persistidoInicial.json) {
+                    return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
+                        operacao: { locacaoId, locacaoReferencia, operacaoId, assinaturaPlano: assinatura }, renderizar: true });
+                }
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoriaInicial.json !== persistidoInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (valorRecebidoNormalizado.centavos <= recebidoAnteriorCentavos) {
+                return resultadoBase('VALOR_RECEBIMENTO_SEM_AVANCO');
+            }
+
+            const candidato = clonarJsonInterno(memoriaInicial.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvo = resolverReferenciaTipadaLocacaoTransacional(entrada.locacaoReferencia, candidato.valor.locacoes);
+            if (alvo.estado !== 'encontrado') return resultadoBase('LOCACAO_NAO_RECONCILIADA');
+            const locacao = alvo.locacao;
+            const deltaCentavos = valorRecebidoNormalizado.centavos - recebidoAnteriorCentavos;
+            const novoRestanteCentavos = totalNormalizado.centavos - valorRecebidoNormalizado.centavos;
+            const recebidoAnteriorNormalizado = converterCentavosParaNumeroPersistivel(recebidoAnteriorCentavos);
+            const deltaNormalizado = converterCentavosParaNumeroPersistivel(deltaCentavos);
+            const novoRestanteNormalizado = converterCentavosParaNumeroPersistivel(novoRestanteCentavos);
+            if (!recebidoAnteriorNormalizado.ok || !deltaNormalizado.ok || !novoRestanteNormalizado.ok) {
+                return resultadoBase('VALOR_MONETARIO_NAO_PERSISTIVEL');
+            }
+            const recebidoAnterior = recebidoAnteriorNormalizado.valor;
+            const delta = deltaNormalizado.valor;
+            const novoRestante = novoRestanteNormalizado.valor;
+            const statusPagamento = novoRestanteCentavos === 0 ? 'pago' : 'parcial';
+            const lancamento = Object.freeze({ id: `recebimento-${operacaoId}`, operacaoId, locacaoId, locacaoReferencia,
+                assinaturaPlano: assinatura, data: atualizadoEm, usuario: atualizadoPor,
+                valorAnterior: recebidoAnterior, valorRecebido, valorLancamento: delta,
+                valorRestante: novoRestante, valorAnteriorCentavos: recebidoAnteriorCentavos,
+                valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
+                valorLancamentoCentavos: deltaCentavos, valorRestanteCentavos: novoRestanteCentavos, statusPagamento });
+            locacao.financeiro = { ...locacao.financeiro, valorTotal, sinal: valorRecebido,
+                valorRestante: novoRestante, statusPagamento,
+                lancamentosRecebimentos: [...(Array.isArray(locacao.financeiro?.lancamentosRecebimentos)
+                    ? locacao.financeiro.lancamentosRecebimentos : []), lancamento] };
+            locacao.pago = statusPagamento === 'pago';
+            locacao.historicoAlteracoes = [...(Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : []), {
+                id: `historico-${operacaoId}`, data: atualizadoEm, acao: 'financeiro_recebimento', origem: 'financeiro',
+                descricao: `Recebimento de ${formatarCentavosParaHistorico(deltaCentavos)} registrado.`, usuario: atualizadoPor,
+                operacaoId, locacaoId, locacaoReferencia, assinaturaPlano: assinatura, valorRecebido,
+                valorRecebidoCentavos: valorRecebidoNormalizado.centavos, valorLancamentoCentavos: deltaCentavos,
+                valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
+            }];
+            candidato.valor.logsAuditoria = [...(Array.isArray(candidato.valor.logsAuditoria) ? candidato.valor.logsAuditoria : []), {
+                id: `auditoria-${operacaoId}`, timestamp: atualizadoEm, data: atualizadoEm, tipo: 'financeiro', acao: 'recebimento',
+                descricao: 'Recebimento de locação registrado.', usuario: atualizadoPor,
+                operacaoId, locacaoId, locacaoReferencia, assinaturaPlano: assinatura, valorLancamento: delta,
+                valorLancamentoCentavos: deltaCentavos, valorRecebido,
+                valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
+                valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
+            }];
+            if (!verificarEvidenciasRecebimento(candidato.valor, entrada, locacaoId, locacaoReferencia, assinatura).completo) {
+                return resultadoBase('EVIDENCIAS_RECEBIMENTO_INCOMPLETAS');
+            }
+
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparadoExterno;
+            try {
+                preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico), clonarDescartavel(persistenciaEntrada));
+            } catch (_erro) { return resultadoBase('FALHA_PREPARACAO_SNAPSHOT'); }
+            const preparadoValidado = validarRetornoPreparacaoSnapshotFinanceiro(preparadoExterno);
+            if (!preparadoValidado.ok) {
+                return resultadoBase('SNAPSHOT_PREPARADO_NAO_CONFIAVEL');
+            }
+            const snapshotAutoritativo = clonarJsonInterno({ versao: persistenciaEntrada.versao,
+                data: persistenciaEntrada.data, ultimaEdicao: persistenciaEntrada.ultimaEdicao, ...candidatoCanonico });
+            const externo = clonarJsonInterno(preparadoValidado.snapshot);
+            if (!snapshotAutoritativo.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(externo.valor)) !== JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacionalEsperado = prepararEstadoOperacionalInterno(snapshotAutoritativo.valor);
+            if (!operacionalEsperado.ok) return resultadoBase(operacionalEsperado.codigo);
+            const jsonPublicacaoEsperado = operacionalEsperado.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacaoPublicacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+
+            try { dependencias.persistirSnapshotLocalConfirmavel(
+                clonarDescartavel(snapshotAutoritativo.valor), { ...opcoesArmazenamento }); }
+            catch (_erro) { /* a releitura autoritativa determina o resultado */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); }
+            catch (_erro) { releitura = null; }
+            const releituraValidada = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValidada.ok ? clonarJsonInterno(releituraValidada.snapshot) : { ok: false };
+            const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
+            const jsonRelido = relido.ok ? JSON.stringify(ordenarChavesCanonicas(relido.valor)) : '';
+            if (!releituraValidada.ok || !relido.ok || jsonRelido !== jsonEsperado) {
+                const semEscrita = persistidoInicial.ok && relido.ok
+                    && JSON.stringify(ordenarChavesCanonicas(leituraInicialValidada.snapshot)) === jsonRelido;
+                return resultadoBase(semEscrita ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
+                    { requerRecuperacao: !semEscrita });
+            }
+            persistenciaConfirmada = true;
+            const raizAntesPublicacao = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAntesPublicacao = prepararEstadoOperacionalInterno(raizAntesPublicacao);
+            if (raizAntesPublicacao !== raizAnterior || !memoriaAntesPublicacao.ok || memoriaAntesPublicacao.json !== memoriaInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalEsperado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacaoEsperado, autorizacaoPublicacao, exigirConfirmacaoInterna: true });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior, autorizacaoPublicacao }) || null;
+            autorizacaoPublicacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true, publicacaoRealizada: false });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({ ultimaEdicao: persistenciaEntrada.ultimaEdicao,
+                locacaoId, operacaoId, assinaturaPlano: assinatura }) === true; } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('RECEBIMENTO_APLICADO', { ok: true, aplicado: true, publicacaoRealizada: true,
+                avisos, operacao: { locacaoId, locacaoReferencia, operacaoId, assinaturaPlano: assinatura,
+                    valorLancamento: delta, valorLancamentoCentavos: deltaCentavos,
+                    valorRecebido, valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
+                    valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos },
+                renderizar: true, sincronizar });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'RECEBIMENTO_APLICADO' : 'FALHA_RECEBIMENTO', {
+                ok: publicacaoRealizada, aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }],
+                renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacaoPublicacao) {
+                try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); } catch (_erro) { /* encerrada */ }
+            }
+            travasRecebimentoLocacao.delete(locacaoRef);
+        }
+    }
+
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
     window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
@@ -3174,5 +3584,6 @@
     window.executarReaberturaChecklistTransacional = executarReaberturaChecklistTransacional;
     window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
     window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
+    window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

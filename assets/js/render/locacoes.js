@@ -349,7 +349,7 @@ function renderLocacoes() {
         
         const tr = document.createElement('tr');
         const statusPagamentoClass = l.pago ? 'locacao-action-pay-paid' : 'locacao-action-pay-open';
-        const statusPagamentoLabel = l.pago ? 'Marcar como pendente' : 'Marcar como pago';
+        const statusPagamentoLabel = l.pago ? 'Pagamento quitado' : 'Quitar saldo da locação';
         const edicaoPermitida = typeof obterElegibilidadeEdicaoLocacao === 'function'
             && obterElegibilidadeEdicaoLocacao(l, { validarOperacional: false }).permitida;
         const referenciaTipada = typeof criarReferenciaTipadaLocacao === 'function'
@@ -383,7 +383,7 @@ function renderLocacoes() {
             <td class="col-actions">
                 <div class="actions-cell locacao-actions">
                 ${edicaoPermitida ? `<button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-edit" title="Editar locação" aria-label="Editar locação ${escaparHTML(String(l.codigo || l.id || ''))}" data-action="abrirEdicaoLocacao" data-arg="${l.id}"><i class="bi bi-pencil-square"></i></button>` : ''}
-                <button class="btn btn-sm table-action-btn locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" aria-label="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${l.id}">
+                <button class="btn btn-sm table-action-btn locacao-action-btn ${statusPagamentoClass}" data-acesso="admin" title="${statusPagamentoLabel}" aria-label="${statusPagamentoLabel}" data-action="alternarPagamento" data-arg="${sanitizarTexto(typeof criarReferenciaTipadaLocacao === 'function' ? criarReferenciaTipadaLocacao(l.id) : '')}">
                     <i class="bi bi-currency-dollar"></i>
                 </button>
                 <button class="btn btn-sm table-action-btn locacao-action-btn locacao-action-whats" title="Enviar WhatsApp" aria-label="Enviar WhatsApp" data-action="enviarZap" data-arg="${l.id}">
