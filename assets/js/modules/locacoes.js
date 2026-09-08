@@ -9,6 +9,8 @@ let sequenciaOperacaoEdicaoLocacao = 0;
 let sessaoRecebimentoLocacao = null;
 let recebimentoLocacaoEmAndamento = false;
 let sequenciaOperacaoRecebimento = 0;
+let acionadorModalPagamentoLocacao = null;
+let eventosModalPagamentoLocacaoRegistrados = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
@@ -1249,6 +1251,80 @@ function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId) {
     return false;
 }
 
+function definirErroPagamentoLocacao(mensagem = '') {
+    const campo = document.getElementById('pagamentoLocacaoValorRecebido');
+    const erro = document.getElementById('pagamentoLocacaoErro');
+    if (!campo || !erro) return;
+    const referencias = String(campo.getAttribute('aria-describedby') || '')
+        .split(/\s+/).filter((id) => id && id !== erro.id);
+    if (mensagem) {
+        erro.textContent = mensagem;
+        erro.hidden = false;
+        campo.setAttribute('aria-invalid', 'true');
+        referencias.push(erro.id);
+    } else {
+        erro.textContent = '';
+        erro.hidden = true;
+        campo.removeAttribute('aria-invalid');
+    }
+    if (referencias.length) campo.setAttribute('aria-describedby', referencias.join(' '));
+    else campo.removeAttribute('aria-describedby');
+}
+
+function fecharModalPagamentoLocacao() {
+    if (recebimentoLocacaoEmAndamento) return false;
+    const modal = document.getElementById('modalPagamentoLocacao');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    definirErroPagamentoLocacao('');
+    sessaoRecebimentoLocacao = null;
+    const acionador = acionadorModalPagamentoLocacao;
+    acionadorModalPagamentoLocacao = null;
+    if (acionador && typeof acionador.focus === 'function' && acionador.isConnected) {
+        acionador.focus({ preventScroll: true });
+    }
+    return true;
+}
+
+function registrarEventosModalPagamentoLocacao() {
+    if (eventosModalPagamentoLocacaoRegistrados) return;
+    const modal = document.getElementById('modalPagamentoLocacao');
+    if (!modal) return;
+    eventosModalPagamentoLocacaoRegistrados = true;
+    modal.addEventListener('click', (evento) => {
+        if (evento.target === modal) fecharModalPagamentoLocacao();
+    });
+    modal.addEventListener('keydown', (evento) => {
+        if (!modal.classList.contains('active')) return;
+        if (evento.key === 'Escape') {
+            evento.preventDefault();
+            evento.stopPropagation();
+            fecharModalPagamentoLocacao();
+            return;
+        }
+        if (evento.key !== 'Tab') return;
+        const focaveis = Array.from(modal.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter((elemento) => !elemento.hidden && elemento.getClientRects().length > 0);
+        if (!focaveis.length) {
+            evento.preventDefault();
+            modal.focus();
+            return;
+        }
+        const primeiro = focaveis[0];
+        const ultimo = focaveis[focaveis.length - 1];
+        if (evento.shiftKey && document.activeElement === primeiro) {
+            evento.preventDefault();
+            ultimo.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+            evento.preventDefault();
+            primeiro.focus();
+        }
+    });
+}
+
 function solicitarPagamentoPromptLocacao(locacao) {
     const resumo = obterResumoPagamentoLocacao(locacao);
     const informado = prompt(
@@ -2293,6 +2369,11 @@ function marcarPagamentoParcial(referencia) {
 
     const resumo = obterResumoPagamentoLocacao(locacao);
     const cliente = resolverClienteLocacaoPorIdPersistido(locacao.locadorId);
+    acionadorModalPagamentoLocacao = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    registrarEventosModalPagamentoLocacao();
+    definirErroPagamentoLocacao('');
 
     inputId.value = referencia;
     sessaoRecebimentoLocacao = {
@@ -2310,8 +2391,16 @@ function marcarPagamentoParcial(referencia) {
 
     atualizarPreviewPagamentoLocacao();
     modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
 
+    try {
+        inputValor.focus({ preventScroll: true });
+        inputValor.select();
+    } catch (_) {
+        inputValor.focus();
+    }
     setTimeout(() => {
+        if (!modal.classList.contains('active') || document.activeElement === inputValor) return;
         try {
             inputValor.focus({ preventScroll: true });
             inputValor.select();
@@ -2325,6 +2414,7 @@ function atualizarPreviewPagamentoLocacao() {
     const inputValor = document.getElementById('pagamentoLocacaoValorRecebido');
     const inputId = document.getElementById('pagamentoLocacaoId');
     if (!inputValor || !inputId) return;
+    definirErroPagamentoLocacao('');
 
     const locacao = obterLocacaoPagamentoPorId(inputId.value);
     if (!locacao) return;
@@ -2387,15 +2477,13 @@ function salvarPagamentoLocacao() {
     const operacaoId = sessaoRecebimentoLocacao?.referencia === referencia
         ? sessaoRecebimentoLocacao.operacaoId
         : '';
-    if (aplicarRecebimentoLocacao(referencia, inputValor.value, operacaoId)) {
-        sessaoRecebimentoLocacao = null;
-    } else {
+    if (!aplicarRecebimentoLocacao(referencia, inputValor.value, operacaoId)) {
+        definirErroPagamentoLocacao('Confira o valor recebido informado antes de continuar.');
         focarCampoLocacao('pagamentoLocacaoValorRecebido');
         return;
     }
-
-    const modal = document.getElementById('modalPagamentoLocacao');
-    if (modal) modal.classList.remove('active');
+    definirErroPagamentoLocacao('');
+    fecharModalPagamentoLocacao();
 }
 
 function escaparHtmlHistoricoLocacao(valor) {

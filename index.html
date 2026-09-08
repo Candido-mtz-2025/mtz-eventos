@@ -2778,14 +2778,15 @@
         </div>
     </div>
 
-    <div id="modalPagamentoLocacao" class="modal">
+    <div id="modalPagamentoLocacao" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pagamentoLocacaoTitulo" aria-describedby="pagamentoLocacaoDescricao" tabindex="-1">
         <div class="modal-content modal-pagamento-locacao">
             <div class="modal-header">
-                <h3>Lançar Recebimento</h3>
-                <button class="btn-close-modal" data-action="fecharModal" data-arg="modalPagamentoLocacao">
+                <h3 id="pagamentoLocacaoTitulo">Lançar Recebimento</h3>
+                <button type="button" class="btn-close-modal" data-action="fecharModalPagamentoLocacao" aria-label="Fechar lançamento de recebimento">
                     <i class="bi bi-x-lg"></i>
                 </button>
             </div>
+            <p id="pagamentoLocacaoDescricao" class="muted-note">Informe o valor total recebido até este momento.</p>
             <input type="hidden" id="pagamentoLocacaoId">
             <div class="pagamento-modal-head">
                 <div>
@@ -2809,8 +2810,9 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>Valor recebido até agora</label>
+                <label for="pagamentoLocacaoValorRecebido">Valor recebido até agora</label>
                 <input type="text" id="pagamentoLocacaoValorRecebido" inputmode="decimal" placeholder="0,00" data-input="atualizarPreviewPagamentoLocacao">
+                <div id="pagamentoLocacaoErro" class="validation-message" role="alert" aria-live="assertive" hidden></div>
             </div>
             <div class="inline-chip-row pagamento-modal-quick">
                 <button class="btn btn-secondary btn-sm" data-action="preencherPagamentoRapido" data-arg="0">Zerar</button>
@@ -2825,7 +2827,7 @@
                 <span id="pagamentoLocacaoNovoStatus" class="badge badge-warning">PENDENTE</span>
             </div>
             <div class="inline-chip-row section-gap">
-                <button class="btn btn-secondary" data-action="fecharModal" data-arg="modalPagamentoLocacao">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-action="fecharModalPagamentoLocacao">Cancelar</button>
                 <button class="btn btn-primary" data-action="salvarPagamentoLocacao">Salvar recebimento</button>
             </div>
         </div>
@@ -2950,9 +2952,9 @@
     <script src="./assets/js/core/storage.js?v=12.11"></script>
     <script src="./assets/js/core/transaction-services.js?v=2.4"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.2"></script>
-    <script src="./assets/js/core/state-adapter.js?v=1.8"></script>
+    <script src="./assets/js/core/state-adapter.js?v=1.9"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.15"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.16"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
     <script src="./assets/js/modules/clientes.js?v=2.2"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -2973,7 +2975,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.7"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=1.6"></script>
+    <script src="./assets/js/render/novas-abas.js?v=1.7"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.14"></script>
         

@@ -52,6 +52,27 @@
         return true;
     }
 
+    function coletarLancamentosFinanceirosParaProtecao(estado) {
+        const alvos = [];
+        const visitados = new WeakSet();
+        const coletar = (valor) => {
+            if (!valor || typeof valor !== 'object' || visitados.has(valor)) return;
+            visitados.add(valor);
+            if (Array.isArray(valor)) valor.forEach(coletar);
+            else Object.keys(valor).forEach((chave) => coletar(valor[chave]));
+            alvos.push(valor);
+        };
+        (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
+            const lancamentos = locacao?.financeiro?.lancamentosRecebimentos;
+            if (Array.isArray(lancamentos)) coletar(lancamentos);
+        });
+        return alvos;
+    }
+
+    function protegerLancamentosFinanceirosPublicados(alvos) {
+        alvos.forEach((alvo) => Object.freeze(alvo));
+    }
+
     function obterEstadoMemoriaAtual() {
         return controlador.obterReferencia();
     }
@@ -233,6 +254,7 @@
                 };
             }
             const fingerprintCalculado = fingerprintFnv1a64(jsonOperacional);
+            const lancamentosParaProtecao = coletarLancamentosFinanceirosParaProtecao(preparado.valor);
             const autorizacaoPendente = tentativa.registro;
             const exigeConfirmacao = tentativa.protegida === true;
             if (exigeConfirmacao && autorizacaoPendente.fingerprintPublicacao !== fingerprintCalculado) {
@@ -256,6 +278,7 @@
                     trocas: 1
                 }));
             }
+            if (publicado) protegerLancamentosFinanceirosPublicados(lancamentosParaProtecao);
             return publicado
                 ? {
                     ok: true,

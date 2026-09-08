@@ -77,20 +77,75 @@
         return 3;
     }
 
-    function compararLancamentosFinanceiros(a, b) {
-        if (a?.statusPagamento === 'pago' && b?.statusPagamento === 'pago') {
-            return Number(b.id || 0) - Number(a.id || 0);
-        }
+    function compararTextoDeterministico(valorA, valorB) {
+        const a = String(valorA ?? '');
+        const b = String(valorB ?? '');
+        if (a === b) return 0;
+        return a < b ? -1 : 1;
+    }
 
+    function chaveIdFinanceiroTipado(id) {
+        if (typeof id === 'number' && Number.isFinite(id)) {
+            const normalizado = Object.is(id, -0) ? 0 : id;
+            return `numero:${normalizado}`;
+        }
+        if (typeof id === 'string' && id.length > 0) return `texto:${id}`;
+        return `invalido:${typeof id}`;
+    }
+
+    function chaveCanonicaFinanceira(valor, vistos = new WeakSet()) {
+        if (valor === null) return 'null';
+        const tipo = typeof valor;
+        if (tipo === 'string') return `s:${JSON.stringify(valor)}`;
+        if (tipo === 'number') {
+            if (!Number.isFinite(valor)) return `n:${String(valor)}`;
+            return `n:${Object.is(valor, -0) ? '0' : String(valor)}`;
+        }
+        if (tipo === 'boolean') return valor ? 'b:1' : 'b:0';
+        if (valor instanceof Date) return `d:${Number.isNaN(valor.getTime()) ? '' : valor.toISOString()}`;
+        if (tipo !== 'object') return `${tipo}:`;
+        if (vistos.has(valor)) return 'ciclo';
+        vistos.add(valor);
+        const resultado = Array.isArray(valor)
+            ? `a:[${valor.map((item) => chaveCanonicaFinanceira(item, vistos)).join(',')}]`
+            : `o:{${Object.keys(valor).sort().map((chave) => (
+                `${JSON.stringify(chave)}:${chaveCanonicaFinanceira(valor[chave], vistos)}`
+            )).join(',')}}`;
+        vistos.delete(valor);
+        return resultado;
+    }
+
+    function obterDataOrdenacaoFinanceira(item) {
+        const lancamentos = Array.isArray(item?.financeiro?.lancamentosRecebimentos)
+            ? item.financeiro.lancamentosRecebimentos
+            : [];
+        const datasLancamentos = lancamentos
+            .map((lancamento) => Date.parse(lancamento?.atualizadoEm || lancamento?.registradoEm || lancamento?.data || ''))
+            .filter(Number.isFinite);
+        if (item?.statusPagamento === 'pago' && datasLancamentos.length) {
+            return datasLancamentos.reduce((maisRecente, atual) => Math.max(maisRecente, atual), 0);
+        }
+        return item?.vencimentoData instanceof Date && !Number.isNaN(item.vencimentoData.getTime())
+            ? item.vencimentoData.getTime()
+            : Number.MAX_SAFE_INTEGER;
+    }
+
+    function compararLancamentosFinanceiros(a, b) {
         const prioridadeA = prioridadeOrdenacaoFinanceira(a);
         const prioridadeB = prioridadeOrdenacaoFinanceira(b);
         if (prioridadeA !== prioridadeB) return prioridadeA - prioridadeB;
 
-        const dataA = a?.vencimentoData instanceof Date ? a.vencimentoData.getTime() : Number.MAX_SAFE_INTEGER;
-        const dataB = b?.vencimentoData instanceof Date ? b.vencimentoData.getTime() : Number.MAX_SAFE_INTEGER;
-        if (dataA !== dataB) return dataA - dataB;
+        const dataA = obterDataOrdenacaoFinanceira(a);
+        const dataB = obterDataOrdenacaoFinanceira(b);
+        if (dataA !== dataB) {
+            return a?.statusPagamento === 'pago' && b?.statusPagamento === 'pago'
+                ? dataB - dataA
+                : dataA - dataB;
+        }
 
-        return Number(b.id || 0) - Number(a.id || 0);
+        const porId = compararTextoDeterministico(chaveIdFinanceiroTipado(a?.id), chaveIdFinanceiroTipado(b?.id));
+        if (porId !== 0) return porId;
+        return compararTextoDeterministico(chaveCanonicaFinanceira(a), chaveCanonicaFinanceira(b));
     }
 
     function lerFiltroPersistido(chave, fallback, conjuntoValido) {
