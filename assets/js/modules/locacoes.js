@@ -11,6 +11,10 @@ let recebimentoLocacaoEmAndamento = false;
 let sequenciaOperacaoRecebimento = 0;
 let acionadorModalPagamentoLocacao = null;
 let eventosModalPagamentoLocacaoRegistrados = false;
+let sessaoContaReceber = null;
+let criacaoContaReceberEmAndamento = false;
+let acionadorModalContaReceber = null;
+let eventosModalContaReceberRegistrados = false;
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
@@ -1124,6 +1128,20 @@ function obterResponsavelRecebimentoLocacao() {
 }
 
 function obterResumoPagamentoLocacao(locacao) {
+    const agora = new Date();
+    const dataReferencia = `${String(agora.getFullYear()).padStart(4, '0')}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+    const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
+        ? obterProjecaoFinanceiraContaReceber(locacao?.id, contasReceber, dataReferencia)
+        : { estado: 'ausente', encontrada: false };
+    if (projecaoConta.encontrada) {
+        return {
+            financeiroAtual: locacao?.financeiro || {},
+            valorTotal: projecaoConta.valorTotalCentavos / 100,
+            sinalAtual: projecaoConta.valorRecebidoCentavos / 100,
+            valorRestante: projecaoConta.saldoCentavos / 100,
+            recebidoAtual: projecaoConta.valorRecebidoCentavos / 100
+        };
+    }
     const financeiroAtual = locacao?.financeiro || {};
     const valorTotal = typeof calcularValorLocacaoDominio === 'function'
         ? calcularValorLocacaoDominio(locacao)
@@ -2484,6 +2502,159 @@ function salvarPagamentoLocacao() {
     }
     definirErroPagamentoLocacao('');
     fecharModalPagamentoLocacao();
+}
+
+function gerarOperacaoIdContaReceber() {
+    let sufixo = '';
+    if (globalThis.crypto?.randomUUID) {
+        sufixo = globalThis.crypto.randomUUID().replace(/[^a-z0-9]/gi, '').toLowerCase();
+    } else if (globalThis.crypto?.getRandomValues) {
+        const bytes = new Uint32Array(4);
+        globalThis.crypto.getRandomValues(bytes);
+        sufixo = Array.from(bytes, (valor) => valor.toString(16).padStart(8, '0')).join('');
+    } else {
+        sequenciaOperacaoRecebimento += 1;
+        sufixo = `${Date.now().toString(36)}${sequenciaOperacaoRecebimento.toString(36)}`;
+    }
+    return `conta-receber-${sufixo}`.slice(0, 160);
+}
+
+function dataLocalHojeContaReceber() {
+    const agora = new Date();
+    return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+}
+
+function fecharModalContaReceber() {
+    if (criacaoContaReceberEmAndamento) return;
+    const modal = document.getElementById('modalContaReceber');
+    modal?.classList.remove('active');
+    modal?.setAttribute('aria-hidden', 'true');
+    sessaoContaReceber = null;
+    const retorno = acionadorModalContaReceber;
+    acionadorModalContaReceber = null;
+    retorno?.focus?.();
+}
+
+function registrarEventosModalContaReceber() {
+    if (eventosModalContaReceberRegistrados) return;
+    const modal = document.getElementById('modalContaReceber');
+    if (!modal) return;
+    eventosModalContaReceberRegistrados = true;
+    modal.addEventListener('keydown', (evento) => {
+        if (evento.key === 'Escape') {
+            evento.preventDefault();
+            fecharModalContaReceber();
+            return;
+        }
+        if (evento.key !== 'Tab') return;
+        const focaveis = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled])'));
+        if (!focaveis.length) return;
+        const primeiro = focaveis[0];
+        const ultimo = focaveis[focaveis.length - 1];
+        if (evento.shiftKey && document.activeElement === primeiro) {
+            evento.preventDefault();
+            ultimo.focus();
+        } else if (!evento.shiftKey && document.activeElement === ultimo) {
+            evento.preventDefault();
+            primeiro.focus();
+        }
+    });
+    modal.addEventListener('click', (evento) => {
+        if (evento.target === modal) fecharModalContaReceber();
+    });
+}
+
+function abrirContaReceberLocacao(referencia) {
+    const locacao = obterLocacaoPagamentoPorId(referencia);
+    if (!locacao) return false;
+    const modal = document.getElementById('modalContaReceber');
+    if (!modal) return false;
+    const resumo = obterResumoPagamentoLocacao(locacao);
+    if (!(resumo.valorTotal > 0)) {
+        mostrarToast('A locação não possui valor válido para gerar uma conta a receber.', 'erro');
+        return false;
+    }
+    acionadorModalContaReceber = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    registrarEventosModalContaReceber();
+    sessaoContaReceber = { referencia, operacaoId: gerarOperacaoIdContaReceber() };
+    const hoje = dataLocalHojeContaReceber();
+    document.getElementById('contaReceberLocacaoReferencia').value = referencia;
+    document.getElementById('contaReceberDescricao').value = `Locação #${String(locacao.id)}`;
+    document.getElementById('contaReceberValorTotal').value = formatarValorPromptFinanceiro(resumo.valorTotal);
+    document.getElementById('contaReceberParcelas').value = '1';
+    document.getElementById('contaReceberPrimeiroVencimento').value = locacao.dataDevolucaoPrevisao || hoje;
+    const erro = document.getElementById('contaReceberErro');
+    if (erro) {
+        erro.textContent = '';
+        erro.hidden = true;
+    }
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('contaReceberDescricao').focus();
+    return true;
+}
+
+function salvarContaReceberLocacao() {
+    if (criacaoContaReceberEmAndamento || !sessaoContaReceber) return false;
+    const referencia = document.getElementById('contaReceberLocacaoReferencia')?.value;
+    const locacao = obterLocacaoPagamentoPorId(referencia);
+    const erro = document.getElementById('contaReceberErro');
+    if (!locacao || referencia !== sessaoContaReceber.referencia) return false;
+    const textoParcelas = document.getElementById('contaReceberParcelas')?.value;
+    const quantidadeParcelas = typeof textoParcelas === 'string' && /^[1-9]\d*$/.test(textoParcelas)
+        ? Number(textoParcelas) : NaN;
+    const instante = new Date();
+    const criadoEm = instante.toISOString();
+    const entrada = {
+        locacaoReferencia: referencia,
+        operacaoId: sessaoContaReceber.operacaoId,
+        descricao: document.getElementById('contaReceberDescricao')?.value,
+        valorTotalTexto: document.getElementById('contaReceberValorTotal')?.value,
+        quantidadeParcelas,
+        primeiroVencimento: document.getElementById('contaReceberPrimeiroVencimento')?.value,
+        emitidaEm: dataLocalHojeContaReceber(),
+        criadoEm,
+        atualizadoEm: criadoEm,
+        responsavel: obterResponsavelRecebimentoLocacao(),
+        persistencia: {
+            versao: window.SCHEMA_VERSION_V12 || '12.6',
+            data: criadoEm,
+            ultimaEdicao: instante.getTime()
+        }
+    };
+    criacaoContaReceberEmAndamento = true;
+    let resultado;
+    try {
+        const dependencias = criarDependenciasExecutorContaReceber({ armazenamento: localStorage });
+        resultado = executarCriacaoContaReceberTransacional(entrada, dependencias);
+    } catch (falha) {
+        resultado = { ok: false, codigo: 'FALHA_INTEGRACAO_CONTA_RECEBER', efeitos: {},
+            bloqueios: [{ mensagem: String(falha?.message || falha) }] };
+    } finally {
+        criacaoContaReceberEmAndamento = false;
+    }
+    if (resultado?.ok && ['CONTA_RECEBER_CRIADA', 'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+        if (resultado.efeitos?.renderizar && typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+        if (resultado.efeitos?.sincronizar && typeof sincronizar === 'function') sincronizar('salvar');
+        mostrarToast(resultado.idempotente ? 'Esta conta a receber já estava registrada.' : 'Conta a receber criada com segurança.');
+        fecharModalContaReceber();
+        return true;
+    }
+    const mensagens = {
+        CONTA_RECEBER_ATIVA_EXISTENTE: 'Já existe uma conta a receber ativa para esta locação.',
+        VALOR_TOTAL_CONTA_DIVERGENTE: 'O total da locação mudou. Atualize os dados antes de continuar.',
+        PARCELAMENTO_INVALIDO: 'Confira a quantidade de parcelas e o valor total.',
+        OPERACAO_REQUER_RECUPERACAO: 'Os dados locais precisam de recuperação antes de criar a conta.'
+    };
+    const mensagem = mensagens[resultado?.codigo]
+        || resultado?.bloqueios?.[0]?.mensagem
+        || 'Não foi possível criar a conta a receber.';
+    if (erro) {
+        erro.textContent = mensagem;
+        erro.hidden = false;
+    }
+    mostrarToast(mensagem, 'erro');
+    return false;
 }
 
 function escaparHtmlHistoricoLocacao(valor) {

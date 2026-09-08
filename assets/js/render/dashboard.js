@@ -37,6 +37,26 @@ function calcularValorLocacao(locacao) {
 }
 
 function obterFinanceiroDashboard(locacao, valorFallback) {
+    const agora = new Date();
+    const dataReferencia = `${String(agora.getFullYear()).padStart(4, '0')}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+    const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
+        ? obterProjecaoFinanceiraContaReceber(locacao?.id, contasReceber, dataReferencia)
+        : { estado: 'ausente', encontrada: false };
+    if (projecaoConta.encontrada) {
+        const statusPagamento = projecaoConta.situacao === 'vencida' ? 'atrasado' : projecaoConta.situacao;
+        return {
+            valorTotal: projecaoConta.valorTotalCentavos / 100,
+            valorRecebido: projecaoConta.valorRecebidoCentavos / 100,
+            valorRestante: projecaoConta.saldoCentavos / 100,
+            statusPagamento,
+            vencimento: projecaoConta.vencimento,
+            vencimentoData: obterDataLocal(projecaoConta.vencimento)
+        };
+    }
+    if (['duplicado', 'invalido'].includes(projecaoConta.estado)) {
+        return { valorTotal: 0, valorRecebido: 0, valorRestante: 0,
+            statusPagamento: 'invalido', vencimento: '', vencimentoData: null };
+    }
     const financeiro = locacao?.financeiro && typeof locacao.financeiro === 'object'
         ? locacao.financeiro
         : {};

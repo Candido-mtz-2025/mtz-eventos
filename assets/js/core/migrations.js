@@ -1099,6 +1099,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         locacoes: clonarArraySeguro(dadosBase.locacoes).map((locacao) => migrarLocacaoParaV12(locacao, contexto)),
         propostas: clonarArraySeguro(dadosBase.propostas).map((proposta) => migrarPropostaParaV12(proposta, contexto)),
         devolucoes: clonarArraySeguro(dadosBase.devolucoes),
+        contasReceber: clonarArraySeguro(dadosBase.contasReceber),
         movimentacoesEstoque: clonarArraySeguro(dadosBase.movimentacoesEstoque).map((movimentacao, indice) => normalizarMovimentacaoEstoqueV12(movimentacao, indice)),
         transportes: clonarArraySeguro(dadosBase.transportes),
         tipos: clonarArraySeguro(dadosBase.tipos),

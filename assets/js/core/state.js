@@ -7,6 +7,7 @@
         locacoes: [],
         propostas: [],
         devolucoes: [],
+        contasReceber: [],
         movimentacoesEstoque: [],
         transportes: [],
         tipos: [],

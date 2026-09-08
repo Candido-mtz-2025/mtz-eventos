@@ -2833,6 +2833,40 @@
         </div>
     </div>
 
+    <div id="modalContaReceber" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="contaReceberTitulo" aria-describedby="contaReceberDescricaoAjuda" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header">
+                <h3 id="contaReceberTitulo">Criar conta a receber</h3>
+                <button type="button" class="btn-close-modal" data-action="fecharModalContaReceber" aria-label="Fechar criação da conta"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <p id="contaReceberDescricaoAjuda" class="muted-note">Defina o primeiro vencimento e o parcelamento mensal.</p>
+            <input type="hidden" id="contaReceberLocacaoReferencia">
+            <div class="form-group">
+                <label for="contaReceberDescricao">Descrição</label>
+                <input type="text" id="contaReceberDescricao" maxlength="500" autocomplete="off">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="contaReceberValorTotal">Valor total</label>
+                    <input type="text" id="contaReceberValorTotal" inputmode="decimal" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="contaReceberParcelas">Parcelas</label>
+                    <input type="number" id="contaReceberParcelas" min="1" step="1" inputmode="numeric">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="contaReceberPrimeiroVencimento">Primeiro vencimento</label>
+                <input type="date" id="contaReceberPrimeiroVencimento">
+            </div>
+            <div id="contaReceberErro" class="validation-message" role="alert" aria-live="assertive" hidden></div>
+            <div class="inline-chip-row section-gap">
+                <button type="button" class="btn btn-secondary" data-action="fecharModalContaReceber">Cancelar</button>
+                <button type="button" class="btn btn-primary" data-action="salvarContaReceberLocacao">Criar conta</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalEditarLocacaoOperacional" class="edit-locacao-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editLocacaoTitulo" aria-describedby="editLocacaoDescricao">
         <div class="modal-content modal-editar-locacao-operacional">
             <div class="modal-header">
@@ -2941,20 +2975,20 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.5"></script>
+    <script src="./assets/js/core/state.js?v=12.6"></script>
     <script src="./assets/js/core/utils.js?v=2.5"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
     <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.12"></script>
+    <script src="./assets/js/core/migrations.js?v=12.13"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
-    <script src="./assets/js/core/storage.js?v=12.11"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.4"></script>
+    <script src="./assets/js/core/storage.js?v=12.12"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.6"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.2"></script>
-    <script src="./assets/js/core/state-adapter.js?v=1.9"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.0"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.16"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.18"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
     <script src="./assets/js/modules/clientes.js?v=2.2"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -2973,9 +3007,9 @@
     <script src="./assets/js/render/locacoes.js?v=15.10"></script>
     <script src="./assets/js/render/cadastros.js?v=3.8"></script>
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
-    <script src="./assets/js/render/dashboard.js?v=1.7"></script>
+    <script src="./assets/js/render/dashboard.js?v=1.8"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=1.7"></script>
+    <script src="./assets/js/render/novas-abas.js?v=1.9"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.14"></script>
         

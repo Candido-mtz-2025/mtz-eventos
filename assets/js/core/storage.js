@@ -64,6 +64,7 @@ function gerarSnapshotDadosSistema() {
         locacoes: Array.isArray(locacoes) ? locacoes : [],
         propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
+        contasReceber: Array.isArray(contasReceber) ? contasReceber : [],
         movimentacoesEstoque: Array.isArray(movimentacoesEstoque) ? movimentacoesEstoque : [],
         transportes: Array.isArray(transportes) ? transportes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
@@ -123,6 +124,7 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'locacoes',
     'propostas',
     'devolucoes',
+    'contasReceber',
     'movimentacoesEstoque',
     'transportes',
     'tipos',
@@ -601,6 +603,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         locacoes: Array.isArray(dadosNormalizados.locacoes) ? dadosNormalizados.locacoes : [],
         propostas: Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [],
         devolucoes: Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [],
+        contasReceber: Array.isArray(dadosNormalizados.contasReceber) ? dadosNormalizados.contasReceber : [],
         movimentacoesEstoque: Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [],
         transportes: Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [],
         tipos: Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [],
@@ -625,6 +628,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         locacoes = estadoNormalizado.locacoes;
         propostas = estadoNormalizado.propostas;
         devolucoes = estadoNormalizado.devolucoes;
+        contasReceber = estadoNormalizado.contasReceber;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
         transportes = estadoNormalizado.transportes;
         tipos = estadoNormalizado.tipos;

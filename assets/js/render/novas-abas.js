@@ -195,7 +195,8 @@
             montado: 'Montado',
             finalizado: 'Finalizado',
             devolvido: 'Devolvido',
-            cancelado: 'Cancelado'
+            cancelado: 'Cancelado',
+            invalido: 'Inconsistente'
         };
         return mapa[String(statusFluxo || '').trim().toLowerCase()] || 'Aprovado';
     }
@@ -226,6 +227,7 @@
     function obterBaseLocacoes() {
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
+        const dataReferencia = `${String(hoje.getFullYear()).padStart(4, '0')}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
         return (Array.isArray(locacoes) ? locacoes : []).map((locacao) => {
             const normalizada = typeof normalizarLocacaoDominio === 'function'
@@ -234,17 +236,35 @@
 
             const statusFluxo = inferirStatusFluxo(normalizada);
             const statusVisual = String(normalizada?.statusVisual || normalizada?.status || '').trim().toLowerCase() || 'ativo';
-            const statusPagamento = inferirStatusPagamento(normalizada);
-            const valorTotal = Number(normalizada?.financeiro?.valorTotal ?? normalizada?.valorTotalCalculado ?? 0) || 0;
-            const valorRestante = statusPagamento === 'pago'
+            const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
+                ? obterProjecaoFinanceiraContaReceber(normalizada.id, contasReceber, dataReferencia)
+                : { estado: 'ausente', encontrada: false };
+            const possuiContaInconsistente = ['duplicado', 'invalido'].includes(projecaoConta.estado);
+            const statusPagamentoLegado = inferirStatusPagamento(normalizada);
+            const statusPagamento = projecaoConta.encontrada
+                ? (projecaoConta.situacao === 'vencida' ? 'atrasado' : projecaoConta.situacao)
+                : possuiContaInconsistente ? 'invalido' : statusPagamentoLegado;
+            const valorTotal = projecaoConta.encontrada
+                ? projecaoConta.valorTotalCentavos / 100
+                : possuiContaInconsistente ? 0
+                    : Number(normalizada?.financeiro?.valorTotal ?? normalizada?.valorTotalCalculado ?? 0) || 0;
+            const valorRestante = projecaoConta.encontrada
+                ? projecaoConta.saldoCentavos / 100
+                : statusPagamento === 'pago'
                 ? 0
-                : Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? valorTotal) || 0);
-            const valorRecebido = statusPagamento === 'pago'
+                : possuiContaInconsistente ? 0
+                    : Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? valorTotal) || 0);
+            const valorRecebido = projecaoConta.encontrada
+                ? projecaoConta.valorRecebidoCentavos / 100
+                : statusPagamento === 'pago'
                 ? valorTotal
                 : statusPagamento === 'parcial'
                     ? Math.max(0, valorTotal - valorRestante)
                     : 0;
-            const vencimento = String(normalizada?.financeiro?.vencimento || normalizada?.dataDevolucaoPrevisao || '').trim();
+            const vencimento = projecaoConta.encontrada
+                ? projecaoConta.vencimento
+                : possuiContaInconsistente ? ''
+                    : String(normalizada?.financeiro?.vencimento || normalizada?.dataDevolucaoPrevisao || '').trim();
             const vencimentoData = parseDataIsoLocal(vencimento);
             const diasParaVencer = vencimentoData ? calcularDiferencaDias(vencimentoData, hoje) : null;
             const dataMontagem = String(normalizada?.datasMontagem?.inicio || normalizada?.dataAluguel || '').trim();
@@ -515,6 +535,7 @@
                 <td class="col-actions">
                     <div class="actions-cell">
                         <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorCodigo" data-arg="${referenciaSegura}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
+                        <button class="btn btn-sm btn-primary table-action-btn" data-acesso="admin" data-action="abrirContaReceberLocacao" data-arg="${referenciaSegura}" title="Criar conta a receber"><i class="bi bi-calendar2-plus"></i></button>
                         <button class="btn btn-sm btn-warning table-action-btn" data-acesso="admin" data-action="marcarPagamentoParcial" data-arg="${referenciaSegura}" title="Marcar pagamento parcial"><i class="bi bi-pie-chart"></i></button>
                         <button class="btn btn-sm btn-success table-action-btn" data-acesso="admin" data-action="alternarPagamento" data-arg="${referenciaSegura}" title="Quitar saldo da locação"><i class="bi bi-currency-dollar"></i></button>
                     </div>

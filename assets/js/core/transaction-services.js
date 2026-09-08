@@ -28,13 +28,15 @@
         'tipos',
         'usuarios',
         'locacoes',
-        'devolucoes'
+        'devolucoes',
+        'contasReceber'
     ]);
     const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
     const travasPorLocacao = new Set();
     const travasReaberturaChecklist = new Set();
     const travasRecebimentoLocacao = new Set();
+    const travasContaReceber = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
     let cancelarAutorizacaoPublicacaoConfiavel = null;
@@ -203,6 +205,14 @@
                 && descritor.enumerable === true
                 && validarValorExternoPersistivel(descritor.value, vistos);
         });
+    }
+
+    function validarValorExternoPersistivelSeguro(valor) {
+        try {
+            return validarValorExternoPersistivel(valor);
+        } catch (_erro) {
+            return false;
+        }
     }
 
     function validarSnapshotReservaExterno(snapshot) {
@@ -3272,8 +3282,160 @@
         return normalizado.ok ? normalizado : { ok: false, codigo: 'VALOR_MONETARIO_LEGADO_AMBIGUO' };
     }
 
+    function calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) {
+        if (!parcela || typeof parcela !== 'object' || Array.isArray(parcela)
+            || !validarDataLocalContaReceber(dataReferencia)) return 'invalida';
+        const original = inteiroSeguroNaoNegativo(parcela.valorOriginalCentavos);
+        const recebido = inteiroSeguroNaoNegativo(parcela.valorRecebidoCentavos);
+        const saldo = inteiroSeguroNaoNegativo(parcela.saldoCentavos);
+        if (original === null || recebido === null || saldo === null
+            || recebido > original || saldo !== original - recebido
+            || !validarDataLocalContaReceber(parcela.vencimento)) return 'invalida';
+        if (parcela.cancelada === true || parcela.situacao === 'cancelada') return 'cancelada';
+        if (saldo === 0) return 'paga';
+        if (recebido > 0) return 'parcial';
+        if (parcela.vencimento < dataReferencia) return 'vencida';
+        return 'pendente';
+    }
+
+    function validarContaReceberEstrutural(conta, dataReferencia) {
+        if (!conta || typeof conta !== 'object' || Array.isArray(conta)
+            || !validarDataLocalContaReceber(dataReferencia)
+            || !criarReferenciaTipadaContaReceber('conta', conta.id)
+            || conta.contaReferencia !== criarReferenciaTipadaContaReceber('conta', conta.id)
+            || !criarReferenciaTipadaLocacaoTransacional(conta.locacaoId)
+            || conta.locacaoReferencia !== criarReferenciaTipadaLocacaoTransacional(conta.locacaoId)
+            || !criarReferenciaTipadaContaReceber('cliente', conta.clienteId)
+            || conta.clienteReferencia !== criarReferenciaTipadaContaReceber('cliente', conta.clienteId)
+            || typeof conta.operacaoId !== 'string'
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(conta.operacaoId)
+            || typeof conta.assinaturaPlano !== 'string' || !conta.assinaturaPlano
+            || !Number.isSafeInteger(conta.valorTotalCentavos) || conta.valorTotalCentavos <= 0
+            || !Number.isSafeInteger(conta.quantidadeParcelas) || conta.quantidadeParcelas <= 0
+            || !validarDataLocalContaReceber(conta.dataEmissao)
+            || typeof conta.criadoEm !== 'string' || !conta.criadoEm
+            || typeof conta.atualizadoEm !== 'string' || !conta.atualizadoEm
+            || typeof conta.responsavel !== 'string' || !conta.responsavel
+            || !['pendente', 'parcial', 'paga', 'vencida', 'cancelada'].includes(conta.situacao)
+            || !Array.isArray(conta.historico)
+            || !conta.evidenciaCriacao || typeof conta.evidenciaCriacao !== 'object'
+            || Array.isArray(conta.evidenciaCriacao)
+            || !Array.isArray(conta.parcelas) || conta.parcelas.length !== conta.quantidadeParcelas) {
+            return { valida: false, codigo: 'CONTA_RECEBER_INVALIDA' };
+        }
+        const ids = new Set();
+        const referencias = new Set();
+        const numeros = new Set();
+        let total = 0;
+        let recebido = 0;
+        let saldo = 0;
+        for (const parcela of conta.parcelas) {
+            if (!parcela || typeof parcela !== 'object' || Array.isArray(parcela)
+                || !criarReferenciaTipadaContaReceber('parcela', parcela.id)
+                || parcela.parcelaReferencia !== criarReferenciaTipadaContaReceber('parcela', parcela.id)
+                || ids.has(referenciaEstrita(parcela.id)) || referencias.has(parcela.parcelaReferencia)
+                || !Number.isSafeInteger(parcela.numero) || parcela.numero <= 0
+                || parcela.numero > conta.quantidadeParcelas || numeros.has(parcela.numero)
+                || parcela.totalParcelas !== conta.quantidadeParcelas
+                || typeof parcela.criadoEm !== 'string' || !parcela.criadoEm
+                || typeof parcela.atualizadoEm !== 'string' || !parcela.atualizadoEm
+                || !Array.isArray(parcela.lancamentosFinanceiros)
+                || calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) === 'invalida') {
+                return { valida: false, codigo: 'PARCELA_CONTA_RECEBER_INVALIDA' };
+            }
+            ids.add(referenciaEstrita(parcela.id));
+            referencias.add(parcela.parcelaReferencia);
+            numeros.add(parcela.numero);
+            total += parcela.valorOriginalCentavos;
+            recebido += parcela.valorRecebidoCentavos;
+            saldo += parcela.saldoCentavos;
+            if (![total, recebido, saldo].every(Number.isSafeInteger)) {
+                return { valida: false, codigo: 'VALORES_CONTA_RECEBER_INSEGUROS' };
+            }
+        }
+        if (total !== conta.valorTotalCentavos || recebido + saldo !== total
+            || (Object.prototype.hasOwnProperty.call(conta, 'valorRecebidoCentavos')
+                && conta.valorRecebidoCentavos !== recebido)
+            || (Object.prototype.hasOwnProperty.call(conta, 'saldoCentavos') && conta.saldoCentavos !== saldo)) {
+            return { valida: false, codigo: 'TOTAIS_CONTA_RECEBER_DIVERGENTES' };
+        }
+        if (JSON.stringify(ordenarChavesCanonicas(conta.evidenciaCriacao))
+            !== JSON.stringify(criarEvidenciaCriacaoContaReceber(conta))) {
+            return { valida: false, codigo: 'EVIDENCIA_CRIACAO_CONTA_DIVERGENTE' };
+        }
+        const situacoes = conta.parcelas.map((parcela) => calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia));
+        const situacao = conta.situacao === 'cancelada' ? 'cancelada'
+            : saldo === 0 ? 'paga'
+                : recebido > 0 ? 'parcial'
+                    : situacoes.includes('vencida') ? 'vencida' : 'pendente';
+        return { valida: true, totalCentavos: total, recebidoCentavos: recebido,
+            saldoCentavos: saldo, situacao, situacoes, idsParcelas: ids, referenciasParcelas: referencias };
+    }
+
+    function obterProjecaoFinanceiraContaReceber(locacaoId, colecao, dataReferencia) {
+        const referencia = criarReferenciaTipadaLocacaoTransacional(locacaoId);
+        if (!referencia || !validarDataLocalContaReceber(dataReferencia)) {
+            return { estado: 'invalido', encontrada: false };
+        }
+        const candidatas = (Array.isArray(colecao) ? colecao : []).filter((conta) => (
+            conta?.locacaoReferencia === referencia
+            || (typeof conta?.locacaoId === typeof locacaoId && Object.is(conta.locacaoId, locacaoId))
+        ));
+        if (!candidatas.length) return { estado: 'ausente', encontrada: false };
+        if (candidatas.length !== 1) return { estado: 'duplicado', encontrada: false };
+        const conta = candidatas[0];
+        const validacao = validarContaReceberEstrutural(conta, dataReferencia);
+        if (!validacao.valida) return { estado: 'invalido', encontrada: false, codigo: validacao.codigo };
+        const abertas = conta.parcelas
+            .map((parcela, indice) => ({ parcela, situacao: validacao.situacoes[indice] }))
+            .filter(({ situacao }) => !['paga', 'cancelada'].includes(situacao))
+            .sort((a, b) => a.parcela.vencimento.localeCompare(b.parcela.vencimento)
+                || a.parcela.numero - b.parcela.numero
+                || a.parcela.parcelaReferencia.localeCompare(b.parcela.parcelaReferencia));
+        return { estado: 'encontrado', encontrada: true, conta,
+            contaReferencia: conta.contaReferencia, valorTotalCentavos: validacao.totalCentavos,
+            valorRecebidoCentavos: validacao.recebidoCentavos, saldoCentavos: validacao.saldoCentavos,
+            situacao: validacao.situacao, vencimento: abertas[0]?.parcela.vencimento || '' };
+    }
+
+    function validarUnicidadeColecaoContasReceber(colecao, dataReferencia, novos = null) {
+        if (!Array.isArray(colecao)) return { valida: false, codigo: 'COLECAO_CONTAS_RECEBER_INVALIDA' };
+        const idsContas = new Set();
+        const refsContas = new Set();
+        const operacoes = new Set();
+        const idsParcelas = new Set();
+        const refsParcelas = new Set();
+        for (const conta of colecao) {
+            const validacao = validarContaReceberEstrutural(conta, dataReferencia);
+            const idConta = referenciaEstrita(conta?.id);
+            if (!validacao.valida || !idConta || idsContas.has(idConta)
+                || refsContas.has(conta.contaReferencia) || operacoes.has(conta.operacaoId)) {
+                return { valida: false, codigo: 'CONTAS_RECEBER_REQUEREM_RECUPERACAO' };
+            }
+            idsContas.add(idConta);
+            refsContas.add(conta.contaReferencia);
+            operacoes.add(conta.operacaoId);
+            for (const parcela of conta.parcelas) {
+                const idParcela = referenciaEstrita(parcela.id);
+                if (!idParcela || idsParcelas.has(idParcela) || refsParcelas.has(parcela.parcelaReferencia)) {
+                    return { valida: false, codigo: 'CONTAS_RECEBER_REQUEREM_RECUPERACAO' };
+                }
+                idsParcelas.add(idParcela);
+                refsParcelas.add(parcela.parcelaReferencia);
+            }
+        }
+        if (novos && (idsContas.has(referenciaEstrita(novos.contaId))
+            || refsContas.has(novos.contaReferencia) || operacoes.has(novos.operacaoId)
+            || novos.parcelas.some((parcela) => idsParcelas.has(referenciaEstrita(parcela.id))
+                || refsParcelas.has(parcela.parcelaReferencia)))) {
+            return { valida: false, codigo: 'IDENTIDADE_CONTA_RECEBER_COLIDIDA' };
+        }
+        return { valida: true };
+    }
+
     function validarRetornoLeituraSnapshotFinanceiro(retorno) {
-        if (!validarValorExternoPersistivel(retorno)) {
+        if (!retorno || typeof retorno !== 'object' || Array.isArray(retorno)
+            || !validarValorExternoPersistivelSeguro(retorno)) {
             return { ok: false, codigo: 'LEITURA_SNAPSHOT_NAO_CONFIAVEL' };
         }
         const descritores = Object.getOwnPropertyDescriptors(retorno);
@@ -3290,7 +3452,8 @@
     }
 
     function validarRetornoPreparacaoSnapshotFinanceiro(retorno) {
-        if (!validarValorExternoPersistivel(retorno)) {
+        if (!retorno || typeof retorno !== 'object' || Array.isArray(retorno)
+            || !validarValorExternoPersistivelSeguro(retorno)) {
             return { ok: false, codigo: 'SNAPSHOT_PREPARADO_NAO_CONFIAVEL' };
         }
         const descritores = Object.getOwnPropertyDescriptors(retorno);
@@ -3308,11 +3471,13 @@
             : { ok: false, codigo: clone.codigo };
     }
 
-    function assinaturaRecebimentoLocacao(entrada, locacaoId, locacaoReferencia, valorRecebidoCentavos) {
+    function assinaturaRecebimentoLocacao(entrada, locacaoId, locacaoReferencia, valorRecebidoCentavos,
+        contaReferencia = '') {
         const base = ordenarChavesCanonicas({
             tipo: 'recebimento_locacao_v1',
             locacaoId,
             locacaoReferencia,
+            contaReferencia,
             operacaoId: entrada.operacaoId,
             valorRecebidoCentavos,
             atualizadoEm: entrada.atualizadoEm,
@@ -3321,7 +3486,8 @@
         return `recebimento-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
     }
 
-    function verificarEvidenciasRecebimento(estado, entrada, locacaoId, locacaoReferencia, assinatura) {
+    function verificarEvidenciasRecebimento(estado, entrada, locacaoId, locacaoReferencia, assinatura,
+        contaReferencia = '') {
         const alvo = (registro) => registro?.operacaoId === entrada.operacaoId;
         const locacoesEstado = Array.isArray(estado?.locacoes) ? estado.locacoes : [];
         const registros = [];
@@ -3339,16 +3505,42 @@
             && typeof registro.locacaoId === typeof locacaoId && Object.is(registro.locacaoId, locacaoId)
             && Object.prototype.hasOwnProperty.call(registro, 'locacaoReferencia')
             && registro.locacaoReferencia === locacaoReferencia
+            && (!contaReferencia || registro.contaReferencia === contaReferencia)
             && registro.assinaturaPlano === assinatura
         ));
         const quantidades = ['lancamento', 'historico', 'auditoria'].map((tipo) => registros.filter((item) => item.tipo === tipo).length);
-        return coerentes && quantidades.every((quantidade) => quantidade === 1)
+        const baseCompleta = coerentes && quantidades.every((quantidade) => quantidade === 1);
+        if (!baseCompleta || !contaReferencia) {
+            return baseCompleta ? { estado: 'concluida', completo: true }
+                : { estado: 'parcial', completo: false };
+        }
+        const contas = (Array.isArray(estado?.contasReceber) ? estado.contasReceber : [])
+            .filter((conta) => conta?.contaReferencia === contaReferencia);
+        if (contas.length !== 1) return { estado: 'parcial', completo: false };
+        const conta = contas[0];
+        const historicosConta = (Array.isArray(conta.historico) ? conta.historico : [])
+            .filter((registro) => registro?.operacaoId === entrada.operacaoId
+                && registro?.acao === 'recebimento_aplicado');
+        const lancamentosParcelas = (Array.isArray(conta.parcelas) ? conta.parcelas : [])
+            .flatMap((parcela) => (Array.isArray(parcela.lancamentosFinanceiros)
+                ? parcela.lancamentosFinanceiros : []))
+            .filter((registro) => registro?.operacaoId === entrada.operacaoId);
+        const coerenteConta = (registro) => registro?.contaReferencia === contaReferencia
+            && registro?.locacaoReferencia === locacaoReferencia
+            && registro?.assinaturaPlano === assinatura;
+        const somaAplicada = lancamentosParcelas.reduce((soma, registro) => (
+            Number.isSafeInteger(registro.valorAplicadoCentavos)
+                ? soma + registro.valorAplicadoCentavos : Number.NaN), 0);
+        return historicosConta.length === 1 && lancamentosParcelas.length > 0
+            && historicosConta.every(coerenteConta) && lancamentosParcelas.every(coerenteConta)
+            && Number.isSafeInteger(somaAplicada)
+            && somaAplicada === historicosConta[0].valorLancamentoCentavos
             ? { estado: 'concluida', completo: true }
             : { estado: 'parcial', completo: false };
     }
 
     function executarRecebimentoLocacaoTransacional(entradaRecebida = {}, dependencias = {}) {
-        if (!validarValorExternoPersistivel(entradaRecebida)) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
         const entradaClonada = clonarJsonInterno(entradaRecebida);
         if (!entradaClonada.ok) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
         const entrada = entradaClonada.valor;
@@ -3412,10 +3604,29 @@
                 ? restanteInformado.centavos : totalNormalizado.centavos - sinalNormalizado.centavos;
             const recebidoAnteriorCentavos = Math.min(Math.max(sinalNormalizado.centavos,
                 totalNormalizado.centavos - restanteCentavos, 0), totalNormalizado.centavos);
+            const dataReferencia = atualizadoEm.slice(0, 10);
+            if (!validarDataLocalContaReceber(dataReferencia)) return resultadoBase('DATA_RECEBIMENTO_INVALIDA');
+            const projecaoConta = obterProjecaoFinanceiraContaReceber(
+                locacaoId, memoriaInicial.valor.contasReceber, dataReferencia);
+            if (projecaoConta.estado === 'duplicado' || projecaoConta.estado === 'invalido') {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: projecaoConta.codigo || 'CONTA_RECEBER_NAO_RECONCILIADA' }]
+                });
+            }
+            const contaReferencia = projecaoConta.encontrada ? projecaoConta.contaReferencia : '';
+            if (projecaoConta.encontrada && (projecaoConta.situacao === 'cancelada'
+                || projecaoConta.valorTotalCentavos !== totalNormalizado.centavos
+                || projecaoConta.valorRecebidoCentavos !== recebidoAnteriorCentavos
+                || projecaoConta.saldoCentavos !== totalNormalizado.centavos - recebidoAnteriorCentavos)) {
+                return projecaoConta.situacao === 'cancelada'
+                    ? resultadoBase('CONTA_RECEBER_CANCELADA')
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const valorTotal = totalNormalizado.valor;
             const valorRecebido = valorRecebidoNormalizado.valor;
             const assinatura = assinaturaRecebimentoLocacao(entrada, locacaoId,
-                locacaoReferencia, valorRecebidoNormalizado.centavos);
+                locacaoReferencia, valorRecebidoNormalizado.centavos, contaReferencia);
             const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
             if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
             let leituraInicial;
@@ -3425,9 +3636,9 @@
             const persistidoInicial = prepararEstadoOperacionalInterno(leituraInicialValidada.snapshot);
             if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             const evidenciaMemoria = verificarEvidenciasRecebimento(memoriaInicial.valor, entrada,
-                locacaoId, locacaoReferencia, assinatura);
+                locacaoId, locacaoReferencia, assinatura, contaReferencia);
             const evidenciaPersistida = verificarEvidenciasRecebimento(persistidoInicial.valor, entrada,
-                locacaoId, locacaoReferencia, assinatura);
+                locacaoId, locacaoReferencia, assinatura, contaReferencia);
             if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
                 if (evidenciaMemoria.completo && evidenciaPersistida.completo && memoriaInicial.json === persistidoInicial.json) {
                     return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
@@ -3461,6 +3672,7 @@
             const novoRestante = novoRestanteNormalizado.valor;
             const statusPagamento = novoRestanteCentavos === 0 ? 'pago' : 'parcial';
             const lancamento = Object.freeze({ id: `recebimento-${operacaoId}`, operacaoId, locacaoId, locacaoReferencia,
+                contaReferencia,
                 assinaturaPlano: assinatura, data: atualizadoEm, usuario: atualizadoPor,
                 valorAnterior: recebidoAnterior, valorRecebido, valorLancamento: delta,
                 valorRestante: novoRestante, valorAnteriorCentavos: recebidoAnteriorCentavos,
@@ -3474,19 +3686,81 @@
             locacao.historicoAlteracoes = [...(Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : []), {
                 id: `historico-${operacaoId}`, data: atualizadoEm, acao: 'financeiro_recebimento', origem: 'financeiro',
                 descricao: `Recebimento de ${formatarCentavosParaHistorico(deltaCentavos)} registrado.`, usuario: atualizadoPor,
-                operacaoId, locacaoId, locacaoReferencia, assinaturaPlano: assinatura, valorRecebido,
+                operacaoId, locacaoId, locacaoReferencia, contaReferencia, assinaturaPlano: assinatura, valorRecebido,
                 valorRecebidoCentavos: valorRecebidoNormalizado.centavos, valorLancamentoCentavos: deltaCentavos,
                 valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
             }];
             candidato.valor.logsAuditoria = [...(Array.isArray(candidato.valor.logsAuditoria) ? candidato.valor.logsAuditoria : []), {
                 id: `auditoria-${operacaoId}`, timestamp: atualizadoEm, data: atualizadoEm, tipo: 'financeiro', acao: 'recebimento',
                 descricao: 'Recebimento de locação registrado.', usuario: atualizadoPor,
-                operacaoId, locacaoId, locacaoReferencia, assinaturaPlano: assinatura, valorLancamento: delta,
+                operacaoId, locacaoId, locacaoReferencia, contaReferencia, assinaturaPlano: assinatura, valorLancamento: delta,
                 valorLancamentoCentavos: deltaCentavos, valorRecebido,
                 valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
                 valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
             }];
-            if (!verificarEvidenciasRecebimento(candidato.valor, entrada, locacaoId, locacaoReferencia, assinatura).completo) {
+            if (contaReferencia) {
+                const contasAlvo = candidato.valor.contasReceber.filter((conta) => conta?.contaReferencia === contaReferencia);
+                if (contasAlvo.length !== 1) return resultadoBase('CONTA_RECEBER_NAO_RECONCILIADA');
+                const conta = contasAlvo[0];
+                let restanteAplicar = deltaCentavos;
+                const parcelasAbertas = conta.parcelas
+                    .filter((parcela) => calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) !== 'cancelada'
+                        && parcela.saldoCentavos > 0)
+                    .sort((a, b) => a.vencimento.localeCompare(b.vencimento)
+                        || a.numero - b.numero || a.parcelaReferencia.localeCompare(b.parcelaReferencia));
+                for (const parcela of parcelasAbertas) {
+                    if (restanteAplicar === 0) break;
+                    const valorAplicadoCentavos = Math.min(restanteAplicar, parcela.saldoCentavos);
+                    const recebidoParcelaAnteriorCentavos = parcela.valorRecebidoCentavos;
+                    const saldoParcelaAnteriorCentavos = parcela.saldoCentavos;
+                    parcela.valorRecebidoCentavos += valorAplicadoCentavos;
+                    parcela.saldoCentavos -= valorAplicadoCentavos;
+                    parcela.atualizadoEm = atualizadoEm;
+                    parcela.situacao = calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia);
+                    parcela.lancamentosFinanceiros = [...parcela.lancamentosFinanceiros, {
+                        id: `lancamento-parcela-${operacaoId}-${parcela.numero}`,
+                        operacaoId,
+                        contaReferencia,
+                        parcelaReferencia: parcela.parcelaReferencia,
+                        locacaoReferencia,
+                        assinaturaPlano: assinatura,
+                        valorAplicadoCentavos,
+                        valorRecebidoAnteriorCentavos: recebidoParcelaAnteriorCentavos,
+                        valorRecebidoNovoCentavos: parcela.valorRecebidoCentavos,
+                        saldoAnteriorCentavos: saldoParcelaAnteriorCentavos,
+                        saldoNovoCentavos: parcela.saldoCentavos,
+                        data: atualizadoEm,
+                        responsavel: atualizadoPor
+                    }];
+                    restanteAplicar -= valorAplicadoCentavos;
+                }
+                if (restanteAplicar !== 0) return resultadoBase('SALDO_CONTA_RECEBER_INSUFICIENTE');
+                conta.valorRecebidoCentavos = valorRecebidoNormalizado.centavos;
+                conta.saldoCentavos = novoRestanteCentavos;
+                conta.atualizadoEm = atualizadoEm;
+                const contaValidada = validarContaReceberEstrutural(conta, dataReferencia);
+                if (!contaValidada.valida || contaValidada.recebidoCentavos !== valorRecebidoNormalizado.centavos
+                    || contaValidada.saldoCentavos !== novoRestanteCentavos) {
+                    return resultadoBase('CONTA_RECEBER_NAO_RECONCILIADA');
+                }
+                conta.situacao = contaValidada.situacao;
+                conta.historico = [...conta.historico, {
+                    id: `historico-conta-${operacaoId}`,
+                    acao: 'recebimento_aplicado',
+                    operacaoId,
+                    contaReferencia,
+                    locacaoId,
+                    locacaoReferencia,
+                    assinaturaPlano: assinatura,
+                    valorLancamentoCentavos: deltaCentavos,
+                    valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
+                    saldoCentavos: novoRestanteCentavos,
+                    data: atualizadoEm,
+                    usuario: atualizadoPor
+                }];
+            }
+            if (!verificarEvidenciasRecebimento(candidato.valor, entrada, locacaoId, locacaoReferencia,
+                assinatura, contaReferencia).completo) {
                 return resultadoBase('EVIDENCIAS_RECEBIMENTO_INCOMPLETAS');
             }
 
@@ -3574,6 +3848,394 @@
         }
     }
 
+    function criarReferenciaTipadaContaReceber(prefixo, id) {
+        const tipo = typeof id;
+        const valido = tipo === 'string'
+            ? id.trim() !== ''
+            : tipo === 'number' && Number.isFinite(id) && !Object.is(id, -0);
+        return valido && (tipo === 'string' || tipo === 'number')
+            ? `${prefixo}:${encodeURIComponent(JSON.stringify([tipo, id]))}`
+            : '';
+    }
+
+    function resolverIdentidadeExataContaReceber(id, colecao) {
+        const referencia = criarReferenciaTipadaContaReceber('cliente', id);
+        if (!referencia) return { estado: 'invalido', registro: null, referencia: '' };
+        const encontrados = (Array.isArray(colecao) ? colecao : []).filter((registro) => (
+            registro && typeof registro === 'object' && !Array.isArray(registro)
+            && typeof registro.id === typeof id && Object.is(registro.id, id)
+        ));
+        return encontrados.length === 1
+            ? { estado: 'encontrado', registro: encontrados[0], referencia }
+            : { estado: encontrados.length > 1 ? 'duplicado' : 'ausente', registro: null, referencia };
+    }
+
+    function validarDataLocalContaReceber(valor) {
+        if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+        const [ano, mes, dia] = valor.split('-').map((parte) => Number(parte));
+        if (!Number.isInteger(ano) || ano < 1 || ano > 9999 || mes < 1 || mes > 12 || dia < 1) return false;
+        const bissexto = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0;
+        const diasMes = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return dia <= diasMes[mes - 1];
+    }
+
+    function adicionarMesesDataLocalContaReceber(dataBase, meses) {
+        const [ano, mes, dia] = dataBase.split('-').map((parte) => Number(parte));
+        const indice = (ano * 12) + (mes - 1) + meses;
+        const anoDestino = Math.floor(indice / 12);
+        const mesDestino = (indice % 12) + 1;
+        const bissexto = (anoDestino % 4 === 0 && anoDestino % 100 !== 0) || anoDestino % 400 === 0;
+        const diasMes = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        const diaDestino = Math.min(dia, diasMes[mesDestino - 1]);
+        return `${String(anoDestino).padStart(4, '0')}-${String(mesDestino).padStart(2, '0')}-${String(diaDestino).padStart(2, '0')}`;
+    }
+
+    function distribuirCentavosContaReceber(totalCentavos, quantidadeParcelas) {
+        if (!Number.isSafeInteger(totalCentavos) || totalCentavos <= 0
+            || !Number.isSafeInteger(quantidadeParcelas) || quantidadeParcelas <= 0
+            || quantidadeParcelas > totalCentavos) return null;
+        const base = Math.floor(totalCentavos / quantidadeParcelas);
+        const resto = totalCentavos % quantidadeParcelas;
+        return Array.from({ length: quantidadeParcelas }, (_item, indice) => base + (indice < resto ? 1 : 0));
+    }
+
+    function assinaturaContaReceber(entrada, locacaoId, locacaoReferencia, clienteReferencia, totalCentavos) {
+        const base = ordenarChavesCanonicas({
+            tipo: 'conta_receber_v1',
+            operacaoId: entrada.operacaoId,
+            locacaoId,
+            locacaoReferencia,
+            clienteReferencia,
+            totalCentavos,
+            quantidadeParcelas: entrada.quantidadeParcelas,
+            primeiroVencimento: entrada.primeiroVencimento,
+            emitidaEm: entrada.emitidaEm,
+            criadoEm: entrada.criadoEm,
+            responsavel: entrada.responsavel,
+            descricao: entrada.descricao
+        });
+        return `conta-receber-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
+    }
+
+    function criarEvidenciaCriacaoContaReceber(conta) {
+        return ordenarChavesCanonicas({
+            operacaoId: conta.operacaoId,
+            assinaturaPlano: conta.assinaturaPlano,
+            contaId: conta.id,
+            contaReferencia: conta.contaReferencia,
+            locacaoId: conta.locacaoId,
+            locacaoReferencia: conta.locacaoReferencia,
+            clienteId: conta.clienteId,
+            clienteReferencia: conta.clienteReferencia,
+            descricao: conta.descricao,
+            valorTotalCentavos: conta.valorTotalCentavos,
+            quantidadeParcelas: conta.quantidadeParcelas,
+            dataEmissao: conta.dataEmissao,
+            criadoEm: conta.criadoEm,
+            responsavel: conta.responsavel,
+            parcelas: conta.parcelas.map((parcela) => ({
+                id: parcela.id,
+                parcelaReferencia: parcela.parcelaReferencia,
+                numero: parcela.numero,
+                totalParcelas: parcela.totalParcelas,
+                vencimento: parcela.vencimento,
+                valorOriginalCentavos: parcela.valorOriginalCentavos,
+                criadoEm: parcela.criadoEm
+            }))
+        });
+    }
+
+    function verificarEvidenciasContaReceber(estado, operacaoId, locacaoId, locacaoReferencia, assinatura) {
+        const contas = Array.isArray(estado?.contasReceber) ? estado.contasReceber : [];
+        const auditorias = Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [];
+        const contasOperacao = contas.filter((conta) => conta?.operacaoId === operacaoId);
+        const auditoriasOperacao = auditorias.filter((registro) => (
+            registro?.operacaoId === operacaoId && registro?.acao === 'criar_conta_receber'
+        ));
+        if (!contasOperacao.length && !auditoriasOperacao.length) return { estado: 'nao_executada', completo: false };
+        const conta = contasOperacao[0];
+        const historicos = Array.isArray(conta?.historico)
+            ? conta.historico.filter((registro) => registro?.operacaoId === operacaoId
+                && registro?.acao === 'conta_receber_criada') : [];
+        const coerente = (registro) => typeof registro?.locacaoId === typeof locacaoId
+            && Object.is(registro.locacaoId, locacaoId)
+            && registro.locacaoReferencia === locacaoReferencia
+            && registro.contaReferencia === conta?.contaReferencia
+            && registro.clienteReferencia === conta?.clienteReferencia
+            && registro.valorTotalCentavos === conta?.valorTotalCentavos
+            && registro.quantidadeParcelas === conta?.quantidadeParcelas
+            && registro.assinaturaPlano === assinatura;
+        if (contasOperacao.length !== 1 || historicos.length !== 1 || auditoriasOperacao.length !== 1
+            || !coerente(conta) || !coerente(historicos[0]) || !coerente(auditoriasOperacao[0])) {
+            return { estado: 'parcial', completo: false };
+        }
+        const evidenciaEsperada = criarEvidenciaCriacaoContaReceber(conta);
+        const jsonEsperado = JSON.stringify(evidenciaEsperada);
+        return JSON.stringify(ordenarChavesCanonicas(conta.evidenciaCriacao)) === jsonEsperado
+            && JSON.stringify(ordenarChavesCanonicas(historicos[0].evidenciaCriacao)) === jsonEsperado
+            && JSON.stringify(ordenarChavesCanonicas(auditoriasOperacao[0].evidenciaCriacao)) === jsonEsperado
+            ? { estado: 'concluida', completo: true }
+            : { estado: 'parcial', completo: false };
+    }
+
+    function executarCriacaoContaReceberTransacional(entradaRecebida = {}, dependencias = {}) {
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_CONTA_RECEBER_INVALIDA');
+        const clonada = clonarJsonInterno(entradaRecebida);
+        if (!clonada.ok) return resultadoBase('ENTRADA_CONTA_RECEBER_INVALIDA');
+        const entrada = clonada.valor;
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const descricao = textoObrigatorio(entrada.descricao, 500);
+        const responsavel = textoObrigatorio(entrada.responsavel, 300);
+        const total = normalizarTextoMonetarioCentavos(entrada.valorTotalTexto, { permitirZero: false });
+        const persistenciaEntrada = entrada.persistencia;
+        const quantidadeParcelas = entrada.quantidadeParcelas;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId) || !descricao || !responsavel
+            || !total.ok || !Number.isSafeInteger(quantidadeParcelas) || quantidadeParcelas <= 0
+            || !validarDataLocalContaReceber(entrada.emitidaEm)
+            || !validarDataLocalContaReceber(entrada.primeiroVencimento)
+            || typeof entrada.criadoEm !== 'string' || !entrada.criadoEm
+            || entrada.atualizadoEm !== entrada.criadoEm
+            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
+            || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao
+            || persistenciaEntrada.data !== entrada.criadoEm
+            || !Number.isSafeInteger(persistenciaEntrada.ultimaEdicao) || persistenciaEntrada.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias?.armazenamento) return resultadoBase('ENTRADA_CONTA_RECEBER_INVALIDA');
+
+        const valoresParcelas = distribuirCentavosContaReceber(total.centavos, quantidadeParcelas);
+        if (!valoresParcelas) return resultadoBase('PARCELAMENTO_INVALIDO');
+        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+        const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        const resolucaoLocacao = resolverReferenciaTipadaLocacaoTransacional(
+            entrada.locacaoReferencia, memoriaInicial.valor.locacoes);
+        if (resolucaoLocacao.estado !== 'encontrado') return resultadoBase(
+            resolucaoLocacao.estado === 'duplicado' ? 'LOCACAO_ID_DUPLICADO'
+                : resolucaoLocacao.estado === 'ausente' ? 'LOCACAO_NAO_ENCONTRADA' : 'REFERENCIA_LOCACAO_INVALIDA');
+        const locacaoId = resolucaoLocacao.id;
+        const locacaoReferencia = criarReferenciaTipadaLocacaoTransacional(locacaoId);
+        const locacaoRef = referenciaEstrita(locacaoId);
+        const cliente = resolverIdentidadeExataContaReceber(resolucaoLocacao.locacao.locadorId, memoriaInicial.valor.locadores);
+        if (!locacaoRef || cliente.estado !== 'encontrado') return resultadoBase(
+            cliente.estado === 'duplicado' ? 'CLIENTE_ID_DUPLICADO' : 'CLIENTE_NAO_RECONCILIADO');
+        if (travasContaReceber.has(locacaoRef)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+
+        travasContaReceber.add(locacaoRef);
+        let autorizacaoPublicacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const totalLocacao = normalizarValorMonetarioLegadoCentavos(
+                resolucaoLocacao.locacao?.financeiro?.valorTotal ?? resolucaoLocacao.locacao?.valorTotalCalculado,
+                { permitirZero: false });
+            if (!totalLocacao.ok || totalLocacao.centavos !== total.centavos) {
+                return resultadoBase('VALOR_TOTAL_CONTA_DIVERGENTE');
+            }
+            const assinatura = assinaturaContaReceber(entrada, locacaoId, locacaoReferencia,
+                cliente.referencia, total.centavos);
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) {
+                opcoesArmazenamento.chave = persistenciaEntrada.chave;
+            }
+            let leituraInicial;
+            try { leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); }
+            catch (_erro) { leituraInicial = null; }
+            const leituraValidada = validarRetornoLeituraSnapshotFinanceiro(leituraInicial);
+            if (!leituraValidada.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leituraValidada.snapshot);
+            if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evidenciaMemoria = verificarEvidenciasContaReceber(memoriaInicial.valor, operacaoId,
+                locacaoId, locacaoReferencia, assinatura);
+            const evidenciaPersistida = verificarEvidenciasContaReceber(persistidoInicial.valor, operacaoId,
+                locacaoId, locacaoReferencia, assinatura);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                if (evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoriaInicial.json === persistidoInicial.json) {
+                    return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
+                        idempotente: true, operacao: { locacaoId, locacaoReferencia, operacaoId,
+                            assinaturaPlano: assinatura }, renderizar: true });
+                }
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoriaInicial.json !== persistidoInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const colecaoValida = validarUnicidadeColecaoContasReceber(
+                memoriaInicial.valor.contasReceber, entrada.emitidaEm);
+            if (!colecaoValida.valida) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: colecaoValida.codigo }]
+                });
+            }
+            const contaAtiva = memoriaInicial.valor.contasReceber.some((conta) => (
+                conta?.locacaoReferencia === locacaoReferencia && conta?.situacao !== 'cancelada'
+            ));
+            if (contaAtiva) return resultadoBase('CONTA_RECEBER_ATIVA_EXISTENTE');
+
+            const candidato = clonarJsonInterno(memoriaInicial.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contaId = `conta-${operacaoId}`;
+            const contaReferencia = criarReferenciaTipadaContaReceber('conta', contaId);
+            const parcelas = valoresParcelas.map((valorOriginalCentavos, indice) => {
+                const numero = indice + 1;
+                const vencimento = adicionarMesesDataLocalContaReceber(entrada.primeiroVencimento, indice);
+                const situacao = vencimento < entrada.emitidaEm ? 'vencida' : 'pendente';
+                const parcelaId = `${contaId}-parcela-${numero}`;
+                return {
+                    id: parcelaId,
+                    parcelaReferencia: criarReferenciaTipadaContaReceber('parcela', parcelaId),
+                    numero,
+                    totalParcelas: quantidadeParcelas,
+                    vencimento,
+                    valorOriginalCentavos,
+                    valorRecebidoCentavos: 0,
+                    saldoCentavos: valorOriginalCentavos,
+                    situacao,
+                    lancamentosFinanceiros: [],
+                    criadoEm: entrada.criadoEm,
+                    atualizadoEm: entrada.atualizadoEm
+                };
+            });
+            const situacao = parcelas.some((parcela) => parcela.situacao === 'vencida') ? 'vencida' : 'pendente';
+            const conta = {
+                id: contaId,
+                contaReferencia,
+                operacaoId,
+                assinaturaPlano: assinatura,
+                locacaoId,
+                locacaoReferencia,
+                clienteId: cliente.registro.id,
+                clienteReferencia: cliente.referencia,
+                descricao,
+                valorTotalCentavos: total.centavos,
+                valorRecebidoCentavos: 0,
+                saldoCentavos: total.centavos,
+                quantidadeParcelas,
+                dataEmissao: entrada.emitidaEm,
+                situacao,
+                criadoEm: entrada.criadoEm,
+                atualizadoEm: entrada.atualizadoEm,
+                responsavel,
+                parcelas,
+                historico: []
+            };
+            const evidenciaCriacao = criarEvidenciaCriacaoContaReceber(conta);
+            conta.evidenciaCriacao = evidenciaCriacao;
+            conta.historico = [{ id: `historico-${operacaoId}`, operacaoId, locacaoId,
+                contaReferencia, clienteReferencia: cliente.referencia,
+                locacaoReferencia, assinaturaPlano: assinatura, acao: 'conta_receber_criada',
+                data: entrada.criadoEm, usuario: responsavel, valorTotalCentavos: total.centavos,
+                quantidadeParcelas, evidenciaCriacao }];
+            const identidadesValidas = validarUnicidadeColecaoContasReceber(
+                [...candidato.valor.contasReceber, conta], entrada.emitidaEm);
+            if (!identidadesValidas.valida) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: identidadesValidas.codigo }]
+                });
+            }
+            candidato.valor.contasReceber = [...candidato.valor.contasReceber, conta];
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria, {
+                id: `auditoria-${operacaoId}`, operacaoId, locacaoId, locacaoReferencia,
+                assinaturaPlano: assinatura, tipo: 'financeiro', acao: 'criar_conta_receber',
+                descricao: 'Conta a receber criada.', timestamp: entrada.criadoEm, data: entrada.criadoEm,
+                usuario: responsavel, contaReferencia, valorTotalCentavos: total.centavos,
+                quantidadeParcelas, clienteReferencia: cliente.referencia, evidenciaCriacao
+            }];
+            if (parcelas.reduce((soma, parcela) => soma + parcela.valorOriginalCentavos, 0) !== total.centavos
+                || !verificarEvidenciasContaReceber(candidato.valor, operacaoId, locacaoId,
+                    locacaoReferencia, assinatura).completo) return resultadoBase('CANDIDATO_CONTA_RECEBER_INVALIDO');
+
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparadoExterno;
+            try {
+                preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico), clonarDescartavel(persistenciaEntrada));
+            } catch (_erro) { return resultadoBase('FALHA_PREPARACAO_SNAPSHOT'); }
+            const preparadoValidado = validarRetornoPreparacaoSnapshotFinanceiro(preparadoExterno);
+            const snapshotAutoritativo = clonarJsonInterno({ versao: persistenciaEntrada.versao,
+                data: persistenciaEntrada.data, ultimaEdicao: persistenciaEntrada.ultimaEdicao,
+                ...candidatoCanonico });
+            const externo = preparadoValidado.ok ? clonarJsonInterno(preparadoValidado.snapshot) : { ok: false };
+            if (!snapshotAutoritativo.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(externo.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacionalEsperado = prepararEstadoOperacionalInterno(snapshotAutoritativo.valor);
+            const jsonPublicacaoEsperado = operacionalEsperado.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacaoPublicacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            try {
+                dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshotAutoritativo.valor), { ...opcoesArmazenamento });
+            } catch (_erro) { /* a releitura decide */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); }
+            catch (_erro) { releitura = null; }
+            const releituraValidada = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValidada.ok ? clonarJsonInterno(releituraValidada.snapshot) : { ok: false };
+            const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
+            const jsonRelido = relido.ok ? JSON.stringify(ordenarChavesCanonicas(relido.valor)) : '';
+            if (!relido.ok || jsonRelido !== jsonEsperado) {
+                const semEscrita = relido.ok && JSON.stringify(ordenarChavesCanonicas(leituraValidada.snapshot)) === jsonRelido;
+                return resultadoBase(semEscrita ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
+                    { requerRecuperacao: !semEscrita });
+            }
+            persistenciaConfirmada = true;
+            const raizAntesPublicacao = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAntesPublicacao = prepararEstadoOperacionalInterno(raizAntesPublicacao);
+            if (raizAntesPublicacao !== raizAnterior || !memoriaAntesPublicacao.ok
+                || memoriaAntesPublicacao.json !== memoriaInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalEsperado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacaoEsperado, autorizacaoPublicacao,
+                    exigirConfirmacaoInterna: true });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior, autorizacaoPublicacao }) || null;
+            autorizacaoPublicacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try {
+                sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                    ultimaEdicao: persistenciaEntrada.ultimaEdicao, locacaoId, operacaoId,
+                    assinaturaPlano: assinatura }) === true;
+            } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('CONTA_RECEBER_CRIADA', { ok: true, aplicado: true,
+                publicacaoRealizada: true, avisos, operacao: { operacaoId, locacaoId,
+                    locacaoReferencia, contaId, contaReferencia, assinaturaPlano: assinatura,
+                    valorTotalCentavos: total.centavos, quantidadeParcelas }, renderizar: true,
+                sincronizar });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'CONTA_RECEBER_CRIADA' : 'FALHA_CONTA_RECEBER', {
+                ok: publicacaoRealizada, aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }],
+                renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacaoPublicacao) {
+                try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); } catch (_erro) { /* encerrada */ }
+            }
+            travasContaReceber.delete(locacaoRef);
+        }
+    }
+
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
     window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
@@ -3584,6 +4246,9 @@
     window.executarReaberturaChecklistTransacional = executarReaberturaChecklistTransacional;
     window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
     window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
+    window.calcularSituacaoEfetivaParcelaContaReceber = calcularSituacaoEfetivaParcelaContaReceber;
+    window.obterProjecaoFinanceiraContaReceber = obterProjecaoFinanceiraContaReceber;
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
+    window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();
