@@ -3282,6 +3282,67 @@
         return normalizado.ok ? normalizado : { ok: false, codigo: 'VALOR_MONETARIO_LEGADO_AMBIGUO' };
     }
 
+    function somarCentavosMonetarios(valores) {
+        if (!Array.isArray(valores)) return { ok: false, codigo: 'SOMA_MONETARIA_INVALIDA' };
+        let total = 0n;
+        for (const valor of valores) {
+            if (!Number.isSafeInteger(valor) || valor < 0) {
+                return { ok: false, codigo: 'SOMA_MONETARIA_INVALIDA' };
+            }
+            total += BigInt(valor);
+            if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
+                return { ok: false, codigo: 'SOMA_MONETARIA_FORA_DO_LIMITE' };
+            }
+        }
+        return { ok: true, centavos: Number(total) };
+    }
+
+    function formatarCentavosMonetarios(centavos) {
+        if (!Number.isSafeInteger(centavos) || centavos < 0) return null;
+        const digitos = String(centavos).padStart(3, '0');
+        const inteiros = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return `R$ ${inteiros},${digitos.slice(-2)}`;
+    }
+
+    function obterProjecaoFinanceiraLegadaLocacao(locacao, valorTotalFallback) {
+        if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)) {
+            return { estado: 'invalido', encontrada: false };
+        }
+        const financeiro = locacao.financeiro && typeof locacao.financeiro === 'object'
+            && !Array.isArray(locacao.financeiro) ? locacao.financeiro : {};
+        const statusPagamento = String(financeiro.statusPagamento
+            || (locacao.pago ? 'pago' : 'pendente')).trim().toLowerCase() || 'pendente';
+        const total = normalizarValorMonetarioLegadoCentavos(
+            financeiro.valorTotal ?? locacao.valorTotalCalculado ?? valorTotalFallback);
+        const sinal = normalizarValorMonetarioLegadoCentavos(financeiro.sinal ?? locacao.sinal ?? 0);
+        if (!total.ok || !sinal.ok || sinal.centavos > total.centavos) {
+            return { estado: 'invalido', encontrada: false };
+        }
+        let restanteCentavos;
+        if (financeiro.valorRestante !== undefined && financeiro.valorRestante !== null) {
+            const restante = normalizarValorMonetarioLegadoCentavos(financeiro.valorRestante);
+            if (!restante.ok || restante.centavos > total.centavos) {
+                return { estado: 'invalido', encontrada: false };
+            }
+            restanteCentavos = restante.centavos;
+        } else if (statusPagamento === 'pago') {
+            restanteCentavos = 0;
+        } else {
+            restanteCentavos = total.centavos - sinal.centavos;
+        }
+        const recebidoCentavos = total.centavos - restanteCentavos;
+        if (!Number.isSafeInteger(recebidoCentavos) || recebidoCentavos < 0
+            || recebidoCentavos + restanteCentavos !== total.centavos
+            || sinal.centavos > recebidoCentavos
+            || (statusPagamento === 'pago' && restanteCentavos !== 0)) {
+            return { estado: 'invalido', encontrada: false };
+        }
+        return { estado: 'valido', encontrada: true, statusPagamento,
+            valorTotalCentavos: total.centavos, valorRecebidoCentavos: recebidoCentavos,
+            saldoCentavos: restanteCentavos,
+            vencimento: typeof financeiro.vencimento === 'string' ? financeiro.vencimento : '' };
+    }
+
     function calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) {
         if (!parcela || typeof parcela !== 'object' || Array.isArray(parcela)
             || !validarDataLocalContaReceber(dataReferencia)) return 'invalida';
@@ -3316,7 +3377,7 @@
             || typeof conta.criadoEm !== 'string' || !conta.criadoEm
             || typeof conta.atualizadoEm !== 'string' || !conta.atualizadoEm
             || typeof conta.responsavel !== 'string' || !conta.responsavel
-            || !['pendente', 'parcial', 'paga', 'vencida', 'cancelada'].includes(conta.situacao)
+            || !['pendente', 'parcial', 'paga', 'vencida', 'cancelada', 'encerrada'].includes(conta.situacao)
             || !Array.isArray(conta.historico)
             || !conta.evidenciaCriacao || typeof conta.evidenciaCriacao !== 'object'
             || Array.isArray(conta.evidenciaCriacao)
@@ -3365,6 +3426,7 @@
         }
         const situacoes = conta.parcelas.map((parcela) => calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia));
         const situacao = conta.situacao === 'cancelada' ? 'cancelada'
+            : conta.situacao === 'encerrada' ? 'encerrada'
             : saldo === 0 ? 'paga'
                 : recebido > 0 ? 'parcial'
                     : situacoes.includes('vencida') ? 'vencida' : 'pendente';
@@ -3392,9 +3454,11 @@
             .sort((a, b) => a.parcela.vencimento.localeCompare(b.parcela.vencimento)
                 || a.parcela.numero - b.parcela.numero
                 || a.parcela.parcelaReferencia.localeCompare(b.parcela.parcelaReferencia));
+        const administrativamenteInativa = ['cancelada', 'encerrada'].includes(validacao.situacao);
         return { estado: 'encontrado', encontrada: true, conta,
             contaReferencia: conta.contaReferencia, valorTotalCentavos: validacao.totalCentavos,
-            valorRecebidoCentavos: validacao.recebidoCentavos, saldoCentavos: validacao.saldoCentavos,
+            valorRecebidoCentavos: validacao.recebidoCentavos,
+            saldoCentavos: administrativamenteInativa ? 0 : validacao.saldoCentavos,
             situacao: validacao.situacao, vencimento: abertas[0]?.parcela.vencimento || '' };
     }
 
@@ -3472,12 +3536,14 @@
     }
 
     function assinaturaRecebimentoLocacao(entrada, locacaoId, locacaoReferencia, valorRecebidoCentavos,
-        contaReferencia = '') {
+        contaReferencia = '', valorLancamentoCentavos = 0) {
         const base = ordenarChavesCanonicas({
             tipo: 'recebimento_locacao_v1',
             locacaoId,
             locacaoReferencia,
             contaReferencia,
+            parcelaReferencia: entrada.parcelaReferencia || '',
+            valorLancamentoCentavos,
             operacaoId: entrada.operacaoId,
             valorRecebidoCentavos,
             atualizadoEm: entrada.atualizadoEm,
@@ -3506,6 +3572,8 @@
             && Object.prototype.hasOwnProperty.call(registro, 'locacaoReferencia')
             && registro.locacaoReferencia === locacaoReferencia
             && (!contaReferencia || registro.contaReferencia === contaReferencia)
+            && (!Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia')
+                || registro.parcelaReferencia === entrada.parcelaReferencia)
             && registro.assinaturaPlano === assinatura
         ));
         const quantidades = ['lancamento', 'historico', 'auditoria'].map((tipo) => registros.filter((item) => item.tipo === tipo).length);
@@ -3527,6 +3595,8 @@
             .filter((registro) => registro?.operacaoId === entrada.operacaoId);
         const coerenteConta = (registro) => registro?.contaReferencia === contaReferencia
             && registro?.locacaoReferencia === locacaoReferencia
+            && (!Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia')
+                || registro.parcelaReferencia === entrada.parcelaReferencia)
             && registro?.assinaturaPlano === assinatura;
         const somaAplicada = lancamentosParcelas.reduce((soma, registro) => (
             Number.isSafeInteger(registro.valorAplicadoCentavos)
@@ -3547,15 +3617,22 @@
         const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
         const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
         const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
-        const valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(
+        let valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(
             entrada.valorRecebidoTexto, { permitirZero: false });
+        const recebimentoParcela = Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia');
+        const valorLancamentoParcela = recebimentoParcela
+            ? normalizarTextoMonetarioCentavos(entrada.valorLancamentoTexto, { permitirZero: false })
+            : null;
         const persistenciaEntrada = entrada.persistencia;
         const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
             'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
             'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
         if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
             || !atualizadoEm || !atualizadoPor
-            || !valorRecebidoNormalizado.ok
+            || (recebimentoParcela
+                ? (typeof entrada.parcelaReferencia !== 'string' || !entrada.parcelaReferencia
+                    || !valorLancamentoParcela.ok)
+                : !valorRecebidoNormalizado.ok)
             || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
             || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao.trim()
             || persistenciaEntrada.data !== atualizadoEm
@@ -3589,7 +3666,8 @@
                 ? resolucao.locacao.financeiro : {};
             const totalNormalizado = normalizarValorMonetarioLegadoCentavos(
                 financeiroAtual.valorTotal ?? resolucao.locacao.valorTotalCalculado, { permitirZero: false });
-            if (!totalNormalizado.ok || valorRecebidoNormalizado.centavos > totalNormalizado.centavos) {
+            if (!totalNormalizado.ok || (!recebimentoParcela
+                && valorRecebidoNormalizado.centavos > totalNormalizado.centavos)) {
                 return resultadoBase('VALOR_RECEBIMENTO_FORA_DO_LIMITE');
             }
             const sinalNormalizado = normalizarValorMonetarioLegadoCentavos(financeiroAtual.sinal ?? 0);
@@ -3615,18 +3693,46 @@
                 });
             }
             const contaReferencia = projecaoConta.encontrada ? projecaoConta.contaReferencia : '';
-            if (projecaoConta.encontrada && (projecaoConta.situacao === 'cancelada'
+            let parcelaRecebimentoBloqueada = false;
+            if (recebimentoParcela && !projecaoConta.encontrada) return resultadoBase('CONTA_RECEBER_NAO_ENCONTRADA');
+            if (projecaoConta.encontrada && (['cancelada', 'encerrada'].includes(projecaoConta.situacao)
                 || projecaoConta.valorTotalCentavos !== totalNormalizado.centavos
                 || projecaoConta.valorRecebidoCentavos !== recebidoAnteriorCentavos
                 || projecaoConta.saldoCentavos !== totalNormalizado.centavos - recebidoAnteriorCentavos)) {
-                return projecaoConta.situacao === 'cancelada'
-                    ? resultadoBase('CONTA_RECEBER_CANCELADA')
+                return ['cancelada', 'encerrada'].includes(projecaoConta.situacao)
+                    ? resultadoBase(`CONTA_RECEBER_${projecaoConta.situacao.toUpperCase()}`)
                     : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (recebimentoParcela) {
+                const parcelas = projecaoConta.conta.parcelas.filter((parcela) => (
+                    parcela?.parcelaReferencia === entrada.parcelaReferencia
+                ));
+                if (parcelas.length !== 1) return resultadoBase('PARCELA_NAO_RECONCILIADA');
+                const parcela = parcelas[0];
+                parcelaRecebimentoBloqueada = ['cancelada', 'paga'].includes(
+                    calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia))
+                    || valorLancamentoParcela.centavos > parcela.saldoCentavos
+                    || recebidoAnteriorCentavos + valorLancamentoParcela.centavos > totalNormalizado.centavos;
+                valorRecebidoNormalizado = converterCentavosParaNumeroPersistivel(
+                    recebidoAnteriorCentavos + valorLancamentoParcela.centavos);
             }
             const valorTotal = totalNormalizado.valor;
             const valorRecebido = valorRecebidoNormalizado.valor;
+            let valorRecebidoAssinaturaCentavos = valorRecebidoNormalizado.centavos;
+            if (recebimentoParcela) {
+                const evidenciasAnteriores = (Array.isArray(resolucao.locacao?.financeiro?.lancamentosRecebimentos)
+                    ? resolucao.locacao.financeiro.lancamentosRecebimentos : []).filter((registro) => (
+                    registro?.operacaoId === entrada.operacaoId
+                    && registro?.parcelaReferencia === entrada.parcelaReferencia
+                    && Number.isSafeInteger(registro?.valorRecebidoCentavos)
+                ));
+                if (evidenciasAnteriores.length === 1) {
+                    valorRecebidoAssinaturaCentavos = evidenciasAnteriores[0].valorRecebidoCentavos;
+                }
+            }
             const assinatura = assinaturaRecebimentoLocacao(entrada, locacaoId,
-                locacaoReferencia, valorRecebidoNormalizado.centavos, contaReferencia);
+                locacaoReferencia, valorRecebidoAssinaturaCentavos, contaReferencia,
+                recebimentoParcela ? valorLancamentoParcela.centavos : 0);
             const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
             if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
             let leituraInicial;
@@ -3650,6 +3756,7 @@
                 || memoriaInicial.json !== persistidoInicial.json) {
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
+            if (parcelaRecebimentoBloqueada) return resultadoBase('VALOR_RECEBIMENTO_FORA_DO_LIMITE');
             if (valorRecebidoNormalizado.centavos <= recebidoAnteriorCentavos) {
                 return resultadoBase('VALOR_RECEBIMENTO_SEM_AVANCO');
             }
@@ -3672,7 +3779,7 @@
             const novoRestante = novoRestanteNormalizado.valor;
             const statusPagamento = novoRestanteCentavos === 0 ? 'pago' : 'parcial';
             const lancamento = Object.freeze({ id: `recebimento-${operacaoId}`, operacaoId, locacaoId, locacaoReferencia,
-                contaReferencia,
+                contaReferencia, parcelaReferencia: recebimentoParcela ? entrada.parcelaReferencia : '',
                 assinaturaPlano: assinatura, data: atualizadoEm, usuario: atualizadoPor,
                 valorAnterior: recebidoAnterior, valorRecebido, valorLancamento: delta,
                 valorRestante: novoRestante, valorAnteriorCentavos: recebidoAnteriorCentavos,
@@ -3686,14 +3793,18 @@
             locacao.historicoAlteracoes = [...(Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : []), {
                 id: `historico-${operacaoId}`, data: atualizadoEm, acao: 'financeiro_recebimento', origem: 'financeiro',
                 descricao: `Recebimento de ${formatarCentavosParaHistorico(deltaCentavos)} registrado.`, usuario: atualizadoPor,
-                operacaoId, locacaoId, locacaoReferencia, contaReferencia, assinaturaPlano: assinatura, valorRecebido,
+                operacaoId, locacaoId, locacaoReferencia, contaReferencia,
+                parcelaReferencia: recebimentoParcela ? entrada.parcelaReferencia : '',
+                assinaturaPlano: assinatura, valorRecebido,
                 valorRecebidoCentavos: valorRecebidoNormalizado.centavos, valorLancamentoCentavos: deltaCentavos,
                 valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
             }];
             candidato.valor.logsAuditoria = [...(Array.isArray(candidato.valor.logsAuditoria) ? candidato.valor.logsAuditoria : []), {
                 id: `auditoria-${operacaoId}`, timestamp: atualizadoEm, data: atualizadoEm, tipo: 'financeiro', acao: 'recebimento',
                 descricao: 'Recebimento de locação registrado.', usuario: atualizadoPor,
-                operacaoId, locacaoId, locacaoReferencia, contaReferencia, assinaturaPlano: assinatura, valorLancamento: delta,
+                operacaoId, locacaoId, locacaoReferencia, contaReferencia,
+                parcelaReferencia: recebimentoParcela ? entrada.parcelaReferencia : '',
+                assinaturaPlano: assinatura, valorLancamento: delta,
                 valorLancamentoCentavos: deltaCentavos, valorRecebido,
                 valorRecebidoCentavos: valorRecebidoNormalizado.centavos,
                 valorRestante: novoRestante, valorRestanteCentavos: novoRestanteCentavos
@@ -3704,7 +3815,8 @@
                 const conta = contasAlvo[0];
                 let restanteAplicar = deltaCentavos;
                 const parcelasAbertas = conta.parcelas
-                    .filter((parcela) => calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) !== 'cancelada'
+                    .filter((parcela) => (!recebimentoParcela || parcela.parcelaReferencia === entrada.parcelaReferencia)
+                        && calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia) !== 'cancelada'
                         && parcela.saldoCentavos > 0)
                     .sort((a, b) => a.vencimento.localeCompare(b.vencimento)
                         || a.numero - b.numero || a.parcelaReferencia.localeCompare(b.parcelaReferencia));
@@ -3749,6 +3861,7 @@
                     acao: 'recebimento_aplicado',
                     operacaoId,
                     contaReferencia,
+                    parcelaReferencia: recebimentoParcela ? entrada.parcelaReferencia : '',
                     locacaoId,
                     locacaoReferencia,
                     assinaturaPlano: assinatura,
@@ -4073,7 +4186,7 @@
                 });
             }
             const contaAtiva = memoriaInicial.valor.contasReceber.some((conta) => (
-                conta?.locacaoReferencia === locacaoReferencia && conta?.situacao !== 'cancelada'
+                conta?.locacaoReferencia === locacaoReferencia
             ));
             if (contaAtiva) return resultadoBase('CONTA_RECEBER_ATIVA_EXISTENTE');
 
@@ -4247,6 +4360,10 @@
     window.gerarAssinaturaDevolucaoLocacao = gerarAssinaturaDevolucaoLocacao;
     window.executarDevolucaoLocacaoTransacional = executarDevolucaoLocacaoTransacional;
     window.calcularSituacaoEfetivaParcelaContaReceber = calcularSituacaoEfetivaParcelaContaReceber;
+    window.normalizarValorMonetarioLegadoCentavos = normalizarValorMonetarioLegadoCentavos;
+    window.somarCentavosMonetarios = somarCentavosMonetarios;
+    window.formatarCentavosMonetarios = formatarCentavosMonetarios;
+    window.obterProjecaoFinanceiraLegadaLocacao = obterProjecaoFinanceiraLegadaLocacao;
     window.obterProjecaoFinanceiraContaReceber = obterProjecaoFinanceiraContaReceber;
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;

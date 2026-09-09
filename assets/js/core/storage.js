@@ -790,6 +790,7 @@ async function sincronizar(modo) {
                 snapshotLocal.locadores.length > 0 ||
                 snapshotLocal.pecas.length > 0 ||
                 snapshotLocal.locacoes.length > 0 ||
+                snapshotLocal.contasReceber.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
 
             if (temDadosLocais) {

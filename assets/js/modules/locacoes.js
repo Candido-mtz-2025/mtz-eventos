@@ -1133,7 +1133,7 @@ function obterResumoPagamentoLocacao(locacao) {
     const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
         ? obterProjecaoFinanceiraContaReceber(locacao?.id, contasReceber, dataReferencia)
         : { estado: 'ausente', encontrada: false };
-    if (projecaoConta.encontrada) {
+    if (projecaoConta.estado === 'encontrado' && projecaoConta.encontrada === true) {
         return {
             financeiroAtual: locacao?.financeiro || {},
             valorTotal: projecaoConta.valorTotalCentavos / 100,
@@ -1142,31 +1142,30 @@ function obterResumoPagamentoLocacao(locacao) {
             recebidoAtual: projecaoConta.valorRecebidoCentavos / 100
         };
     }
+    if (projecaoConta.estado !== 'ausente' || projecaoConta.encontrada !== false) {
+        return { financeiroAtual: {}, valorTotal: 0, sinalAtual: 0, valorRestante: 0,
+            recebidoAtual: 0, invalido: true };
+    }
     const financeiroAtual = locacao?.financeiro || {};
-    const valorTotal = typeof calcularValorLocacaoDominio === 'function'
+    const valorTotalFallback = typeof calcularValorLocacaoDominio === 'function'
         ? calcularValorLocacaoDominio(locacao)
         : Math.max(0, parseValorFinanceiroLocacao(
             financeiroAtual.valorTotal ?? locacao?.valorTotalCalculado ?? 0
         ) || 0);
-    const sinalNormalizado = typeof normalizarValorMonetarioLegado === 'function'
-        ? normalizarValorMonetarioLegado(financeiroAtual.sinal ?? locacao?.sinal)
-        : parseValorFinanceiroLocacao(financeiroAtual.sinal ?? locacao?.sinal);
-    const sinalAtual = Math.max(0, sinalNormalizado ?? 0);
-    const restanteNormalizado = typeof normalizarValorMonetarioLegado === 'function'
-        ? normalizarValorMonetarioLegado(financeiroAtual.valorRestante)
-        : parseValorFinanceiroLocacao(financeiroAtual.valorRestante);
-    const valorRestante = Math.max(
-        0,
-        restanteNormalizado ?? Math.max(valorTotal - sinalAtual, 0)
-    );
-    const recebidoAtual = Math.min(Math.max(sinalAtual, valorTotal - valorRestante, 0), valorTotal);
+    const projecaoLegada = typeof obterProjecaoFinanceiraLegadaLocacao === 'function'
+        ? obterProjecaoFinanceiraLegadaLocacao(locacao, valorTotalFallback)
+        : { encontrada: false };
+    if (!projecaoLegada.encontrada) {
+        return { financeiroAtual, valorTotal: 0, sinalAtual: 0, valorRestante: 0,
+            recebidoAtual: 0, invalido: true };
+    }
 
     return {
         financeiroAtual,
-        valorTotal,
-        sinalAtual,
-        valorRestante,
-        recebidoAtual
+        valorTotal: projecaoLegada.valorTotalCentavos / 100,
+        sinalAtual: projecaoLegada.valorRecebidoCentavos / 100,
+        valorRestante: projecaoLegada.saldoCentavos / 100,
+        recebidoAtual: projecaoLegada.valorRecebidoCentavos / 100
     };
 }
 
@@ -1208,7 +1207,7 @@ function atualizarTextoElemento(id, texto) {
     if (el) el.textContent = texto;
 }
 
-function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId) {
+function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId, opcoes = {}) {
     if (recebimentoLocacaoEmAndamento) return false;
     if (typeof valorRecebidoTexto !== 'string') {
         mostrarToast('O valor recebido deve ser informado como texto monetário válido.', 'erro');
@@ -1230,6 +1229,10 @@ function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId) {
             ultimaEdicao: instante.getTime()
         }
     };
+    if (typeof opcoes.parcelaReferencia === 'string' && typeof opcoes.valorLancamentoTexto === 'string') {
+        entrada.parcelaReferencia = opcoes.parcelaReferencia;
+        entrada.valorLancamentoTexto = opcoes.valorLancamentoTexto;
+    }
     recebimentoLocacaoEmAndamento = true;
     let resultado;
     try {

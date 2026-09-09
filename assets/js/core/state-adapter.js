@@ -66,7 +66,31 @@
             const lancamentos = locacao?.financeiro?.lancamentosRecebimentos;
             if (Array.isArray(lancamentos)) coletar(lancamentos);
         });
+        (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
+            coletar(conta.historico);
+            (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
+                coletar(parcela.lancamentosFinanceiros);
+            });
+        });
         return alvos;
+    }
+
+    function protegerIdentidadesContasReceber(estado) {
+        const proteger = (objeto, chaves) => chaves.forEach((chave) => {
+            if (objeto && Object.prototype.hasOwnProperty.call(objeto, chave)) {
+                Object.defineProperty(objeto, chave, {
+                    ...Object.getOwnPropertyDescriptor(objeto, chave),
+                    writable: false,
+                    configurable: false
+                });
+            }
+        });
+        (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
+            proteger(conta, ['id', 'contaReferencia', 'locacaoId', 'locacaoReferencia', 'clienteId', 'clienteReferencia', 'operacaoId']);
+            (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
+                proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
+            });
+        });
     }
 
     function protegerLancamentosFinanceirosPublicados(alvos) {
@@ -278,7 +302,10 @@
                     trocas: 1
                 }));
             }
-            if (publicado) protegerLancamentosFinanceirosPublicados(lancamentosParaProtecao);
+            if (publicado) {
+                protegerIdentidadesContasReceber(estadoPublicado);
+                protegerLancamentosFinanceirosPublicados(lancamentosParaProtecao);
+            }
             return publicado
                 ? {
                     ok: true,

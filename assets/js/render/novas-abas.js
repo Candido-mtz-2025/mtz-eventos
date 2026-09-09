@@ -11,19 +11,14 @@
     let filtroOrcamentosAtual = 'todos';
     let filtroFinanceiroAtual = 'todos';
     let filtroAgendaAtual = 'todos';
+    let acionadorDetalhesContaReceber = null;
+    let eventosDetalhesContaReceberRegistrados = false;
 
     function normalizarTextoBusca(valor) {
         return String(valor || '')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase();
-    }
-
-    function formatarMoeda(valor) {
-        return (Number(valor) || 0).toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-        });
     }
 
     function parseDataIsoLocal(valor) {
@@ -224,7 +219,15 @@
         return 'badge-warning';
     }
 
-    function obterBaseLocacoes() {
+    function obterBaseLocacoes(opcoes = {}) {
+        const incluirValoresReaisCompatibilidade = opcoes.incluirValoresReaisCompatibilidade !== false;
+        const converterCentavosParaReaisCompatibilidade = (centavos) => {
+            if (!Number.isSafeInteger(centavos) || centavos < 0
+                || typeof normalizarValorMonetarioLegadoCentavos !== 'function') return null;
+            const valor = centavos / 100;
+            const reconvertido = normalizarValorMonetarioLegadoCentavos(valor);
+            return reconvertido.ok && reconvertido.centavos === centavos ? valor : null;
+        };
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
         const dataReferencia = `${String(hoje.getFullYear()).padStart(4, '0')}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
@@ -239,29 +242,19 @@
             const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
                 ? obterProjecaoFinanceiraContaReceber(normalizada.id, contasReceber, dataReferencia)
                 : { estado: 'ausente', encontrada: false };
-            const possuiContaInconsistente = ['duplicado', 'invalido'].includes(projecaoConta.estado);
+            const contaEncontrada = projecaoConta.estado === 'encontrado' && projecaoConta.encontrada === true;
+            const contaAusente = projecaoConta.estado === 'ausente' && projecaoConta.encontrada === false;
+            const possuiContaInconsistente = !contaEncontrada && !contaAusente;
             const statusPagamentoLegado = inferirStatusPagamento(normalizada);
-            const statusPagamento = projecaoConta.encontrada
+            const projecaoLegada = contaAusente
+                && typeof obterProjecaoFinanceiraLegadaLocacao === 'function'
+                ? obterProjecaoFinanceiraLegadaLocacao(normalizada) : { encontrada: false };
+            const possuiLegadoInconsistente = !contaEncontrada
+                && !possuiContaInconsistente && !projecaoLegada.encontrada;
+            const statusPagamento = contaEncontrada
                 ? (projecaoConta.situacao === 'vencida' ? 'atrasado' : projecaoConta.situacao)
-                : possuiContaInconsistente ? 'invalido' : statusPagamentoLegado;
-            const valorTotal = projecaoConta.encontrada
-                ? projecaoConta.valorTotalCentavos / 100
-                : possuiContaInconsistente ? 0
-                    : Number(normalizada?.financeiro?.valorTotal ?? normalizada?.valorTotalCalculado ?? 0) || 0;
-            const valorRestante = projecaoConta.encontrada
-                ? projecaoConta.saldoCentavos / 100
-                : statusPagamento === 'pago'
-                ? 0
-                : possuiContaInconsistente ? 0
-                    : Math.max(0, Number(normalizada?.financeiro?.valorRestante ?? valorTotal) || 0);
-            const valorRecebido = projecaoConta.encontrada
-                ? projecaoConta.valorRecebidoCentavos / 100
-                : statusPagamento === 'pago'
-                ? valorTotal
-                : statusPagamento === 'parcial'
-                    ? Math.max(0, valorTotal - valorRestante)
-                    : 0;
-            const vencimento = projecaoConta.encontrada
+                : possuiContaInconsistente || possuiLegadoInconsistente ? 'invalido' : statusPagamentoLegado;
+            const vencimento = contaEncontrada
                 ? projecaoConta.vencimento
                 : possuiContaInconsistente ? ''
                     : String(normalizada?.financeiro?.vencimento || normalizada?.dataDevolucaoPrevisao || '').trim();
@@ -275,15 +268,29 @@
                 statusFluxo,
                 statusVisual,
                 statusPagamento,
-                valorTotal,
-                valorRecebido,
-                valorRestante,
+                valorTotalCentavos: contaEncontrada ? projecaoConta.valorTotalCentavos
+                    : projecaoLegada.encontrada ? projecaoLegada.valorTotalCentavos : 0,
+                valorRecebidoCentavos: contaEncontrada ? projecaoConta.valorRecebidoCentavos
+                    : projecaoLegada.encontrada ? projecaoLegada.valorRecebidoCentavos : 0,
+                valorRestanteCentavos: contaEncontrada ? projecaoConta.saldoCentavos
+                    : projecaoLegada.encontrada ? projecaoLegada.saldoCentavos : 0,
+                ...(incluirValoresReaisCompatibilidade ? {
+                    valorTotal: converterCentavosParaReaisCompatibilidade(contaEncontrada
+                        ? projecaoConta.valorTotalCentavos : projecaoLegada.encontrada
+                            ? projecaoLegada.valorTotalCentavos : 0),
+                    valorRecebido: converterCentavosParaReaisCompatibilidade(contaEncontrada
+                        ? projecaoConta.valorRecebidoCentavos : projecaoLegada.encontrada
+                            ? projecaoLegada.valorRecebidoCentavos : 0),
+                    valorRestante: converterCentavosParaReaisCompatibilidade(contaEncontrada
+                        ? projecaoConta.saldoCentavos : projecaoLegada.encontrada
+                            ? projecaoLegada.saldoCentavos : 0)
+                } : {}),
                 vencimento,
                 vencimentoData,
                 diasParaVencer,
                 dataMontagem,
                 dataDesmontagem,
-                clienteNome: obterNomeCliente(normalizada.locadorId)
+                clienteNome: possuiContaInconsistente ? 'Cadastro ambíguo' : obterNomeCliente(normalizada.locadorId)
             };
         });
     }
@@ -399,7 +406,7 @@
                 <td>#${String(item.id || '').slice(-4)}</td>
                 <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
                 <td>${formatarDataCurta(item.dataAluguel)} até ${formatarDataCurta(item.dataDevolucaoPrevisao)}</td>
-                <td>${formatarMoeda(item.valorTotal)}</td>
+                <td>${formatarCentavosMonetarios(item.valorTotalCentavos) || 'Valor indisponível'}</td>
                 <td><span class="badge ${classeBadgeStatus(item.statusFluxo)}">${rotuloStatusFluxo(item.statusFluxo)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
@@ -413,15 +420,19 @@
 
     function atualizarKpisFinanceiro(lista) {
         const total = lista.length;
-        const aberto = lista.reduce((acc, item) => item.statusPagamento === 'pago' ? acc : acc + item.valorRestante, 0);
-        const pago = lista.reduce((acc, item) => acc + item.valorRecebido, 0);
-        const atrasado = lista.reduce((acc, item) => item.statusPagamento === 'atrasado' ? acc + item.valorRestante : acc, 0);
+        const aberto = somarCentavosMonetarios(lista
+            .filter((item) => item.statusPagamento !== 'pago')
+            .map((item) => item.valorRestanteCentavos));
+        const pago = somarCentavosMonetarios(lista.map((item) => item.valorRecebidoCentavos));
+        const atrasado = somarCentavosMonetarios(lista
+            .filter((item) => item.statusPagamento === 'atrasado')
+            .map((item) => item.valorRestanteCentavos));
 
         const mapa = [
             ['finKpiTotal', String(total)],
-            ['finKpiAberto', formatarMoeda(aberto)],
-            ['finKpiPago', formatarMoeda(pago)],
-            ['finKpiAtrasado', formatarMoeda(atrasado)]
+            ['finKpiAberto', aberto.ok ? formatarCentavosMonetarios(aberto.centavos) : 'Valor indisponível'],
+            ['finKpiPago', pago.ok ? formatarCentavosMonetarios(pago.centavos) : 'Valor indisponível'],
+            ['finKpiAtrasado', atrasado.ok ? formatarCentavosMonetarios(atrasado.centavos) : 'Valor indisponível']
         ];
         mapa.forEach(([id, valor]) => {
             const el = document.getElementById(id);
@@ -429,16 +440,237 @@
         });
     }
 
+    function dataLocalFinanceiro() {
+        const hoje = new Date();
+        return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+    }
+
+    function situacaoEfetivaConta(conta, referencia) {
+        if (conta?.situacao === 'cancelada' || conta?.situacao === 'encerrada') return conta.situacao;
+        const situacoes = (Array.isArray(conta?.parcelas) ? conta.parcelas : []).map((parcela) => (
+            typeof calcularSituacaoEfetivaParcelaContaReceber === 'function'
+                ? calcularSituacaoEfetivaParcelaContaReceber(parcela, referencia) : parcela.situacao
+        ));
+        if (situacoes.includes('invalida')) return 'invalida';
+        if (situacoes.every((situacao) => situacao === 'paga')) return 'paga';
+        if (situacoes.includes('parcial')) return 'parcial';
+        if (situacoes.includes('vencida')) return 'vencida';
+        return 'pendente';
+    }
+
+    function obterContaPorReferenciaUnica(referencia) {
+        const encontradas = (Array.isArray(contasReceber) ? contasReceber : []).filter((conta) => (
+            conta?.contaReferencia === referencia
+        ));
+        return encontradas.length === 1 ? encontradas[0] : null;
+    }
+
+    function renderContasReceberDetalhadas() {
+        const tabela = document.getElementById('tblContasReceber');
+        if (!tabela) return;
+        const hoje = dataLocalFinanceiro();
+        const busca = normalizarTextoBusca(document.getElementById('buscaContasReceber')?.value || '');
+        const filtro = document.getElementById('filtroContaSituacao')?.value || 'todos';
+        const clienteFiltro = document.getElementById('filtroContaCliente');
+        const inicio = document.getElementById('filtroContaInicio')?.value || '';
+        const fim = document.getElementById('filtroContaFim')?.value || '';
+        const contas = obterBaseLocacoes({ incluirValoresReaisCompatibilidade: false }).map((locacao) => {
+            const projecao = typeof obterProjecaoFinanceiraContaReceber === 'function'
+                ? obterProjecaoFinanceiraContaReceber(locacao.id, contasReceber, hoje)
+                : { estado: 'ausente', encontrada: false };
+            if (projecao.estado === 'encontrado' && projecao.encontrada === true) {
+                const conta = projecao.conta;
+                const cliente = typeof resolverClientePorIdExato === 'function'
+                    ? resolverClientePorIdExato(locadores, conta.clienteId) : { encontrado: false };
+                return { conta, clienteNome: cliente.encontrado ? cliente.cliente.nome : 'Removido',
+                    clienteReferencia: conta.clienteReferencia, locacao, situacao: projecao.situacao,
+                    vencimento: projecao.vencimento, recebido: projecao.valorRecebidoCentavos,
+                    saldo: projecao.saldoCentavos, total: projecao.valorTotalCentavos,
+                    bloqueada: false, legado: false };
+            }
+            if (projecao.estado !== 'ausente' || projecao.encontrada !== false) {
+                return { conta: null, clienteNome: 'Cadastro ambíguo', clienteReferencia: '', locacao,
+                    situacao: 'invalida', vencimento: '', recebido: 0, saldo: 0, total: 0,
+                    bloqueada: true, legado: false };
+            }
+            const referenciaCliente = typeof criarReferenciaTipadaCliente === 'function'
+                ? criarReferenciaTipadaCliente(locacao.locadorId) : '';
+            if (locacao.statusPagamento === 'invalido') {
+                return { conta: null, clienteNome: 'Cadastro ambíguo', clienteReferencia: '', locacao,
+                    situacao: 'invalida', vencimento: '', recebido: 0, saldo: 0, total: 0,
+                    bloqueada: true, legado: true };
+            }
+            return { conta: null, clienteNome: locacao.clienteNome || 'Removido',
+                clienteReferencia: referenciaCliente, locacao, situacao: locacao.statusPagamento,
+                vencimento: locacao.vencimento || '', recebido: locacao.valorRecebidoCentavos,
+                saldo: locacao.valorRestanteCentavos, total: locacao.valorTotalCentavos,
+                bloqueada: false, legado: true };
+        });
+        if (clienteFiltro) {
+            const atual = clienteFiltro.value;
+            const opcoes = [...new Map(contas.filter((item) => item.clienteReferencia)
+                .map((item) => [item.clienteReferencia, item.clienteNome])).entries()]
+                .sort((a, b) => compararTextoDeterministico(a[1], b[1]));
+            clienteFiltro.innerHTML = '<option value="">Todos os clientes</option>' + opcoes.map(([ref, nome]) => (
+                `<option value="${sanitizarTexto(ref)}">${sanitizarTexto(nome)}</option>`)).join('');
+            clienteFiltro.value = opcoes.some(([ref]) => ref === atual) ? atual : '';
+        }
+        const filtradas = contas.filter((item) => {
+            const ativa = ['pendente', 'parcial', 'vencida'].includes(item.situacao);
+            if (filtro !== 'todos' && (filtro === 'ativa' ? !ativa : item.situacao !== filtro)) return false;
+            if (clienteFiltro?.value && item.clienteReferencia !== clienteFiltro.value) return false;
+            const dataEmissao = item.conta?.dataEmissao || item.locacao?.dataAluguel || '';
+            if (inicio && dataEmissao < inicio) return false;
+            if (fim && dataEmissao > fim) return false;
+            return !busca || normalizarTextoBusca([item.conta?.id, item.clienteNome,
+                item.locacao?.eventoNome, item.locacao?.id, item.conta?.descricao].join(' ')).includes(busca);
+        }).sort((a, b) => compararTextoDeterministico(a.vencimento || '9999-99-99', b.vencimento || '9999-99-99')
+            || compararTextoDeterministico(a.conta?.contaReferencia || chaveIdFinanceiroTipado(a.locacao?.id),
+                b.conta?.contaReferencia || chaveIdFinanceiroTipado(b.locacao?.id)));
+        const validas = contas.filter((item) => !item.bloqueada && item.situacao !== 'invalida');
+        const ativas = validas.filter((item) => !['cancelada', 'encerrada'].includes(item.situacao));
+        const totais = {
+            total: somarCentavosMonetarios(ativas.map((item) => item.total)),
+            recebido: somarCentavosMonetarios(validas.map((item) => item.recebido)),
+            aberto: somarCentavosMonetarios(ativas.map((item) => item.saldo)),
+            vencido: somarCentavosMonetarios(ativas.filter((item) => item.situacao === 'vencida').map((item) => item.saldo)),
+            previsto: somarCentavosMonetarios(ativas.filter((item) => ['pendente', 'parcial'].includes(item.situacao)).map((item) => item.saldo))
+        };
+        [['carKpiTotal',totais.total],['carKpiRecebido',totais.recebido],['carKpiAberto',totais.aberto],
+            ['carKpiVencido',totais.vencido],['carKpiPrevisto',totais.previsto]].forEach(([id, soma]) => {
+            const el=document.getElementById(id);
+            if(el) el.textContent=soma.ok ? formatarCentavosMonetarios(soma.centavos) : 'Valor indisponível';
+        });
+        tabela.innerHTML = filtradas.length ? filtradas.map((item) => {
+            const progresso = item.total ? Math.round((item.recebido / item.total) * 100) : 0;
+            const contaRotulo = item.bloqueada ? 'Bloqueada' : item.legado ? 'Legado' : String(item.conta.id);
+            return `<tr><td>${sanitizarTexto(contaRotulo)}</td><td>${sanitizarTexto(item.clienteNome)}</td>
+                <td>${sanitizarTexto(item.locacao?.eventoNome || item.conta?.descricao || '-') }<div class="table-cell-sub">${sanitizarTexto(String(item.locacao?.id || ''))}</div></td>
+                <td>${formatarDataCurta(item.vencimento)}</td><td>${formatarCentavosMonetarios(item.total) || 'Valor indisponível'}</td>
+                <td><progress max="100" value="${progresso}">${progresso}%</progress><div class="table-cell-sub">${progresso}%</div></td>
+                <td><span class="badge ${classeBadgeStatus(item.situacao === 'vencida' ? 'atrasado' : item.situacao)}">${sanitizarTexto(item.situacao)}</span></td>
+                <td>${item.conta && !item.bloqueada ? `<button class="btn btn-sm btn-info" data-action="abrirDetalhesContaReceber" data-arg="${sanitizarTexto(item.conta.contaReferencia)}" aria-label="Ver parcelas da conta ${sanitizarTexto(String(item.conta.id))}"><i class="bi bi-list-check"></i></button>` : '-'}</td></tr>`;
+        }).join('') : '<tr><td colspan="8">Nenhuma conta encontrada.</td></tr>';
+    }
+
+    function abrirDetalhesContaReceber(referencia) {
+        const conta = obterContaPorReferenciaUnica(referencia);
+        const modal = document.getElementById('modalDetalhesContaReceber');
+        if (!conta || !modal) return false;
+        const hoje = dataLocalFinanceiro();
+        document.getElementById('detalhesContaTitulo').textContent = `Conta ${String(conta.id)}`;
+        document.getElementById('detalhesContaResumo').textContent = `${conta.descricao} · ${formatarCentavosMonetarios(conta.valorTotalCentavos) || 'Valor indisponível'} · ${situacaoEfetivaConta(conta, hoje)}`;
+        document.getElementById('detalhesContaParcelas').innerHTML = `<table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Original</th><th>Recebido</th><th>Saldo</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${conta.parcelas.map((p) => {
+            const situacao = calcularSituacaoEfetivaParcelaContaReceber(p, hoje);
+            return `<tr><td>${p.numero}/${p.totalParcelas}</td><td>${formatarDataCurta(p.vencimento)}</td><td>${formatarCentavosMonetarios(p.valorOriginalCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.valorRecebidoCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.saldoCentavos) || 'Valor indisponível'}</td><td>${situacao}</td><td>${p.saldoCentavos>0&&!['cancelada'].includes(situacao)?`<button class="btn btn-sm btn-success" data-action="registrarRecebimentoParcelaConta" data-arg="${sanitizarTexto(conta.contaReferencia)}|${sanitizarTexto(p.parcelaReferencia)}">Receber</button>`:'-'}</td></tr>`;
+        }).join('')}</tbody></table>`;
+        const historico = [...(conta.historico || []), ...(conta.parcelas || []).flatMap((p) => p.lancamentosFinanceiros || [])];
+        document.getElementById('detalhesContaHistorico').innerHTML = historico.map((h) => `<p><strong>${sanitizarTexto(h.acao || 'recebimento')}</strong> · ${sanitizarTexto(h.data || '')} · ${sanitizarTexto(h.usuario || h.responsavel || '')}</p>`).join('') || '<p>Sem movimentações.</p>';
+        acionadorDetalhesContaReceber = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        cancelarRecebimentoParcelaConta();
+        registrarEventosDetalhesContaReceber();
+        modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); modal.querySelector('button')?.focus();
+        return true;
+    }
+
+    function fecharDetalhesContaReceber() {
+        const modal=document.getElementById('modalDetalhesContaReceber');
+        if (!modal) return false;
+        cancelarRecebimentoParcelaConta();
+        modal.classList.remove('active'); modal.setAttribute('aria-hidden','true');
+        const acionador = acionadorDetalhesContaReceber;
+        acionadorDetalhesContaReceber = null;
+        if (acionador?.isConnected) acionador.focus({ preventScroll: true });
+        return true;
+    }
+
+    function registrarRecebimentoParcelaConta(argumento) {
+        if (typeof argumento !== 'string') return false;
+        const separador = argumento.indexOf('|');
+        if (separador < 1) return false;
+        const conta = obterContaPorReferenciaUnica(argumento.slice(0,separador));
+        const parcelaReferencia = argumento.slice(separador+1);
+        if (!conta || conta.parcelas.filter((p)=>p.parcelaReferencia===parcelaReferencia).length!==1) return false;
+        const form = document.getElementById('formRecebimentoParcela');
+        const contaCampo = document.getElementById('recebimentoParcelaContaReferencia');
+        const parcelaCampo = document.getElementById('recebimentoParcelaReferencia');
+        const valorCampo = document.getElementById('recebimentoParcelaValor');
+        if (!form || !contaCampo || !parcelaCampo || !valorCampo) return false;
+        contaCampo.value = conta.contaReferencia;
+        parcelaCampo.value = parcelaReferencia;
+        valorCampo.value = '';
+        definirErroRecebimentoParcela('');
+        form.hidden = false;
+        valorCampo.focus({ preventScroll: true });
+        return true;
+    }
+
+    function definirErroRecebimentoParcela(mensagem) {
+        const campo = document.getElementById('recebimentoParcelaValor');
+        const erro = document.getElementById('recebimentoParcelaErro');
+        if (!campo || !erro) return;
+        erro.textContent = mensagem || '';
+        erro.hidden = !mensagem;
+        campo.setAttribute('aria-invalid', mensagem ? 'true' : 'false');
+    }
+
+    function cancelarRecebimentoParcelaConta() {
+        const form = document.getElementById('formRecebimentoParcela');
+        if (form) form.hidden = true;
+        ['recebimentoParcelaContaReferencia','recebimentoParcelaReferencia','recebimentoParcelaValor'].forEach((id) => {
+            const campo=document.getElementById(id); if(campo) campo.value='';
+        });
+        definirErroRecebimentoParcela('');
+        return true;
+    }
+
+    function confirmarRecebimentoParcelaConta() {
+        const contaReferencia = document.getElementById('recebimentoParcelaContaReferencia')?.value;
+        const parcelaReferencia = document.getElementById('recebimentoParcelaReferencia')?.value;
+        const campo = document.getElementById('recebimentoParcelaValor');
+        const conta = obterContaPorReferenciaUnica(contaReferencia);
+        if (!conta || !campo || conta.parcelas.filter((p)=>p.parcelaReferencia===parcelaReferencia).length!==1) {
+            definirErroRecebimentoParcela('A conta ou parcela não pôde ser confirmada.');
+            return false;
+        }
+        const texto = campo.value;
+        const operacaoId = typeof gerarOperacaoIdRecebimentoLocacao === 'function' ? gerarOperacaoIdRecebimentoLocacao() : '';
+        const ok = aplicarRecebimentoLocacao(conta.locacaoReferencia, '', operacaoId, { parcelaReferencia, valorLancamentoTexto:texto });
+        if (ok) { cancelarRecebimentoParcelaConta(); renderFinanceiroResumo(); abrirDetalhesContaReceber(conta.contaReferencia); }
+        else { definirErroRecebimentoParcela('Não foi possível registrar este recebimento. Confira o valor e tente novamente.'); campo.focus(); }
+        return ok;
+    }
+
+    function registrarEventosDetalhesContaReceber() {
+        if (eventosDetalhesContaReceberRegistrados) return;
+        const modal = document.getElementById('modalDetalhesContaReceber');
+        if (!modal) return;
+        eventosDetalhesContaReceberRegistrados = true;
+        modal.addEventListener('click', (evento) => { if (evento.target === modal) fecharDetalhesContaReceber(); });
+        modal.addEventListener('keydown', (evento) => {
+            if (!modal.classList.contains('active')) return;
+            if (evento.key === 'Escape') { evento.preventDefault(); fecharDetalhesContaReceber(); return; }
+            if (evento.key !== 'Tab') return;
+            const focaveis = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+                .filter((elemento) => !elemento.hidden && elemento.getClientRects().length > 0);
+            if (!focaveis.length) { evento.preventDefault(); modal.focus(); return; }
+            const primeiro=focaveis[0], ultimo=focaveis[focaveis.length-1];
+            if (evento.shiftKey && document.activeElement===primeiro) { evento.preventDefault(); ultimo.focus(); }
+            else if (!evento.shiftKey && document.activeElement===ultimo) { evento.preventDefault(); primeiro.focus(); }
+        });
+    }
+
     function renderFinanceiroResumo() {
         const tabela = document.getElementById('tblFinanceiro');
         if (!tabela) return;
+        renderContasReceberDetalhadas();
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
         const limiteSemana = new Date(hoje.getTime() + (7 * 86400000));
         const buscaRaw = String(document.getElementById('buscaFinanceiro')?.value || '').trim();
         const busca = normalizarTextoBusca(buscaRaw);
-        const base = obterBaseLocacoes().map((item) => {
+        const base = obterBaseLocacoes({ incluirValoresReaisCompatibilidade: false }).map((item) => {
             let statusPagamento = item.statusPagamento;
             const vencimentoData = item.vencimentoData || parseDataIsoLocal(item.vencimento);
             if (statusPagamento !== 'pago' && vencimentoData && vencimentoData < hoje) {
@@ -528,9 +760,9 @@
                     <div>${formatarDataCurta(item.vencimento)}</div>
                     ${item.rotuloVencimento ? `<div class="table-cell-sub">${item.rotuloVencimento}</div>` : ''}
                 </td>
-                <td>${formatarMoeda(item.valorTotal)}</td>
-                <td>${formatarMoeda(item.valorRecebido)}</td>
-                <td>${formatarMoeda(item.valorRestante)}</td>
+                <td>${formatarCentavosMonetarios(item.valorTotalCentavos) || 'Valor indisponível'}</td>
+                <td>${formatarCentavosMonetarios(item.valorRecebidoCentavos) || 'Valor indisponível'}</td>
+                <td>${formatarCentavosMonetarios(item.valorRestanteCentavos) || 'Valor indisponível'}</td>
                 <td><span class="badge ${classeBadgeStatus(item.statusPagamento)}">${rotuloStatusPagamento(item.statusPagamento)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
@@ -721,6 +953,12 @@
 
     window.renderOrcamentos = renderOrcamentos;
     window.renderFinanceiroResumo = renderFinanceiroResumo;
+    window.renderContasReceberDetalhadas = renderContasReceberDetalhadas;
+    window.abrirDetalhesContaReceber = abrirDetalhesContaReceber;
+    window.fecharDetalhesContaReceber = fecharDetalhesContaReceber;
+    window.registrarRecebimentoParcelaConta = registrarRecebimentoParcelaConta;
+    window.confirmarRecebimentoParcelaConta = confirmarRecebimentoParcelaConta;
+    window.cancelarRecebimentoParcelaConta = cancelarRecebimentoParcelaConta;
     window.renderAgendaOperacional = renderAgendaOperacional;
     window.aplicarFiltroOrcamentosRapido = aplicarFiltroOrcamentosRapido;
     window.aplicarFiltroFinanceiroRapido = aplicarFiltroFinanceiroRapido;

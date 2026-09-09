@@ -3579,6 +3579,9 @@ input[type="file"]::-webkit-file-upload-button {
     font-size: 0.72rem;
     font-weight: 800;
     color: var(--text);
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .dash-status-list {
@@ -24139,6 +24142,37 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 .peca-session-error[hidden] { display: none; }
 .peca-session-dialog [aria-invalid="true"] { border-color: var(--danger, #b42318); }
 .peca-session-dialog :focus-visible { outline: 3px solid var(--primary, #166534); outline-offset: 2px; }
+
+.contas-receber-filtros {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+#tblContasReceber progress {
+    width: 110px;
+    max-width: 100%;
+}
+
+#modalDetalhesContaReceber .modal-content {
+    width: min(1100px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+}
+
+.recebimento-parcela-form {
+    margin-block: 16px;
+    padding-block: 16px;
+    border-block: 1px solid var(--border-color, #d1d5db);
+}
+
+@media (max-width: 700px) {
+    .contas-receber-filtros { grid-template-columns: 1fr; }
+    #modalDetalhesContaReceber .modal-content {
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+    }
+}
 
 @media (max-width: 600px) {
     .peca-session-dialog { padding: 16px; }

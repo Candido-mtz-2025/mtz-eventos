@@ -1,10 +1,3 @@
-function formatarMoedaDashboard(valor) {
-    return (Number(valor) || 0).toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    });
-}
-
 function formatarDataHoraDashboard(data) {
     return data.toLocaleString('pt-BR', {
         day: '2-digit',
@@ -36,47 +29,63 @@ function calcularValorLocacao(locacao) {
     return subtotal / divisor;
 }
 
-function obterFinanceiroDashboard(locacao, valorFallback) {
+function obterFinanceiroDashboard(locacao, valorFallback, opcoes = {}) {
+    const incluirValoresReaisCompatibilidade = opcoes.incluirValoresReaisCompatibilidade !== false;
+    const converterCentavosParaReaisDashboardCompatibilidade = (centavos) => {
+        if (!Number.isSafeInteger(centavos) || centavos < 0
+            || typeof normalizarValorMonetarioLegadoCentavos !== 'function') return null;
+        const valor = centavos / 100;
+        const reconvertido = normalizarValorMonetarioLegadoCentavos(valor);
+        return reconvertido.ok && reconvertido.centavos === centavos ? valor : null;
+    };
     const agora = new Date();
     const dataReferencia = `${String(agora.getFullYear()).padStart(4, '0')}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
     const projecaoConta = typeof obterProjecaoFinanceiraContaReceber === 'function'
         ? obterProjecaoFinanceiraContaReceber(locacao?.id, contasReceber, dataReferencia)
         : { estado: 'ausente', encontrada: false };
-    if (projecaoConta.encontrada) {
+    if (projecaoConta.estado === 'encontrado' && projecaoConta.encontrada === true) {
         const statusPagamento = projecaoConta.situacao === 'vencida' ? 'atrasado' : projecaoConta.situacao;
         return {
-            valorTotal: projecaoConta.valorTotalCentavos / 100,
-            valorRecebido: projecaoConta.valorRecebidoCentavos / 100,
-            valorRestante: projecaoConta.saldoCentavos / 100,
+            valorTotalCentavos: projecaoConta.valorTotalCentavos,
+            valorRecebidoCentavos: projecaoConta.valorRecebidoCentavos,
+            valorRestanteCentavos: projecaoConta.saldoCentavos,
+            ...(incluirValoresReaisCompatibilidade ? {
+                valorTotal: converterCentavosParaReaisDashboardCompatibilidade(projecaoConta.valorTotalCentavos),
+                valorRecebido: converterCentavosParaReaisDashboardCompatibilidade(projecaoConta.valorRecebidoCentavos),
+                valorRestante: converterCentavosParaReaisDashboardCompatibilidade(projecaoConta.saldoCentavos)
+            } : {}),
             statusPagamento,
             vencimento: projecaoConta.vencimento,
             vencimentoData: obterDataLocal(projecaoConta.vencimento)
         };
     }
-    if (['duplicado', 'invalido'].includes(projecaoConta.estado)) {
-        return { valorTotal: 0, valorRecebido: 0, valorRestante: 0,
+    if (projecaoConta.estado !== 'ausente' || projecaoConta.encontrada !== false) {
+        return { valorTotalCentavos: 0, valorRecebidoCentavos: 0, valorRestanteCentavos: 0,
+            ...(incluirValoresReaisCompatibilidade ? { valorTotal: 0, valorRecebido: 0, valorRestante: 0 } : {}),
             statusPagamento: 'invalido', vencimento: '', vencimentoData: null };
     }
     const financeiro = locacao?.financeiro && typeof locacao.financeiro === 'object'
-        ? locacao.financeiro
-        : {};
-    const valorTotal = Math.max(0, Number(financeiro.valorTotal ?? valorFallback ?? 0) || 0);
-    const sinal = Math.max(0, Number(financeiro.sinal ?? locacao?.sinal ?? 0) || 0);
-    const statusPagamento = String(financeiro.statusPagamento || (locacao?.pago ? 'pago' : 'pendente')).trim().toLowerCase();
-    const valorRestante = statusPagamento === 'pago'
-        ? 0
-        : Math.max(0, Number(financeiro.valorRestante ?? Math.max(valorTotal - sinal, 0)) || 0);
-    const valorRecebido = statusPagamento === 'pago'
-        ? valorTotal
-        : statusPagamento === 'parcial'
-            ? Math.max(0, valorTotal - valorRestante)
-            : 0;
+        ? locacao.financeiro : {};
+    const projecaoLegada = typeof obterProjecaoFinanceiraLegadaLocacao === 'function'
+        ? obterProjecaoFinanceiraLegadaLocacao(locacao, valorFallback)
+        : { encontrada: false };
+    if (!projecaoLegada.encontrada) {
+        return { valorTotalCentavos: 0, valorRecebidoCentavos: 0, valorRestanteCentavos: 0,
+            ...(incluirValoresReaisCompatibilidade ? { valorTotal: 0, valorRecebido: 0, valorRestante: 0 } : {}),
+            statusPagamento: 'invalido', vencimento: '', vencimentoData: null };
+    }
+    const statusPagamento = projecaoLegada.statusPagamento;
     const vencimento = String(financeiro.vencimento || locacao?.dataDevolucaoPrevisao || '').trim();
 
     return {
-        valorTotal,
-        valorRecebido,
-        valorRestante,
+        valorTotalCentavos: projecaoLegada.valorTotalCentavos,
+        valorRecebidoCentavos: projecaoLegada.valorRecebidoCentavos,
+        valorRestanteCentavos: projecaoLegada.saldoCentavos,
+        ...(incluirValoresReaisCompatibilidade ? {
+            valorTotal: converterCentavosParaReaisDashboardCompatibilidade(projecaoLegada.valorTotalCentavos),
+            valorRecebido: converterCentavosParaReaisDashboardCompatibilidade(projecaoLegada.valorRecebidoCentavos),
+            valorRestante: converterCentavosParaReaisDashboardCompatibilidade(projecaoLegada.saldoCentavos)
+        } : {}),
         statusPagamento,
         vencimento,
         vencimentoData: obterDataLocal(vencimento)
@@ -108,12 +117,18 @@ function resumoClientesAlerta(lista, limite) {
     return `${base.map((nome) => escaparTextoDashboard(nome)).join(', ')}${restante > 0 ? ` +${restante}` : ''}`;
 }
 
-function abreviarMoedaDashboard(valor) {
-    const numero = Number(valor) || 0;
-    const abs = Math.abs(numero);
-    if (abs >= 1000000) return `R$ ${(numero / 1000000).toFixed(1).replace('.', ',')}M`;
-    if (abs >= 1000) return `R$ ${(numero / 1000).toFixed(1).replace('.', ',')}K`;
-    return formatarMoedaDashboard(numero);
+function obterReferenciaLocacaoDashboard(id) {
+    if (typeof criarReferenciaTipadaLocacao !== 'function') return '';
+    return criarReferenciaTipadaLocacao(id);
+}
+
+function calcularPercentualSerieCentavos(valorCentavos, maximoCentavos) {
+    if (!Number.isSafeInteger(valorCentavos) || valorCentavos < 0
+        || !Number.isSafeInteger(maximoCentavos) || maximoCentavos <= 0) return 0;
+    const divisor = BigInt(maximoCentavos);
+    const numerador = BigInt(valorCentavos) * 100n;
+    const percentual = Number((numerador + (divisor / 2n)) / divisor);
+    return valorCentavos > 0 ? Math.max(4, percentual) : 0;
 }
 
 function gerarSerieReceitaMensal(locacoesComValor, totalMeses = 6) {
@@ -133,18 +148,39 @@ function gerarSerieReceitaMensal(locacoesComValor, totalMeses = 6) {
         serie.push({
             chave,
             rotulo: `${mesTxt}/${anoTxt}`,
-            valor: 0
+            valorCentavos: 0,
+            disponivel: true
         });
     }
 
+    const ocorrenciasPorReferencia = new Map();
     locacoesComValor.forEach((locacao) => {
+        const referencia = obterReferenciaLocacaoDashboard(locacao?.id);
+        if (referencia) ocorrenciasPorReferencia.set(referencia,
+            (ocorrenciasPorReferencia.get(referencia) || 0) + 1);
+    });
+
+    locacoesComValor.forEach((locacao) => {
+        const referencia = obterReferenciaLocacaoDashboard(locacao?.id);
+        if (!referencia || ocorrenciasPorReferencia.get(referencia) !== 1
+            || !['pendente', 'parcial', 'atrasado', 'vencida', 'pago'].includes(locacao.statusPagamento)
+            || !Number.isSafeInteger(locacao.valorFinanceiroTotalCentavos)
+            || locacao.valorFinanceiroTotalCentavos < 0) return;
         const dataAluguel = obterDataLocal(locacao.dataAluguel);
         if (!dataAluguel) return;
         const chave = `${dataAluguel.getFullYear()}-${String(dataAluguel.getMonth() + 1).padStart(2, '0')}`;
         const idx = indicePorChave.get(chave);
-        if (typeof idx === 'number') {
-            serie[idx].valor += Number(locacao.valorFinal) || 0;
+        if (typeof idx !== 'number' || !serie[idx].disponivel) return;
+        const soma = somarCentavosMonetarios([
+            serie[idx].valorCentavos,
+            locacao.valorFinanceiroTotalCentavos
+        ]);
+        if (!soma.ok) {
+            serie[idx].disponivel = false;
+            serie[idx].valorCentavos = 0;
+            return;
         }
+        serie[idx].valorCentavos = soma.centavos;
     });
 
     return serie;
@@ -163,21 +199,25 @@ function renderGraficoReceitaMensal(serie) {
         return;
     }
 
-    const maximo = Math.max(...serie.map((item) => Number(item.valor) || 0), 0);
-    const base = maximo > 0 ? maximo : 1;
+    const maximoCentavos = serie.reduce((maximo, item) => (
+        item.disponivel && item.valorCentavos > maximo ? item.valorCentavos : maximo
+    ), 0);
 
     box.innerHTML = `
         <div class="dash-receita-chart">
             ${serie.map((item) => {
-                const percentual = Math.max(4, Math.round(((Number(item.valor) || 0) / base) * 100));
+                const percentual = item.disponivel
+                    ? calcularPercentualSerieCentavos(item.valorCentavos, maximoCentavos) : 0;
+                const valorFormatado = item.disponivel
+                    ? formatarCentavosMonetarios(item.valorCentavos) : 'Valor indisponível';
                 const dica = `Abrir locações do período ${item.rotulo}`;
                 return `
                     <div class="dash-receita-col" data-action="irParaLocacoesComBusca" data-arg="${item.chave}" data-arg2="todos" title="${escaparTextoDashboard(dica)}">
                         <div class="dash-receita-bar-wrap">
-                            <span class="dash-receita-bar" style="height:${percentual}%;" title="${escaparTextoDashboard(item.rotulo)}: ${escaparTextoDashboard(formatarMoedaDashboard(item.valor))}"></span>
+                            <span class="dash-receita-bar" style="height:${percentual}%;" title="${escaparTextoDashboard(item.rotulo)}: ${escaparTextoDashboard(valorFormatado)}"></span>
                         </div>
                         <small>${item.rotulo}</small>
-                        <strong>${abreviarMoedaDashboard(item.valor)}</strong>
+                        <strong>${escaparTextoDashboard(valorFormatado)}</strong>
                     </div>
                 `;
             }).join('')}
@@ -392,7 +432,9 @@ function renderStats() {
         const diffDias = previsao ? Math.round((previsao - hoje) / 86400000) : null;
         const statusVisual = String(locacaoNormalizada?.statusVisual || locacao.status || '').toLowerCase();
         const valorFinal = calcularValorLocacao(locacaoNormalizada);
-        const financeiroResumo = obterFinanceiroDashboard(locacaoNormalizada, valorFinal);
+        const financeiroResumo = obterFinanceiroDashboard(locacaoNormalizada, valorFinal, {
+            incluirValoresReaisCompatibilidade: false
+        });
         const diffFinanceiro = financeiroResumo.vencimentoData
             ? Math.round((financeiroResumo.vencimentoData - hoje) / 86400000)
             : null;
@@ -403,9 +445,9 @@ function renderStats() {
             ...locacaoNormalizada,
             cliente,
             valorFinal,
-            valorFinanceiroTotal: financeiroResumo.valorTotal,
-            valorFinanceiroRecebido: financeiroResumo.valorRecebido,
-            valorFinanceiroRestante: financeiroResumo.valorRestante,
+            valorFinanceiroTotalCentavos: financeiroResumo.valorTotalCentavos,
+            valorFinanceiroRecebidoCentavos: financeiroResumo.valorRecebidoCentavos,
+            valorFinanceiroRestanteCentavos: financeiroResumo.valorRestanteCentavos,
             statusPagamento: financeiroResumo.statusPagamento,
             vencimentoFinanceiro: financeiroResumo.vencimentoData,
             diffFinanceiro,
@@ -426,23 +468,29 @@ function renderStats() {
             : `${ativas.length} em andamento`;
     }
 
-    const totalRecebidoAtivo = ativas
-        .reduce((total, locacao) => total + locacao.valorFinanceiroRecebido, 0);
-    const totalPendenteAtivo = ativas
-        .reduce((total, locacao) => total + locacao.valorFinanceiroRestante, 0);
+    const totalRecebidoAtivo = somarCentavosMonetarios(
+        ativas.map((locacao) => locacao.valorFinanceiroRecebidoCentavos));
+    const totalPendenteAtivo = somarCentavosMonetarios(
+        ativas.map((locacao) => locacao.valorFinanceiroRestanteCentavos));
+    const textoRecebidoAtivo = totalRecebidoAtivo.ok
+        ? formatarCentavosMonetarios(totalRecebidoAtivo.centavos) : 'Valor indisponível';
+    const textoPendenteAtivo = totalPendenteAtivo.ok
+        ? formatarCentavosMonetarios(totalPendenteAtivo.centavos) : 'Valor indisponível';
 
     const elFaturamento = document.getElementById('dashFaturamento');
     if (elFaturamento) {
         elFaturamento.innerHTML = `
-            <span class="dash-receita-main">${formatarMoedaDashboard(totalRecebidoAtivo)}</span>
-            <span class="dash-receita-sub">+ ${formatarMoedaDashboard(totalPendenteAtivo)} pendente</span>
+            <span class="dash-receita-main">${textoRecebidoAtivo}</span>
+            <span class="dash-receita-sub">+ ${textoPendenteAtivo} pendente</span>
         `;
     }
     const elTagReceita = document.getElementById('dashTagReceita');
     if (elTagReceita) {
-        elTagReceita.innerText = totalPendenteAtivo > 0
-            ? `A receber ${formatarMoedaDashboard(totalPendenteAtivo)}`
-            : 'Sem pendências';
+        elTagReceita.innerText = !totalPendenteAtivo.ok
+            ? 'Valor pendente indisponível'
+            : totalPendenteAtivo.centavos > 0
+                ? `A receber ${textoPendenteAtivo}`
+                : 'Sem pendências';
     }
 
     const locacoesDoMes = locacoesComValor.filter((locacao) => {
@@ -450,28 +498,40 @@ function renderStats() {
         return dataAluguel && dataAluguel >= inicioMes && dataAluguel < inicioProximoMes;
     });
 
-    const receitaMes = locacoesDoMes.reduce((total, locacao) => total + locacao.valorFinanceiroTotal, 0);
-    const recebidoMes = locacoesDoMes
-        .reduce((total, locacao) => total + locacao.valorFinanceiroRecebido, 0);
+    const receitaMes = somarCentavosMonetarios(
+        locacoesDoMes.map((locacao) => locacao.valorFinanceiroTotalCentavos));
+    const recebidoMes = somarCentavosMonetarios(
+        locacoesDoMes.map((locacao) => locacao.valorFinanceiroRecebidoCentavos));
     const pendenteAtivo = totalPendenteAtivo;
-    const ticketMedio = locacoesDoMes.length > 0 ? receitaMes / locacoesDoMes.length : 0;
+    let ticketMedioCentavos = 0;
+    if (receitaMes.ok && locacoesDoMes.length > 0) {
+        const total = BigInt(receitaMes.centavos);
+        const divisor = BigInt(locacoesDoMes.length);
+        const quociente = total / divisor;
+        const resto = total % divisor;
+        ticketMedioCentavos = Number(quociente + (resto * 2n >= divisor ? 1n : 0n));
+    }
 
     const elFinMes = document.getElementById('dashFinMes');
     const elFinRecebido = document.getElementById('dashFinRecebido');
     const elFinPendente = document.getElementById('dashFinPendente');
     const elFinTicket = document.getElementById('dashFinTicket');
 
-    if (elFinMes) elFinMes.innerText = formatarMoedaDashboard(receitaMes);
-    if (elFinRecebido) elFinRecebido.innerText = formatarMoedaDashboard(recebidoMes);
-    if (elFinPendente) elFinPendente.innerText = formatarMoedaDashboard(pendenteAtivo);
-    if (elFinTicket) elFinTicket.innerText = formatarMoedaDashboard(ticketMedio);
+    if (elFinMes) elFinMes.innerText = receitaMes.ok
+        ? formatarCentavosMonetarios(receitaMes.centavos) : 'Valor indisponível';
+    if (elFinRecebido) elFinRecebido.innerText = recebidoMes.ok
+        ? formatarCentavosMonetarios(recebidoMes.centavos) : 'Valor indisponível';
+    if (elFinPendente) elFinPendente.innerText = pendenteAtivo.ok
+        ? formatarCentavosMonetarios(pendenteAtivo.centavos) : 'Valor indisponível';
+    if (elFinTicket) elFinTicket.innerText = receitaMes.ok
+        ? formatarCentavosMonetarios(ticketMedioCentavos) : 'Valor indisponível';
 
     const atrasadas = ativas.filter((locacao) => locacao.previsao && locacao.diffDias < 0);
     const vencemHoje = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 0);
     const vencemAmanha = ativas.filter((locacao) => locacao.previsao && locacao.diffDias === 1);
     const proximas72h = ativas.filter((locacao) => locacao.previsao && locacao.diffDias >= 2 && locacao.diffDias <= 3);
-    const financeiroVencido = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro < 0);
-    const financeiroHoje = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro === 0);
+    const financeiroVencido = ativas.filter((locacao) => locacao.valorFinanceiroRestanteCentavos > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro < 0);
+    const financeiroHoje = ativas.filter((locacao) => locacao.valorFinanceiroRestanteCentavos > 0 && locacao.vencimentoFinanceiro && locacao.diffFinanceiro === 0);
     const semChecklist = ativas.filter((locacao) => String(locacao?.checklist?.status || '').toLowerCase() !== 'gerado');
     const checklistEmAndamento = ativas.filter((locacao) => {
         const resumo = locacao?.checklist?.resumo || {};
@@ -488,7 +548,7 @@ function renderStats() {
         const dataAluguel = obterDataLocal(locacao.dataAluguel);
         return (locacao.statusVisual === 'ativo' || locacao.statusVisual === 'atrasado') && dataAluguel && dataAluguel.getTime() === hoje.getTime();
     }).length;
-    const pendentesFinanceiros = ativas.filter((locacao) => locacao.valorFinanceiroRestante > 0).length;
+    const pendentesFinanceiros = ativas.filter((locacao) => locacao.valorFinanceiroRestanteCentavos > 0).length;
     const hojeIso = new Date(hoje).toISOString().slice(0, 10);
     const amanhaBase = new Date(hoje);
     amanhaBase.setDate(amanhaBase.getDate() + 1);
