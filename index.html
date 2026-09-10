@@ -2890,6 +2890,7 @@
             <div class="modal-header"><h3 id="detalhesContaTitulo">Detalhes da conta</h3><button type="button" class="btn-close-modal" data-action="fecharDetalhesContaReceber" aria-label="Fechar detalhes"><i class="bi bi-x-lg"></i></button></div>
             <div id="detalhesContaResumo" class="muted-note"></div>
             <div id="detalhesContaParcelas" class="table-responsive"></div>
+            <div id="detalhesContaLancamentos" class="section-gap"></div>
             <form id="formRecebimentoParcela" class="recebimento-parcela-form" hidden novalidate>
                 <input id="recebimentoParcelaContaReferencia" type="hidden">
                 <input id="recebimentoParcelaReferencia" type="hidden">
@@ -2906,6 +2907,35 @@
             </form>
             <details><summary>Histórico e auditoria</summary><div id="detalhesContaHistorico"></div></details>
             <div class="inline-chip-row section-gap"><button type="button" class="btn btn-secondary" data-action="fecharDetalhesContaReceber">Fechar</button></div>
+        </div>
+    </div>
+
+    <div id="modalEstornoRecebimento" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="estornoRecebimentoTitulo" aria-describedby="estornoRecebimentoDescricao" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header">
+                <h3 id="estornoRecebimentoTitulo">Estornar recebimento</h3>
+                <button type="button" class="btn-close-modal" data-action="fecharEstornoRecebimentoConta" aria-label="Fechar estorno"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <p id="estornoRecebimentoDescricao" class="muted-note">O recebimento original será preservado e o estorno ficará vinculado ao histórico.</p>
+            <div class="pagamento-modal-grid">
+                <div class="pagamento-modal-kpi"><small>Recebido</small><strong id="estornoRecebimentoRecebido">R$ 0,00</strong></div>
+                <div class="pagamento-modal-kpi"><small>Já estornado</small><strong id="estornoRecebimentoEstornado">R$ 0,00</strong></div>
+                <div class="pagamento-modal-kpi"><small>Disponível</small><strong id="estornoRecebimentoDisponivel">R$ 0,00</strong></div>
+            </div>
+            <div class="form-group">
+                <label for="estornoRecebimentoValor">Valor do estorno</label>
+                <input id="estornoRecebimentoValor" type="text" inputmode="decimal" autocomplete="off" aria-describedby="estornoRecebimentoAjuda estornoRecebimentoErro">
+                <small id="estornoRecebimentoAjuda" class="muted-note">Informe um valor com até duas casas decimais.</small>
+            </div>
+            <div class="form-group">
+                <label for="estornoRecebimentoMotivo">Motivo</label>
+                <textarea id="estornoRecebimentoMotivo" rows="3" maxlength="500" aria-describedby="estornoRecebimentoErro"></textarea>
+            </div>
+            <div id="estornoRecebimentoErro" class="validation-message" role="alert" aria-live="assertive" hidden></div>
+            <div class="inline-chip-row section-gap">
+                <button type="button" class="btn btn-secondary" data-action="fecharEstornoRecebimentoConta">Cancelar</button>
+                <button type="button" id="estornoRecebimentoConfirmar" class="btn btn-danger" data-acesso="admin" data-action="confirmarEstornoRecebimentoConta">Confirmar estorno</button>
+            </div>
         </div>
     </div>
 
@@ -3026,11 +3056,11 @@
     <script src="./assets/js/core/migrations.js?v=12.13"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.13"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.12"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.17"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.2"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.2"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.3"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.21"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.22"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
     <script src="./assets/js/modules/clientes.js?v=2.2"></script>
     <script src="./assets/js/modules/tipos.js?v=2.0"></script>
@@ -3051,7 +3081,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=2.6"></script>
+    <script src="./assets/js/render/novas-abas.js?v=2.8"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.14"></script>
         

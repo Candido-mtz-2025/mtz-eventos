@@ -452,6 +452,15 @@
         };
     }
 
+    function criarDependenciasExecutorEstornoRecebimento(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage),
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     function criarDependenciasExecutorContaReceber(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage),
@@ -471,5 +480,6 @@
     window.criarDependenciasExecutorReaberturaChecklist = criarDependenciasExecutorReaberturaChecklist;
     window.criarDependenciasExecutorConclusaoChecklist = criarDependenciasExecutorConclusaoChecklist;
     window.criarDependenciasExecutorRecebimentoLocacao = criarDependenciasExecutorRecebimentoLocacao;
+    window.criarDependenciasExecutorEstornoRecebimento = criarDependenciasExecutorEstornoRecebimento;
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
 })();

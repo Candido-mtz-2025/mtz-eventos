@@ -36,6 +36,7 @@
     const travasPorLocacao = new Set();
     const travasReaberturaChecklist = new Set();
     const travasRecebimentoLocacao = new Set();
+    const travasEstornoRecebimento = new Set();
     const travasContaReceber = new Set();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
@@ -160,6 +161,9 @@
     }
 
     function prepararEstadoOperacionalInterno(snapshot) {
+        if (!validarValorExternoPersistivelSeguro(snapshot)) {
+            return { ok: false, codigo: 'ESTADO_NAO_CONFIAVEL', valor: null, json: '' };
+        }
         const clonagem = clonarJsonInterno(snapshot);
         if (!clonagem.ok || !clonagem.valor || typeof clonagem.valor !== 'object'
             || Array.isArray(clonagem.valor)) return clonagem;
@@ -177,17 +181,33 @@
         };
     }
 
+    function prototipoNativoPersistivel(prototipo, nomeEsperado) {
+        if (!prototipo || typeof prototipo !== 'object') return false;
+        const descritorConstrutor = Object.getOwnPropertyDescriptor(prototipo, 'constructor');
+        if (!descritorConstrutor || !Object.prototype.hasOwnProperty.call(descritorConstrutor, 'value')
+            || typeof descritorConstrutor.value !== 'function') return false;
+        let fonte;
+        try { fonte = Function.prototype.toString.call(descritorConstrutor.value); }
+        catch (_erro) { return false; }
+        if (fonte !== `function ${nomeEsperado}() { [native code] }`) return false;
+        if (nomeEsperado === 'Object') return Object.getPrototypeOf(prototipo) === null;
+        const prototipoObjeto = Object.getPrototypeOf(prototipo);
+        return prototipoNativoPersistivel(prototipoObjeto, 'Object');
+    }
+
     function validarValorExternoPersistivel(valor, vistos = new WeakSet()) {
         if (valor === null || typeof valor === 'string' || typeof valor === 'boolean') return true;
         if (typeof valor === 'number') return Number.isFinite(valor);
         if (typeof valor !== 'object' || vistos.has(valor)) return false;
         const prototipo = Object.getPrototypeOf(valor);
-        if (prototipo !== Object.prototype && prototipo !== Array.prototype) return false;
+        const array = Array.isArray(valor);
+        if (prototipo !== (array ? Array.prototype : Object.prototype)
+            && !prototipoNativoPersistivel(prototipo, array ? 'Array' : 'Object')) return false;
         vistos.add(valor);
         const chaves = Reflect.ownKeys(valor);
         if (chaves.some((chave) => typeof chave === 'symbol')) return false;
         const descritores = Object.getOwnPropertyDescriptors(valor);
-        if (Array.isArray(valor)) {
+        if (array) {
             const descritorLength = descritores.length;
             if (!descritorLength || descritorLength.value !== valor.length
                 || descritorLength.enumerable !== false || descritorLength.writable !== true) return false;
@@ -197,7 +217,7 @@
         }
         return chaves.every((chave) => {
             const descritor = descritores[chave];
-            if (Array.isArray(valor) && chave === 'length') return true;
+            if (array && chave === 'length') return true;
             return descritor
                 && Object.prototype.hasOwnProperty.call(descritor, 'value')
                 && typeof descritor.get === 'undefined'
@@ -3876,6 +3896,14 @@
                 assinatura, contaReferencia).completo) {
                 return resultadoBase('EVIDENCIAS_RECEBIMENTO_INCOMPLETAS');
             }
+            const cadeiaCandidata = validarCadeiaFinanceiraOperacao(
+                candidato.valor, contaReferencia, locacaoReferencia, dataReferencia);
+            if (!cadeiaCandidata.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: cadeiaCandidata.codigo || 'CADEIA_FINANCEIRA_CANDIDATA_DIVERGENTE' }]
+                });
+            }
 
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparadoExterno;
@@ -3910,9 +3938,16 @@
             catch (_erro) { releitura = null; }
             const releituraValidada = validarRetornoLeituraSnapshotFinanceiro(releitura);
             const relido = releituraValidada.ok ? clonarJsonInterno(releituraValidada.snapshot) : { ok: false };
+            const operacionalRelido = relido.ok
+                ? prepararEstadoOperacionalInterno(relido.valor) : { ok: false };
+            const cadeiaRelida = operacionalRelido.ok
+                ? validarCadeiaFinanceiraOperacao(
+                    operacionalRelido.valor, contaReferencia, locacaoReferencia, dataReferencia)
+                : { ok: false, codigo: 'SNAPSHOT_RELIDO_INVALIDO' };
             const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
             const jsonRelido = relido.ok ? JSON.stringify(ordenarChavesCanonicas(relido.valor)) : '';
-            if (!releituraValidada.ok || !relido.ok || jsonRelido !== jsonEsperado) {
+            if (!releituraValidada.ok || !relido.ok || !operacionalRelido.ok
+                || !cadeiaRelida.ok || jsonRelido !== jsonEsperado) {
                 const semEscrita = persistidoInicial.ok && relido.ok
                     && JSON.stringify(ordenarChavesCanonicas(leituraInicialValidada.snapshot)) === jsonRelido;
                 return resultadoBase(semEscrita ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
@@ -3958,6 +3993,934 @@
                 try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); } catch (_erro) { /* encerrada */ }
             }
             travasRecebimentoLocacao.delete(locacaoRef);
+        }
+    }
+
+    function criarReferenciaLancamentoFinanceiro(id) {
+        return criarReferenciaTipadaContaReceber('lancamento', id);
+    }
+
+    function pareceLancamentoEstorno(registro) {
+        return registro?.tipo === 'estorno'
+            || (typeof registro?.id === 'string' && registro.id.startsWith('estorno-parcela-'))
+            || Object.prototype.hasOwnProperty.call(registro || {}, 'lancamentoOriginalReferencia');
+    }
+
+    function registroFinanceiroDadosSeguro(registro, obrigatorias = []) {
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)
+            || Object.getPrototypeOf(registro) !== Object.prototype
+            || Object.getOwnPropertySymbols(registro).length) return false;
+        const descritores = Object.getOwnPropertyDescriptors(registro);
+        if (Object.values(descritores).some((descritor) => !Object.prototype.hasOwnProperty.call(descritor, 'value')
+            || typeof descritor.get === 'function' || typeof descritor.set === 'function')) return false;
+        return obrigatorias.every((chave) => Object.prototype.hasOwnProperty.call(descritores, chave));
+    }
+
+    function textoFinanceiroIntegro(valor, minimo = 1, maximo = 500) {
+        return typeof valor === 'string' && valor === valor.trim()
+            && valor.length >= minimo && valor.length <= maximo;
+    }
+
+    function instanteFinanceiroIntegro(valor) {
+        if (typeof valor !== 'string'
+            || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(valor)) return false;
+        const milissegundos = Date.parse(valor);
+        return Number.isFinite(milissegundos) && new Date(milissegundos).toISOString() === valor;
+    }
+
+    function mesmosCamposFinanceiros(registros, campos) {
+        if (!registros.length) return false;
+        const primeiro = registros[0];
+        return registros.every((registro) => campos.every((campo) => (
+            Object.prototype.hasOwnProperty.call(registro, campo)
+            && typeof registro[campo] === typeof primeiro[campo]
+            && Object.is(registro[campo], primeiro[campo])
+        )));
+    }
+
+    function coletarEvidenciasOperacaoFinanceira(estado, operacaoId) {
+        const evidencias = {
+            lancamentosParcelas: [],
+            historicosContas: [],
+            lancamentosLocacoes: [],
+            historicosLocacoes: [],
+            auditorias: [],
+            contasCriadas: []
+        };
+        estado.contasReceber.forEach((conta) => {
+            if (conta?.operacaoId === operacaoId) evidencias.contasCriadas.push(conta);
+            conta.parcelas.forEach((parcela) => {
+                parcela.lancamentosFinanceiros
+                    .filter((registro) => registro?.operacaoId === operacaoId)
+                    .forEach((registro) => evidencias.lancamentosParcelas.push({ conta, parcela, registro }));
+            });
+            conta.historico.filter((registro) => registro?.operacaoId === operacaoId)
+                .forEach((registro) => evidencias.historicosContas.push({ conta, registro }));
+        });
+        estado.locacoes.forEach((locacao) => {
+            (Array.isArray(locacao?.financeiro?.lancamentosRecebimentos)
+                ? locacao.financeiro.lancamentosRecebimentos : [])
+                .filter((registro) => registro?.operacaoId === operacaoId)
+                .forEach((registro) => evidencias.lancamentosLocacoes.push({ locacao, registro }));
+            (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+                .filter((registro) => registro?.operacaoId === operacaoId)
+                .forEach((registro) => evidencias.historicosLocacoes.push({ locacao, registro }));
+        });
+        estado.logsAuditoria.filter((registro) => registro?.operacaoId === operacaoId)
+            .forEach((registro) => evidencias.auditorias.push({ registro }));
+        return evidencias;
+    }
+
+    function validarIntegridadeRecebimentoOriginal(estado, conta, parcelaAlvo, locacao, original) {
+        const obrigatoriasOriginal = ['id', 'operacaoId', 'contaReferencia', 'parcelaReferencia',
+            'locacaoReferencia', 'assinaturaPlano', 'valorAplicadoCentavos',
+            'valorRecebidoAnteriorCentavos', 'valorRecebidoNovoCentavos',
+            'saldoAnteriorCentavos', 'saldoNovoCentavos', 'data', 'responsavel'];
+        if (!registroFinanceiroDadosSeguro(original, obrigatoriasOriginal)
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(original.operacaoId)
+            || original.tipo === 'estorno'
+            || original.id !== `lancamento-parcela-${original.operacaoId}-${parcelaAlvo.numero}`
+            || criarReferenciaLancamentoFinanceiro(original.id) === ''
+            || original.contaReferencia !== conta.contaReferencia
+            || original.parcelaReferencia !== parcelaAlvo.parcelaReferencia
+            || original.locacaoReferencia !== conta.locacaoReferencia
+            || !textoFinanceiroIntegro(original.assinaturaPlano, 1, 300)
+            || !instanteFinanceiroIntegro(original.data)
+            || !textoFinanceiroIntegro(original.responsavel, 1, 300)
+            || ![original.valorAplicadoCentavos, original.valorRecebidoAnteriorCentavos,
+                original.valorRecebidoNovoCentavos, original.saldoAnteriorCentavos,
+                original.saldoNovoCentavos].every(Number.isSafeInteger)
+            || original.valorAplicadoCentavos <= 0
+            || original.valorRecebidoAnteriorCentavos < 0
+            || original.saldoAnteriorCentavos < 0
+            || original.valorRecebidoNovoCentavos !== original.valorRecebidoAnteriorCentavos + original.valorAplicadoCentavos
+            || original.saldoNovoCentavos !== original.saldoAnteriorCentavos - original.valorAplicadoCentavos
+            || original.saldoNovoCentavos < 0) {
+            return { ok: false, codigo: 'LANCAMENTO_RECEBIMENTO_INVALIDO' };
+        }
+        const evidencias = coletarEvidenciasOperacaoFinanceira(estado, original.operacaoId);
+        const lancamentos = evidencias.lancamentosParcelas.filter(({ registro }) => registro?.tipo !== 'estorno');
+        if (evidencias.contasCriadas.length || evidencias.lancamentosLocacoes.length !== 1
+            || evidencias.historicosContas.length !== 1 || evidencias.historicosLocacoes.length !== 1
+            || evidencias.auditorias.length !== 1 || !lancamentos.length
+            || evidencias.lancamentosParcelas.length !== lancamentos.length
+            || lancamentos.some(({ conta: contaRegistro }) => contaRegistro !== conta)
+            || !lancamentos.some(({ parcela, registro }) => parcela === parcelaAlvo && registro === original)) {
+            return { ok: false, codigo: 'EVIDENCIAS_RECEBIMENTO_ANTERIOR_DIVERGENTES' };
+        }
+        const lancamentoLocacao = evidencias.lancamentosLocacoes[0];
+        const historicoConta = evidencias.historicosContas[0];
+        const historicoLocacao = evidencias.historicosLocacoes[0];
+        const auditoria = evidencias.auditorias[0];
+        if (lancamentoLocacao.locacao !== locacao || historicoConta.conta !== conta
+            || historicoLocacao.locacao !== locacao
+            || historicoConta.registro.acao !== 'recebimento_aplicado'
+            || historicoLocacao.registro.acao !== 'financeiro_recebimento'
+            || auditoria.registro.acao !== 'recebimento') {
+            return { ok: false, codigo: 'EVIDENCIAS_RECEBIMENTO_ANTERIOR_DIVERGENTES' };
+        }
+        const registrosBase = [lancamentoLocacao.registro, historicoConta.registro,
+            historicoLocacao.registro, auditoria.registro];
+        const obrigatoriasBase = ['operacaoId', 'contaReferencia', 'parcelaReferencia',
+            'locacaoId', 'locacaoReferencia', 'assinaturaPlano'];
+        const obrigatoriasValoresBase = ['valorLancamentoCentavos', 'valorRecebidoCentavos'];
+        const parcelaReferenciaOperacao = lancamentoLocacao.registro.parcelaReferencia;
+        if (registrosBase.some((registro) => !registroFinanceiroDadosSeguro(registro, obrigatoriasBase))
+            || !mesmosCamposFinanceiros([original, ...registrosBase],
+                ['operacaoId', 'contaReferencia', 'locacaoReferencia', 'assinaturaPlano'])
+            || !mesmosCamposFinanceiros(registrosBase,
+                ['operacaoId', 'contaReferencia', 'parcelaReferencia', 'locacaoId',
+                    'locacaoReferencia', 'assinaturaPlano'])
+            || typeof parcelaReferenciaOperacao !== 'string'
+            || (parcelaReferenciaOperacao !== ''
+                && (parcelaReferenciaOperacao !== original.parcelaReferencia || lancamentos.length !== 1))
+            || registrosBase.some((registro) => typeof registro.locacaoId !== typeof locacao.id
+                || !Object.is(registro.locacaoId, locacao.id)
+                || !registroFinanceiroDadosSeguro(registro, obrigatoriasValoresBase)
+                || !Number.isSafeInteger(registro.valorLancamentoCentavos)
+                || !Number.isSafeInteger(registro.valorRecebidoCentavos))
+            || lancamentos.some(({ parcela, registro }) => (
+                !registroFinanceiroDadosSeguro(registro, obrigatoriasOriginal)
+                || registro.id !== `lancamento-parcela-${original.operacaoId}-${parcela.numero}`
+                || registro.contaReferencia !== conta.contaReferencia
+                || registro.parcelaReferencia !== parcela.parcelaReferencia
+                || registro.locacaoReferencia !== conta.locacaoReferencia
+                || registro.assinaturaPlano !== original.assinaturaPlano
+                || registro.data !== original.data || registro.responsavel !== original.responsavel
+                || !Number.isSafeInteger(registro.valorAplicadoCentavos)
+                || registro.valorAplicadoCentavos <= 0
+                || registro.valorRecebidoNovoCentavos !== registro.valorRecebidoAnteriorCentavos + registro.valorAplicadoCentavos
+                || registro.saldoNovoCentavos !== registro.saldoAnteriorCentavos - registro.valorAplicadoCentavos
+                || registro.saldoNovoCentavos < 0
+            ))) {
+            return { ok: false, codigo: 'EVIDENCIAS_RECEBIMENTO_ANTERIOR_DIVERGENTES' };
+        }
+        const soma = somarCentavosMonetarios(lancamentos.map(({ registro }) => registro.valorAplicadoCentavos));
+        const registroLocacao = lancamentoLocacao.registro;
+        if (!soma.ok || !Number.isSafeInteger(registroLocacao.valorLancamentoCentavos)
+            || soma.centavos !== registroLocacao.valorLancamentoCentavos
+            || historicoConta.registro.valorLancamentoCentavos !== soma.centavos
+            || historicoLocacao.registro.valorLancamentoCentavos !== soma.centavos
+            || auditoria.registro.valorLancamentoCentavos !== soma.centavos
+            || !mesmosCamposFinanceiros(registrosBase,
+                ['valorLancamentoCentavos', 'valorRecebidoCentavos'])
+            || !Number.isSafeInteger(registroLocacao.valorRestanteCentavos)
+            || historicoConta.registro.saldoCentavos !== registroLocacao.valorRestanteCentavos
+            || historicoLocacao.registro.valorRestanteCentavos !== registroLocacao.valorRestanteCentavos
+            || auditoria.registro.valorRestanteCentavos !== registroLocacao.valorRestanteCentavos
+            || registroLocacao.id !== `recebimento-${original.operacaoId}`
+            || historicoConta.registro.id !== `historico-conta-${original.operacaoId}`
+            || historicoLocacao.registro.id !== `historico-${original.operacaoId}`
+            || auditoria.registro.id !== `auditoria-${original.operacaoId}`
+            || registroLocacao.data !== original.data || registroLocacao.usuario !== original.responsavel
+            || historicoConta.registro.data !== original.data || historicoConta.registro.usuario !== original.responsavel
+            || historicoLocacao.registro.data !== original.data || historicoLocacao.registro.usuario !== original.responsavel
+            || auditoria.registro.data !== original.data || auditoria.registro.usuario !== original.responsavel
+            || auditoria.registro.timestamp !== original.data || auditoria.registro.tipo !== 'financeiro'
+            || historicoLocacao.registro.origem !== 'financeiro') {
+            return { ok: false, codigo: 'EVIDENCIAS_RECEBIMENTO_ANTERIOR_DIVERGENTES' };
+        }
+        const entradaAssinatura = {
+            operacaoId: original.operacaoId,
+            atualizadoEm: original.data,
+            atualizadoPor: original.responsavel
+        };
+        if (registroLocacao.parcelaReferencia) entradaAssinatura.parcelaReferencia = registroLocacao.parcelaReferencia;
+        const assinaturaEsperada = assinaturaRecebimentoLocacao(entradaAssinatura, locacao.id,
+            conta.locacaoReferencia, registroLocacao.valorRecebidoCentavos, conta.contaReferencia,
+            registroLocacao.parcelaReferencia ? registroLocacao.valorLancamentoCentavos : 0);
+        return assinaturaEsperada === original.assinaturaPlano
+            ? { ok: true }
+            : { ok: false, codigo: 'ASSINATURA_RECEBIMENTO_ANTERIOR_DIVERGENTE' };
+    }
+
+    function validarIntegridadeEstornoAnterior(estado, conta, parcela, locacao, originalReferencia, estorno) {
+        const obrigatorias = ['id', 'lancamentoReferencia', 'tipo', 'operacaoId', 'contaReferencia',
+            'parcelaReferencia', 'locacaoId', 'locacaoReferencia', 'lancamentoOriginalReferencia',
+            'valorEstornoCentavos', 'motivo', 'data', 'responsavel', 'assinaturaPlano',
+            'valorRecebidoAnteriorCentavos', 'valorRecebidoNovoCentavos',
+            'saldoAnteriorCentavos', 'saldoNovoCentavos'];
+        if (!registroFinanceiroDadosSeguro(estorno, obrigatorias)
+            || estorno.tipo !== 'estorno'
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(estorno.operacaoId)
+            || estorno.id !== `estorno-parcela-${estorno.operacaoId}`
+            || estorno.lancamentoReferencia !== criarReferenciaLancamentoFinanceiro(estorno.id)
+            || estorno.contaReferencia !== conta.contaReferencia
+            || estorno.parcelaReferencia !== parcela.parcelaReferencia
+            || typeof estorno.locacaoId !== typeof locacao.id || !Object.is(estorno.locacaoId, locacao.id)
+            || estorno.locacaoReferencia !== conta.locacaoReferencia
+            || estorno.lancamentoOriginalReferencia !== originalReferencia
+            || !Number.isSafeInteger(estorno.valorEstornoCentavos) || estorno.valorEstornoCentavos <= 0
+            || !textoFinanceiroIntegro(estorno.motivo, 5, 500)
+            || !instanteFinanceiroIntegro(estorno.data)
+            || !textoFinanceiroIntegro(estorno.responsavel, 1, 300)
+            || !textoFinanceiroIntegro(estorno.assinaturaPlano, 1, 300)
+            || ![estorno.valorRecebidoAnteriorCentavos, estorno.valorRecebidoNovoCentavos,
+                estorno.saldoAnteriorCentavos, estorno.saldoNovoCentavos].every(Number.isSafeInteger)
+            || estorno.valorRecebidoAnteriorCentavos < estorno.valorEstornoCentavos
+            || estorno.valorRecebidoNovoCentavos !== estorno.valorRecebidoAnteriorCentavos - estorno.valorEstornoCentavos
+            || estorno.saldoNovoCentavos !== estorno.saldoAnteriorCentavos + estorno.valorEstornoCentavos
+            || Math.min(estorno.valorRecebidoNovoCentavos, estorno.saldoAnteriorCentavos) < 0) {
+            return { ok: false, codigo: 'ESTORNO_ANTERIOR_INVALIDO' };
+        }
+        const evidencias = coletarEvidenciasOperacaoFinanceira(estado, estorno.operacaoId);
+        if (evidencias.contasCriadas.length || evidencias.lancamentosParcelas.length !== 1
+            || evidencias.lancamentosLocacoes.length !== 1 || evidencias.historicosContas.length !== 1
+            || evidencias.historicosLocacoes.length !== 1 || evidencias.auditorias.length !== 1
+            || evidencias.lancamentosParcelas[0].registro !== estorno
+            || evidencias.lancamentosParcelas[0].conta !== conta
+            || evidencias.lancamentosParcelas[0].parcela !== parcela
+            || evidencias.lancamentosLocacoes[0].locacao !== locacao
+            || evidencias.historicosContas[0].conta !== conta
+            || evidencias.historicosLocacoes[0].locacao !== locacao) {
+            return { ok: false, codigo: 'EVIDENCIAS_ESTORNO_ANTERIOR_DIVERGENTES' };
+        }
+        const lancamentoLocacao = evidencias.lancamentosLocacoes[0].registro;
+        const historicoConta = evidencias.historicosContas[0].registro;
+        const historicoLocacao = evidencias.historicosLocacoes[0].registro;
+        const auditoria = evidencias.auditorias[0].registro;
+        const registros = [estorno, lancamentoLocacao, historicoConta, historicoLocacao, auditoria];
+        const baseObrigatoria = ['tipo', 'operacaoId', 'contaReferencia', 'parcelaReferencia', 'locacaoId',
+            'locacaoReferencia', 'lancamentoOriginalReferencia', 'valorEstornoCentavos', 'motivo',
+            'data', 'responsavel', 'assinaturaPlano'];
+        const registrosSaldoConta = [lancamentoLocacao, historicoConta, historicoLocacao, auditoria];
+        if (registros.some((registro) => !registroFinanceiroDadosSeguro(registro, baseObrigatoria))
+            || !mesmosCamposFinanceiros(registros, baseObrigatoria.slice(0))
+            || registrosSaldoConta.some((registro) => !registroFinanceiroDadosSeguro(
+                registro, ['valorRecebidoCentavos']))
+            || !mesmosCamposFinanceiros(registrosSaldoConta, ['valorRecebidoCentavos'])
+            || !registroFinanceiroDadosSeguro(historicoConta, ['saldoCentavos'])
+            || [lancamentoLocacao, historicoLocacao, auditoria].some((registro) => (
+                !registroFinanceiroDadosSeguro(registro, ['valorRestanteCentavos'])
+                || registro.valorRestanteCentavos !== historicoConta.saldoCentavos
+            ))
+            || historicoConta.acao !== 'estorno_aplicado'
+            || historicoLocacao.acao !== 'financeiro_estorno'
+            || auditoria.acao !== 'estorno_recebimento'
+            || lancamentoLocacao.id !== `estorno-locacao-${estorno.operacaoId}`
+            || lancamentoLocacao.lancamentoReferencia !== criarReferenciaLancamentoFinanceiro(lancamentoLocacao.id)
+            || historicoConta.id !== `historico-conta-estorno-${estorno.operacaoId}`
+            || historicoLocacao.id !== `historico-estorno-${estorno.operacaoId}`
+            || auditoria.id !== `auditoria-estorno-${estorno.operacaoId}`
+            || historicoConta.usuario !== estorno.responsavel
+            || historicoLocacao.usuario !== estorno.responsavel
+            || auditoria.usuario !== estorno.responsavel
+            || auditoria.timestamp !== estorno.data
+            || historicoLocacao.origem !== 'financeiro') {
+            return { ok: false, codigo: 'EVIDENCIAS_ESTORNO_ANTERIOR_DIVERGENTES' };
+        }
+        const assinaturaEsperada = assinaturaEstornoRecebimento({
+            operacaoId: estorno.operacaoId,
+            motivo: estorno.motivo,
+            atualizadoEm: estorno.data,
+            atualizadoPor: estorno.responsavel
+        }, { conta, parcela, locacao, originalReferencia }, estorno.valorEstornoCentavos);
+        return assinaturaEsperada === estorno.assinaturaPlano
+            ? { ok: true }
+            : { ok: false, codigo: 'ASSINATURA_ESTORNO_ANTERIOR_DIVERGENTE' };
+    }
+
+    function reconstruirCadeiaFinanceiraConta(estado, conta, locacao, dataReferencia) {
+        const validacaoConta = validarContaReceberEstrutural(conta, dataReferencia);
+        if (!validacaoConta.valida) return { ok: false, codigo: validacaoConta.codigo };
+        const totaisOriginais = [];
+        const totaisRecebidos = [];
+        const totaisSaldos = [];
+        for (const parcela of conta.parcelas) {
+            const originais = new Map();
+            const operacoes = [];
+            for (const registro of parcela.lancamentosFinanceiros) {
+                if (pareceLancamentoEstorno(registro)) continue;
+                const integridade = validarIntegridadeRecebimentoOriginal(
+                    estado, conta, parcela, locacao, registro);
+                const referencia = criarReferenciaLancamentoFinanceiro(registro?.id);
+                if (!integridade.ok || !referencia || originais.has(referencia)) {
+                    return { ok: false, codigo: integridade.codigo || 'RECEBIMENTOS_PARCELA_DUPLICADOS' };
+                }
+                originais.set(referencia, registro);
+            }
+            for (const registro of parcela.lancamentosFinanceiros) {
+                if (!pareceLancamentoEstorno(registro)) {
+                    operacoes.push({ tipo: 'recebimento', registro,
+                        referencia: criarReferenciaLancamentoFinanceiro(registro.id) });
+                    continue;
+                }
+                const original = originais.get(registro.lancamentoOriginalReferencia);
+                const integridade = original
+                    ? validarIntegridadeEstornoAnterior(estado, conta, parcela, locacao,
+                        registro.lancamentoOriginalReferencia, registro)
+                    : { ok: false, codigo: 'RECEBIMENTO_ORIGINAL_ESTORNO_DIVERGENTE' };
+                if (!integridade.ok) return integridade;
+                operacoes.push({ tipo: 'estorno', registro,
+                    referencia: registro.lancamentoOriginalReferencia });
+            }
+            operacoes.sort((a, b) => a.registro.data.localeCompare(b.registro.data)
+                || a.registro.operacaoId.localeCompare(b.registro.operacaoId)
+                || a.registro.id.localeCompare(b.registro.id));
+            if (operacoes.some((operacao, indice) => indice > 0
+                && operacoes[indice - 1].registro.data === operacao.registro.data)) {
+                return { ok: false, codigo: 'ORDEM_OPERACOES_FINANCEIRAS_AMBIGUA' };
+            }
+            let recebido = 0;
+            let saldo = parcela.valorOriginalCentavos;
+            const reversivelPorRecebimento = new Map();
+            for (const operacao of operacoes) {
+                const registro = operacao.registro;
+                if (operacao.tipo === 'recebimento') {
+                    const delta = registro.valorAplicadoCentavos;
+                    const recebidoNovo = recebido + delta;
+                    const saldoNovo = saldo - delta;
+                    if (!Number.isSafeInteger(recebidoNovo) || !Number.isSafeInteger(saldoNovo)
+                        || delta <= 0 || delta > saldo
+                        || registro.valorRecebidoAnteriorCentavos !== recebido
+                        || registro.saldoAnteriorCentavos !== saldo
+                        || registro.valorRecebidoNovoCentavos !== recebidoNovo
+                        || registro.saldoNovoCentavos !== saldoNovo
+                        || reversivelPorRecebimento.has(operacao.referencia)) {
+                        return { ok: false, codigo: 'CADEIA_RECEBIMENTOS_PARCELA_DIVERGENTE' };
+                    }
+                    recebido = recebidoNovo;
+                    saldo = saldoNovo;
+                    reversivelPorRecebimento.set(operacao.referencia, delta);
+                    continue;
+                }
+                const disponivel = reversivelPorRecebimento.get(operacao.referencia);
+                const valorEstorno = registro.valorEstornoCentavos;
+                const recebidoNovo = recebido - valorEstorno;
+                const saldoNovo = saldo + valorEstorno;
+                if (!Number.isSafeInteger(disponivel) || valorEstorno > disponivel
+                    || !Number.isSafeInteger(recebidoNovo) || !Number.isSafeInteger(saldoNovo)
+                    || valorEstorno <= 0 || recebidoNovo < 0 || saldoNovo > parcela.valorOriginalCentavos
+                    || registro.valorRecebidoAnteriorCentavos !== recebido
+                    || registro.saldoAnteriorCentavos !== saldo
+                    || registro.valorRecebidoNovoCentavos !== recebidoNovo
+                    || registro.saldoNovoCentavos !== saldoNovo) {
+                    return { ok: false, codigo: 'CADEIA_ESTORNOS_PARCELA_DIVERGENTE' };
+                }
+                recebido = recebidoNovo;
+                saldo = saldoNovo;
+                reversivelPorRecebimento.set(operacao.referencia, disponivel - valorEstorno);
+            }
+            if (recebido !== parcela.valorRecebidoCentavos || saldo !== parcela.saldoCentavos
+                || recebido + saldo !== parcela.valorOriginalCentavos) {
+                return { ok: false, codigo: 'SALDO_FINAL_PARCELA_DIVERGENTE' };
+            }
+            totaisOriginais.push(parcela.valorOriginalCentavos);
+            totaisRecebidos.push(recebido);
+            totaisSaldos.push(saldo);
+        }
+        const total = somarCentavosMonetarios(totaisOriginais);
+        const recebido = somarCentavosMonetarios(totaisRecebidos);
+        const saldo = somarCentavosMonetarios(totaisSaldos);
+        if (!total.ok || !recebido.ok || !saldo.ok
+            || total.centavos !== conta.valorTotalCentavos
+            || recebido.centavos !== conta.valorRecebidoCentavos
+            || saldo.centavos !== conta.saldoCentavos
+            || recebido.centavos + saldo.centavos !== total.centavos) {
+            return { ok: false, codigo: 'CADEIA_CONTA_RECEBER_DIVERGENTE' };
+        }
+        const totalLocacao = normalizarValorMonetarioLegadoCentavos(
+            locacao.financeiro?.valorTotal ?? locacao.valorTotalCalculado, { permitirZero: false });
+        const recebidoLocacao = normalizarValorMonetarioLegadoCentavos(
+            locacao.financeiro?.sinal, { permitirZero: true });
+        const saldoLocacao = normalizarValorMonetarioLegadoCentavos(
+            locacao.financeiro?.valorRestante, { permitirZero: true });
+        const statusEsperado = saldo.centavos === 0 ? 'pago'
+            : recebido.centavos > 0 ? 'parcial' : 'pendente';
+        if (!totalLocacao.ok || !recebidoLocacao.ok || !saldoLocacao.ok
+            || totalLocacao.centavos !== total.centavos
+            || recebidoLocacao.centavos !== recebido.centavos
+            || saldoLocacao.centavos !== saldo.centavos
+            || locacao.financeiro?.statusPagamento !== statusEsperado
+            || locacao.pago !== (statusEsperado === 'pago')) {
+            return { ok: false, codigo: 'CADEIA_LOCACAO_FINANCEIRA_DIVERGENTE' };
+        }
+        return { ok: true, totalCentavos: total.centavos,
+            recebidoCentavos: recebido.centavos, saldoCentavos: saldo.centavos };
+    }
+
+    function validarCadeiaFinanceiraOperacao(estado, contaReferencia, locacaoReferencia, dataReferencia) {
+        if (!contaReferencia) return { ok: true };
+        const contas = estado.contasReceber.filter((conta) => (
+            conta?.contaReferencia === contaReferencia
+            && conta?.locacaoReferencia === locacaoReferencia
+        ));
+        if (contas.length !== 1) {
+            return { ok: false, codigo: contas.length
+                ? 'CONTA_RECEBER_DUPLICADA' : 'CONTA_RECEBER_NAO_ENCONTRADA' };
+        }
+        const locacoes = estado.locacoes.filter((locacao) => (
+            criarReferenciaTipadaLocacaoTransacional(locacao?.id) === locacaoReferencia
+        ));
+        if (locacoes.length !== 1) {
+            return { ok: false, codigo: locacoes.length
+                ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_NAO_ENCONTRADA' };
+        }
+        return reconstruirCadeiaFinanceiraConta(estado, contas[0], locacoes[0], dataReferencia);
+    }
+
+    function somarEstornosLancamento(estado, conta, parcela, locacao, original,
+        lancamentoOriginalReferencia, dataReferencia) {
+        const cadeia = reconstruirCadeiaFinanceiraConta(estado, conta, locacao, dataReferencia);
+        if (!cadeia.ok) return cadeia;
+        const integridadeOriginal = validarIntegridadeRecebimentoOriginal(
+            estado, conta, parcela, locacao, original);
+        if (!integridadeOriginal.ok) return integridadeOriginal;
+        const estornosConta = conta.parcelas.flatMap((item) => item.lancamentosFinanceiros
+            .filter(pareceLancamentoEstorno)
+            .map((registro) => ({ parcela: item, registro })));
+        const originaisConta = conta.parcelas.flatMap((item) => item.lancamentosFinanceiros
+            .filter((registro) => !pareceLancamentoEstorno(registro))
+            .map((registro) => ({ parcela: item, registro,
+                referencia: criarReferenciaLancamentoFinanceiro(registro?.id) })));
+        const operacoesEvidenciadas = new Set();
+        conta.historico.filter((registro) => registro?.tipo === 'estorno'
+            || registro?.acao === 'estorno_aplicado')
+            .forEach((registro) => operacoesEvidenciadas.add(registro?.operacaoId));
+        (Array.isArray(locacao.financeiro?.lancamentosRecebimentos)
+            ? locacao.financeiro.lancamentosRecebimentos : [])
+            .filter((registro) => registro?.tipo === 'estorno')
+            .forEach((registro) => operacoesEvidenciadas.add(registro?.operacaoId));
+        (Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+            .filter((registro) => registro?.tipo === 'estorno'
+                || registro?.acao === 'financeiro_estorno')
+            .forEach((registro) => operacoesEvidenciadas.add(registro?.operacaoId));
+        estado.logsAuditoria.filter((registro) => registro?.tipo === 'estorno'
+            || registro?.acao === 'estorno_recebimento')
+            .forEach((registro) => {
+                if (registro?.contaReferencia === conta.contaReferencia
+                    || registro?.locacaoReferencia === conta.locacaoReferencia) {
+                    operacoesEvidenciadas.add(registro?.operacaoId);
+                }
+            });
+        if (operacoesEvidenciadas.has(undefined)
+            || operacoesEvidenciadas.size !== new Set(estornosConta.map(({ registro }) => registro?.operacaoId)).size
+            || [...operacoesEvidenciadas].some((operacaoId) => !estornosConta.some(({ registro }) => (
+                registro?.operacaoId === operacaoId
+            )))) {
+            return { ok: false, codigo: 'EVIDENCIAS_ESTORNO_ANTERIOR_DIVERGENTES' };
+        }
+        const identidades = new Set();
+        const operacoes = new Set();
+        const totaisPorOriginal = new Map();
+        for (const item of estornosConta) {
+            const originais = originaisConta.filter((originalItem) => (
+                originalItem.referencia
+                && originalItem.referencia === item.registro.lancamentoOriginalReferencia
+            ));
+            if (originais.length !== 1 || originais[0].parcela !== item.parcela) {
+                return { ok: false, codigo: 'RECEBIMENTO_ORIGINAL_ESTORNO_DIVERGENTE' };
+            }
+            const integridadeRecebimento = validarIntegridadeRecebimentoOriginal(
+                estado, conta, item.parcela, locacao, originais[0].registro);
+            const validacao = validarIntegridadeEstornoAnterior(estado, conta, item.parcela,
+                locacao, item.registro.lancamentoOriginalReferencia, item.registro);
+            if (!integridadeRecebimento.ok || !validacao.ok
+                || item.registro.valorEstornoCentavos > originais[0].registro.valorAplicadoCentavos
+                || identidades.has(item.registro.lancamentoReferencia)
+                || operacoes.has(item.registro.operacaoId)) {
+                return { ok: false, codigo: integridadeRecebimento.codigo
+                    || validacao.codigo || 'ESTORNOS_LANCAMENTO_DUPLICADOS' };
+            }
+            identidades.add(item.registro.lancamentoReferencia);
+            operacoes.add(item.registro.operacaoId);
+            const acumulado = (totaisPorOriginal.get(originais[0].referencia) || 0)
+                + item.registro.valorEstornoCentavos;
+            if (!Number.isSafeInteger(acumulado) || acumulado > originais[0].registro.valorAplicadoCentavos) {
+                return { ok: false, codigo: 'ESTORNOS_LANCAMENTO_INVALIDOS' };
+            }
+            totaisPorOriginal.set(originais[0].referencia, acumulado);
+        }
+        const estornos = estornosConta
+            .filter(({ registro }) => registro.lancamentoOriginalReferencia === lancamentoOriginalReferencia)
+            .map(({ registro }) => registro);
+        const soma = somarCentavosMonetarios(estornos.map((registro) => registro.valorEstornoCentavos));
+        return soma.ok && soma.centavos <= original.valorAplicadoCentavos
+            ? { ok: true, centavos: soma.centavos, estornos }
+            : { ok: false, codigo: 'ESTORNOS_LANCAMENTO_INVALIDOS' };
+    }
+
+    function resolverAlvoEstornoRecebimento(estado, entrada, dataReferencia) {
+        if (typeof entrada.contaReferencia !== 'string'
+            || typeof entrada.parcelaReferencia !== 'string'
+            || typeof entrada.lancamentoOriginalReferencia !== 'string') {
+            return { ok: false, codigo: 'REFERENCIAS_ESTORNO_INVALIDAS' };
+        }
+        const contas = estado.contasReceber.filter((conta) => conta?.contaReferencia === entrada.contaReferencia);
+        if (contas.length !== 1) {
+            return { ok: false, codigo: contas.length ? 'CONTA_RECEBER_DUPLICADA' : 'CONTA_RECEBER_NAO_ENCONTRADA' };
+        }
+        const conta = contas[0];
+        const validacaoConta = validarContaReceberEstrutural(conta, dataReferencia);
+        if (!validacaoConta.valida) {
+            return { ok: false, codigo: validacaoConta.codigo, requerRecuperacao: true };
+        }
+        if (['cancelada', 'encerrada'].includes(validacaoConta.situacao)) {
+            return { ok: false, codigo: `CONTA_RECEBER_${validacaoConta.situacao.toUpperCase()}` };
+        }
+        const parcelas = conta.parcelas.filter((parcela) => parcela?.parcelaReferencia === entrada.parcelaReferencia);
+        if (parcelas.length !== 1) {
+            return { ok: false, codigo: parcelas.length ? 'PARCELA_RECEBIMENTO_DUPLICADA' : 'PARCELA_RECEBIMENTO_NAO_ENCONTRADA' };
+        }
+        const parcela = parcelas[0];
+        const lancamentosConta = conta.parcelas.flatMap((item) => item.lancamentosFinanceiros.map((registro) => ({ item, registro })));
+        const originais = lancamentosConta.filter(({ registro }) => (
+            !pareceLancamentoEstorno(registro)
+            && criarReferenciaLancamentoFinanceiro(registro?.id) === entrada.lancamentoOriginalReferencia
+        ));
+        if (originais.length !== 1 || originais[0].item !== parcela) {
+            return { ok: false, codigo: originais.length > 1
+                ? 'LANCAMENTO_RECEBIMENTO_DUPLICADO' : 'LANCAMENTO_RECEBIMENTO_NAO_ENCONTRADO',
+                requerRecuperacao: true };
+        }
+        const original = originais[0].registro;
+        const originalReferencia = criarReferenciaLancamentoFinanceiro(original.id);
+        if (!originalReferencia || !Number.isSafeInteger(original.valorAplicadoCentavos)
+            || original.valorAplicadoCentavos <= 0
+            || original.contaReferencia !== conta.contaReferencia
+            || original.parcelaReferencia !== parcela.parcelaReferencia
+            || original.locacaoReferencia !== conta.locacaoReferencia
+            || typeof original.operacaoId !== 'string' || !original.operacaoId
+            || typeof original.assinaturaPlano !== 'string' || !original.assinaturaPlano) {
+            return { ok: false, codigo: 'LANCAMENTO_RECEBIMENTO_INVALIDO', requerRecuperacao: true };
+        }
+        const locacoes = estado.locacoes.filter((locacao) => (
+            typeof locacao?.id === typeof conta.locacaoId && Object.is(locacao.id, conta.locacaoId)
+            && conta.locacaoReferencia === criarReferenciaTipadaLocacaoTransacional(locacao.id)
+        ));
+        if (locacoes.length !== 1) {
+            return { ok: false, codigo: locacoes.length ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_NAO_ENCONTRADA' };
+        }
+        const estornos = somarEstornosLancamento(
+            estado, conta, parcela, locacoes[0], original, originalReferencia, dataReferencia);
+        if (!estornos.ok) {
+            return { ok: false, codigo: estornos.codigo || 'ESTORNOS_LANCAMENTO_INVALIDOS',
+                requerRecuperacao: true };
+        }
+        return {
+            ok: true,
+            conta,
+            parcela,
+            locacao: locacoes[0],
+            original,
+            originalReferencia,
+            valorOriginalCentavos: original.valorAplicadoCentavos,
+            valorEstornadoCentavos: estornos.centavos,
+            valorDisponivelCentavos: original.valorAplicadoCentavos - estornos.centavos
+        };
+    }
+
+    function assinaturaEstornoRecebimento(entrada, alvo, valorEstornoCentavos) {
+        const base = ordenarChavesCanonicas({
+            tipo: 'estorno_recebimento_v1',
+            operacaoId: entrada.operacaoId,
+            contaReferencia: alvo.conta.contaReferencia,
+            parcelaReferencia: alvo.parcela.parcelaReferencia,
+            locacaoId: alvo.locacao.id,
+            locacaoReferencia: alvo.conta.locacaoReferencia,
+            lancamentoOriginalReferencia: alvo.originalReferencia,
+            valorEstornoCentavos,
+            motivo: entrada.motivo,
+            atualizadoEm: entrada.atualizadoEm,
+            atualizadoPor: entrada.atualizadoPor
+        });
+        return `estorno-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
+    }
+
+    function verificarEvidenciasEstornoRecebimento(estado, entrada, assinatura) {
+        const registros = [];
+        (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
+            (Array.isArray(conta?.historico) ? conta.historico : [])
+                .filter((registro) => registro?.operacaoId === entrada.operacaoId)
+                .forEach((registro) => registros.push({ tipo: 'historico_conta', registro }));
+            (Array.isArray(conta?.parcelas) ? conta.parcelas : []).forEach((parcela) => {
+                (Array.isArray(parcela?.lancamentosFinanceiros) ? parcela.lancamentosFinanceiros : [])
+                    .filter((registro) => registro?.operacaoId === entrada.operacaoId)
+                    .forEach((registro) => registros.push({ tipo: 'lancamento_parcela', registro }));
+            });
+        });
+        (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
+            (Array.isArray(locacao?.financeiro?.lancamentosRecebimentos) ? locacao.financeiro.lancamentosRecebimentos : [])
+                .filter((registro) => registro?.operacaoId === entrada.operacaoId)
+                .forEach((registro) => registros.push({ tipo: 'lancamento_locacao', registro }));
+            (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+                .filter((registro) => registro?.operacaoId === entrada.operacaoId)
+                .forEach((registro) => registros.push({ tipo: 'historico_locacao', registro }));
+        });
+        (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((registro) => registro?.operacaoId === entrada.operacaoId)
+            .forEach((registro) => registros.push({ tipo: 'auditoria', registro }));
+        if (!registros.length) return { estado: 'nao_executada', completo: false };
+        const tipos = ['historico_conta', 'lancamento_parcela', 'lancamento_locacao', 'historico_locacao', 'auditoria'];
+        const coerentes = registros.every(({ registro }) => (
+            registro?.tipo === 'estorno'
+            && registro?.assinaturaPlano === assinatura
+            && registro?.contaReferencia === entrada.contaReferencia
+            && registro?.parcelaReferencia === entrada.parcelaReferencia
+            && registro?.lancamentoOriginalReferencia === entrada.lancamentoOriginalReferencia
+        ));
+        return coerentes && tipos.every((tipo) => registros.filter((item) => item.tipo === tipo).length === 1)
+            ? { estado: 'concluida', completo: true }
+            : { estado: 'parcial', completo: false };
+    }
+
+    function obterResumoEstornoRecebimento(contaReferencia, parcelaReferencia,
+        lancamentoOriginalReferencia, estado, dataReferencia) {
+        if (!estado || !Array.isArray(estado.contasReceber) || !Array.isArray(estado.locacoes)
+            || !Array.isArray(estado.logsAuditoria) || !validarDataLocalContaReceber(dataReferencia)) return null;
+        const contas = estado.contasReceber.filter((conta) => conta?.contaReferencia === contaReferencia);
+        if (contas.length !== 1) return null;
+        const conta = contas[0];
+        const validacao = validarContaReceberEstrutural(conta, dataReferencia);
+        if (!validacao.valida || ['cancelada', 'encerrada'].includes(validacao.situacao)) return null;
+        const parcelas = conta.parcelas.filter((parcela) => parcela?.parcelaReferencia === parcelaReferencia);
+        if (parcelas.length !== 1) return null;
+        const parcela = parcelas[0];
+        const todos = conta.parcelas.flatMap((item) => item.lancamentosFinanceiros.map((registro) => ({ item, registro })));
+        const originais = todos.filter(({ registro }) => !pareceLancamentoEstorno(registro)
+            && criarReferenciaLancamentoFinanceiro(registro?.id) === lancamentoOriginalReferencia);
+        if (originais.length !== 1 || originais[0].item !== parcela) return null;
+        const original = originais[0].registro;
+        if (!Number.isSafeInteger(original.valorAplicadoCentavos) || original.valorAplicadoCentavos <= 0) return null;
+        const locacoes = estado.locacoes.filter((locacao) => (
+            typeof locacao?.id === typeof conta.locacaoId && Object.is(locacao.id, conta.locacaoId)
+            && conta.locacaoReferencia === criarReferenciaTipadaLocacaoTransacional(locacao.id)
+        ));
+        if (locacoes.length !== 1) return null;
+        const estornos = somarEstornosLancamento(
+            estado, conta, parcela, locacoes[0], original, lancamentoOriginalReferencia, dataReferencia);
+        if (!estornos.ok) return null;
+        return clonarRetornoPublico({
+            contaReferencia,
+            parcelaReferencia,
+            locacaoReferencia: conta.locacaoReferencia,
+            lancamentoOriginalReferencia,
+            valorRecebidoCentavos: original.valorAplicadoCentavos,
+            valorEstornadoCentavos: estornos.centavos,
+            valorDisponivelCentavos: original.valorAplicadoCentavos - estornos.centavos,
+            data: original.data || '',
+            responsavel: original.responsavel || original.usuario || ''
+        });
+    }
+
+    function executarEstornoRecebimentoTransacional(entradaRecebida = {}, dependencias = {}) {
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
+        const cloneEntrada = clonarJsonInterno(entradaRecebida);
+        if (!cloneEntrada.ok) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
+        const entrada = cloneEntrada.valor;
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
+        const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
+        const motivo = typeof entrada.motivo === 'string' ? entrada.motivo : '';
+        const valor = normalizarTextoMonetarioCentavos(entrada.valorEstornoTexto, { permitirZero: false });
+        const persistenciaEntrada = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
+            || !atualizadoEm || !atualizadoPor || !valor.ok
+            || motivo !== motivo.trim() || motivo.length < 5 || motivo.length > 500
+            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
+            || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao.trim()
+            || persistenciaEntrada.data !== atualizadoEm
+            || !Number.isSafeInteger(persistenciaEntrada.ultimaEdicao) || persistenciaEntrada.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias?.armazenamento) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
+
+        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+        const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        const dataReferencia = atualizadoEm.slice(0, 10);
+        if (!validarDataLocalContaReceber(dataReferencia)) return resultadoBase('DATA_ESTORNO_INVALIDA');
+        const alvoInicial = resolverAlvoEstornoRecebimento(memoriaInicial.valor, entrada, dataReferencia);
+        if (!alvoInicial.ok) return resultadoBase(alvoInicial.codigo, {
+            requerRecuperacao: alvoInicial.requerRecuperacao === true
+        });
+        const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}`;
+        if (travasEstornoRecebimento.has(trava)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        travasEstornoRecebimento.add(trava);
+        let autorizacaoPublicacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const assinatura = assinaturaEstornoRecebimento(entrada, alvoInicial, valor.centavos);
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
+            let leituraInicial;
+            try { leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); }
+            catch (_erro) { leituraInicial = null; }
+            const leituraValidada = validarRetornoLeituraSnapshotFinanceiro(leituraInicial);
+            if (!leituraValidada.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leituraValidada.snapshot);
+            if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evidenciaMemoria = verificarEvidenciasEstornoRecebimento(memoriaInicial.valor, entrada, assinatura);
+            const evidenciaPersistida = verificarEvidenciasEstornoRecebimento(persistidoInicial.valor, entrada, assinatura);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                if (evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoriaInicial.json === persistidoInicial.json) {
+                    return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
+                        idempotente: true, operacao: { operacaoId, assinaturaPlano: assinatura,
+                            contaReferencia: entrada.contaReferencia, parcelaReferencia: entrada.parcelaReferencia,
+                            lancamentoOriginalReferencia: entrada.lancamentoOriginalReferencia }, renderizar: true });
+                }
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoriaInicial.json !== persistidoInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (valor.centavos > alvoInicial.valorDisponivelCentavos) return resultadoBase('VALOR_ESTORNO_FORA_DO_LIMITE');
+
+            const candidato = clonarJsonInterno(memoriaInicial.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvo = resolverAlvoEstornoRecebimento(candidato.valor, entrada, dataReferencia);
+            if (!alvo.ok || alvo.valorDisponivelCentavos !== alvoInicial.valorDisponivelCentavos) {
+                return resultadoBase('ALVO_ESTORNO_NAO_RECONCILIADO');
+            }
+            const novoRecebidoParcela = alvo.parcela.valorRecebidoCentavos - valor.centavos;
+            const novoSaldoParcela = alvo.parcela.valorOriginalCentavos - novoRecebidoParcela;
+            const novoRecebidoConta = alvo.conta.valorRecebidoCentavos - valor.centavos;
+            const novoSaldoConta = alvo.conta.valorTotalCentavos - novoRecebidoConta;
+            if (![novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta].every(Number.isSafeInteger)
+                || Math.min(novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta) < 0) {
+                return resultadoBase('VALORES_ESTORNO_NAO_RECONCILIADOS');
+            }
+            const locacaoTotal = normalizarValorMonetarioLegadoCentavos(
+                alvo.locacao.financeiro?.valorTotal ?? alvo.locacao.valorTotalCalculado, { permitirZero: false });
+            if (!locacaoTotal.ok || locacaoTotal.centavos !== alvo.conta.valorTotalCentavos) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const novoRecebidoPersistivel = converterCentavosParaNumeroPersistivel(novoRecebidoConta);
+            const novoSaldoPersistivel = converterCentavosParaNumeroPersistivel(novoSaldoConta);
+            if (!novoRecebidoPersistivel.ok || !novoSaldoPersistivel.ok) return resultadoBase('VALOR_MONETARIO_NAO_PERSISTIVEL');
+            const idLancamentoParcela = `estorno-parcela-${operacaoId}`;
+            const idLancamentoLocacao = `estorno-locacao-${operacaoId}`;
+            const baseEstorno = { tipo: 'estorno', operacaoId, contaReferencia: alvo.conta.contaReferencia,
+                parcelaReferencia: alvo.parcela.parcelaReferencia, locacaoId: alvo.locacao.id,
+                locacaoReferencia: alvo.conta.locacaoReferencia, lancamentoOriginalReferencia: alvo.originalReferencia,
+                valorEstornoCentavos: valor.centavos, motivo, data: atualizadoEm,
+                responsavel: atualizadoPor, assinaturaPlano: assinatura };
+            alvo.parcela.valorRecebidoCentavos = novoRecebidoParcela;
+            alvo.parcela.saldoCentavos = novoSaldoParcela;
+            alvo.parcela.atualizadoEm = atualizadoEm;
+            alvo.parcela.situacao = calcularSituacaoEfetivaParcelaContaReceber(alvo.parcela, dataReferencia);
+            alvo.parcela.lancamentosFinanceiros = [...alvo.parcela.lancamentosFinanceiros, {
+                ...baseEstorno, id: idLancamentoParcela,
+                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoParcela),
+                valorRecebidoAnteriorCentavos: novoRecebidoParcela + valor.centavos,
+                valorRecebidoNovoCentavos: novoRecebidoParcela,
+                saldoAnteriorCentavos: novoSaldoParcela - valor.centavos,
+                saldoNovoCentavos: novoSaldoParcela
+            }];
+            alvo.conta.valorRecebidoCentavos = novoRecebidoConta;
+            alvo.conta.saldoCentavos = novoSaldoConta;
+            alvo.conta.atualizadoEm = atualizadoEm;
+            const contaValidada = validarContaReceberEstrutural(alvo.conta, dataReferencia);
+            if (!contaValidada.valida || contaValidada.recebidoCentavos !== novoRecebidoConta
+                || contaValidada.saldoCentavos !== novoSaldoConta) return resultadoBase('CONTA_RECEBER_NAO_RECONCILIADA');
+            alvo.conta.situacao = contaValidada.situacao;
+            alvo.conta.historico = [...alvo.conta.historico, {
+                ...baseEstorno, id: `historico-conta-estorno-${operacaoId}`, acao: 'estorno_aplicado',
+                valorRecebidoCentavos: novoRecebidoConta, saldoCentavos: novoSaldoConta, usuario: atualizadoPor
+            }];
+            const statusPagamento = novoSaldoConta === 0 ? 'pago' : novoRecebidoConta > 0 ? 'parcial' : 'pendente';
+            alvo.locacao.financeiro = { ...alvo.locacao.financeiro,
+                sinal: novoRecebidoPersistivel.valor, valorRestante: novoSaldoPersistivel.valor, statusPagamento,
+                lancamentosRecebimentos: [...(Array.isArray(alvo.locacao.financeiro?.lancamentosRecebimentos)
+                    ? alvo.locacao.financeiro.lancamentosRecebimentos : []), {
+                    ...baseEstorno, id: idLancamentoLocacao,
+                    lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoLocacao),
+                    valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
+                }] };
+            alvo.locacao.pago = statusPagamento === 'pago';
+            alvo.locacao.historicoAlteracoes = [...(Array.isArray(alvo.locacao.historicoAlteracoes)
+                ? alvo.locacao.historicoAlteracoes : []), {
+                ...baseEstorno, id: `historico-estorno-${operacaoId}`, acao: 'financeiro_estorno',
+                origem: 'financeiro', usuario: atualizadoPor,
+                descricao: `Estorno de ${formatarCentavosParaHistorico(valor.centavos)} registrado.`,
+                valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
+            }];
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria, {
+                ...baseEstorno, id: `auditoria-estorno-${operacaoId}`, timestamp: atualizadoEm,
+                acao: 'estorno_recebimento', descricao: 'Estorno de recebimento registrado.',
+                usuario: atualizadoPor, valorRecebidoCentavos: novoRecebidoConta,
+                valorRestanteCentavos: novoSaldoConta
+            }];
+            if (!verificarEvidenciasEstornoRecebimento(candidato.valor, entrada, assinatura).completo) {
+                return resultadoBase('EVIDENCIAS_ESTORNO_INCOMPLETAS');
+            }
+            const cadeiaCandidata = validarCadeiaFinanceiraOperacao(
+                candidato.valor, alvo.conta.contaReferencia, alvo.conta.locacaoReferencia, dataReferencia);
+            if (!cadeiaCandidata.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: cadeiaCandidata.codigo || 'CADEIA_FINANCEIRA_CANDIDATA_DIVERGENTE' }]
+                });
+            }
+
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparadoExterno;
+            try {
+                preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico), clonarDescartavel(persistenciaEntrada));
+            } catch (_erro) { return resultadoBase('FALHA_PREPARACAO_SNAPSHOT'); }
+            const preparadoValidado = validarRetornoPreparacaoSnapshotFinanceiro(preparadoExterno);
+            if (!preparadoValidado.ok) return resultadoBase('SNAPSHOT_PREPARADO_NAO_CONFIAVEL');
+            const snapshotAutoritativo = clonarJsonInterno({ versao: persistenciaEntrada.versao,
+                data: persistenciaEntrada.data, ultimaEdicao: persistenciaEntrada.ultimaEdicao, ...candidatoCanonico });
+            const externo = clonarJsonInterno(preparadoValidado.snapshot);
+            if (!snapshotAutoritativo.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(externo.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacionalEsperado = prepararEstadoOperacionalInterno(snapshotAutoritativo.valor);
+            if (!operacionalEsperado.ok) return resultadoBase(operacionalEsperado.codigo);
+            const jsonPublicacaoEsperado = operacionalEsperado.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacaoPublicacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            try { dependencias.persistirSnapshotLocalConfirmavel(
+                clonarDescartavel(snapshotAutoritativo.valor), { ...opcoesArmazenamento }); }
+            catch (_erro) { /* a releitura autoritativa determina o resultado */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); }
+            catch (_erro) { releitura = null; }
+            const releituraValidada = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValidada.ok ? clonarJsonInterno(releituraValidada.snapshot) : { ok: false };
+            const operacionalRelido = relido.ok
+                ? prepararEstadoOperacionalInterno(relido.valor) : { ok: false };
+            const cadeiaRelida = operacionalRelido.ok
+                ? validarCadeiaFinanceiraOperacao(operacionalRelido.valor,
+                    alvo.conta.contaReferencia, alvo.conta.locacaoReferencia, dataReferencia)
+                : { ok: false, codigo: 'SNAPSHOT_RELIDO_INVALIDO' };
+            const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
+            const jsonRelido = relido.ok ? JSON.stringify(ordenarChavesCanonicas(relido.valor)) : '';
+            if (!releituraValidada.ok || !relido.ok || !operacionalRelido.ok
+                || !cadeiaRelida.ok || jsonRelido !== jsonEsperado) {
+                const semEscrita = persistidoInicial.ok && relido.ok
+                    && JSON.stringify(ordenarChavesCanonicas(leituraValidada.snapshot)) === jsonRelido;
+                return resultadoBase(semEscrita ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
+                    { requerRecuperacao: !semEscrita });
+            }
+            persistenciaConfirmada = true;
+            const raizAntesPublicacao = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAntesPublicacao = prepararEstadoOperacionalInterno(raizAntesPublicacao);
+            if (raizAntesPublicacao !== raizAnterior || !memoriaAntesPublicacao.ok
+                || memoriaAntesPublicacao.json !== memoriaInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalEsperado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                    autorizacaoPublicacao,
+                    exigirConfirmacaoInterna: true
+                });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior, autorizacaoPublicacao }) || null;
+            autorizacaoPublicacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true, publicacaoRealizada: false });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try {
+                sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                    ultimaEdicao: persistenciaEntrada.ultimaEdicao,
+                    locacaoId: alvo.locacao.id,
+                    operacaoId,
+                    assinaturaPlano: assinatura
+                }) === true;
+            } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('ESTORNO_APLICADO', { ok: true, aplicado: true,
+                publicacaoRealizada: true, avisos, renderizar: true, sincronizar,
+                operacao: { operacaoId, assinaturaPlano: assinatura,
+                    contaReferencia: entrada.contaReferencia,
+                    parcelaReferencia: entrada.parcelaReferencia,
+                    locacaoReferencia: alvo.conta.locacaoReferencia,
+                    lancamentoOriginalReferencia: alvo.originalReferencia,
+                    valorEstornoCentavos: valor.centavos }
+            });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'ESTORNO_APLICADO' : 'FALHA_ESTORNO', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }],
+                renderizar: publicacaoRealizada,
+                sincronizar: false
+            });
+        } finally {
+            if (autorizacaoPublicacao) {
+                try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); } catch (_erro) { /* encerrada */ }
+            }
+            travasEstornoRecebimento.delete(trava);
         }
     }
 
@@ -4365,7 +5328,10 @@
     window.formatarCentavosMonetarios = formatarCentavosMonetarios;
     window.obterProjecaoFinanceiraLegadaLocacao = obterProjecaoFinanceiraLegadaLocacao;
     window.obterProjecaoFinanceiraContaReceber = obterProjecaoFinanceiraContaReceber;
+    window.criarReferenciaLancamentoFinanceiro = criarReferenciaLancamentoFinanceiro;
+    window.obterResumoEstornoRecebimento = obterResumoEstornoRecebimento;
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
+    window.executarEstornoRecebimentoTransacional = executarEstornoRecebimentoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

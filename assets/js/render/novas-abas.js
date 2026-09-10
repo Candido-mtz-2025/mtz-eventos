@@ -13,6 +13,10 @@
     let filtroAgendaAtual = 'todos';
     let acionadorDetalhesContaReceber = null;
     let eventosDetalhesContaReceberRegistrados = false;
+    let sessaoEstornoRecebimento = null;
+    let acionadorEstornoRecebimento = null;
+    let eventosEstornoRecebimentoRegistrados = false;
+    let estornoRecebimentoEmProcessamento = false;
 
     function normalizarTextoBusca(valor) {
         return String(valor || '')
@@ -465,6 +469,54 @@
         return encontradas.length === 1 ? encontradas[0] : null;
     }
 
+    function codificarAlvoEstorno(contaReferencia, parcelaReferencia, lancamentoReferencia) {
+        return encodeURIComponent(JSON.stringify([contaReferencia, parcelaReferencia, lancamentoReferencia]));
+    }
+
+    function decodificarAlvoEstorno(argumento) {
+        if (typeof argumento !== 'string') return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(argumento));
+            return Array.isArray(dados) && dados.length === 3 && dados.every((item) => typeof item === 'string' && item)
+                ? dados : null;
+        } catch (_erro) {
+            return null;
+        }
+    }
+
+    function renderLancamentosEstornaveisConta(conta, hoje) {
+        const destino = document.getElementById('detalhesContaLancamentos');
+        if (!destino) return;
+        const estadoAtual = typeof obterEstadoMemoriaAtual === 'function'
+            ? obterEstadoMemoriaAtual() : null;
+        const linhas = [];
+        conta.parcelas.forEach((parcela) => {
+            parcela.lancamentosFinanceiros
+                .filter((registro) => registro?.tipo !== 'estorno')
+                .forEach((registro) => {
+                    const referencia = typeof criarReferenciaLancamentoFinanceiro === 'function'
+                        ? criarReferenciaLancamentoFinanceiro(registro.id) : '';
+                    const resumo = referencia && typeof obterResumoEstornoRecebimento === 'function'
+                        ? obterResumoEstornoRecebimento(conta.contaReferencia, parcela.parcelaReferencia,
+                            referencia, estadoAtual, hoje) : null;
+                    if (!resumo) return;
+                    const argumento = codificarAlvoEstorno(conta.contaReferencia,
+                        parcela.parcelaReferencia, referencia);
+                    const acao = resumo.valorDisponivelCentavos > 0
+                        ? `<button type="button" class="btn btn-sm btn-danger" data-acesso="admin" data-action="abrirEstornoRecebimentoConta" data-arg="${sanitizarTexto(argumento)}" aria-label="Estornar recebimento da parcela ${parcela.numero}">Estornar</button>`
+                        : '<span class="muted-note">Integralmente estornado</span>';
+                    linhas.push(`<tr><td>${parcela.numero}/${parcela.totalParcelas}</td><td>${sanitizarTexto(resumo.data || '-')}</td>
+                        <td>${formatarCentavosMonetarios(resumo.valorRecebidoCentavos) || 'Valor indisponível'}</td>
+                        <td>${formatarCentavosMonetarios(resumo.valorEstornadoCentavos) || 'Valor indisponível'}</td>
+                        <td>${formatarCentavosMonetarios(resumo.valorDisponivelCentavos) || 'Valor indisponível'}</td><td>${acao}</td></tr>`);
+                });
+        });
+        destino.innerHTML = linhas.length
+            ? `<h4>Recebimentos</h4><div class="table-responsive"><table class="table"><thead><tr><th>Parcela</th><th>Data</th><th>Recebido</th><th>Estornado</th><th>Disponível</th><th>Ação</th></tr></thead><tbody>${linhas.join('')}</tbody></table></div>`
+            : '<p class="muted-note">Nenhum recebimento elegível para estorno.</p>';
+        if (typeof aplicarPermissoesInterface === 'function') aplicarPermissoesInterface();
+    }
+
     function renderContasReceberDetalhadas() {
         const tabela = document.getElementById('tblContasReceber');
         if (!tabela) return;
@@ -564,8 +616,14 @@
             const situacao = calcularSituacaoEfetivaParcelaContaReceber(p, hoje);
             return `<tr><td>${p.numero}/${p.totalParcelas}</td><td>${formatarDataCurta(p.vencimento)}</td><td>${formatarCentavosMonetarios(p.valorOriginalCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.valorRecebidoCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.saldoCentavos) || 'Valor indisponível'}</td><td>${situacao}</td><td>${p.saldoCentavos>0&&!['cancelada'].includes(situacao)?`<button class="btn btn-sm btn-success" data-action="registrarRecebimentoParcelaConta" data-arg="${sanitizarTexto(conta.contaReferencia)}|${sanitizarTexto(p.parcelaReferencia)}">Receber</button>`:'-'}</td></tr>`;
         }).join('')}</tbody></table>`;
+        renderLancamentosEstornaveisConta(conta, hoje);
         const historico = [...(conta.historico || []), ...(conta.parcelas || []).flatMap((p) => p.lancamentosFinanceiros || [])];
-        document.getElementById('detalhesContaHistorico').innerHTML = historico.map((h) => `<p><strong>${sanitizarTexto(h.acao || 'recebimento')}</strong> · ${sanitizarTexto(h.data || '')} · ${sanitizarTexto(h.usuario || h.responsavel || '')}</p>`).join('') || '<p>Sem movimentações.</p>';
+        document.getElementById('detalhesContaHistorico').innerHTML = historico.map((h) => {
+            const vinculo = h.tipo === 'estorno' && h.lancamentoOriginalReferencia
+                ? ` · vinculado a ${sanitizarTexto(h.lancamentoOriginalReferencia)}` : '';
+            const motivo = h.tipo === 'estorno' && h.motivo ? ` · ${sanitizarTexto(h.motivo)}` : '';
+            return `<p><strong>${sanitizarTexto(h.acao || h.tipo || 'recebimento')}</strong> · ${sanitizarTexto(h.data || '')} · ${sanitizarTexto(h.usuario || h.responsavel || '')}${vinculo}${motivo}</p>`;
+        }).join('') || '<p>Sem movimentações.</p>';
         acionadorDetalhesContaReceber = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         cancelarRecebimentoParcelaConta();
         registrarEventosDetalhesContaReceber();
@@ -639,6 +697,119 @@
         if (ok) { cancelarRecebimentoParcelaConta(); renderFinanceiroResumo(); abrirDetalhesContaReceber(conta.contaReferencia); }
         else { definirErroRecebimentoParcela('Não foi possível registrar este recebimento. Confira o valor e tente novamente.'); campo.focus(); }
         return ok;
+    }
+
+    function definirErroEstornoRecebimento(mensagem) {
+        const valor = document.getElementById('estornoRecebimentoValor');
+        const motivo = document.getElementById('estornoRecebimentoMotivo');
+        const erro = document.getElementById('estornoRecebimentoErro');
+        if (!valor || !motivo || !erro) return;
+        erro.textContent = mensagem || '';
+        erro.hidden = !mensagem;
+        [valor, motivo].forEach((campo) => campo.setAttribute('aria-invalid', mensagem ? 'true' : 'false'));
+    }
+
+    function fecharEstornoRecebimentoConta() {
+        if (estornoRecebimentoEmProcessamento) return false;
+        const modal = document.getElementById('modalEstornoRecebimento');
+        if (!modal) return false;
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        definirErroEstornoRecebimento('');
+        sessaoEstornoRecebimento = null;
+        const acionador = acionadorEstornoRecebimento;
+        acionadorEstornoRecebimento = null;
+        if (acionador?.isConnected) acionador.focus({ preventScroll: true });
+        return true;
+    }
+
+    function registrarEventosEstornoRecebimento() {
+        if (eventosEstornoRecebimentoRegistrados) return;
+        const modal = document.getElementById('modalEstornoRecebimento');
+        if (!modal) return;
+        eventosEstornoRecebimentoRegistrados = true;
+        modal.addEventListener('click', (evento) => {
+            if (evento.target === modal) fecharEstornoRecebimentoConta();
+        });
+        modal.addEventListener('keydown', (evento) => {
+            if (!modal.classList.contains('active')) return;
+            if (evento.key === 'Escape') {
+                evento.preventDefault();
+                fecharEstornoRecebimentoConta();
+                return;
+            }
+            if (evento.key !== 'Tab') return;
+            const focaveis = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+                .filter((elemento) => !elemento.hidden && elemento.getClientRects().length > 0);
+            if (!focaveis.length) { evento.preventDefault(); modal.focus(); return; }
+            const primeiro = focaveis[0];
+            const ultimo = focaveis[focaveis.length - 1];
+            if (evento.shiftKey && document.activeElement === primeiro) { evento.preventDefault(); ultimo.focus(); }
+            else if (!evento.shiftKey && document.activeElement === ultimo) { evento.preventDefault(); primeiro.focus(); }
+        });
+    }
+
+    function abrirEstornoRecebimentoConta(argumento) {
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('alterar_pagamento', 'Somente usuários com permissão financeira podem estornar recebimentos.')) return false;
+        const alvo = decodificarAlvoEstorno(argumento);
+        const modal = document.getElementById('modalEstornoRecebimento');
+        if (!alvo || !modal) return false;
+        const estadoAtual = typeof obterEstadoMemoriaAtual === 'function'
+            ? obterEstadoMemoriaAtual() : null;
+        const resumo = obterResumoEstornoRecebimento(
+            alvo[0], alvo[1], alvo[2], estadoAtual, dataLocalFinanceiro());
+        if (!resumo || resumo.valorDisponivelCentavos <= 0) return false;
+        acionadorEstornoRecebimento = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        sessaoEstornoRecebimento = { ...resumo,
+            operacaoId: typeof gerarOperacaoIdEstornoRecebimento === 'function'
+                ? gerarOperacaoIdEstornoRecebimento() : '' };
+        document.getElementById('estornoRecebimentoRecebido').textContent = formatarCentavosMonetarios(resumo.valorRecebidoCentavos);
+        document.getElementById('estornoRecebimentoEstornado').textContent = formatarCentavosMonetarios(resumo.valorEstornadoCentavos);
+        document.getElementById('estornoRecebimentoDisponivel').textContent = formatarCentavosMonetarios(resumo.valorDisponivelCentavos);
+        document.getElementById('estornoRecebimentoValor').value = '';
+        document.getElementById('estornoRecebimentoMotivo').value = '';
+        definirErroEstornoRecebimento('');
+        registrarEventosEstornoRecebimento();
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        document.getElementById('estornoRecebimentoValor').focus({ preventScroll: true });
+        return true;
+    }
+
+    function confirmarEstornoRecebimentoConta() {
+        if (estornoRecebimentoEmProcessamento || !sessaoEstornoRecebimento) return false;
+        const valor = document.getElementById('estornoRecebimentoValor');
+        const motivo = document.getElementById('estornoRecebimentoMotivo');
+        const botao = document.getElementById('estornoRecebimentoConfirmar');
+        if (!valor || !motivo || !botao) return false;
+        estornoRecebimentoEmProcessamento = true;
+        botao.disabled = true;
+        const contaReferencia = sessaoEstornoRecebimento.contaReferencia;
+        let resultado;
+        try {
+            resultado = aplicarEstornoRecebimentoConta({
+                contaReferencia,
+                parcelaReferencia: sessaoEstornoRecebimento.parcelaReferencia,
+                lancamentoOriginalReferencia: sessaoEstornoRecebimento.lancamentoOriginalReferencia,
+                valorEstornoTexto: valor.value,
+                motivo: motivo.value,
+                operacaoId: sessaoEstornoRecebimento.operacaoId
+            });
+        } finally {
+            estornoRecebimentoEmProcessamento = false;
+            botao.disabled = false;
+        }
+        if (resultado?.ok) {
+            fecharEstornoRecebimentoConta();
+            abrirDetalhesContaReceber(contaReferencia);
+            return true;
+        }
+        definirErroEstornoRecebimento(resultado?.requerRecuperacao
+            ? 'A operação exige recuperação explícita antes de uma nova tentativa.'
+            : 'Confira o valor disponível e o motivo informado.');
+        valor.focus({ preventScroll: true });
+        return false;
     }
 
     function registrarEventosDetalhesContaReceber() {
@@ -959,6 +1130,9 @@
     window.registrarRecebimentoParcelaConta = registrarRecebimentoParcelaConta;
     window.confirmarRecebimentoParcelaConta = confirmarRecebimentoParcelaConta;
     window.cancelarRecebimentoParcelaConta = cancelarRecebimentoParcelaConta;
+    window.abrirEstornoRecebimentoConta = abrirEstornoRecebimentoConta;
+    window.fecharEstornoRecebimentoConta = fecharEstornoRecebimentoConta;
+    window.confirmarEstornoRecebimentoConta = confirmarEstornoRecebimentoConta;
     window.renderAgendaOperacional = renderAgendaOperacional;
     window.aplicarFiltroOrcamentosRapido = aplicarFiltroOrcamentosRapido;
     window.aplicarFiltroFinanceiroRapido = aplicarFiltroFinanceiroRapido;

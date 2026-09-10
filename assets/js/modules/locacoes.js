@@ -9,6 +9,8 @@ let sequenciaOperacaoEdicaoLocacao = 0;
 let sessaoRecebimentoLocacao = null;
 let recebimentoLocacaoEmAndamento = false;
 let sequenciaOperacaoRecebimento = 0;
+let estornoRecebimentoEmAndamento = false;
+let sequenciaOperacaoEstornoRecebimento = 0;
 let acionadorModalPagamentoLocacao = null;
 let eventosModalPagamentoLocacaoRegistrados = false;
 let sessaoContaReceber = null;
@@ -1123,6 +1125,21 @@ function gerarOperacaoIdRecebimentoLocacao() {
     return `recebimento-${sufixo}`.slice(0, 160);
 }
 
+function gerarOperacaoIdEstornoRecebimento() {
+    let sufixo = '';
+    if (globalThis.crypto?.randomUUID) {
+        sufixo = globalThis.crypto.randomUUID().replace(/[^a-z0-9]/gi, '').toLowerCase();
+    } else if (globalThis.crypto?.getRandomValues) {
+        const bytes = new Uint32Array(4);
+        globalThis.crypto.getRandomValues(bytes);
+        sufixo = Array.from(bytes, (valor) => valor.toString(16).padStart(8, '0')).join('');
+    } else {
+        sequenciaOperacaoEstornoRecebimento += 1;
+        sufixo = `${Date.now().toString(36)}${sequenciaOperacaoEstornoRecebimento.toString(36)}`;
+    }
+    return `estorno-${sufixo}`.slice(0, 160);
+}
+
 function obterResponsavelRecebimentoLocacao() {
     return String(localStorage.getItem('usuarioEmail') || window.usuarioAtual?.email || 'sistema_local').trim() || 'sistema_local';
 }
@@ -1270,6 +1287,82 @@ function aplicarRecebimentoLocacao(referencia, valorRecebidoTexto, operacaoId, o
     };
     mostrarToast(mensagens[resultado?.codigo] || resultado?.bloqueios?.[0]?.mensagem || 'Não foi possível registrar o recebimento.', 'erro');
     return false;
+}
+
+function aplicarEstornoRecebimentoConta(dados = {}) {
+    if (estornoRecebimentoEmAndamento) return { ok: false, codigo: 'OPERACAO_EM_EXECUCAO' };
+    if (!dados || typeof dados !== 'object'
+        || typeof dados.contaReferencia !== 'string'
+        || typeof dados.parcelaReferencia !== 'string'
+        || typeof dados.lancamentoOriginalReferencia !== 'string'
+        || typeof dados.valorEstornoTexto !== 'string'
+        || typeof dados.motivo !== 'string'
+        || typeof dados.operacaoId !== 'string') {
+        return { ok: false, codigo: 'ENTRADA_ESTORNO_INVALIDA' };
+    }
+    if (typeof validarPermissao === 'function'
+        && !validarPermissao('alterar_pagamento', 'Somente usuários com permissão financeira podem estornar recebimentos.')) {
+        return { ok: false, codigo: 'PERMISSAO_FINANCEIRA_NEGADA' };
+    }
+    const instante = new Date();
+    const atualizadoEm = instante.toISOString();
+    const entrada = {
+        contaReferencia: dados.contaReferencia,
+        parcelaReferencia: dados.parcelaReferencia,
+        lancamentoOriginalReferencia: dados.lancamentoOriginalReferencia,
+        valorEstornoTexto: dados.valorEstornoTexto,
+        motivo: dados.motivo,
+        operacaoId: dados.operacaoId,
+        atualizadoEm,
+        atualizadoPor: obterResponsavelRecebimentoLocacao(),
+        persistencia: {
+            versao: window.SCHEMA_VERSION_V12 || '12.6',
+            data: atualizadoEm,
+            ultimaEdicao: instante.getTime()
+        }
+    };
+    estornoRecebimentoEmAndamento = true;
+    let resultado;
+    try {
+        const dependencias = criarDependenciasExecutorEstornoRecebimento({ armazenamento: localStorage });
+        resultado = executarEstornoRecebimentoTransacional(entrada, dependencias);
+    } catch (erro) {
+        resultado = { ok: false, codigo: 'FALHA_INTEGRACAO_ESTORNO', efeitos: {},
+            bloqueios: [{ mensagem: String(erro?.message || erro) }] };
+    } finally {
+        estornoRecebimentoEmAndamento = false;
+    }
+    if (resultado?.ok && ['ESTORNO_APLICADO', 'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+        if (resultado.efeitos?.renderizar) {
+            renderLocacoes();
+            if (typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+            renderStats();
+        }
+        if (resultado.efeitos?.sincronizar && typeof sincronizar === 'function') sincronizar('salvar');
+        const syncPendente = resultado.avisos?.some((aviso) => aviso.codigo === 'METADADO_SYNC_PENDENTE');
+        mostrarToast(syncPendente
+            ? 'Estorno registrado. A sincronização ficou pendente.'
+            : (resultado.idempotente ? 'Este estorno já estava registrado.' : 'Estorno registrado com segurança.'),
+        syncPendente ? 'info' : 'sucesso');
+        return resultado;
+    }
+    if (resultado?.requerRecuperacao) {
+        mostrarToast('O estorno exige recuperação explícita. Nenhuma nova tentativa automática foi feita.', 'erro', 8000);
+        return resultado;
+    }
+    const mensagens = {
+        VALOR_ESTORNO_FORA_DO_LIMITE: 'O valor do estorno supera o saldo disponível do recebimento.',
+        ENTRADA_ESTORNO_INVALIDA: 'Confira o valor e informe um motivo entre 5 e 500 caracteres, sem espaços externos.',
+        LANCAMENTO_RECEBIMENTO_DUPLICADO: 'O recebimento possui identidade duplicada e não pode ser estornado.',
+        LANCAMENTO_RECEBIMENTO_NAO_ENCONTRADO: 'O recebimento não foi encontrado ou já não está disponível.',
+        CONTA_RECEBER_CANCELADA: 'Contas canceladas não permitem estorno neste fluxo.',
+        CONTA_RECEBER_ENCERRADA: 'Contas encerradas não permitem estorno neste fluxo.',
+        PUBLICACAO_TRANSACIONAL_OCUPADA: 'Outra operação transacional está em andamento.'
+    };
+    mostrarToast(mensagens[resultado?.codigo]
+        || resultado?.bloqueios?.[0]?.mensagem
+        || 'Não foi possível registrar o estorno.', 'erro');
+    return resultado;
 }
 
 function definirErroPagamentoLocacao(mensagem = '') {
