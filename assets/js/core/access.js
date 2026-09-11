@@ -78,6 +78,8 @@ function temPermissao(acao) {
         'restaurar_backup',
         'limpar_logs',
         'alterar_pagamento',
+        'conciliar_pagamento',
+        'desconsiderar_conciliacao',
         'cancelar_locacao',
         'configuracao'
     ]);

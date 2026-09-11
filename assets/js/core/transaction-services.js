@@ -29,7 +29,8 @@
         'usuarios',
         'locacoes',
         'devolucoes',
-        'contasReceber'
+        'contasReceber',
+        'conciliacoesFinanceiras'
     ]);
     const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';
@@ -5312,6 +5313,587 @@
         }
     }
 
+    const travasConciliacaoFinanceira = new Set();
+
+    function criarReferenciaConciliacaoFinanceira(id) {
+        return criarReferenciaTipadaContaReceber('conciliacao', id);
+    }
+
+    function nomeArquivoComprovanteSeguro(nome, mime) {
+        if (!textoFinanceiroIntegro(nome, 1, 160)
+            || /[\\/:*?"<>|\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060\ufeff]/i.test(nome)
+            || /[. ]$/.test(nome) || nome.includes('..') || /^[. ]+$/.test(nome)) return false;
+        const partes = nome.split('.');
+        const extensao = partes.length > 1 ? partes.pop().toLowerCase() : '';
+        const reservadoWindows = /^(?:con|prn|aux|nul|clock\$|com[1-9]|lpt[1-9])$/i;
+        if (partes.some((parte) => reservadoWindows.test(parte.replace(/[. ]+$/g, '')))) return false;
+        const extensoesMime = {
+            'application/pdf': ['pdf'],
+            'image/jpeg': ['jpg', 'jpeg'],
+            'image/png': ['png']
+        };
+        return Object.prototype.hasOwnProperty.call(extensoesMime, mime)
+            && extensoesMime[mime].includes(extensao);
+    }
+
+    function componenteReferenciaHttpsSeguro(componente, tipo) {
+        let atual = componente;
+        for (let tentativa = 0; tentativa < 5; tentativa += 1) {
+            if (/[\s<>"{}|^`\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060\ufeff\\]/u.test(atual)
+                || /%(?:2f|5c|00|0[0-9a-f]|1[0-9a-f]|7f)/i.test(atual)
+                || /%(?![0-9a-f]{2})/i.test(atual)) return false;
+            const segmentos = atual.split(/[\/\\?&#=]/);
+            if (segmentos.some((segmento) => segmento === '.' || segmento === '..')
+                || /(?:^|[\/\\?&#=])(?:[a-z]):(?:[\/\\]|$)/i.test(atual)
+                || /(?:^|[?&#=])(?:\/\/|\\\\)/.test(atual)
+                || (tipo !== 'pathname' && /[\/\\]/.test(atual))
+                || (tipo === 'pathname' && /^\/{2}/.test(atual))) return false;
+            let decodificado;
+            try { decodificado = decodeURIComponent(atual); } catch (_erro) { return false; }
+            if (decodificado === atual) return true;
+            atual = decodificado;
+        }
+        if (/%[0-9a-f]{2}/i.test(atual)) return false;
+        if (tipo !== 'pathname' && /^(?:\/|\\)/.test(atual)) return false;
+        return componenteReferenciaHttpsSeguro(atual, tipo);
+    }
+
+    function referenciaHttpsComprovanteSegura(referencia) {
+        const partes = /^https:\/\/([^/?#]+)(\/[^?#]*)?(\?[^#]*)?(#.*)?$/i.exec(referencia);
+        if (!partes || partes[1].includes('@')) return false;
+        const autoridade = /^([^:]+)(?::([0-9]{1,5}))?$/.exec(partes[1]);
+        if (!autoridade) return false;
+        const host = autoridade[1];
+        const rotulos = host.split('.');
+        if (host.length > 253 || rotulos.some((rotulo) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(rotulo))) {
+            return false;
+        }
+        if (autoridade[2]) {
+            const porta = Number(autoridade[2]);
+            if (!Number.isSafeInteger(porta) || porta < 1 || porta > 65535) return false;
+        }
+        return componenteReferenciaHttpsSeguro(partes[2] || '/', 'pathname')
+            && componenteReferenciaHttpsSeguro(partes[3] || '', 'query')
+            && componenteReferenciaHttpsSeguro(partes[4] || '', 'fragment');
+    }
+
+    function entradaConciliacaoClonavelSemProxy(valor) {
+        if (typeof structuredClone !== 'function') return false;
+        try {
+            structuredClone(valor);
+            return true;
+        } catch (_erro) {
+            return false;
+        }
+    }
+
+    function comprovanteConciliacaoValido(comprovante) {
+        if (comprovante === undefined || comprovante === null) return true;
+        if (!registroConciliacaoDadosSeguro(comprovante)) return false;
+        const chaves = Object.keys(comprovante).sort();
+        const permitidas = ['hashSha256', 'nomeArquivo', 'referenciaExterna', 'tamanho', 'tipoMime'];
+        const obrigatorias = ['hashSha256', 'nomeArquivo', 'tamanho', 'tipoMime'];
+        if (chaves.some((chave) => !permitidas.includes(chave))
+            || obrigatorias.some((chave) => !Object.prototype.hasOwnProperty.call(comprovante, chave))) return false;
+        const nome = comprovante.nomeArquivo;
+        const mime = comprovante.tipoMime;
+        if (!nomeArquivoComprovanteSeguro(nome, mime)
+            || !Number.isSafeInteger(comprovante.tamanho) || comprovante.tamanho <= 0
+            || comprovante.tamanho > (20 * 1024 * 1024)
+            || typeof comprovante.hashSha256 !== 'string'
+            || !/^[a-f0-9]{64}$/.test(comprovante.hashSha256)) return false;
+        if (!Object.prototype.hasOwnProperty.call(comprovante, 'referenciaExterna')) return true;
+        const referencia = comprovante.referenciaExterna;
+        if (referencia === null || referencia === '') return true;
+        if (!textoFinanceiroIntegro(referencia, 1, 500)
+            || /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060\ufeff]/i.test(referencia)
+            || referencia.includes('\\')
+            || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(referencia)
+            || /;base64,/i.test(referencia)) return false;
+        if (/^future:[a-z0-9](?:[a-z0-9_-]{0,198}[a-z0-9])?$/i.test(referencia)) return true;
+        return referenciaHttpsComprovanteSegura(referencia);
+    }
+
+    function registroConciliacaoDadosSeguro(registro, obrigatorias = []) {
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)
+            || !validarValorExternoPersistivelSeguro(registro)) return false;
+        const descritores = Object.getOwnPropertyDescriptors(registro);
+        return obrigatorias.every((chave) => Object.prototype.hasOwnProperty.call(descritores, chave));
+    }
+
+    function validarRegistroConciliacaoFinanceira(registro) {
+        const base = ['id', 'conciliacaoReferencia', 'tipo', 'operacaoId', 'assinaturaPlano',
+            'contaReferencia', 'parcelaReferencia', 'locacaoId', 'locacaoReferencia',
+            'lancamentoReferencia', 'registradoEm', 'responsavel'];
+        if (!registroConciliacaoDadosSeguro(registro, base)
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(registro.operacaoId)
+            || !instanteFinanceiroIntegro(registro.registradoEm)
+            || !textoFinanceiroIntegro(registro.responsavel, 1, 300)
+            || !textoFinanceiroIntegro(registro.assinaturaPlano, 1, 300)
+            || criarReferenciaConciliacaoFinanceira(registro.id) !== registro.conciliacaoReferencia
+            || criarReferenciaTipadaLocacaoTransacional(registro.locacaoId) !== registro.locacaoReferencia
+            || !textoFinanceiroIntegro(registro.contaReferencia, 1, 500)
+            || !textoFinanceiroIntegro(registro.parcelaReferencia, 1, 500)
+            || !textoFinanceiroIntegro(registro.lancamentoReferencia, 1, 500)) return false;
+        if (registro.tipo === 'conciliacao') {
+            const obrigatorias = ['situacao', 'natureza', 'valorEsperadoCentavos', 'valorBancarioCentavos',
+                'diferencaCentavos', 'dataBancaria', 'meioPagamento', 'contaFinanceira',
+                'identificadorBancario', 'motivoDivergencia', 'observacao', 'comprovante'];
+            if (!registroConciliacaoDadosSeguro(registro, [...base, ...obrigatorias])
+                || !['conciliado', 'divergente'].includes(registro.situacao)
+                || !['entrada', 'saida'].includes(registro.natureza)
+                || !Number.isSafeInteger(registro.valorEsperadoCentavos) || registro.valorEsperadoCentavos <= 0
+                || !Number.isSafeInteger(registro.valorBancarioCentavos) || registro.valorBancarioCentavos <= 0
+                || !Number.isSafeInteger(registro.diferencaCentavos)
+                || registro.diferencaCentavos !== registro.valorBancarioCentavos - registro.valorEsperadoCentavos
+                || !validarDataLocalContaReceber(registro.dataBancaria)
+                || !textoFinanceiroIntegro(registro.meioPagamento, 1, 40)
+                || !textoFinanceiroIntegro(registro.contaFinanceira, 1, 200)
+                || !textoFinanceiroIntegro(registro.identificadorBancario, 1, 300)
+                || typeof registro.observacao !== 'string' || registro.observacao !== registro.observacao.trim()
+                || registro.observacao.length > 1000 || !comprovanteConciliacaoValido(registro.comprovante)
+                || (registro.situacao === 'conciliado' && registro.diferencaCentavos !== 0)
+                || (registro.situacao === 'divergente'
+                    && (!textoFinanceiroIntegro(registro.motivoDivergencia, 5, 500)
+                        || registro.diferencaCentavos === 0))) return false;
+            const baseAssinatura = { tipo: 'conciliacao_financeira_v1', operacaoId: registro.operacaoId,
+                contaReferencia: registro.contaReferencia, parcelaReferencia: registro.parcelaReferencia,
+                locacaoId: registro.locacaoId, locacaoReferencia: registro.locacaoReferencia,
+                lancamentoReferencia: registro.lancamentoReferencia, registradoEm: registro.registradoEm,
+                responsavel: registro.responsavel, situacao: registro.situacao, natureza: registro.natureza,
+                valorEsperadoCentavos: registro.valorEsperadoCentavos,
+                valorBancarioCentavos: registro.valorBancarioCentavos, dataBancaria: registro.dataBancaria,
+                meioPagamento: registro.meioPagamento, contaFinanceira: registro.contaFinanceira,
+                identificadorBancario: registro.identificadorBancario,
+                motivoDivergencia: registro.motivoDivergencia, observacao: registro.observacao,
+                comprovante: registro.comprovante };
+            return registro.assinaturaPlano === `conciliacao-v1:fnv1a64:${fingerprintFnv1a64(
+                JSON.stringify(ordenarChavesCanonicas(baseAssinatura)))}`;
+        }
+        if (registro.tipo !== 'desconsideracao'
+            || !registroConciliacaoDadosSeguro(registro, [...base, 'conciliacaoOriginalReferencia', 'motivo'])
+            || !textoFinanceiroIntegro(registro.conciliacaoOriginalReferencia, 1, 500)
+            || !textoFinanceiroIntegro(registro.motivo, 5, 500)) return false;
+        const baseAssinatura = { tipo: 'desconsideracao_financeira_v1', operacaoId: registro.operacaoId,
+            contaReferencia: registro.contaReferencia, parcelaReferencia: registro.parcelaReferencia,
+            locacaoId: registro.locacaoId, locacaoReferencia: registro.locacaoReferencia,
+            lancamentoReferencia: registro.lancamentoReferencia, registradoEm: registro.registradoEm,
+            responsavel: registro.responsavel,
+            conciliacaoOriginalReferencia: registro.conciliacaoOriginalReferencia, motivo: registro.motivo };
+        return registro.assinaturaPlano === `conciliacao-v1:fnv1a64:${fingerprintFnv1a64(
+            JSON.stringify(ordenarChavesCanonicas(baseAssinatura)))}`;
+    }
+
+    function validarColecaoConciliacoesFinanceiras(estado) {
+        if (!estado || !Array.isArray(estado.conciliacoesFinanceiras)) return { ok: false, codigo: 'CONCILIACOES_INVALIDAS' };
+        const ids = new Set();
+        const referencias = new Set();
+        const operacoes = new Set();
+        const conciliacoes = new Map();
+        const inversas = new Set();
+        const gruposCronologicos = new Map();
+        for (const registro of estado.conciliacoesFinanceiras) {
+            const id = referenciaEstrita(registro?.id);
+            if (!validarRegistroConciliacaoFinanceira(registro) || !id || ids.has(id)
+                || referencias.has(registro.conciliacaoReferencia) || operacoes.has(registro.operacaoId)) {
+                return { ok: false, codigo: 'CONCILIACOES_REQUEREM_RECUPERACAO' };
+            }
+            ids.add(id); referencias.add(registro.conciliacaoReferencia); operacoes.add(registro.operacaoId);
+            if (registro.tipo === 'conciliacao') conciliacoes.set(registro.conciliacaoReferencia, registro);
+            const contas = (Array.isArray(estado.contasReceber) ? estado.contasReceber : [])
+                .filter((conta) => conta?.contaReferencia === registro.contaReferencia);
+            const parcelas = contas.length === 1 && Array.isArray(contas[0].parcelas)
+                ? contas[0].parcelas.filter((parcela) => parcela?.parcelaReferencia === registro.parcelaReferencia) : [];
+            const lancamentos = parcelas.length === 1 && Array.isArray(parcelas[0].lancamentosFinanceiros)
+                ? parcelas[0].lancamentosFinanceiros.filter((lancamento) => (
+                    criarReferenciaLancamentoFinanceiro(lancamento?.id) === registro.lancamentoReferencia)) : [];
+            if (contas.length !== 1 || parcelas.length !== 1 || lancamentos.length !== 1
+                || !instanteFinanceiroIntegro(lancamentos[0].data)
+                || (registro.tipo === 'conciliacao' && registro.registradoEm <= lancamentos[0].data)
+                || (registro.tipo === 'conciliacao' && registro.dataBancaria > registro.registradoEm.slice(0, 10))) {
+                return { ok: false, codigo: 'CRONOLOGIA_CONCILIACAO_INVALIDA' };
+            }
+            const chaveGrupo = JSON.stringify([registro.contaReferencia,
+                registro.parcelaReferencia, registro.lancamentoReferencia]);
+            if (!gruposCronologicos.has(chaveGrupo)) gruposCronologicos.set(chaveGrupo, []);
+            gruposCronologicos.get(chaveGrupo).push(registro);
+        }
+        for (const registro of estado.conciliacoesFinanceiras) {
+            if (registro.tipo !== 'desconsideracao') continue;
+            const original = conciliacoes.get(registro.conciliacaoOriginalReferencia);
+            if (!original || inversas.has(registro.conciliacaoOriginalReferencia)
+                || original.contaReferencia !== registro.contaReferencia
+                || original.parcelaReferencia !== registro.parcelaReferencia
+                || original.locacaoReferencia !== registro.locacaoReferencia
+                || original.lancamentoReferencia !== registro.lancamentoReferencia
+                || registro.registradoEm <= original.registradoEm) {
+                return { ok: false, codigo: 'DESCONSIDERACAO_CONCILIACAO_INVALIDA' };
+            }
+            inversas.add(registro.conciliacaoOriginalReferencia);
+        }
+        for (const registros of gruposCronologicos.values()) {
+            const ordenados = [...registros].sort((a, b) => a.registradoEm.localeCompare(b.registradoEm)
+                || a.operacaoId.localeCompare(b.operacaoId));
+            let ativa = null;
+            for (let indice = 0; indice < ordenados.length; indice += 1) {
+                const registro = ordenados[indice];
+                if (indice > 0 && registro.registradoEm === ordenados[indice - 1].registradoEm) {
+                    return { ok: false, codigo: 'CRONOLOGIA_CONCILIACAO_AMBIGUA' };
+                }
+                if (registro.tipo === 'conciliacao') {
+                    if (ativa) return { ok: false, codigo: 'CONCILIACAO_LANCAMENTO_DUPLICADA' };
+                    ativa = registro.conciliacaoReferencia;
+                } else {
+                    if (ativa !== registro.conciliacaoOriginalReferencia) {
+                        return { ok: false, codigo: 'DESCONSIDERACAO_CONCILIACAO_INVALIDA' };
+                    }
+                    ativa = null;
+                }
+            }
+        }
+        return { ok: true, conciliacoes, inversas };
+    }
+
+    function obterSituacaoConciliacaoLancamento(estado, contaReferencia, parcelaReferencia, lancamentoReferencia) {
+        const validacao = validarColecaoConciliacoesFinanceiras(estado);
+        if (!validacao.ok) return { estado: 'invalido', codigo: validacao.codigo };
+        const aplicaveis = estado.conciliacoesFinanceiras.filter((registro) => registro.tipo === 'conciliacao'
+            && registro.contaReferencia === contaReferencia && registro.parcelaReferencia === parcelaReferencia
+            && registro.lancamentoReferencia === lancamentoReferencia
+            && !validacao.inversas.has(registro.conciliacaoReferencia));
+        if (!aplicaveis.length) return { estado: 'pendente', conciliacao: null };
+        if (aplicaveis.length !== 1) return { estado: 'invalido', codigo: 'CONCILIACAO_LANCAMENTO_DUPLICADA' };
+        return { estado: aplicaveis[0].situacao, conciliacao: clonarRetornoPublico(aplicaveis[0]) };
+    }
+
+    function resolverAlvoConciliacaoFinanceira(estado, entrada, dataReferencia) {
+        const contas = estado.contasReceber.filter((conta) => conta?.contaReferencia === entrada.contaReferencia);
+        if (contas.length !== 1) return { ok: false, codigo: contas.length ? 'CONTA_RECEBER_DUPLICADA' : 'CONTA_RECEBER_NAO_ENCONTRADA' };
+        const conta = contas[0];
+        const validacaoConta = validarContaReceberEstrutural(conta, dataReferencia);
+        if (!validacaoConta.valida) return { ok: false, codigo: validacaoConta.codigo, requerRecuperacao: true };
+        if (['cancelada', 'encerrada'].includes(validacaoConta.situacao)) return { ok: false, codigo: `CONTA_RECEBER_${validacaoConta.situacao.toUpperCase()}` };
+        const parcelas = conta.parcelas.filter((parcela) => parcela?.parcelaReferencia === entrada.parcelaReferencia);
+        if (parcelas.length !== 1) return { ok: false, codigo: parcelas.length ? 'PARCELA_RECEBIMENTO_DUPLICADA' : 'PARCELA_RECEBIMENTO_NAO_ENCONTRADA' };
+        const parcela = parcelas[0];
+        const lancamentos = parcela.lancamentosFinanceiros.filter((registro) => (
+            criarReferenciaLancamentoFinanceiro(registro?.id) === entrada.lancamentoReferencia));
+        if (lancamentos.length !== 1) return { ok: false, codigo: lancamentos.length ? 'LANCAMENTO_FINANCEIRO_DUPLICADO' : 'LANCAMENTO_FINANCEIRO_NAO_ENCONTRADO', requerRecuperacao: true };
+        const locacoes = estado.locacoes.filter((locacao) => criarReferenciaTipadaLocacaoTransacional(locacao?.id) === conta.locacaoReferencia);
+        if (locacoes.length !== 1) return { ok: false, codigo: locacoes.length ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_NAO_ENCONTRADA' };
+        const locacao = locacoes[0];
+        const cadeia = validarCadeiaFinanceiraOperacao(estado, conta.contaReferencia, conta.locacaoReferencia, dataReferencia);
+        if (!cadeia.ok) return { ok: false, codigo: cadeia.codigo, requerRecuperacao: true };
+        const lancamento = lancamentos[0];
+        let integridade;
+        let valorEsperadoCentavos;
+        let natureza;
+        if (pareceLancamentoEstorno(lancamento)) {
+            integridade = validarIntegridadeEstornoAnterior(estado, conta, parcela, locacao,
+                lancamento.lancamentoOriginalReferencia, lancamento);
+            valorEsperadoCentavos = lancamento.valorEstornoCentavos;
+            natureza = 'saida';
+        } else {
+            integridade = validarIntegridadeRecebimentoOriginal(estado, conta, parcela, locacao, lancamento);
+            valorEsperadoCentavos = lancamento.valorAplicadoCentavos;
+            natureza = 'entrada';
+        }
+        if (!integridade.ok || !Number.isSafeInteger(valorEsperadoCentavos) || valorEsperadoCentavos <= 0) {
+            return { ok: false, codigo: integridade.codigo || 'LANCAMENTO_FINANCEIRO_INVALIDO', requerRecuperacao: true };
+        }
+        return { ok: true, conta, parcela, locacao, lancamento, valorEsperadoCentavos, natureza };
+    }
+
+    function assinaturaConciliacaoFinanceira(entrada, alvo, valorBancarioCentavos, tipo) {
+        const base = { tipo: `${tipo}_financeira_v1`, operacaoId: entrada.operacaoId,
+            contaReferencia: alvo.conta.contaReferencia, parcelaReferencia: alvo.parcela.parcelaReferencia,
+            locacaoId: alvo.locacao.id, locacaoReferencia: alvo.conta.locacaoReferencia,
+            lancamentoReferencia: criarReferenciaLancamentoFinanceiro(alvo.lancamento.id),
+            registradoEm: entrada.registradoEm, responsavel: entrada.responsavel };
+        if (tipo === 'conciliacao') Object.assign(base, { situacao: entrada.situacao,
+            natureza: alvo.natureza, valorEsperadoCentavos: alvo.valorEsperadoCentavos,
+            valorBancarioCentavos, dataBancaria: entrada.dataBancaria,
+            meioPagamento: entrada.meioPagamento, contaFinanceira: entrada.contaFinanceira,
+            identificadorBancario: entrada.identificadorBancario,
+            motivoDivergencia: entrada.motivoDivergencia, observacao: entrada.observacao,
+            comprovante: entrada.comprovante || null });
+        else Object.assign(base, { conciliacaoOriginalReferencia: entrada.conciliacaoOriginalReferencia,
+            motivo: entrada.motivo });
+        return `conciliacao-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(ordenarChavesCanonicas(base)))}`;
+    }
+
+    function verificarEvidenciasConciliacaoFinanceira(estado, operacaoId, assinatura) {
+        const conciliacoes = estado.conciliacoesFinanceiras.filter((registro) => registro?.operacaoId === operacaoId);
+        const contas = estado.contasReceber.flatMap((conta) => conta.historico
+            .filter((registro) => registro?.operacaoId === operacaoId).map((registro) => ({ conta, registro })));
+        const locacoes = estado.locacoes.flatMap((locacao) => (Array.isArray(locacao.historicoAlteracoes)
+            ? locacao.historicoAlteracoes : []).filter((registro) => registro?.operacaoId === operacaoId)
+            .map((registro) => ({ locacao, registro })));
+        const auditorias = estado.logsAuditoria.filter((registro) => registro?.operacaoId === operacaoId);
+        const total = conciliacoes.length + contas.length + locacoes.length + auditorias.length;
+        if (!total) return { estado: 'nao_executada', completo: false };
+        const registros = [...conciliacoes, ...contas.map((item) => item.registro),
+            ...locacoes.map((item) => item.registro), ...auditorias];
+        const original = conciliacoes[0];
+        const campos = ['tipo', 'operacaoId', 'assinaturaPlano', 'contaReferencia', 'parcelaReferencia',
+            'locacaoId', 'locacaoReferencia', 'lancamentoReferencia', 'registradoEm', 'responsavel'];
+        if (original?.tipo === 'conciliacao') campos.push('situacao', 'natureza',
+            'valorEsperadoCentavos', 'valorBancarioCentavos', 'diferencaCentavos', 'dataBancaria',
+            'meioPagamento', 'contaFinanceira', 'identificadorBancario', 'motivoDivergencia');
+        if (original?.tipo === 'desconsideracao') campos.push('conciliacaoOriginalReferencia', 'motivo');
+        const coerente = conciliacoes.length === 1 && contas.length === 1 && locacoes.length === 1
+            && auditorias.length === 1 && conciliacoes[0].assinaturaPlano === assinatura
+            && mesmosCamposFinanceiros(registros, campos)
+            && contas[0].conta.contaReferencia === conciliacoes[0].contaReferencia
+            && criarReferenciaTipadaLocacaoTransacional(locacoes[0].locacao.id) === conciliacoes[0].locacaoReferencia;
+        return coerente ? { estado: 'concluida', completo: true, registro: conciliacoes[0] }
+            : { estado: 'parcial', completo: false };
+    }
+
+    function executarRegistroConciliacaoFinanceira(entradaRecebida, dependencias, tipo) {
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)
+            || !entradaConciliacaoClonavelSemProxy(entradaRecebida)) return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+        const cloneEntrada = clonarJsonInterno(entradaRecebida);
+        if (!cloneEntrada.ok) return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+        const entrada = cloneEntrada.valor;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel', 'publicarSnapshotAutorizado',
+            'atualizarMetadadoSincronizacao', 'validarPermissaoFinanceira'];
+        const persistencia = entrada.persistencia;
+        const permissao = tipo === 'conciliacao' ? 'conciliar_pagamento' : 'desconsiderar_conciliacao';
+        if (!entrada || typeof entrada.operacaoId !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || typeof entrada.contaReferencia !== 'string' || typeof entrada.parcelaReferencia !== 'string'
+            || typeof entrada.lancamentoReferencia !== 'string' || !instanteFinanceiroIntegro(entrada.registradoEm)
+            || !textoFinanceiroIntegro(entrada.responsavel, 1, 300)
+            || !persistencia || typeof persistencia !== 'object'
+            || typeof persistencia.versao !== 'string' || typeof persistencia.data !== 'string'
+            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function') || !dependencias.armazenamento) {
+            return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+        }
+        let valorBancario = null;
+        if (tipo === 'conciliacao') {
+            valorBancario = normalizarTextoMonetarioCentavos(entrada.valorBancarioTexto, { permitirZero: false });
+            const meios = ['pix', 'transferencia', 'boleto', 'cartao', 'dinheiro', 'outro'];
+            if (!valorBancario.ok || !['conciliado', 'divergente'].includes(entrada.situacao)
+                || !validarDataLocalContaReceber(entrada.dataBancaria)
+                || entrada.dataBancaria > entrada.registradoEm.slice(0, 10)
+                || !meios.includes(entrada.meioPagamento)
+                || !textoFinanceiroIntegro(entrada.contaFinanceira, 1, 200)
+                || !textoFinanceiroIntegro(entrada.identificadorBancario, 1, 300)
+                || typeof entrada.observacao !== 'string' || entrada.observacao !== entrada.observacao.trim()
+                || entrada.observacao.length > 1000 || !comprovanteConciliacaoValido(entrada.comprovante)) {
+                return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+            }
+        } else if (!textoFinanceiroIntegro(entrada.conciliacaoOriginalReferencia, 1, 500)
+            || !textoFinanceiroIntegro(entrada.motivo, 5, 500)) {
+            return resultadoBase('ENTRADA_DESCONSIDERACAO_INVALIDA');
+        }
+        let permitido = false;
+        try { permitido = dependencias.validarPermissaoFinanceira(permissao) === true; } catch (_erro) { permitido = false; }
+        if (!permitido) return resultadoBase('PERMISSAO_FINANCEIRA_NEGADA');
+
+        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+        const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+        if (!memoria.ok) return resultadoBase(memoria.codigo);
+        const dataReferencia = entrada.registradoEm.slice(0, 10);
+        const alvo = resolverAlvoConciliacaoFinanceira(memoria.valor, entrada, dataReferencia);
+        if (!alvo.ok) return resultadoBase(alvo.codigo, { requerRecuperacao: alvo.requerRecuperacao === true });
+        const colecao = validarColecaoConciliacoesFinanceiras(memoria.valor);
+        if (!colecao.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+        let original = null;
+        if (tipo === 'conciliacao') {
+            const efetiva = obterSituacaoConciliacaoLancamento(memoria.valor, entrada.contaReferencia,
+                entrada.parcelaReferencia, entrada.lancamentoReferencia);
+            if (efetiva.estado !== 'pendente'
+                && (efetiva.estado === 'invalido' || efetiva.conciliacao?.operacaoId !== entrada.operacaoId)) {
+                return resultadoBase(efetiva.estado === 'invalido'
+                    ? 'OPERACAO_REQUER_RECUPERACAO' : 'LANCAMENTO_JA_CONCILIADO', {
+                    requerRecuperacao: efetiva.estado === 'invalido'
+                });
+            }
+            const diferenca = valorBancario.centavos - alvo.valorEsperadoCentavos;
+            if (!Number.isSafeInteger(diferenca)
+                || (entrada.situacao === 'conciliado' && diferenca !== 0)
+                || (entrada.situacao === 'divergente'
+                    && (diferenca === 0 || !textoFinanceiroIntegro(entrada.motivoDivergencia, 5, 500)))) {
+                return resultadoBase('CONCILIACAO_VALORES_DIVERGENTES');
+            }
+        } else {
+            const originais = memoria.valor.conciliacoesFinanceiras.filter((registro) => (
+                registro?.tipo === 'conciliacao' && registro.conciliacaoReferencia === entrada.conciliacaoOriginalReferencia));
+            if (originais.length !== 1 || originais[0].contaReferencia !== entrada.contaReferencia
+                || originais[0].parcelaReferencia !== entrada.parcelaReferencia
+                || originais[0].lancamentoReferencia !== entrada.lancamentoReferencia
+                || (colecao.inversas.has(entrada.conciliacaoOriginalReferencia)
+                    && !memoria.valor.conciliacoesFinanceiras.some((registro) => registro.tipo === 'desconsideracao'
+                        && registro.conciliacaoOriginalReferencia === entrada.conciliacaoOriginalReferencia
+                        && registro.operacaoId === entrada.operacaoId))) {
+                return resultadoBase(originais.length > 1 ? 'CONCILIACAO_DUPLICADA' : 'CONCILIACAO_NAO_DESCONSIDERAVEL');
+            }
+            original = originais[0];
+        }
+        const instanteAnterior = tipo === 'conciliacao' ? alvo.lancamento.data : original.registradoEm;
+        if (!instanteFinanceiroIntegro(instanteAnterior) || entrada.registradoEm <= instanteAnterior) {
+            return resultadoBase(tipo === 'conciliacao'
+                ? 'CRONOLOGIA_CONCILIACAO_INVALIDA' : 'CRONOLOGIA_DESCONSIDERACAO_INVALIDA');
+        }
+        const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}|${entrada.lancamentoReferencia}`;
+        if (travasConciliacaoFinanceira.has(trava)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        travasConciliacaoFinanceira.add(trava);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const assinatura = assinaturaConciliacaoFinanceira(entrada, alvo,
+                valorBancario?.centavos || 0, tipo);
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistencia, 'chave')) opcoesArmazenamento.chave = persistencia.chave;
+            let leitura;
+            try { leitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evMemoria = verificarEvidenciasConciliacaoFinanceira(memoria.valor, entrada.operacaoId, assinatura);
+            const evPersistida = verificarEvidenciasConciliacaoFinanceira(persistido.valor, entrada.operacaoId, assinatura);
+            if (evMemoria.completo || evPersistida.completo) {
+                return evMemoria.completo && evPersistida.completo && memoria.json === persistido.json
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
+                        operacao: { operacaoId: entrada.operacaoId, assinaturaPlano: assinatura }, renderizar: true })
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evMemoria.estado !== 'nao_executada' || evPersistida.estado !== 'nao_executada'
+                || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvoCandidato = resolverAlvoConciliacaoFinanceira(candidato.valor, entrada, dataReferencia);
+            if (!alvoCandidato.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const id = `${tipo}-${entrada.operacaoId}`;
+            const registro = { id, conciliacaoReferencia: criarReferenciaConciliacaoFinanceira(id), tipo,
+                operacaoId: entrada.operacaoId, assinaturaPlano: assinatura,
+                contaReferencia: alvoCandidato.conta.contaReferencia,
+                parcelaReferencia: alvoCandidato.parcela.parcelaReferencia,
+                locacaoId: alvoCandidato.locacao.id, locacaoReferencia: alvoCandidato.conta.locacaoReferencia,
+                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(alvoCandidato.lancamento.id),
+                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel };
+            if (tipo === 'conciliacao') Object.assign(registro, { situacao: entrada.situacao,
+                natureza: alvoCandidato.natureza, valorEsperadoCentavos: alvoCandidato.valorEsperadoCentavos,
+                valorBancarioCentavos: valorBancario.centavos,
+                diferencaCentavos: valorBancario.centavos - alvoCandidato.valorEsperadoCentavos,
+                dataBancaria: entrada.dataBancaria, meioPagamento: entrada.meioPagamento,
+                contaFinanceira: entrada.contaFinanceira, identificadorBancario: entrada.identificadorBancario,
+                motivoDivergencia: entrada.situacao === 'divergente' ? entrada.motivoDivergencia : '',
+                observacao: entrada.observacao, comprovante: entrada.comprovante || null });
+            else Object.assign(registro, { conciliacaoOriginalReferencia: original.conciliacaoReferencia, motivo: entrada.motivo });
+            if (!validarRegistroConciliacaoFinanceira(registro)) return resultadoBase('REGISTRO_CONCILIACAO_INVALIDO');
+            candidato.valor.conciliacoesFinanceiras = [...candidato.valor.conciliacoesFinanceiras, registro];
+            const baseEvidencia = { id: `historico-${id}`, tipo, operacaoId: entrada.operacaoId,
+                assinaturaPlano: assinatura, contaReferencia: registro.contaReferencia,
+                parcelaReferencia: registro.parcelaReferencia, locacaoId: registro.locacaoId,
+                locacaoReferencia: registro.locacaoReferencia, lancamentoReferencia: registro.lancamentoReferencia,
+                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel,
+                data: entrada.registradoEm, usuario: entrada.responsavel };
+            if (tipo === 'conciliacao') Object.assign(baseEvidencia, { situacao: registro.situacao,
+                natureza: registro.natureza, valorEsperadoCentavos: registro.valorEsperadoCentavos,
+                valorBancarioCentavos: registro.valorBancarioCentavos,
+                diferencaCentavos: registro.diferencaCentavos, dataBancaria: registro.dataBancaria,
+                meioPagamento: registro.meioPagamento, contaFinanceira: registro.contaFinanceira,
+                identificadorBancario: registro.identificadorBancario,
+                motivoDivergencia: registro.motivoDivergencia });
+            if (tipo === 'desconsideracao') Object.assign(baseEvidencia, {
+                conciliacaoOriginalReferencia: registro.conciliacaoOriginalReferencia, motivo: registro.motivo });
+            alvoCandidato.conta.historico = [...alvoCandidato.conta.historico,
+                { ...baseEvidencia, acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
+            alvoCandidato.locacao.historicoAlteracoes = [...(alvoCandidato.locacao.historicoAlteracoes || []),
+                { ...baseEvidencia, id: `historico-locacao-${id}`, origem: 'financeiro',
+                    acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                { ...baseEvidencia, id: `auditoria-${id}`, timestamp: entrada.registradoEm,
+                    acao: tipo === 'conciliacao' ? 'conciliar_lancamento' : 'desconsiderar_conciliacao' }];
+            if (!validarColecaoConciliacoesFinanceiras(candidato.valor).ok
+                || !verificarEvidenciasConciliacaoFinanceira(candidato.valor, entrada.operacaoId, assinatura).completo) {
+                return resultadoBase('CANDIDATO_CONCILIACAO_INVALIDO');
+            }
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                clonarDescartavel(candidatoCanonico), clonarDescartavel(persistencia)); } catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({ versao: persistencia.versao, data: persistencia.data,
+                ultimaEdicao: persistencia.ultimaEdicao, ...candidatoCanonico });
+            const externo = preparadoValido.ok ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            if (!operacional.ok) return resultadoBase(operacional.codigo);
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            try { dependencias.persistirSnapshotLocalConfirmavel(clonarDescartavel(snapshot.valor), { ...opcoesArmazenamento }); }
+            catch (_erro) { /* releitura decide */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok || !validarColecaoConciliacoesFinanceiras(operacionalRelido.valor).ok
+                || !verificarEvidenciasConciliacaoFinanceira(operacionalRelido.valor, entrada.operacaoId, assinatura).completo) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            let erroPublicacao = null;
+            try { dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacional.valor), {
+                jsonOperacionalEsperado: jsonPublicacaoEsperado, autorizacaoPublicacao: autorizacao,
+                exigirConfirmacaoInterna: true }); } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior, autorizacaoPublicacao: autorizacao }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({ ultimaEdicao: persistencia.ultimaEdicao,
+                locacaoId: registro.locacaoId, operacaoId: entrada.operacaoId, assinaturaPlano: assinatura }) === true; }
+            catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase(tipo === 'conciliacao' ? 'CONCILIACAO_APLICADA' : 'CONCILIACAO_DESCONSIDERADA',
+                { ok: true, aplicado: true, publicacaoRealizada: true, avisos, renderizar: true,
+                    sincronizar, operacao: { operacaoId: entrada.operacaoId, assinaturaPlano: assinatura,
+                        conciliacaoReferencia: registro.conciliacaoReferencia,
+                        lancamentoReferencia: registro.lancamentoReferencia } });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada
+                ? (tipo === 'conciliacao' ? 'CONCILIACAO_APLICADA' : 'CONCILIACAO_DESCONSIDERADA')
+                : 'FALHA_CONCILIACAO_FINANCEIRA', { ok: publicacaoRealizada, aplicado: publicacaoRealizada,
+                    publicacaoRealizada, requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                    avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                    bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }],
+                    renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacao) try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao); } catch (_erro) { /* encerrada */ }
+            travasConciliacaoFinanceira.delete(trava);
+        }
+    }
+
+    function executarConciliacaoFinanceiraTransacional(entrada, dependencias) {
+        return executarRegistroConciliacaoFinanceira(entrada, dependencias, 'conciliacao');
+    }
+
+    function executarDesconsideracaoConciliacaoTransacional(entrada, dependencias) {
+        return executarRegistroConciliacaoFinanceira(entrada, dependencias, 'desconsideracao');
+    }
+
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
     window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
@@ -5333,5 +5915,9 @@
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
     window.executarEstornoRecebimentoTransacional = executarEstornoRecebimentoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
+    window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;
+    window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
+    window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
+    window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

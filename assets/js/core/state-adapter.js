@@ -85,11 +85,23 @@
                 });
             }
         });
+        const congelarProfundamente = (valor, visitados = new WeakSet()) => {
+            if (!valor || typeof valor !== 'object' || visitados.has(valor)) return;
+            visitados.add(valor);
+            Object.keys(valor).forEach((chave) => congelarProfundamente(valor[chave], visitados));
+            Object.freeze(valor);
+        };
         (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
             proteger(conta, ['id', 'contaReferencia', 'locacaoId', 'locacaoReferencia', 'clienteId', 'clienteReferencia', 'operacaoId']);
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
             });
+        });
+        (Array.isArray(estado?.conciliacoesFinanceiras) ? estado.conciliacoesFinanceiras : []).forEach((registro) => {
+            proteger(registro, ['id', 'conciliacaoReferencia', 'operacaoId', 'tipo', 'contaReferencia',
+                'parcelaReferencia', 'locacaoId', 'locacaoReferencia', 'lancamentoReferencia',
+                'conciliacaoOriginalReferencia']);
+            congelarProfundamente(registro);
         });
     }
 
@@ -470,6 +482,17 @@
         };
     }
 
+    function criarDependenciasExecutorConciliacaoFinanceira(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage, {
+                validarPermissaoFinanceira: opcoes.validarPermissaoFinanceira
+            }),
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     window.obterEstadoMemoriaAtual = obterEstadoMemoriaAtual;
     window.publicarEstadoConfirmado = publicarEstadoConfirmado;
     window.obterMetadadoSincronizacaoAtual = obterMetadadoSincronizacaoAtual;
@@ -482,4 +505,5 @@
     window.criarDependenciasExecutorRecebimentoLocacao = criarDependenciasExecutorRecebimentoLocacao;
     window.criarDependenciasExecutorEstornoRecebimento = criarDependenciasExecutorEstornoRecebimento;
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
+    window.criarDependenciasExecutorConciliacaoFinanceira = criarDependenciasExecutorConciliacaoFinanceira;
 })();

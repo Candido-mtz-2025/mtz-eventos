@@ -65,6 +65,7 @@ function gerarSnapshotDadosSistema() {
         propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
         contasReceber: Array.isArray(contasReceber) ? contasReceber : [],
+        conciliacoesFinanceiras: Array.isArray(conciliacoesFinanceiras) ? conciliacoesFinanceiras : [],
         movimentacoesEstoque: Array.isArray(movimentacoesEstoque) ? movimentacoesEstoque : [],
         transportes: Array.isArray(transportes) ? transportes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
@@ -125,6 +126,7 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'propostas',
     'devolucoes',
     'contasReceber',
+    'conciliacoesFinanceiras',
     'movimentacoesEstoque',
     'transportes',
     'tipos',
@@ -604,6 +606,8 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         propostas: Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [],
         devolucoes: Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [],
         contasReceber: Array.isArray(dadosNormalizados.contasReceber) ? dadosNormalizados.contasReceber : [],
+        conciliacoesFinanceiras: Array.isArray(dadosNormalizados.conciliacoesFinanceiras)
+            ? dadosNormalizados.conciliacoesFinanceiras : [],
         movimentacoesEstoque: Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [],
         transportes: Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [],
         tipos: Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [],
@@ -629,6 +633,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         propostas = estadoNormalizado.propostas;
         devolucoes = estadoNormalizado.devolucoes;
         contasReceber = estadoNormalizado.contasReceber;
+        conciliacoesFinanceiras = estadoNormalizado.conciliacoesFinanceiras;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
         transportes = estadoNormalizado.transportes;
         tipos = estadoNormalizado.tipos;
@@ -791,6 +796,7 @@ async function sincronizar(modo) {
                 snapshotLocal.pecas.length > 0 ||
                 snapshotLocal.locacoes.length > 0 ||
                 snapshotLocal.contasReceber.length > 0 ||
+                snapshotLocal.conciliacoesFinanceiras.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
 
             if (temDadosLocais) {

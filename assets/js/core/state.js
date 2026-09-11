@@ -8,6 +8,7 @@
         propostas: [],
         devolucoes: [],
         contasReceber: [],
+        conciliacoesFinanceiras: [],
         movimentacoesEstoque: [],
         transportes: [],
         tipos: [],

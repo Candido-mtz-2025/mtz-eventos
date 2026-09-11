@@ -75,7 +75,8 @@
             const snapshot = typeof gerarSnapshotDadosSistema === 'function'
                 ? gerarSnapshotDadosSistema()
                 : {
-                    locadores, pecas, locacoes, propostas, devolucoes, transportes, tipos, usuarios, config,
+                    locadores, pecas, locacoes, propostas, devolucoes, contasReceber,
+                    conciliacoesFinanceiras, transportes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem
                 };
@@ -146,6 +147,8 @@
                         locacoes = normalizarListaBackup(j.locacoes);
                         propostas = normalizarListaBackup(j.propostas);
                         devolucoes = normalizarListaBackup(j.devolucoes);
+                        contasReceber = normalizarListaBackup(j.contasReceber);
+                        conciliacoesFinanceiras = normalizarListaBackup(j.conciliacoesFinanceiras);
                         transportes = normalizarListaBackup(j.transportes);
                         tipos = normalizarListaBackup(j.tipos);
                         usuarios = normalizarListaBackup(j.usuarios);

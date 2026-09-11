@@ -2077,12 +2077,24 @@
                         <div class="locacao-kpi-card" data-tone="atrasado"><small>Vencido</small><strong id="carKpiVencido">R$ 0,00</strong></div>
                         <div class="locacao-kpi-card" data-tone="info"><small>Previsto</small><strong id="carKpiPrevisto">R$ 0,00</strong></div>
                     </div>
+                    <div class="locacao-kpi-grid" aria-label="Resumo das conciliações financeiras">
+                        <div class="locacao-kpi-card" data-tone="pendente"><small>A conciliar</small><strong id="concKpiPendente">0</strong></div>
+                        <div class="locacao-kpi-card" data-tone="aberto"><small>Conciliados</small><strong id="concKpiConciliado">0</strong></div>
+                        <div class="locacao-kpi-card" data-tone="atrasado"><small>Divergentes</small><strong id="concKpiDivergente">0</strong></div>
+                    </div>
                     <div class="cadastros-search-toolbar contas-receber-filtros">
                         <input id="buscaContasReceber" class="search-input" type="search" placeholder="Buscar cliente, evento ou conta" data-input="renderContasReceberDetalhadas">
                         <select id="filtroContaSituacao" aria-label="Filtrar por situação" data-change="renderContasReceberDetalhadas"><option value="todos">Todas as situações</option><option value="ativa">Ativas</option><option value="pendente">Pendentes</option><option value="parcial">Parciais</option><option value="vencida">Vencidas</option><option value="paga">Pagas</option><option value="cancelada">Canceladas</option><option value="encerrada">Encerradas</option></select>
                         <select id="filtroContaCliente" aria-label="Filtrar por cliente" data-change="renderContasReceberDetalhadas"><option value="">Todos os clientes</option></select>
                         <input id="filtroContaInicio" type="date" aria-label="Emissão inicial" data-change="renderContasReceberDetalhadas">
                         <input id="filtroContaFim" type="date" aria-label="Emissão final" data-change="renderContasReceberDetalhadas">
+                    </div>
+                    <div class="cadastros-search-toolbar contas-receber-filtros" aria-label="Filtros de conciliação">
+                        <select id="filtroConciliacaoSituacao" aria-label="Filtrar situação da conciliação" data-change="renderContasReceberDetalhadas"><option value="todos">Todas as conciliações</option><option value="pendente">A conciliar</option><option value="conciliado">Conciliados</option><option value="divergente">Divergentes</option><option value="invalido">Inválidos</option></select>
+                        <select id="filtroConciliacaoMeio" aria-label="Filtrar meio de pagamento" data-change="renderContasReceberDetalhadas"><option value="">Todos os meios</option><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option><option value="outro">Outro</option></select>
+                        <input id="filtroConciliacaoConta" type="search" placeholder="Conta financeira" aria-label="Filtrar conta financeira" data-input="renderContasReceberDetalhadas">
+                        <input id="filtroConciliacaoInicio" type="date" aria-label="Data bancária inicial" data-change="renderContasReceberDetalhadas">
+                        <input id="filtroConciliacaoFim" type="date" aria-label="Data bancária final" data-change="renderContasReceberDetalhadas">
                     </div>
                     <div class="table-responsive"><table class="table"><thead><tr><th>Conta</th><th>Cliente</th><th>Evento / locação</th><th>Vencimento</th><th>Total</th><th>Progresso</th><th>Situação</th><th class="col-actions">Ações</th></tr></thead><tbody id="tblContasReceber"></tbody></table></div>
                 </div>
@@ -2939,6 +2951,41 @@
         </div>
     </div>
 
+    <div id="modalConciliacaoFinanceira" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="conciliacaoFinanceiraTitulo" aria-describedby="conciliacaoFinanceiraDescricao" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header">
+                <h3 id="conciliacaoFinanceiraTitulo">Conciliar lançamento</h3>
+                <button type="button" class="btn-close-modal" data-action="fecharConciliacaoFinanceira" aria-label="Fechar conciliação"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <p id="conciliacaoFinanceiraDescricao" class="muted-note">Confira o lançamento com o extrato bancário. O lançamento original não será alterado.</p>
+            <p id="conciliacaoDetalhes" class="muted-note" hidden></p>
+            <div id="conciliacaoCamposEdicao">
+                <div class="form-row">
+                    <div class="form-group"><label for="conciliacaoSituacao">Situação</label><select id="conciliacaoSituacao" aria-describedby="conciliacaoFinanceiraErro"><option value="conciliado">Conciliado</option><option value="divergente">Divergente</option></select></div>
+                    <div class="form-group"><label for="conciliacaoValor">Valor localizado no banco</label><input id="conciliacaoValor" type="text" inputmode="decimal" autocomplete="off" aria-describedby="conciliacaoFinanceiraErro"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="conciliacaoData">Data efetiva no banco</label><input id="conciliacaoData" type="date" aria-describedby="conciliacaoFinanceiraErro"></div>
+                    <div class="form-group"><label for="conciliacaoMeio">Meio de pagamento</label><select id="conciliacaoMeio" aria-describedby="conciliacaoFinanceiraErro"><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option><option value="outro">Outro</option></select></div>
+                </div>
+                <div class="form-group"><label for="conciliacaoConta">Conta financeira</label><input id="conciliacaoConta" type="text" maxlength="200" autocomplete="off" aria-describedby="conciliacaoFinanceiraErro"></div>
+                <div class="form-group"><label for="conciliacaoIdentificador">Identificador bancário</label><input id="conciliacaoIdentificador" type="text" maxlength="300" autocomplete="off" aria-describedby="conciliacaoFinanceiraErro"></div>
+                <div id="conciliacaoMotivoGrupo" class="form-group" hidden><label for="conciliacaoMotivo">Motivo da divergência</label><textarea id="conciliacaoMotivo" rows="3" maxlength="500" aria-describedby="conciliacaoFinanceiraErro"></textarea></div>
+                <div class="form-group"><label for="conciliacaoObservacao">Observação</label><textarea id="conciliacaoObservacao" rows="3" maxlength="1000"></textarea></div>
+            </div>
+            <div id="conciliacaoDesconsiderarGrupo" class="form-group" hidden>
+                <label for="conciliacaoDesconsideracaoMotivo">Motivo da desconsideração</label>
+                <textarea id="conciliacaoDesconsideracaoMotivo" rows="3" maxlength="500" aria-describedby="conciliacaoFinanceiraErro"></textarea>
+                <button type="button" id="conciliacaoDesconsiderar" class="btn btn-danger section-gap" data-action="desconsiderarConciliacaoFinanceira">Desconsiderar conciliação</button>
+            </div>
+            <div id="conciliacaoFinanceiraErro" class="validation-message" role="alert" aria-live="assertive" hidden></div>
+            <div class="inline-chip-row section-gap">
+                <button type="button" class="btn btn-secondary" data-action="fecharConciliacaoFinanceira">Cancelar</button>
+                <button type="button" id="conciliacaoConfirmar" class="btn btn-primary" data-action="confirmarConciliacaoFinanceira">Registrar conciliação</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalEditarLocacaoOperacional" class="edit-locacao-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editLocacaoTitulo" aria-describedby="editLocacaoDescricao">
         <div class="modal-content modal-editar-locacao-operacional">
             <div class="modal-header">
@@ -3047,18 +3094,18 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.6"></script>
+    <script src="./assets/js/core/state.js?v=12.7"></script>
     <script src="./assets/js/core/utils.js?v=2.5"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js"></script>
-    <script src="./assets/js/core/migrations.js?v=12.13"></script>
+    <script src="./assets/js/core/access.js?v=1.1"></script>
+    <script src="./assets/js/core/migrations.js?v=12.14"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
-    <script src="./assets/js/core/storage.js?v=12.13"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.17"></script>
-    <script src="./assets/js/core/recovery-services.js?v=1.2"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.3"></script>
+    <script src="./assets/js/core/storage.js?v=12.14"></script>
+<script src="./assets/js/core/transaction-services.js?v=2.20"></script>
+    <script src="./assets/js/core/recovery-services.js?v=1.3"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.5"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.22"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
@@ -3072,7 +3119,7 @@
     <script src="./assets/js/modules/relatorios.js?v=1.8"></script>
     <script src="./assets/js/modules/devolucoes.js?v=3.0"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
-    <script src="./assets/js/modules/backup-tools.js?v=1.1"></script>
+    <script src="./assets/js/modules/backup-tools.js?v=1.2"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.2"></script>
     <script src="./assets/js/modules/transporte.js?v=1.3"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.3"></script>
@@ -3081,7 +3128,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=2.8"></script>
+    <script src="./assets/js/render/novas-abas.js?v=3.0"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.14"></script>
         
