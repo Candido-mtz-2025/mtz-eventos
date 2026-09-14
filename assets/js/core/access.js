@@ -80,6 +80,7 @@ function temPermissao(acao) {
         'alterar_pagamento',
         'conciliar_pagamento',
         'desconsiderar_conciliacao',
+        'visualizar_fluxo_caixa',
         'cancelar_locacao',
         'configuracao'
     ]);

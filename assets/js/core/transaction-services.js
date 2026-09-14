@@ -211,7 +211,8 @@
         if (array) {
             const descritorLength = descritores.length;
             if (!descritorLength || descritorLength.value !== valor.length
-                || descritorLength.enumerable !== false || descritorLength.writable !== true) return false;
+                || descritorLength.enumerable !== false
+                || !Object.prototype.hasOwnProperty.call(descritorLength, 'value')) return false;
             for (let indice = 0; indice < valor.length; indice += 1) {
                 if (!Object.prototype.hasOwnProperty.call(descritores, String(indice))) return false;
             }
@@ -5566,6 +5567,386 @@
         return { estado: aplicaveis[0].situacao, conciliacao: clonarRetornoPublico(aplicaveis[0]) };
     }
 
+    function somarCentavosFluxoCaixa(valores) {
+        let total = 0n;
+        for (const valor of valores) {
+            if (!Number.isSafeInteger(valor)) {
+                return { ok: false, codigo: 'FLUXO_CAIXA_VALOR_INVALIDO' };
+            }
+            total += BigInt(valor);
+            if (total > BigInt(Number.MAX_SAFE_INTEGER)
+                || total < BigInt(Number.MIN_SAFE_INTEGER)) {
+                return { ok: false, codigo: 'FLUXO_CAIXA_OVERFLOW' };
+            }
+        }
+        return { ok: true, centavos: Number(total) };
+    }
+
+    function criarMovimentoFluxoCaixa(base) {
+        if (!base || !validarDataLocalContaReceber(base.data)
+            || !Number.isSafeInteger(base.valorCentavos) || base.valorCentavos <= 0
+            || !['entrada', 'saida', 'previsto'].includes(base.natureza)) return null;
+        const movimento = {
+            referencia: base.referencia,
+            natureza: base.natureza,
+            tipo: base.tipo,
+            data: base.data,
+            competencia: base.data.slice(0, 7),
+            valorCentavos: base.valorCentavos,
+            valorLiquidoCentavos: base.natureza === 'saida' ? -base.valorCentavos : base.valorCentavos,
+            clienteId: base.clienteId,
+            clienteReferencia: base.clienteReferencia,
+            clienteNome: base.clienteNome,
+            locacaoId: base.locacaoId,
+            locacaoReferencia: base.locacaoReferencia,
+            evento: base.evento,
+            contaReferencia: base.contaReferencia || '',
+            parcelaReferencia: base.parcelaReferencia || '',
+            lancamentoReferencia: base.lancamentoReferencia || '',
+            situacaoFinanceira: base.situacaoFinanceira,
+            situacaoConciliacao: base.situacaoConciliacao || 'nao_aplicavel',
+            conciliacaoReferencia: base.conciliacaoReferencia || '',
+            dataBancaria: base.dataBancaria || '',
+            origem: base.origem,
+            detalhes: base.detalhes || '',
+            operacaoId: base.operacaoId || '',
+            responsavel: base.responsavel || '',
+            auditoriaConfirmada: base.auditoriaConfirmada === true
+        };
+        return movimento.referencia && movimento.locacaoReferencia ? movimento : null;
+    }
+
+    function converterInstanteEmDataLocalFinanceira(instante) {
+        if (!instanteFinanceiroIntegro(instante)) return '';
+        const data = new Date(instante);
+        return `${String(data.getFullYear()).padStart(4, '0')}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+    }
+
+    function obterRecebimentosLegadosFluxoCaixa(estado, locacao, contexto, legado) {
+        if (legado.valorRecebidoCentavos === 0) return { ok: true, movimentos: [] };
+        const lancamentos = Array.isArray(locacao.financeiro?.lancamentosRecebimentos)
+            ? locacao.financeiro.lancamentosRecebimentos.slice() : [];
+        if (!lancamentos.length) return { ok: false, codigo: 'LEGADO_RECEBIMENTO_SEM_EVIDENCIA' };
+        lancamentos.sort((a, b) => String(a?.data || '').localeCompare(String(b?.data || ''))
+            || String(a?.operacaoId || '').localeCompare(String(b?.operacaoId || '')));
+        const operacoes = new Set();
+        const movimentos = [];
+        let recebidoAnterior = 0;
+        for (const lancamento of lancamentos) {
+            const obrigatorias = ['id', 'operacaoId', 'locacaoId', 'locacaoReferencia', 'contaReferencia',
+                'parcelaReferencia', 'assinaturaPlano', 'data', 'usuario', 'valorAnteriorCentavos',
+                'valorRecebidoCentavos', 'valorLancamentoCentavos', 'valorRestanteCentavos'];
+            if (!registroFinanceiroDadosSeguro(lancamento, obrigatorias)
+                || pareceLancamentoEstorno(lancamento)
+                || operacoes.has(lancamento.operacaoId)
+                || typeof lancamento.locacaoId !== typeof locacao.id
+                || !Object.is(lancamento.locacaoId, locacao.id)
+                || lancamento.locacaoReferencia !== contexto.locacaoReferencia
+                || lancamento.contaReferencia !== '' || lancamento.parcelaReferencia !== ''
+                || !textoFinanceiroIntegro(lancamento.operacaoId, 1, 160)
+                || !textoFinanceiroIntegro(lancamento.usuario, 1, 300)
+                || !instanteFinanceiroIntegro(lancamento.data)
+                || ![lancamento.valorAnteriorCentavos, lancamento.valorRecebidoCentavos,
+                    lancamento.valorLancamentoCentavos, lancamento.valorRestanteCentavos]
+                    .every(Number.isSafeInteger)
+                || lancamento.valorAnteriorCentavos !== recebidoAnterior
+                || lancamento.valorLancamentoCentavos <= 0
+                || lancamento.valorRecebidoCentavos !== recebidoAnterior + lancamento.valorLancamentoCentavos
+                || lancamento.valorRestanteCentavos !== legado.valorTotalCentavos - lancamento.valorRecebidoCentavos
+                || lancamento.valorRestanteCentavos < 0) {
+                return { ok: false, codigo: 'LEGADO_RECEBIMENTO_INVALIDO' };
+            }
+            const entradaAssinatura = {
+                operacaoId: lancamento.operacaoId,
+                parcelaReferencia: '',
+                atualizadoEm: lancamento.data,
+                atualizadoPor: lancamento.usuario
+            };
+            const assinatura = assinaturaRecebimentoLocacao(entradaAssinatura, locacao.id,
+                contexto.locacaoReferencia, lancamento.valorRecebidoCentavos, '', 0);
+            const evidencias = coletarEvidenciasOperacaoFinanceira(estado, lancamento.operacaoId);
+            const historicos = evidencias.historicosLocacoes.filter(({ locacao: origem }) => origem === locacao);
+            const auditorias = evidencias.auditorias;
+            if (assinatura !== lancamento.assinaturaPlano
+                || evidencias.contasCriadas.length || evidencias.lancamentosParcelas.length
+                || evidencias.historicosContas.length || evidencias.lancamentosLocacoes.length !== 1
+                || evidencias.lancamentosLocacoes[0].registro !== lancamento
+                || historicos.length !== 1 || auditorias.length !== 1) {
+                return { ok: false, codigo: 'LEGADO_RECEBIMENTO_EVIDENCIAS_DIVERGENTES' };
+            }
+            const camposComuns = ['operacaoId', 'locacaoId', 'locacaoReferencia', 'contaReferencia',
+                'parcelaReferencia', 'assinaturaPlano', 'valorRecebidoCentavos',
+                'valorLancamentoCentavos', 'valorRestanteCentavos'];
+            const historico = historicos[0].registro;
+            const auditoria = auditorias[0].registro;
+            if (historico.acao !== 'financeiro_recebimento' || auditoria.acao !== 'recebimento'
+                || !registroFinanceiroDadosSeguro(historico, [...camposComuns, 'data', 'usuario'])
+                || !registroFinanceiroDadosSeguro(auditoria, [...camposComuns, 'data', 'usuario'])
+                || !mesmosCamposFinanceiros([lancamento, historico, auditoria], camposComuns)
+                || historico.data !== lancamento.data || auditoria.data !== lancamento.data
+                || historico.usuario !== lancamento.usuario || auditoria.usuario !== lancamento.usuario) {
+                return { ok: false, codigo: 'LEGADO_RECEBIMENTO_EVIDENCIAS_DIVERGENTES' };
+            }
+            const referencia = criarReferenciaLancamentoFinanceiro(lancamento.id);
+            const movimento = criarMovimentoFluxoCaixa({
+                referencia,
+                natureza: 'entrada',
+                tipo: 'recebimento',
+                data: converterInstanteEmDataLocalFinanceira(lancamento.data),
+                valorCentavos: lancamento.valorLancamentoCentavos,
+                clienteId: contexto.clienteId,
+                clienteReferencia: contexto.clienteReferencia,
+                clienteNome: contexto.clienteNome,
+                locacaoId: locacao.id,
+                locacaoReferencia: contexto.locacaoReferencia,
+                evento: contexto.evento,
+                situacaoFinanceira: legado.statusPagamento,
+                situacaoConciliacao: 'pendente',
+                origem: 'legado',
+                detalhes: 'Recebimento legado confirmado',
+                operacaoId: lancamento.operacaoId,
+                responsavel: lancamento.usuario,
+                auditoriaConfirmada: true
+            });
+            if (!referencia || !movimento) return { ok: false, codigo: 'LEGADO_RECEBIMENTO_INVALIDO' };
+            operacoes.add(lancamento.operacaoId);
+            recebidoAnterior = lancamento.valorRecebidoCentavos;
+            movimentos.push(movimento);
+        }
+        return recebidoAnterior === legado.valorRecebidoCentavos
+            ? { ok: true, movimentos }
+            : { ok: false, codigo: 'LEGADO_RECEBIMENTO_TOTAL_DIVERGENTE' };
+    }
+
+    function obterProjecaoFluxoCaixaFinanceiro(estadoExterno, dataReferencia) {
+        if (!validarDataLocalContaReceber(dataReferencia)
+            || !validarValorExternoPersistivelSeguro(estadoExterno)) {
+            return { ok: false, codigo: 'FLUXO_CAIXA_ENTRADA_INVALIDA', movimentos: [], diagnosticos: [] };
+        }
+        const clone = clonarJsonInterno(estadoExterno);
+        if (!clone.ok) {
+            return { ok: false, codigo: clone.codigo || 'FLUXO_CAIXA_ENTRADA_INVALIDA', movimentos: [], diagnosticos: [] };
+        }
+        const estado = clone.valor;
+        if (!Array.isArray(estado.locacoes) || !Array.isArray(estado.locadores)
+            || !Array.isArray(estado.contasReceber) || !Array.isArray(estado.conciliacoesFinanceiras)
+            || !Array.isArray(estado.logsAuditoria)) {
+            return { ok: false, codigo: 'FLUXO_CAIXA_ESTADO_INCOMPLETO', movimentos: [], diagnosticos: [] };
+        }
+
+        const movimentos = [];
+        const diagnosticos = [];
+        const referenciasLocacoes = new Map();
+        for (const locacao of estado.locacoes) {
+            const referencia = criarReferenciaTipadaLocacaoTransacional(locacao?.id);
+            if (!referencia) {
+                diagnosticos.push({ codigo: 'LOCACAO_ID_INVALIDO', referencia: '' });
+                continue;
+            }
+            referenciasLocacoes.set(referencia, (referenciasLocacoes.get(referencia) || 0) + 1);
+        }
+
+        for (const locacao of estado.locacoes) {
+            const locacaoReferencia = criarReferenciaTipadaLocacaoTransacional(locacao?.id);
+            if (!locacaoReferencia || referenciasLocacoes.get(locacaoReferencia) !== 1) {
+                diagnosticos.push({ codigo: 'LOCACAO_IDENTIDADE_AMBIGUA', referencia: locacaoReferencia || '' });
+                continue;
+            }
+            const cliente = resolverIdentidadeExataContaReceber(locacao.locadorId, estado.locadores);
+            if (cliente.estado !== 'encontrado') {
+                diagnosticos.push({ codigo: 'CLIENTE_IDENTIDADE_INVALIDA', referencia: locacaoReferencia });
+                continue;
+            }
+            const clienteReferencia = criarReferenciaTipadaContaReceber('cliente', cliente.registro.id);
+            const clienteNome = typeof cliente.registro.nome === 'string' ? cliente.registro.nome : 'Removido';
+            const evento = typeof locacao.eventoNome === 'string' ? locacao.eventoNome : '';
+            const projecaoConta = obterProjecaoFinanceiraContaReceber(
+                locacao.id, estado.contasReceber, dataReferencia);
+
+            if (projecaoConta.estado === 'encontrado' && projecaoConta.encontrada === true) {
+                const conta = projecaoConta.conta;
+                if (conta.clienteReferencia !== clienteReferencia
+                    || typeof conta.clienteId !== typeof cliente.registro.id
+                    || !Object.is(conta.clienteId, cliente.registro.id)) {
+                    diagnosticos.push({ codigo: 'CONTA_CLIENTE_DIVERGENTE', referencia: locacaoReferencia });
+                    continue;
+                }
+                const possuiLancamentos = conta.parcelas.some((parcela) => (
+                    parcela.lancamentosFinanceiros.length > 0));
+                const cadeia = possuiLancamentos
+                    ? validarCadeiaFinanceiraOperacao(
+                        estado, conta.contaReferencia, locacaoReferencia, dataReferencia)
+                    : { ok: true };
+                if (!cadeia.ok) {
+                    diagnosticos.push({ codigo: cadeia.codigo || 'CADEIA_FINANCEIRA_INVALIDA', referencia: locacaoReferencia });
+                    continue;
+                }
+                const movimentosConta = [];
+                let contaInvalida = false;
+                for (const parcela of conta.parcelas) {
+                    for (const lancamento of parcela.lancamentosFinanceiros) {
+                        const ehEstorno = pareceLancamentoEstorno(lancamento);
+                        const lancamentoReferencia = criarReferenciaLancamentoFinanceiro(lancamento.id);
+                        const conciliacao = obterSituacaoConciliacaoLancamento(estado,
+                            conta.contaReferencia, parcela.parcelaReferencia, lancamentoReferencia);
+                        if (!lancamentoReferencia || conciliacao.estado === 'invalido') {
+                            diagnosticos.push({ codigo: conciliacao.codigo || 'LANCAMENTO_FINANCEIRO_INVALIDO', referencia: locacaoReferencia });
+                            contaInvalida = true;
+                            break;
+                        }
+                        const movimento = criarMovimentoFluxoCaixa({
+                            referencia: lancamentoReferencia,
+                            natureza: ehEstorno ? 'saida' : 'entrada',
+                            tipo: ehEstorno ? 'estorno' : 'recebimento',
+                            data: converterInstanteEmDataLocalFinanceira(lancamento.data),
+                            valorCentavos: ehEstorno
+                                ? lancamento.valorEstornoCentavos : lancamento.valorAplicadoCentavos,
+                            clienteId: cliente.registro.id,
+                            clienteReferencia,
+                            clienteNome,
+                            locacaoId: locacao.id,
+                            locacaoReferencia,
+                            evento,
+                            contaReferencia: conta.contaReferencia,
+                            parcelaReferencia: parcela.parcelaReferencia,
+                            lancamentoReferencia,
+                            situacaoFinanceira: projecaoConta.situacao,
+                            situacaoConciliacao: conciliacao.estado,
+                            conciliacaoReferencia: conciliacao.conciliacao?.conciliacaoReferencia || '',
+                            dataBancaria: conciliacao.conciliacao?.dataBancaria || '',
+                            origem: 'conta_receber',
+                            detalhes: ehEstorno ? lancamento.motivo : `Parcela ${parcela.numero}/${parcela.totalParcelas}`,
+                            operacaoId: lancamento.operacaoId,
+                            responsavel: lancamento.responsavel,
+                            auditoriaConfirmada: true
+                        });
+                        if (!movimento) {
+                            contaInvalida = true;
+                            break;
+                        }
+                        movimentosConta.push(movimento);
+                    }
+                    if (contaInvalida) break;
+                    const situacaoParcela = calcularSituacaoEfetivaParcelaContaReceber(parcela, dataReferencia);
+                    if (!['cancelada', 'paga'].includes(situacaoParcela)
+                        && !['cancelada', 'encerrada'].includes(projecaoConta.situacao)
+                        && parcela.saldoCentavos > 0) {
+                        const movimento = criarMovimentoFluxoCaixa({
+                            referencia: `fluxo-previsto:${parcela.parcelaReferencia}`,
+                            natureza: 'previsto',
+                            tipo: 'parcela',
+                            data: parcela.vencimento,
+                            valorCentavos: parcela.saldoCentavos,
+                            clienteId: cliente.registro.id,
+                            clienteReferencia,
+                            clienteNome,
+                            locacaoId: locacao.id,
+                            locacaoReferencia,
+                            evento,
+                            contaReferencia: conta.contaReferencia,
+                            parcelaReferencia: parcela.parcelaReferencia,
+                            situacaoFinanceira: situacaoParcela,
+                            origem: 'conta_receber',
+                            detalhes: `Parcela ${parcela.numero}/${parcela.totalParcelas}`
+                        });
+                        if (!movimento) {
+                            contaInvalida = true;
+                            break;
+                        }
+                        movimentosConta.push(movimento);
+                    }
+                }
+                if (contaInvalida) {
+                    diagnosticos.push({ codigo: 'CONTA_FLUXO_CAIXA_INVALIDA', referencia: locacaoReferencia });
+                    continue;
+                }
+                movimentos.push(...movimentosConta);
+                continue;
+            }
+
+            if (projecaoConta.estado !== 'ausente') {
+                diagnosticos.push({ codigo: projecaoConta.codigo || 'CONTA_RECEBER_AMBIGUA', referencia: locacaoReferencia });
+                continue;
+            }
+            const legado = obterProjecaoFinanceiraLegadaLocacao(locacao);
+            if (!legado.encontrada) {
+                diagnosticos.push({ codigo: 'FINANCEIRO_LEGADO_INVALIDO', referencia: locacaoReferencia });
+                continue;
+            }
+            const recebimentosLegados = obterRecebimentosLegadosFluxoCaixa(estado, locacao, {
+                locacaoReferencia, clienteId: cliente.registro.id, clienteReferencia, clienteNome, evento
+            }, legado);
+            if (!recebimentosLegados.ok) {
+                diagnosticos.push({ codigo: recebimentosLegados.codigo, referencia: locacaoReferencia });
+                continue;
+            }
+            movimentos.push(...recebimentosLegados.movimentos);
+            if (legado.saldoCentavos > 0 && validarDataLocalContaReceber(legado.vencimento)) {
+                const movimento = criarMovimentoFluxoCaixa({
+                    referencia: `fluxo-legado-previsto:${locacaoReferencia}`,
+                    natureza: 'previsto',
+                    tipo: 'saldo_legado',
+                    data: legado.vencimento,
+                    valorCentavos: legado.saldoCentavos,
+                    clienteId: cliente.registro.id,
+                    clienteReferencia,
+                    clienteNome,
+                    locacaoId: locacao.id,
+                    locacaoReferencia,
+                    evento,
+                    situacaoFinanceira: legado.statusPagamento,
+                    origem: 'legado',
+                    detalhes: 'Saldo legado sem conta a receber'
+                });
+                if (movimento) movimentos.push(movimento);
+            }
+        }
+
+        const contagemChaves = new Map();
+        movimentos.forEach((movimento) => {
+            const chave = `${movimento.natureza}|${movimento.referencia}`;
+            contagemChaves.set(chave, (contagemChaves.get(chave) || 0) + 1);
+        });
+        const unicos = movimentos.filter((movimento) => {
+            const chave = `${movimento.natureza}|${movimento.referencia}`;
+            const unico = contagemChaves.get(chave) === 1;
+            if (!unico) diagnosticos.push({ codigo: 'MOVIMENTO_FLUXO_DUPLICADO', referencia: movimento.referencia });
+            return unico;
+        });
+        unicos.sort((a, b) => a.data.localeCompare(b.data)
+            || a.natureza.localeCompare(b.natureza)
+            || a.referencia.localeCompare(b.referencia));
+        const entradas = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza === 'entrada')
+            .map((item) => item.valorCentavos));
+        const saidas = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza === 'saida')
+            .map((item) => item.valorCentavos));
+        const projetado = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza === 'previsto')
+            .map((item) => item.valorCentavos));
+        const conciliado = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza !== 'previsto'
+            && item.situacaoConciliacao === 'conciliado').map((item) => item.valorCentavos));
+        const liquido = entradas.ok && saidas.ok
+            ? somarCentavosFluxoCaixa([entradas.centavos, -saidas.centavos])
+            : { ok: false, codigo: 'FLUXO_CAIXA_OVERFLOW' };
+        const totaisValidos = [entradas, saidas, projetado, conciliado, liquido].every((item) => item.ok);
+        return {
+            ok: totaisValidos,
+            codigo: totaisValidos ? 'FLUXO_CAIXA_PROJETADO' : 'FLUXO_CAIXA_OVERFLOW',
+            movimentos: totaisValidos ? clonarRetornoPublico(unicos) : [],
+            diagnosticos: clonarRetornoPublico(diagnosticos),
+            totais: totaisValidos ? {
+                entradasRealizadasCentavos: entradas.centavos,
+                estornosCentavos: saidas.centavos,
+                realizadoLiquidoCentavos: liquido.centavos,
+                entradasProjetadasCentavos: projetado.centavos,
+                conciliadoCentavos: conciliado.centavos,
+                conciliacoesPendentes: unicos.filter((item) => item.natureza !== 'previsto'
+                    && item.situacaoConciliacao === 'pendente').length,
+                conciliacoesDivergentes: unicos.filter((item) => item.natureza !== 'previsto'
+                    && item.situacaoConciliacao === 'divergente').length
+            } : null
+        };
+    }
+
     function resolverAlvoConciliacaoFinanceira(estado, entrada, dataReferencia) {
         const contas = estado.contasReceber.filter((conta) => conta?.contaReferencia === entrada.contaReferencia);
         if (contas.length !== 1) return { ok: false, codigo: contas.length ? 'CONTA_RECEBER_DUPLICADA' : 'CONTA_RECEBER_NAO_ENCONTRADA' };
@@ -5917,6 +6298,7 @@
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
     window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;
     window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
+    window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;

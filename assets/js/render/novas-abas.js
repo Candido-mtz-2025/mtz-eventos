@@ -21,6 +21,9 @@
     let acionadorConciliacaoFinanceira = null;
     let eventosConciliacaoFinanceiraRegistrados = false;
     let conciliacaoFinanceiraEmProcessamento = false;
+    let movimentosFluxoCaixaAtuais = [];
+    let acionadorDetalhesFluxoCaixa = null;
+    let eventosDetalhesFluxoCaixaRegistrados = false;
 
     function normalizarTextoBusca(valor) {
         return String(valor || '')
@@ -1088,6 +1091,344 @@
         });
     }
 
+    function formatarCentavosFluxoCaixa(centavos) {
+        if (!Number.isSafeInteger(centavos)) return 'Valor indisponível';
+        const absoluto = Math.abs(centavos);
+        const formatado = typeof formatarCentavosMonetarios === 'function'
+            ? formatarCentavosMonetarios(absoluto) : null;
+        return formatado ? `${centavos < 0 ? '- ' : ''}${formatado}` : 'Valor indisponível';
+    }
+
+    function somarMovimentosFluxoCaixa(movimentos, seletor) {
+        let total = 0n;
+        for (const movimento of movimentos) {
+            const valor = seletor(movimento);
+            if (!Number.isSafeInteger(valor)) return { ok: false, centavos: 0 };
+            total += BigInt(valor);
+            if (total > BigInt(Number.MAX_SAFE_INTEGER) || total < BigInt(Number.MIN_SAFE_INTEGER)) {
+                return { ok: false, centavos: 0 };
+            }
+        }
+        return { ok: true, centavos: Number(total) };
+    }
+
+    function obterMovimentosFluxoCaixaFiltrados(movimentos) {
+        const busca = normalizarTextoBusca(document.getElementById('buscaFluxoCaixa')?.value || '');
+        const cliente = document.getElementById('fluxoCaixaCliente')?.value || '';
+        const natureza = document.getElementById('fluxoCaixaNatureza')?.value || 'todos';
+        const situacao = document.getElementById('fluxoCaixaSituacao')?.value || 'todos';
+        const conciliacao = document.getElementById('fluxoCaixaConciliacao')?.value || 'todos';
+        const inicio = document.getElementById('fluxoCaixaInicio')?.value || '';
+        const fim = document.getElementById('fluxoCaixaFim')?.value || '';
+        return movimentos.filter((item) => {
+            if (cliente && item.clienteReferencia !== cliente) return false;
+            if (natureza !== 'todos' && item.natureza !== natureza) return false;
+            if (situacao !== 'todos' && item.situacaoFinanceira !== situacao) return false;
+            if (conciliacao !== 'todos' && item.situacaoConciliacao !== conciliacao) return false;
+            if (inicio && item.data < inicio) return false;
+            if (fim && item.data > fim) return false;
+            if (!busca) return true;
+            return normalizarTextoBusca([
+                item.clienteNome, item.evento, item.locacaoReferencia, item.contaReferencia,
+                item.parcelaReferencia, item.operacaoId, item.detalhes
+            ].join(' ')).includes(busca);
+        }).sort((a, b) => a.data.localeCompare(b.data)
+            || a.natureza.localeCompare(b.natureza)
+            || a.referencia.localeCompare(b.referencia));
+    }
+
+    function atualizarClientesFluxoCaixa(movimentos) {
+        const select = document.getElementById('fluxoCaixaCliente');
+        if (!select) return;
+        const anterior = select.value;
+        const opcoes = [...new Map(movimentos.filter((item) => item.clienteReferencia)
+            .map((item) => [item.clienteReferencia, item.clienteNome])).entries()]
+            .sort((a, b) => compararTextoDeterministico(a[1], b[1])
+                || compararTextoDeterministico(a[0], b[0]));
+        select.innerHTML = '<option value="">Todos os clientes</option>' + opcoes.map(([referencia, nome]) => (
+            `<option value="${sanitizarTexto(referencia)}">${sanitizarTexto(nome)}</option>`)).join('');
+        select.value = opcoes.some(([referencia]) => referencia === anterior) ? anterior : '';
+    }
+
+    function atualizarIndicadoresFluxoCaixa(movimentos) {
+        const entradas = somarMovimentosFluxoCaixa(movimentos
+            .filter((item) => item.natureza === 'entrada'), (item) => item.valorCentavos);
+        const estornos = somarMovimentosFluxoCaixa(movimentos
+            .filter((item) => item.natureza === 'saida'), (item) => item.valorCentavos);
+        const projetado = somarMovimentosFluxoCaixa(movimentos
+            .filter((item) => item.natureza === 'previsto'), (item) => item.valorCentavos);
+        const conciliado = somarMovimentosFluxoCaixa(movimentos
+            .filter((item) => item.natureza !== 'previsto' && item.situacaoConciliacao === 'conciliado'),
+        (item) => item.valorCentavos);
+        const liquido = entradas.ok && estornos.ok
+            ? somarMovimentosFluxoCaixa([{ valor: entradas.centavos }, { valor: -estornos.centavos }], (item) => item.valor)
+            : { ok: false, centavos: 0 };
+        const mapa = [
+            ['fluxoKpiEntradas', entradas], ['fluxoKpiEstornos', estornos],
+            ['fluxoKpiLiquido', liquido], ['fluxoKpiProjetado', projetado],
+            ['fluxoKpiConciliado', conciliado]
+        ];
+        mapa.forEach(([id, soma]) => {
+            const elemento = document.getElementById(id);
+            if (elemento) elemento.textContent = soma.ok
+                ? formatarCentavosFluxoCaixa(soma.centavos) : 'Valor indisponível';
+        });
+        const pendentes = movimentos.filter((item) => item.natureza !== 'previsto'
+            && item.situacaoConciliacao === 'pendente').length;
+        const divergentes = movimentos.filter((item) => item.natureza !== 'previsto'
+            && item.situacaoConciliacao === 'divergente').length;
+        const elementoPendencias = document.getElementById('fluxoKpiPendencias');
+        if (elementoPendencias) elementoPendencias.textContent = `${pendentes} / ${divergentes}`;
+    }
+
+    function agruparMovimentosFluxoCaixa(movimentos, mensal) {
+        const grupos = new Map();
+        for (const item of movimentos) {
+            const chave = mensal ? item.competencia : item.data;
+            if (!grupos.has(chave)) grupos.set(chave, { entrada: 0n, saida: 0n, previsto: 0n });
+            const grupo = grupos.get(chave);
+            grupo[item.natureza] += BigInt(item.valorCentavos);
+        }
+        return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([periodo, grupo]) => {
+            const valores = [grupo.entrada, grupo.saida, grupo.previsto];
+            if (valores.some((valor) => valor > BigInt(Number.MAX_SAFE_INTEGER))) {
+                return { periodo, ok: false, entrada: 0, saida: 0, previsto: 0 };
+            }
+            return { periodo, ok: true, entrada: Number(grupo.entrada),
+                saida: Number(grupo.saida), previsto: Number(grupo.previsto) };
+        });
+    }
+
+    function renderSerieFluxoCaixa(id, movimentos, mensal) {
+        const destino = document.getElementById(id);
+        if (!destino) return;
+        const grupos = agruparMovimentosFluxoCaixa(movimentos, mensal);
+        const maximo = grupos.reduce((maior, grupo) => grupo.ok
+            ? Math.max(maior, grupo.entrada, grupo.saida, grupo.previsto) : maior, 0);
+        if (!grupos.length) {
+            destino.innerHTML = '<p class="muted-note">Sem movimentos no período.</p>';
+            return;
+        }
+        destino.innerHTML = grupos.map((grupo) => {
+            if (!grupo.ok) return `<div class="fluxo-caixa-serie-linha"><strong>${sanitizarTexto(grupo.periodo)}</strong><span>Valor indisponível</span></div>`;
+            const percentual = (valor) => maximo > 0
+                ? Number((BigInt(valor) * 100n) / BigInt(maximo)) : 0;
+            return `<div class="fluxo-caixa-serie-linha">
+                <strong>${sanitizarTexto(grupo.periodo)}</strong>
+                <div class="fluxo-caixa-barras">
+                    <span class="fluxo-barra entrada" style="--fluxo-barra:${percentual(grupo.entrada)}%" title="Entradas: ${formatarCentavosFluxoCaixa(grupo.entrada)}"></span>
+                    <span class="fluxo-barra saida" style="--fluxo-barra:${percentual(grupo.saida)}%" title="Estornos: ${formatarCentavosFluxoCaixa(grupo.saida)}"></span>
+                    <span class="fluxo-barra previsto" style="--fluxo-barra:${percentual(grupo.previsto)}%" title="Projetado: ${formatarCentavosFluxoCaixa(grupo.previsto)}"></span>
+                </div>
+                <small>${formatarCentavosFluxoCaixa(grupo.entrada)} · ${formatarCentavosFluxoCaixa(grupo.saida)} · ${formatarCentavosFluxoCaixa(grupo.previsto)}</small>
+            </div>`;
+        }).join('');
+    }
+
+    function renderFluxoCaixa() {
+        const tabela = document.getElementById('tblFluxoCaixa');
+        if (!tabela) return false;
+        const permitido = typeof temPermissao !== 'function' || temPermissao('visualizar_fluxo_caixa');
+        const painelPermissao = document.getElementById('fluxoCaixaPermissao');
+        const conteudo = document.getElementById('fluxoCaixaConteudo');
+        if (painelPermissao) {
+            painelPermissao.hidden = permitido;
+            painelPermissao.textContent = permitido ? '' : 'Acesso ao fluxo de caixa restrito ao perfil administrador.';
+        }
+        if (conteudo) conteudo.hidden = !permitido;
+        if (!permitido) {
+            movimentosFluxoCaixaAtuais = [];
+            return false;
+        }
+        const estado = typeof obterEstadoMemoriaAtual === 'function' ? obterEstadoMemoriaAtual() : null;
+        const projecao = typeof obterProjecaoFluxoCaixaFinanceiro === 'function'
+            ? obterProjecaoFluxoCaixaFinanceiro(estado, dataLocalFinanceiro())
+            : { ok: false, codigo: 'PROJECAO_FLUXO_CAIXA_AUSENTE', movimentos: [], diagnosticos: [] };
+        const diagnostico = document.getElementById('fluxoCaixaDiagnostico');
+        if (!projecao.ok) {
+            movimentosFluxoCaixaAtuais = [];
+            tabela.innerHTML = '<tr><td colspan="11">Valor indisponível. Revise a integridade financeira.</td></tr>';
+            if (diagnostico) {
+                diagnostico.hidden = false;
+                diagnostico.textContent = `Projeção bloqueada: ${projecao.codigo}.`;
+            }
+            atualizarIndicadoresFluxoCaixa([]);
+            renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', [], false);
+            renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', [], true);
+            return false;
+        }
+        atualizarClientesFluxoCaixa(projecao.movimentos);
+        movimentosFluxoCaixaAtuais = obterMovimentosFluxoCaixaFiltrados(projecao.movimentos);
+        if (diagnostico) {
+            diagnostico.hidden = !projecao.diagnosticos.length;
+            diagnostico.textContent = projecao.diagnosticos.length
+                ? `${projecao.diagnosticos.length} registro(s) foram excluídos por inconsistência ou ausência de evidência autoritativa.` : '';
+        }
+        atualizarIndicadoresFluxoCaixa(movimentosFluxoCaixaAtuais);
+        renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', movimentosFluxoCaixaAtuais, false);
+        renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', movimentosFluxoCaixaAtuais, true);
+        tabela.innerHTML = movimentosFluxoCaixaAtuais.length ? movimentosFluxoCaixaAtuais.map((item) => {
+            const argumento = encodeURIComponent(JSON.stringify([item.natureza, item.referencia]));
+            const valor = item.natureza === 'saida' ? -item.valorCentavos : item.valorCentavos;
+            const rotuloTipo = item.tipo === 'recebimento' ? 'Recebimento'
+                : item.tipo === 'estorno' ? 'Estorno' : 'Parcela prevista';
+            return `<tr><td>${formatarDataCurta(item.data)}</td><td>${sanitizarTexto(item.competencia)}</td>
+                <td>${rotuloTipo}</td><td>${sanitizarTexto(item.clienteNome)}</td>
+                <td>${sanitizarTexto(item.evento || '-')}<div class="table-cell-sub">${sanitizarTexto(item.locacaoReferencia)}</div></td>
+                <td>${sanitizarTexto(item.contaReferencia || 'Legado')}<div class="table-cell-sub">${sanitizarTexto(item.parcelaReferencia || '-')}</div></td>
+                <td class="fluxo-caixa-valor ${item.natureza}">${formatarCentavosFluxoCaixa(valor)}</td>
+                <td>${sanitizarTexto(item.situacaoFinanceira)}</td><td>${sanitizarTexto(item.situacaoConciliacao)}</td>
+                <td>${sanitizarTexto(item.origem)}</td><td><button type="button" class="btn btn-sm btn-info table-action-btn" data-action="abrirDetalhesFluxoCaixa" data-arg="${sanitizarTexto(argumento)}" aria-label="Ver detalhes do movimento de ${sanitizarTexto(item.clienteNome)}"><i class="bi bi-eye"></i></button></td></tr>`;
+        }).join('') : '<tr><td colspan="11">Nenhum movimento encontrado.</td></tr>';
+        return true;
+    }
+
+    function limparFiltrosFluxoCaixa() {
+        ['buscaFluxoCaixa', 'fluxoCaixaCliente', 'fluxoCaixaInicio', 'fluxoCaixaFim']
+            .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = ''; });
+        ['fluxoCaixaNatureza', 'fluxoCaixaSituacao', 'fluxoCaixaConciliacao']
+            .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = 'todos'; });
+        return renderFluxoCaixa();
+    }
+
+    function resolverMovimentoFluxoCaixa(argumento) {
+        if (typeof argumento !== 'string') return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(argumento));
+            if (!Array.isArray(dados) || dados.length !== 2
+                || !dados.every((item) => typeof item === 'string' && item)) return null;
+            const encontrados = movimentosFluxoCaixaAtuais.filter((item) => (
+                item.natureza === dados[0] && item.referencia === dados[1]));
+            return encontrados.length === 1 ? encontrados[0] : null;
+        } catch (_erro) {
+            return null;
+        }
+    }
+
+    function registrarEventosDetalhesFluxoCaixa() {
+        if (eventosDetalhesFluxoCaixaRegistrados) return;
+        const modal = document.getElementById('modalDetalhesFluxoCaixa');
+        if (!modal) return;
+        eventosDetalhesFluxoCaixaRegistrados = true;
+        modal.addEventListener('click', (evento) => {
+            if (evento.target === modal) fecharDetalhesFluxoCaixa();
+        });
+        modal.addEventListener('keydown', (evento) => {
+            if (!modal.classList.contains('active')) return;
+            if (evento.key === 'Escape') {
+                evento.preventDefault();
+                fecharDetalhesFluxoCaixa();
+                return;
+            }
+            if (evento.key !== 'Tab') return;
+            const focaveis = [...modal.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+                .filter((elemento) => !elemento.hidden && elemento.getClientRects().length > 0);
+            if (!focaveis.length) { evento.preventDefault(); modal.focus(); return; }
+            const primeiro = focaveis[0];
+            const ultimo = focaveis[focaveis.length - 1];
+            if (evento.shiftKey && document.activeElement === primeiro) { evento.preventDefault(); ultimo.focus(); }
+            else if (!evento.shiftKey && document.activeElement === ultimo) { evento.preventDefault(); primeiro.focus(); }
+        });
+    }
+
+    function abrirDetalhesFluxoCaixa(argumento) {
+        const movimento = resolverMovimentoFluxoCaixa(argumento);
+        const modal = document.getElementById('modalDetalhesFluxoCaixa');
+        const conteudo = document.getElementById('detalhesFluxoCaixaConteudo');
+        if (!movimento || !modal || !conteudo) return false;
+        const campos = [
+            ['Data do movimento', formatarDataCurta(movimento.data)],
+            ['Natureza', movimento.natureza], ['Valor', formatarCentavosFluxoCaixa(movimento.valorLiquidoCentavos)],
+            ['Cliente', movimento.clienteNome], ['Referência do cliente', movimento.clienteReferencia],
+            ['Referência da locação', movimento.locacaoReferencia], ['Conta', movimento.contaReferencia || 'Legado'],
+            ['Parcela', movimento.parcelaReferencia || '-'], ['Lançamento', movimento.lancamentoReferencia || '-'],
+            ['Operação', movimento.operacaoId || '-'], ['Responsável', movimento.responsavel || '-'],
+            ['Conciliação', movimento.situacaoConciliacao], ['Data bancária', movimento.dataBancaria || '-'],
+            ['Auditoria', movimento.auditoriaConfirmada ? 'Evidências confirmadas' : 'Não aplicável'],
+            ['Detalhes', movimento.detalhes || '-']
+        ];
+        conteudo.innerHTML = campos.map(([rotulo, valor]) => (
+            `<div><dt>${sanitizarTexto(rotulo)}</dt><dd>${sanitizarTexto(valor)}</dd></div>`)).join('');
+        acionadorDetalhesFluxoCaixa = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        registrarEventosDetalhesFluxoCaixa();
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        modal.querySelector('.btn-close-modal')?.focus({ preventScroll: true });
+        return true;
+    }
+
+    function fecharDetalhesFluxoCaixa() {
+        const modal = document.getElementById('modalDetalhesFluxoCaixa');
+        if (!modal) return false;
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        const acionador = acionadorDetalhesFluxoCaixa;
+        acionadorDetalhesFluxoCaixa = null;
+        if (acionador?.isConnected) acionador.focus({ preventScroll: true });
+        return true;
+    }
+
+    function serializarCelulaFluxoCaixaCsv(valor) {
+        let texto;
+        let protegerFormula = false;
+        if (typeof valor === 'string') {
+            texto = valor;
+            protegerFormula = true;
+        } else if (typeof valor === 'number' && Number.isSafeInteger(valor)) {
+            texto = `${valor}`;
+        } else if (valor === null || valor === undefined) {
+            texto = '';
+        } else {
+            throw new TypeError('CELULA_CSV_INVALIDA');
+        }
+
+        const inicioOcultoOuControle = /^[\p{Cc}\p{Cf}]/u;
+        const espacosAntesDeFormula = /^[\p{White_Space}\p{Cc}\p{Cf}]*[=+\-@]/u;
+        if (protegerFormula && (inicioOcultoOuControle.test(texto) || espacosAntesDeFormula.test(texto))) {
+            texto = `'${texto}`;
+        }
+        return `"${texto.replace(/"/g, '""')}"`;
+    }
+
+    function exportarFluxoCaixaCsv() {
+        if (!movimentosFluxoCaixaAtuais.length) return false;
+        const linhas = [['Data', 'Competência', 'Tipo', 'Cliente', 'Locação', 'Conta', 'Parcela',
+            'Valor em centavos', 'Situação financeira', 'Conciliação', 'Origem']];
+        movimentosFluxoCaixaAtuais.forEach((item) => linhas.push([
+            item.data, item.competencia, item.tipo, item.clienteNome, item.locacaoReferencia,
+            item.contaReferencia, item.parcelaReferencia, item.valorLiquidoCentavos,
+            item.situacaoFinanceira, item.situacaoConciliacao, item.origem
+        ]));
+        let conteudo;
+        try {
+            conteudo = linhas.map((linha) => linha.map(serializarCelulaFluxoCaixaCsv).join(';')).join('\r\n');
+        } catch (_erro) {
+            if (typeof mostrarToast === 'function') {
+                mostrarToast('A exportação foi bloqueada porque existem dados incompatíveis com CSV.', 'error');
+            }
+            return false;
+        }
+        const blob = new Blob([`\uFEFF${conteudo}`], { type: 'text/csv;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `fluxo-caixa-${dataLocalFinanceiro()}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        return true;
+    }
+
+    function imprimirFluxoCaixa() {
+        const area = document.getElementById('printArea');
+        const modal = document.getElementById('modalRelatorio');
+        if (!area || !modal) return false;
+        area.innerHTML = `<h2>Fluxo de Caixa</h2><p>Emitido em ${formatarDataCurta(dataLocalFinanceiro())}</p>
+            <table class="table"><thead><tr><th>Data</th><th>Tipo</th><th>Cliente</th><th>Evento</th><th>Valor</th></tr></thead><tbody>${movimentosFluxoCaixaAtuais.map((item) => (
+                `<tr><td>${sanitizarTexto(item.data)}</td><td>${sanitizarTexto(item.tipo)}</td><td>${sanitizarTexto(item.clienteNome)}</td><td>${sanitizarTexto(item.evento || '-')}</td><td>${formatarCentavosFluxoCaixa(item.valorLiquidoCentavos)}</td></tr>`
+            )).join('')}</tbody></table>`;
+        modal.classList.add('active');
+        return true;
+    }
+
     function renderFinanceiroResumo() {
         const tabela = document.getElementById('tblFinanceiro');
         if (!tabela) return;
@@ -1381,6 +1722,12 @@
 
     window.renderOrcamentos = renderOrcamentos;
     window.renderFinanceiroResumo = renderFinanceiroResumo;
+    window.renderFluxoCaixa = renderFluxoCaixa;
+    window.limparFiltrosFluxoCaixa = limparFiltrosFluxoCaixa;
+    window.abrirDetalhesFluxoCaixa = abrirDetalhesFluxoCaixa;
+    window.fecharDetalhesFluxoCaixa = fecharDetalhesFluxoCaixa;
+    window.exportarFluxoCaixaCsv = exportarFluxoCaixaCsv;
+    window.imprimirFluxoCaixa = imprimirFluxoCaixa;
     window.renderContasReceberDetalhadas = renderContasReceberDetalhadas;
     window.abrirDetalhesContaReceber = abrirDetalhesContaReceber;
     window.fecharDetalhesContaReceber = fecharDetalhesContaReceber;

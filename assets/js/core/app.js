@@ -8,6 +8,7 @@ function renderTudo() {
     if(typeof renderEstoque === 'function') renderEstoque();
     if(typeof renderOrcamentos === 'function') renderOrcamentos();
     if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
+    if(typeof renderFluxoCaixa === 'function') renderFluxoCaixa();
     if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
     if(typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
     if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
@@ -35,6 +36,7 @@ const TAB_TOPBAR_CONFIG = {
     devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
+    'fluxo-caixa': { icon: 'bi-bar-chart-line', titulo: 'Fluxo de Caixa', descricao: 'Entradas realizadas e recebimentos projetados.', meta: 'Tesouraria' },
     agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
     transporte: { icon: 'bi-truck-front', titulo: 'Transporte', descricao: 'Rotas, veículos, motoristas e custo por km.', meta: 'Logística' },
     auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
@@ -45,7 +47,7 @@ const NAV_GRUPOS_ABAS = Object.freeze({
     comercial: ['locadores', 'propostas', 'locacoes'],
     operacao: ['estoque', 'checklist', 'devolucoes', 'tipos'],
     logistica: ['agenda', 'transporte'],
-    financeiro: ['financeiro'],
+    financeiro: ['financeiro', 'fluxo-caixa'],
     admin: ['auditoria', 'config']
 });
 const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';
@@ -101,6 +103,10 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_filtro_atrasado', icon: 'bi-clock-history', label: 'Cobranças atrasadas' },
         { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
     ],
+    'fluxo-caixa': [
+        { id: 'qa_ir_financeiro', icon: 'bi-cash-stack', label: 'Resumo financeiro' },
+        { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
+    ],
     agenda: [
         { id: 'qa_filtro_aberto', icon: 'bi-calendar-check', label: 'Programação ativa' },
         { id: 'qa_registrar_devolucao', icon: 'bi-truck', label: 'Retornos' },
@@ -132,6 +138,7 @@ const CAMPOS_BUSCA_PERSISTENTES = [
     'buscaPropostas',
     'buscaOrcamentos',
     'buscaFinanceiro',
+    'buscaFluxoCaixa',
     'buscaAgenda',
     'buscaTransporte',
     'devBuscaHistorico',
@@ -337,6 +344,7 @@ const ROTULOS_GRUPOS_NAVEGACAO = Object.freeze({
     operacao: 'Operação',
     logistica: 'Logística',
     financeiro: 'Financeiro',
+    'fluxo-caixa': 'Fluxo de Caixa',
     admin: 'Administração'
 });
 
@@ -636,6 +644,11 @@ function sincronizarEstadoVisualDaAba(tabId) {
         return;
     }
 
+    if (aba === 'fluxo-caixa') {
+        if (typeof renderFluxoCaixa === 'function') renderFluxoCaixa();
+        return;
+    }
+
     if (aba === 'agenda') {
         if (typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
         return;
@@ -899,6 +912,7 @@ function obterAlvoInicialDaTab(tabId) {
         locacoes: '#locacoesPrincipalCard',
         propostas: '#propostasFormularioCard',
         financeiro: '#tab-financeiro > .card:first-child',
+        'fluxo-caixa': '#tab-fluxo-caixa > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',
         transporte: '#tab-transporte > .card:first-child',
         devolucoes: '#tab-devolucoes > .card:first-child',
@@ -1892,6 +1906,17 @@ function irParaRelatorioFinanceiro(foco = 'todos') {
     irParaFinanceiroFiltro(filtro);
 }
 
+function irParaFluxoCaixa() {
+    if (typeof temPermissao === 'function' && !temPermissao('visualizar_fluxo_caixa')) {
+        if (typeof mostrarToast === 'function') {
+            mostrarToast('Acesso ao fluxo de caixa restrito ao perfil administrador.', 'erro');
+        }
+        return false;
+    }
+    abrirTab('fluxo-caixa');
+    return true;
+}
+
 function irParaAgendaOperacional(filtro = 'todos') {
     const filtroNormalizado = String(filtro || 'todos').trim().toLowerCase();
 
@@ -2797,6 +2822,7 @@ function focoBuscaPorAba(abaId) {
         propostas: 'buscaPropostas',
         orcamentos: 'buscaOrcamentos',
         financeiro: 'buscaFinanceiro',
+        'fluxo-caixa': 'buscaFluxoCaixa',
         agenda: 'buscaAgenda',
         transporte: 'buscaTransporte',
         devolucoes: 'devBuscaHistorico',
