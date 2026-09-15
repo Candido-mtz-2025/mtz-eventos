@@ -9,6 +9,8 @@
         'locacoes',
         'devolucoes',
         'contasReceber',
+        'fornecedores',
+        'contasPagar',
         'conciliacoesFinanceiras'
     ]);
     const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);

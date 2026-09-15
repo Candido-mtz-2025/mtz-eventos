@@ -97,6 +97,17 @@
                 proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
             });
         });
+        (Array.isArray(estado?.fornecedores) ? estado.fornecedores : []).forEach((fornecedor) => {
+            proteger(fornecedor, ['id', 'fornecedorReferencia', 'operacaoId']);
+        });
+        (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
+            proteger(conta, ['id', 'contaId', 'contaPagarReferencia', 'fornecedorId',
+                'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia',
+                'eventoReferencia', 'operacaoId']);
+            (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
+                proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
+            });
+        });
         (Array.isArray(estado?.conciliacoesFinanceiras) ? estado.conciliacoesFinanceiras : []).forEach((registro) => {
             proteger(registro, ['id', 'conciliacaoReferencia', 'operacaoId', 'tipo', 'contaReferencia',
                 'parcelaReferencia', 'locacaoId', 'locacaoReferencia', 'lancamentoReferencia',
@@ -482,6 +493,17 @@
         };
     }
 
+    function criarDependenciasExecutorContasPagar(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
+            validarPermissaoPagar: (acao) => typeof window.temPermissao === 'function'
+                && window.temPermissao(acao) === true,
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     function criarDependenciasExecutorConciliacaoFinanceira(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage, {
@@ -505,5 +527,6 @@
     window.criarDependenciasExecutorRecebimentoLocacao = criarDependenciasExecutorRecebimentoLocacao;
     window.criarDependenciasExecutorEstornoRecebimento = criarDependenciasExecutorEstornoRecebimento;
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
+    window.criarDependenciasExecutorContasPagar = criarDependenciasExecutorContasPagar;
     window.criarDependenciasExecutorConciliacaoFinanceira = criarDependenciasExecutorConciliacaoFinanceira;
 })();

@@ -9,6 +9,7 @@ function renderTudo() {
     if(typeof renderOrcamentos === 'function') renderOrcamentos();
     if(typeof renderFinanceiroResumo === 'function') renderFinanceiroResumo();
     if(typeof renderFluxoCaixa === 'function') renderFluxoCaixa();
+    if(typeof renderContasPagar === 'function') renderContasPagar();
     if(typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
     if(typeof renderTransporteOperacional === 'function') renderTransporteOperacional();
     if(typeof renderModelosChecklist === 'function') renderModelosChecklist();
@@ -37,6 +38,7 @@ const TAB_TOPBAR_CONFIG = {
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
     'fluxo-caixa': { icon: 'bi-bar-chart-line', titulo: 'Fluxo de Caixa', descricao: 'Entradas realizadas e recebimentos projetados.', meta: 'Tesouraria' },
+    'contas-pagar': { icon: 'bi-receipt-cutoff', titulo: 'Contas a Pagar', descricao: 'Fornecedores, despesas e vencimentos.', meta: 'Financeiro' },
     agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
     transporte: { icon: 'bi-truck-front', titulo: 'Transporte', descricao: 'Rotas, veículos, motoristas e custo por km.', meta: 'Logística' },
     auditoria: { icon: 'bi-shield-check', titulo: 'Auditoria', descricao: 'Rastreamento de ações do sistema.', meta: 'Governança' },
@@ -47,7 +49,7 @@ const NAV_GRUPOS_ABAS = Object.freeze({
     comercial: ['locadores', 'propostas', 'locacoes'],
     operacao: ['estoque', 'checklist', 'devolucoes', 'tipos'],
     logistica: ['agenda', 'transporte'],
-    financeiro: ['financeiro', 'fluxo-caixa'],
+    financeiro: ['financeiro', 'fluxo-caixa', 'contas-pagar'],
     admin: ['auditoria', 'config']
 });
 const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';
@@ -104,6 +106,10 @@ const TAB_QUICK_ACTIONS = {
         { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
     ],
     'fluxo-caixa': [
+        { id: 'qa_ir_financeiro', icon: 'bi-cash-stack', label: 'Resumo financeiro' },
+        { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
+    ],
+    'contas-pagar': [
         { id: 'qa_ir_financeiro', icon: 'bi-cash-stack', label: 'Resumo financeiro' },
         { id: 'qa_backup_json', icon: 'bi-download', label: 'Exportar base' }
     ],
@@ -649,6 +655,11 @@ function sincronizarEstadoVisualDaAba(tabId) {
         return;
     }
 
+    if (aba === 'contas-pagar') {
+        if (typeof renderContasPagar === 'function') renderContasPagar();
+        return;
+    }
+
     if (aba === 'agenda') {
         if (typeof renderAgendaOperacional === 'function') renderAgendaOperacional();
         return;
@@ -913,6 +924,7 @@ function obterAlvoInicialDaTab(tabId) {
         propostas: '#propostasFormularioCard',
         financeiro: '#tab-financeiro > .card:first-child',
         'fluxo-caixa': '#tab-fluxo-caixa > .card:first-child',
+        'contas-pagar': '#tab-contas-pagar > .card:first-child',
         agenda: '#tab-agenda > .card:first-child',
         transporte: '#tab-transporte > .card:first-child',
         devolucoes: '#tab-devolucoes > .card:first-child',

@@ -1100,6 +1100,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         propostas: clonarArraySeguro(dadosBase.propostas).map((proposta) => migrarPropostaParaV12(proposta, contexto)),
         devolucoes: clonarArraySeguro(dadosBase.devolucoes),
         contasReceber: clonarArraySeguro(dadosBase.contasReceber),
+        fornecedores: clonarArraySeguro(dadosBase.fornecedores),
+        contasPagar: clonarArraySeguro(dadosBase.contasPagar),
         conciliacoesFinanceiras: clonarArraySeguro(dadosBase.conciliacoesFinanceiras),
         movimentacoesEstoque: clonarArraySeguro(dadosBase.movimentacoesEstoque).map((movimentacao, indice) => normalizarMovimentacaoEstoqueV12(movimentacao, indice)),
         transportes: clonarArraySeguro(dadosBase.transportes),
@@ -1129,6 +1131,14 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     if (!Object.prototype.hasOwnProperty.call(dadosBase, 'conciliacoesFinanceiras')) {
         contexto.houveMudanca = true;
         contexto.logs.push('Coleção de conciliações financeiras inicializada sem alterar lançamentos existentes.');
+    }
+    if (!Object.prototype.hasOwnProperty.call(dadosBase, 'fornecedores')) {
+        contexto.houveMudanca = true;
+        contexto.logs.push('Coleção de fornecedores inicializada sem alterar cadastros existentes.');
+    }
+    if (!Object.prototype.hasOwnProperty.call(dadosBase, 'contasPagar')) {
+        contexto.houveMudanca = true;
+        contexto.logs.push('Coleção de contas a pagar inicializada sem alterar dados financeiros existentes.');
     }
 
     if (!('usuarios' in dadosBase)) {

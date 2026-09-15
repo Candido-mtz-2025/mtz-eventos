@@ -81,6 +81,11 @@ function temPermissao(acao) {
         'conciliar_pagamento',
         'desconsiderar_conciliacao',
         'visualizar_fluxo_caixa',
+        'visualizar_fornecedores',
+        'cadastrar_fornecedor',
+        'editar_fornecedor',
+        'visualizar_contas_pagar',
+        'criar_conta_pagar',
         'cancelar_locacao',
         'configuracao'
     ]);

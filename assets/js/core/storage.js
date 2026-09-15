@@ -65,6 +65,8 @@ function gerarSnapshotDadosSistema() {
         propostas: Array.isArray(propostas) ? propostas : [],
         devolucoes: Array.isArray(devolucoes) ? devolucoes : [],
         contasReceber: Array.isArray(contasReceber) ? contasReceber : [],
+        fornecedores: Array.isArray(fornecedores) ? fornecedores : [],
+        contasPagar: Array.isArray(contasPagar) ? contasPagar : [],
         conciliacoesFinanceiras: Array.isArray(conciliacoesFinanceiras) ? conciliacoesFinanceiras : [],
         movimentacoesEstoque: Array.isArray(movimentacoesEstoque) ? movimentacoesEstoque : [],
         transportes: Array.isArray(transportes) ? transportes : [],
@@ -126,6 +128,8 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'propostas',
     'devolucoes',
     'contasReceber',
+    'fornecedores',
+    'contasPagar',
     'conciliacoesFinanceiras',
     'movimentacoesEstoque',
     'transportes',
@@ -606,6 +610,8 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         propostas: Array.isArray(dadosNormalizados.propostas) ? dadosNormalizados.propostas : [],
         devolucoes: Array.isArray(dadosNormalizados.devolucoes) ? dadosNormalizados.devolucoes : [],
         contasReceber: Array.isArray(dadosNormalizados.contasReceber) ? dadosNormalizados.contasReceber : [],
+        fornecedores: Array.isArray(dadosNormalizados.fornecedores) ? dadosNormalizados.fornecedores : [],
+        contasPagar: Array.isArray(dadosNormalizados.contasPagar) ? dadosNormalizados.contasPagar : [],
         conciliacoesFinanceiras: Array.isArray(dadosNormalizados.conciliacoesFinanceiras)
             ? dadosNormalizados.conciliacoesFinanceiras : [],
         movimentacoesEstoque: Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [],
@@ -633,6 +639,8 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         propostas = estadoNormalizado.propostas;
         devolucoes = estadoNormalizado.devolucoes;
         contasReceber = estadoNormalizado.contasReceber;
+        fornecedores = estadoNormalizado.fornecedores;
+        contasPagar = estadoNormalizado.contasPagar;
         conciliacoesFinanceiras = estadoNormalizado.conciliacoesFinanceiras;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
         transportes = estadoNormalizado.transportes;
@@ -796,6 +804,8 @@ async function sincronizar(modo) {
                 snapshotLocal.pecas.length > 0 ||
                 snapshotLocal.locacoes.length > 0 ||
                 snapshotLocal.contasReceber.length > 0 ||
+                snapshotLocal.fornecedores.length > 0 ||
+                snapshotLocal.contasPagar.length > 0 ||
                 snapshotLocal.conciliacoesFinanceiras.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
 

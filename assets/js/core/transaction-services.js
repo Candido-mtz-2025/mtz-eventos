@@ -39,6 +39,10 @@
     const travasRecebimentoLocacao = new Set();
     const travasEstornoRecebimento = new Set();
     const travasContaReceber = new Set();
+    const travasFornecedor = new Set();
+    const travasContaPagar = new Set();
+    const entradasFornecedorPagarConfiaveis = new WeakSet();
+    const entradasContaPagarConfiaveis = new WeakSet();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
     let cancelarAutorizacaoPublicacaoConfiavel = null;
@@ -5314,6 +5318,567 @@
         }
     }
 
+    function criarReferenciaTipadaPagar(prefixo, id) {
+        if (!['fornecedor', 'conta-pagar', 'parcela-pagar', 'proposta', 'locacao', 'evento'].includes(prefixo)) return '';
+        const tipo = typeof id;
+        if ((tipo === 'string' && (!id.trim() || id.length > 200))
+            || (tipo === 'number' && (!Number.isFinite(id) || Object.is(id, -0)))
+            || !['string', 'number'].includes(tipo)) return '';
+        return `${prefixo}:${encodeURIComponent(JSON.stringify([tipo, id]))}`;
+    }
+
+    function criarEntradaCadastroFornecedorPagar(fornecedorId, tipo, nome, nomeFantasia, documento,
+        telefone, email, endereco, observacoes, situacao, operacaoId, criadoEm, atualizadoEm,
+        dataReferencia, responsavel, persistenciaVersao, persistenciaData, persistenciaUltimaEdicao) {
+        const valoresTexto = [tipo, nome, nomeFantasia, documento, telefone, email, endereco,
+            observacoes, situacao, operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel,
+            persistenciaVersao, persistenciaData];
+        if (!['string', 'number'].includes(typeof fornecedorId)
+            || valoresTexto.some((valor) => typeof valor !== 'string')
+            || typeof persistenciaUltimaEdicao !== 'number') return null;
+        const entrada = {
+            fornecedorId, tipo, nome, nomeFantasia, documento, telefone, email, endereco,
+            observacoes, situacao, operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel,
+            persistencia: Object.freeze({
+                versao: persistenciaVersao,
+                data: persistenciaData,
+                ultimaEdicao: persistenciaUltimaEdicao
+            })
+        };
+        Object.freeze(entrada);
+        entradasFornecedorPagarConfiaveis.add(entrada);
+        return entrada;
+    }
+
+    function criarEntradaCriacaoContaPagar(contaId, fornecedorReferencia, propostaReferencia,
+        locacaoReferencia, eventoReferencia, categoria, centroCusto, descricao, origem,
+        originalCentavos, previstoCentavos, quantidadeParcelas, dataEmissao, primeiroVencimento,
+        operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel, persistenciaVersao,
+        persistenciaData, persistenciaUltimaEdicao) {
+        const valoresTexto = [fornecedorReferencia, propostaReferencia, locacaoReferencia,
+            eventoReferencia, categoria, centroCusto, descricao, origem, dataEmissao,
+            primeiroVencimento, operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel,
+            persistenciaVersao, persistenciaData];
+        if ((contaId !== undefined && !['string', 'number'].includes(typeof contaId))
+            || valoresTexto.some((valor) => typeof valor !== 'string')
+            || typeof originalCentavos !== 'number' || typeof previstoCentavos !== 'number'
+            || typeof quantidadeParcelas !== 'number' || typeof persistenciaUltimaEdicao !== 'number') return null;
+        const entrada = {
+            fornecedorReferencia, propostaReferencia, locacaoReferencia, eventoReferencia,
+            categoria, centroCusto, descricao, origem, originalCentavos, previstoCentavos,
+            quantidadeParcelas, dataEmissao, primeiroVencimento, operacaoId, criadoEm,
+            atualizadoEm, dataReferencia, responsavel,
+            persistencia: Object.freeze({
+                versao: persistenciaVersao,
+                data: persistenciaData,
+                ultimaEdicao: persistenciaUltimaEdicao
+            })
+        };
+        if (contaId !== undefined) entrada.contaId = contaId;
+        Object.freeze(entrada);
+        entradasContaPagarConfiaveis.add(entrada);
+        return entrada;
+    }
+
+    function decodificarReferenciaTipadaPagar(referencia, prefixo) {
+        if (typeof referencia !== 'string' || !referencia.startsWith(`${prefixo}:`) || referencia.length > 700) return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(referencia.slice(prefixo.length + 1)));
+            if (!Array.isArray(dados) || dados.length !== 2 || criarReferenciaTipadaPagar(prefixo, dados[1]) !== referencia
+                || dados[0] !== typeof dados[1]) return null;
+            return { tipo: dados[0], id: dados[1] };
+        } catch (_erro) { return null; }
+    }
+
+    function resolverReferenciaExataPagar(referencia, prefixo, colecao) {
+        const identidade = decodificarReferenciaTipadaPagar(referencia, prefixo);
+        if (!identidade) return { estado: 'invalida', registro: null, id: null };
+        const encontrados = (Array.isArray(colecao) ? colecao : []).filter((registro) => registro
+            && typeof registro === 'object' && !Array.isArray(registro)
+            && typeof registro.id === identidade.tipo && Object.is(registro.id, identidade.id));
+        return encontrados.length === 1
+            ? { estado: 'encontrada', registro: encontrados[0], id: identidade.id }
+            : { estado: encontrados.length > 1 ? 'duplicada' : 'ausente', registro: null, id: identidade.id };
+    }
+
+    function textoPagar(valor, limite, obrigatorio = false) {
+        if (typeof valor !== 'string' || valor.length > limite || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(valor)) return null;
+        const texto = valor.trim();
+        return obrigatorio && !texto ? null : texto;
+    }
+
+    function situacaoEfetivaParcelaPagar(parcela, hoje) {
+        if (!parcela || !validarDataLocalContaReceber(hoje)
+            || !Number.isSafeInteger(parcela.originalCentavos) || parcela.originalCentavos <= 0
+            || !Number.isSafeInteger(parcela.pagoCentavos) || parcela.pagoCentavos < 0
+            || !Number.isSafeInteger(parcela.saldoCentavos) || parcela.saldoCentavos < 0
+            || parcela.pagoCentavos + parcela.saldoCentavos !== parcela.originalCentavos
+            || !validarDataLocalContaReceber(parcela.vencimento)) return 'invalida';
+        if (parcela.saldoCentavos === 0) return 'paga';
+        if (parcela.vencimento < hoje) return 'vencida';
+        return parcela.pagoCentavos > 0 ? 'parcial' : 'pendente';
+    }
+
+    function validarFornecedorPagar(fornecedor) {
+        if (!fornecedor || typeof fornecedor !== 'object' || Array.isArray(fornecedor)) return false;
+        const referencia = criarReferenciaTipadaPagar('fornecedor', fornecedor.id);
+        return referencia && fornecedor.fornecedorReferencia === referencia
+            && ['fornecedor', 'prestador'].includes(fornecedor.tipo)
+            && textoPagar(fornecedor.nome, 300, true) !== null
+            && ['nomeFantasia', 'documento', 'telefone', 'email', 'endereco', 'observacoes']
+                .every((chave) => textoPagar(fornecedor[chave], chave === 'observacoes' ? 2000 : 500) !== null)
+            && ['ativa', 'inativa'].includes(fornecedor.situacao)
+            && instanteFinanceiroIntegro(fornecedor.criadoEm)
+            && instanteFinanceiroIntegro(fornecedor.atualizadoEm)
+            && typeof fornecedor.operacaoId === 'string'
+            && /^[a-z0-9][a-z0-9._:-]{0,159}$/.test(fornecedor.operacaoId)
+            && typeof fornecedor.responsavel === 'string' && fornecedor.responsavel.length > 0
+            && Array.isArray(fornecedor.historico);
+    }
+
+    function validarContaPagar(conta, estado, hoje) {
+        if (!conta || typeof conta !== 'object' || Array.isArray(conta)
+            || conta.contaId !== conta.id
+            || conta.contaPagarReferencia !== criarReferenciaTipadaPagar('conta-pagar', conta.id)
+            || !['ativa', 'cancelada', 'encerrada'].includes(conta.situacaoAdministrativa)
+            || !Number.isSafeInteger(conta.originalCentavos) || conta.originalCentavos <= 0
+            || !Number.isSafeInteger(conta.previstoCentavos) || conta.previstoCentavos < 0
+            || conta.pagoCentavos !== 0 || conta.saldoCentavos !== conta.originalCentavos
+            || !Number.isSafeInteger(conta.quantidadeParcelas) || conta.quantidadeParcelas <= 0
+            || !validarDataLocalContaReceber(conta.dataEmissao)
+            || !instanteFinanceiroIntegro(conta.criadoEm) || !instanteFinanceiroIntegro(conta.atualizadoEm)
+            || textoPagar(conta.descricao, 500, true) === null
+            || textoPagar(conta.categoria, 200, true) === null
+            || textoPagar(conta.centroCusto, 200, true) === null
+            || textoPagar(conta.origem, 100, true) === null
+            || !Array.isArray(conta.parcelas) || conta.parcelas.length !== conta.quantidadeParcelas
+            || !Array.isArray(conta.historico)) return false;
+        const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', estado.fornecedores);
+        if (fornecedor.estado !== 'encontrada'
+            || typeof conta.fornecedorId !== typeof fornecedor.id || !Object.is(conta.fornecedorId, fornecedor.id)) return false;
+        for (const [prefixo, referencia, colecao] of [
+            ['proposta', conta.propostaReferencia, estado.propostas],
+            ['locacao', conta.locacaoReferencia, estado.locacoes]
+        ]) {
+            if (referencia && resolverReferenciaExataPagar(referencia, prefixo, colecao).estado !== 'encontrada') return false;
+        }
+        if (conta.eventoReferencia !== '') return false;
+        let soma = 0n;
+        const referencias = new Set();
+        for (let indice = 0; indice < conta.parcelas.length; indice += 1) {
+            const parcela = conta.parcelas[indice];
+            if (!parcela || parcela.parcelaId !== parcela.id
+                || parcela.parcelaReferencia !== criarReferenciaTipadaPagar('parcela-pagar', parcela.id)
+                || referencias.has(parcela.parcelaReferencia) || parcela.numero !== indice + 1
+                || parcela.totalParcelas !== conta.quantidadeParcelas
+                || situacaoEfetivaParcelaPagar(parcela, hoje) === 'invalida'
+                || parcela.pagoCentavos !== 0 || !Array.isArray(parcela.pagamentos)
+                || parcela.pagamentos.length !== 0 || !Array.isArray(parcela.historico)) return false;
+            referencias.add(parcela.parcelaReferencia);
+            soma += BigInt(parcela.originalCentavos);
+        }
+        return soma === BigInt(conta.originalCentavos);
+    }
+
+    function validarFundacaoContasPagar(estado, hoje) {
+        if (!estado || !Array.isArray(estado.fornecedores) || !Array.isArray(estado.contasPagar)) return false;
+        const idsFornecedores = new Set();
+        const refsFornecedores = new Set();
+        const operacoes = new Set();
+        for (const fornecedor of estado.fornecedores) {
+            if (!validarFornecedorPagar(fornecedor)) return false;
+            const id = criarReferenciaTipadaPagar('fornecedor', fornecedor.id);
+            if (idsFornecedores.has(id) || refsFornecedores.has(fornecedor.fornecedorReferencia)
+                || operacoes.has(fornecedor.operacaoId)) return false;
+            idsFornecedores.add(id); refsFornecedores.add(fornecedor.fornecedorReferencia); operacoes.add(fornecedor.operacaoId);
+        }
+        const idsContas = new Set();
+        const refsContas = new Set();
+        for (const conta of estado.contasPagar) {
+            if (!validarContaPagar(conta, estado, hoje)) return false;
+            const id = criarReferenciaTipadaPagar('conta-pagar', conta.id);
+            if (idsContas.has(id) || refsContas.has(conta.contaPagarReferencia) || operacoes.has(conta.operacaoId)) return false;
+            idsContas.add(id); refsContas.add(conta.contaPagarReferencia); operacoes.add(conta.operacaoId);
+        }
+        return true;
+    }
+
+    function obterEvidenciaCriacaoPagar(estado, operacaoId, tipo) {
+        const colecao = tipo === 'fornecedor' ? estado.fornecedores : estado.contasPagar;
+        const acao = tipo === 'fornecedor' ? 'fornecedor_criado' : 'conta_pagar_criada';
+        const auditoriaAcao = tipo === 'fornecedor' ? 'criar_fornecedor' : 'criar_conta_pagar';
+        const registros = colecao.filter((item) => item?.operacaoId === operacaoId);
+        const auditoriasOperacao = estado.logsAuditoria.filter((item) => item?.operacaoId === operacaoId);
+        const auditorias = auditoriasOperacao.filter((item) => item?.acao === auditoriaAcao);
+        if (!registros.length && !auditoriasOperacao.length) return { estado: 'nao_executada', completo: false };
+        if (auditoriasOperacao.length !== auditorias.length) return { estado: 'colisao', completo: false };
+        const historicos = registros.length === 1 && Array.isArray(registros[0].historico)
+            ? registros[0].historico.filter((item) => item?.operacaoId === operacaoId && item?.acao === acao) : [];
+        if (registros.length !== 1 || auditorias.length !== 1 || historicos.length !== 1) return { estado: 'parcial', completo: false };
+        const evidencia = JSON.stringify(ordenarChavesCanonicas(registros[0].evidenciaCriacao));
+        return evidencia && evidencia === JSON.stringify(ordenarChavesCanonicas(historicos[0].evidenciaCriacao))
+            && evidencia === JSON.stringify(ordenarChavesCanonicas(auditorias[0].evidenciaCriacao))
+            ? { estado: 'concluida', completo: true, registro: registros[0] }
+            : { estado: 'parcial', completo: false };
+    }
+
+    function assinaturaCriacaoPagar(tipo, dados) {
+        return `${tipo}-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(ordenarChavesCanonicas(dados)))}`;
+    }
+
+    function evidenciaCriacaoPagarCorrespondeEntrada(registro, entrada, tipo, referencia, previstoCentavos) {
+        if (!registro || !registro.evidenciaCriacao) return false;
+        const evidencia = registro.evidenciaCriacao;
+        if (tipo === 'fornecedor') {
+            return registro.fornecedorReferencia === referencia
+                && Object.is(registro.id, entrada.fornecedorId)
+                && evidencia.fornecedorReferencia === referencia
+                && Object.is(evidencia.fornecedorId, entrada.fornecedorId)
+                && evidencia.tipo === entrada.tipo
+                && evidencia.nome === textoPagar(entrada.nome, 300, true)
+                && evidencia.nomeFantasia === (textoPagar(entrada.nomeFantasia, 300) ?? '')
+                && evidencia.documento === (textoPagar(entrada.documento, 100) ?? '')
+                && evidencia.telefone === (textoPagar(entrada.telefone, 100) ?? '')
+                && evidencia.email === (textoPagar(entrada.email, 300) ?? '')
+                && evidencia.endereco === (textoPagar(entrada.endereco, 500) ?? '')
+                && evidencia.observacoes === (textoPagar(entrada.observacoes, 2000) ?? '')
+                && evidencia.situacao === entrada.situacao
+                && evidencia.criadoEm === entrada.criadoEm && evidencia.atualizadoEm === entrada.atualizadoEm
+                && evidencia.responsavel === entrada.responsavel;
+        }
+        const contaId = Object.prototype.hasOwnProperty.call(entrada, 'contaId')
+            ? entrada.contaId : `conta-pagar-${entrada.operacaoId}`;
+        return registro.contaPagarReferencia === referencia && Object.is(registro.id, contaId)
+            && evidencia.contaPagarReferencia === referencia && Object.is(evidencia.contaId, contaId)
+            && evidencia.fornecedorReferencia === entrada.fornecedorReferencia
+            && evidencia.propostaReferencia === (entrada.propostaReferencia ?? '')
+            && evidencia.locacaoReferencia === (entrada.locacaoReferencia ?? '')
+            && evidencia.eventoReferencia === (entrada.eventoReferencia ?? '')
+            && evidencia.categoria === textoPagar(entrada.categoria, 200, true)
+            && evidencia.centroCusto === textoPagar(entrada.centroCusto, 200, true)
+            && evidencia.descricao === textoPagar(entrada.descricao, 500, true)
+            && evidencia.origem === textoPagar(entrada.origem, 100, true)
+            && evidencia.originalCentavos === entrada.originalCentavos
+            && evidencia.previstoCentavos === previstoCentavos
+            && evidencia.quantidadeParcelas === entrada.quantidadeParcelas
+            && evidencia.dataEmissao === entrada.dataEmissao
+            && evidencia.primeiroVencimento === entrada.primeiroVencimento
+            && evidencia.criadoEm === entrada.criadoEm && evidencia.atualizadoEm === entrada.atualizadoEm
+            && evidencia.responsavel === entrada.responsavel;
+    }
+
+    function executarCriacaoFundacaoPagar(entradaRecebida, dependencias, tipo) {
+        const entradasConfiaveis = tipo === 'fornecedor'
+            ? entradasFornecedorPagarConfiaveis : entradasContaPagarConfiaveis;
+        if (!entradaRecebida || !entradasConfiaveis.has(entradaRecebida)) {
+            return resultadoBase('ENTRADA_PAGAR_NAO_CONFIAVEL');
+        }
+        const acaoPermissao = tipo === 'fornecedor' ? 'cadastrar_fornecedor' : 'criar_conta_pagar';
+        const permissaoConcedida = () => {
+            if (typeof dependencias?.validarPermissaoPagar !== 'function') return false;
+            try { return dependencias.validarPermissaoPagar(acaoPermissao) === true; }
+            catch (_erro) { return false; }
+        };
+        if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA', {
+            bloqueios: [{ codigo: 'PERMISSAO_PAGAR_NEGADA', mensagem: 'Permissão financeira insuficiente.' }]
+        });
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_PAGAR_INVALIDA');
+        const chaveIdentidade = tipo === 'fornecedor' ? 'fornecedorId' : 'contaId';
+        const descritorIdentidade = Object.getOwnPropertyDescriptor(entradaRecebida, chaveIdentidade);
+        if (descritorIdentidade && Object.prototype.hasOwnProperty.call(descritorIdentidade, 'value')
+            && Object.is(descritorIdentidade.value, -0)) return resultadoBase('ENTRADA_PAGAR_INVALIDA');
+        const clone = clonarJsonInterno(entradaRecebida);
+        if (!clone.ok) return resultadoBase('ENTRADA_PAGAR_INVALIDA');
+        const entrada = clone.valor;
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const persistencia = entrada.persistencia;
+        const hoje = entrada.dataReferencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
+            || !validarDataLocalContaReceber(hoje) || !instanteFinanceiroIntegro(entrada.criadoEm)
+            || entrada.atualizadoEm !== entrada.criadoEm || !textoPagar(entrada.responsavel, 300, true)
+            || !persistencia || typeof persistencia !== 'object' || typeof persistencia.versao !== 'string'
+            || persistencia.data !== entrada.criadoEm || !Number.isSafeInteger(persistencia.ultimaEdicao)
+            || persistencia.ultimaEdicao < 0 || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias.armazenamento) return resultadoBase('ENTRADA_PAGAR_INVALIDA');
+
+        let trava;
+        let construir;
+        let previstoCentavos = null;
+        if (tipo === 'fornecedor') {
+            const referencia = criarReferenciaTipadaPagar('fornecedor', entrada.fornecedorId);
+            if (!referencia || !['fornecedor', 'prestador'].includes(entrada.tipo)
+                || !['ativa', 'inativa'].includes(entrada.situacao)
+                || textoPagar(entrada.nome, 300, true) === null) return resultadoBase('FORNECEDOR_INVALIDO');
+            trava = referencia;
+            construir = (estado) => {
+                if (resolverReferenciaExataPagar(referencia, 'fornecedor', estado.fornecedores).estado !== 'ausente') return null;
+                const base = { fornecedorId: entrada.fornecedorId, fornecedorReferencia: referencia, tipo: entrada.tipo,
+                    nome: textoPagar(entrada.nome, 300, true), nomeFantasia: textoPagar(entrada.nomeFantasia, 300) ?? '',
+                    documento: textoPagar(entrada.documento, 100) ?? '', telefone: textoPagar(entrada.telefone, 100) ?? '',
+                    email: textoPagar(entrada.email, 300) ?? '', endereco: textoPagar(entrada.endereco, 500) ?? '',
+                    observacoes: textoPagar(entrada.observacoes, 2000) ?? '', situacao: entrada.situacao, operacaoId,
+                    criadoEm: entrada.criadoEm, atualizadoEm: entrada.atualizadoEm, responsavel: entrada.responsavel };
+                if (Object.values(base).some((valor) => valor === null)) return null;
+                const assinaturaPlano = assinaturaCriacaoPagar('fornecedor', base);
+                const evidenciaCriacao = ordenarChavesCanonicas({ ...base, assinaturaPlano });
+                const fornecedor = { ...base, id: entrada.fornecedorId, assinaturaPlano, evidenciaCriacao, historico: [] };
+                fornecedor.historico = [{ id: `historico-${operacaoId}`, operacaoId, acao: 'fornecedor_criado',
+                    fornecedorReferencia: referencia, data: entrada.criadoEm, usuario: entrada.responsavel,
+                    assinaturaPlano, evidenciaCriacao }];
+                estado.fornecedores = [...estado.fornecedores, fornecedor];
+                estado.logsAuditoria = [...estado.logsAuditoria, { id: `auditoria-${operacaoId}`, operacaoId,
+                    tipo: 'financeiro', acao: 'criar_fornecedor', descricao: 'Fornecedor ou prestador cadastrado.',
+                    timestamp: entrada.criadoEm, data: entrada.criadoEm, usuario: entrada.responsavel,
+                    fornecedorReferencia: referencia, assinaturaPlano, evidenciaCriacao }];
+                return { referencia, id: entrada.fornecedorId, assinaturaPlano };
+            };
+        } else {
+            const contaId = Object.prototype.hasOwnProperty.call(entrada, 'contaId') ? entrada.contaId : `conta-pagar-${operacaoId}`;
+            const referencia = criarReferenciaTipadaPagar('conta-pagar', contaId);
+            previstoCentavos = Object.prototype.hasOwnProperty.call(entrada, 'previstoCentavos')
+                ? entrada.previstoCentavos : entrada.originalCentavos;
+            if (!referencia || !Number.isSafeInteger(entrada.originalCentavos) || entrada.originalCentavos <= 0
+                || !Number.isSafeInteger(previstoCentavos) || previstoCentavos < 0
+                || !Number.isSafeInteger(entrada.quantidadeParcelas) || entrada.quantidadeParcelas <= 0
+                || entrada.quantidadeParcelas > entrada.originalCentavos
+                || !validarDataLocalContaReceber(entrada.dataEmissao)
+                || !validarDataLocalContaReceber(entrada.primeiroVencimento)) return resultadoBase('CONTA_PAGAR_INVALIDA');
+            trava = referencia;
+            construir = (estado) => {
+                const fornecedor = resolverReferenciaExataPagar(entrada.fornecedorReferencia, 'fornecedor', estado.fornecedores);
+                if (fornecedor.estado !== 'encontrada' || fornecedor.registro.situacao !== 'ativa'
+                    || resolverReferenciaExataPagar(referencia, 'conta-pagar', estado.contasPagar).estado !== 'ausente') return null;
+                const valores = distribuirCentavosContaReceber(entrada.originalCentavos, entrada.quantidadeParcelas);
+                if (!valores) return null;
+                const vinculos = {};
+                for (const prefixo of ['proposta', 'locacao']) {
+                    const chave = `${prefixo}Referencia`;
+                    const valor = Object.prototype.hasOwnProperty.call(entrada, chave) ? entrada[chave] : '';
+                    if (typeof valor !== 'string') return null;
+                    const colecao = prefixo === 'proposta' ? estado.propostas : estado.locacoes;
+                    if (valor && resolverReferenciaExataPagar(valor, prefixo, colecao).estado !== 'encontrada') return null;
+                    vinculos[chave] = valor;
+                }
+                if (entrada.eventoReferencia !== '') return null;
+                vinculos.eventoReferencia = '';
+                const base = { contaId, contaPagarReferencia: referencia, fornecedorId: fornecedor.id,
+                    fornecedorReferencia: entrada.fornecedorReferencia, ...vinculos,
+                    categoria: textoPagar(entrada.categoria, 200, true), centroCusto: textoPagar(entrada.centroCusto, 200, true),
+                    descricao: textoPagar(entrada.descricao, 500, true), origem: textoPagar(entrada.origem, 100, true),
+                    operacaoId, previstoCentavos, originalCentavos: entrada.originalCentavos,
+                    pagoCentavos: 0, saldoCentavos: entrada.originalCentavos, quantidadeParcelas: entrada.quantidadeParcelas,
+                    dataEmissao: entrada.dataEmissao, primeiroVencimento: entrada.primeiroVencimento,
+                    situacaoAdministrativa: 'ativa', criadoEm: entrada.criadoEm,
+                    atualizadoEm: entrada.atualizadoEm, responsavel: entrada.responsavel };
+                if (Object.values(base).some((valor) => valor === null)) return null;
+                const parcelas = valores.map((originalCentavos, indice) => {
+                    const numero = indice + 1;
+                    const parcelaId = `${typeof contaId}:${String(contaId)}:parcela:${numero}`;
+                    const vencimento = adicionarMesesDataLocalContaReceber(entrada.primeiroVencimento, indice);
+                    return { id: parcelaId, parcelaId, parcelaReferencia: criarReferenciaTipadaPagar('parcela-pagar', parcelaId),
+                        numero, totalParcelas: entrada.quantidadeParcelas, originalCentavos, pagoCentavos: 0,
+                        saldoCentavos: originalCentavos, vencimento,
+                        situacao: vencimento < hoje ? 'vencida' : 'pendente', pagamentos: [], historico: [],
+                        criadoEm: entrada.criadoEm, atualizadoEm: entrada.atualizadoEm };
+                });
+                const assinaturaPlano = assinaturaCriacaoPagar('conta-pagar', { ...base, parcelas: parcelas.map((p) => ({
+                    parcelaId: p.parcelaId, parcelaReferencia: p.parcelaReferencia, numero: p.numero,
+                    originalCentavos: p.originalCentavos, vencimento: p.vencimento })) });
+                const evidenciaCriacao = ordenarChavesCanonicas({ ...base, assinaturaPlano,
+                    parcelas: parcelas.map((p) => ({ parcelaId: p.parcelaId, parcelaReferencia: p.parcelaReferencia,
+                        numero: p.numero, originalCentavos: p.originalCentavos, vencimento: p.vencimento })) });
+                const conta = { ...base, id: contaId, assinaturaPlano, parcelas, evidenciaCriacao, historico: [] };
+                conta.historico = [{ id: `historico-${operacaoId}`, operacaoId, acao: 'conta_pagar_criada',
+                    contaPagarReferencia: referencia, fornecedorReferencia: entrada.fornecedorReferencia,
+                    data: entrada.criadoEm, usuario: entrada.responsavel, assinaturaPlano, evidenciaCriacao }];
+                estado.contasPagar = [...estado.contasPagar, conta];
+                estado.logsAuditoria = [...estado.logsAuditoria, { id: `auditoria-${operacaoId}`, operacaoId,
+                    tipo: 'financeiro', acao: 'criar_conta_pagar', descricao: 'Conta a pagar criada.',
+                    timestamp: entrada.criadoEm, data: entrada.criadoEm, usuario: entrada.responsavel,
+                    contaPagarReferencia: referencia, fornecedorReferencia: entrada.fornecedorReferencia,
+                    assinaturaPlano, evidenciaCriacao }];
+                return { referencia, id: contaId, assinaturaPlano };
+            };
+        }
+        const travas = tipo === 'fornecedor' ? travasFornecedor : travasContaPagar;
+        if (travasFornecedor.size || travasContaPagar.size || travas.has(trava)) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        }
+        travas.add(trava);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !validarFundacaoContasPagar(memoria.valor, hoje)) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistencia, 'chave')) opcoesArmazenamento.chave = persistencia.chave;
+            let leitura;
+            try { leitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !validarFundacaoContasPagar(persistido.valor, hoje)) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evidenciaMemoria = obterEvidenciaCriacaoPagar(memoria.valor, operacaoId, tipo);
+            const evidenciaPersistida = obterEvidenciaCriacaoPagar(persistido.valor, operacaoId, tipo);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                return evidenciaMemoria.completo && evidenciaPersistida.completo && memoria.json === persistido.json
+                    && evidenciaCriacaoPagarCorrespondeEntrada(evidenciaMemoria.registro, entrada, tipo, trava, previstoCentavos)
+                    && evidenciaCriacaoPagarCorrespondeEntrada(evidenciaPersistida.registro, entrada, tipo, trava, previstoCentavos)
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
+                        operacao: { operacaoId }, renderizar: true })
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const operacao = construir(candidato.valor);
+            if (!operacao) return resultadoBase(tipo === 'fornecedor' ? 'FORNECEDOR_NAO_DISPONIVEL' : 'CONTA_PAGAR_NAO_DISPONIVEL');
+            if (!validarFundacaoContasPagar(candidato.valor, hoje)
+                || !obterEvidenciaCriacaoPagar(candidato.valor, operacaoId, tipo).completo) return resultadoBase('CANDIDATO_PAGAR_INVALIDO');
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try { preparado = dependencias.prepararSnapshotPersistivelCompleto(clonarDescartavel(candidatoCanonico), clonarDescartavel(persistencia)); }
+            catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({ versao: persistencia.versao, data: persistencia.data,
+                ultimaEdicao: persistencia.ultimaEdicao, ...candidatoCanonico });
+            const externo = preparadoValido.ok ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId, fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA', {
+                bloqueios: [{ codigo: 'PERMISSAO_PAGAR_NEGADA', mensagem: 'Permissão financeira insuficiente.' }]
+            });
+            try { dependencias.persistirSnapshotLocalConfirmavel(clonarDescartavel(snapshot.valor), { ...opcoesArmazenamento }); } catch (_erro) { /* releitura decide */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok || !validarFundacaoContasPagar(operacionalRelido.valor, hoje)
+                || !obterEvidenciaCriacaoPagar(operacionalRelido.valor, operacaoId, tipo).completo) return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok || memoriaAtual.json !== memoria.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (!permissaoConcedida()) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true,
+                bloqueios: [{ codigo: 'PERMISSAO_PAGAR_REVOGADA', mensagem: 'A permissão mudou após a persistência.' }]
+            });
+            let erroPublicacao = null;
+            try { dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacional.valor), {
+                jsonOperacionalEsperado: jsonPublicacaoEsperado, autorizacaoPublicacao: autorizacao,
+                exigirConfirmacaoInterna: true }); } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId, fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior, autorizacaoPublicacao: autorizacao }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({ ultimaEdicao: persistencia.ultimaEdicao,
+                operacaoId, assinaturaPlano: operacao.assinaturaPlano }) === true; } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase(tipo === 'fornecedor' ? 'FORNECEDOR_CRIADO' : 'CONTA_PAGAR_CRIADA', {
+                ok: true, aplicado: true, publicacaoRealizada: true, avisos, renderizar: true, sincronizar,
+                operacao: { operacaoId, id: operacao.id, referencia: operacao.referencia,
+                    assinaturaPlano: operacao.assinaturaPlano } });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada
+                ? (tipo === 'fornecedor' ? 'FORNECEDOR_CRIADO' : 'CONTA_PAGAR_CRIADA') : 'FALHA_FUNDACAO_PAGAR', {
+                ok: publicacaoRealizada, aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: 'Falha controlada na transação.' }],
+                renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacao) try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao); } catch (_erro) { /* encerrada */ }
+            travas.delete(trava);
+        }
+    }
+
+    function executarCadastroFornecedorTransacional(entrada, dependencias) {
+        return executarCriacaoFundacaoPagar(entrada, dependencias, 'fornecedor');
+    }
+
+    function executarCriacaoContaPagarTransacional(entrada, dependencias) {
+        return executarCriacaoFundacaoPagar(entrada, dependencias, 'conta-pagar');
+    }
+
+    function obterProjecaoContasPagar(estadoExterno, dataReferencia) {
+        if (!validarDataLocalContaReceber(dataReferencia) || !validarValorExternoPersistivelSeguro(estadoExterno)) {
+            return { ok: false, codigo: 'PROJECAO_CONTAS_PAGAR_INVALIDA', contas: [], totais: null };
+        }
+        const clone = clonarJsonInterno(estadoExterno);
+        if (!clone.ok || !Array.isArray(clone.valor.fornecedores) || !Array.isArray(clone.valor.contasPagar)) {
+            return { ok: false, codigo: 'PROJECAO_CONTAS_PAGAR_INVALIDA', contas: [], totais: null };
+        }
+        const estado = clone.valor;
+        const contagens = new Map();
+        estado.contasPagar.forEach((conta) => {
+            const ref = conta?.contaPagarReferencia;
+            if (typeof ref === 'string') contagens.set(ref, (contagens.get(ref) || 0) + 1);
+        });
+        const contas = estado.contasPagar.map((conta) => {
+            const referencia = conta?.contaPagarReferencia || '';
+            if (contagens.get(referencia) !== 1 || !validarContaPagar(conta, estado, dataReferencia)) {
+                return { estado: contagens.get(referencia) > 1 ? 'duplicada' : 'invalida', bloqueada: true,
+                    referencia, conta: null, fornecedor: null, totalCentavos: 0, pagoCentavos: 0, saldoCentavos: 0 };
+            }
+            const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', estado.fornecedores);
+            let situacao = conta.situacaoAdministrativa;
+            if (situacao === 'ativa') {
+                if (conta.saldoCentavos === 0) situacao = 'paga';
+                else if (conta.parcelas.some((p) => situacaoEfetivaParcelaPagar(p, dataReferencia) === 'vencida')) situacao = 'vencida';
+                else situacao = conta.pagoCentavos > 0 ? 'parcial' : 'pendente';
+            }
+            return { estado: 'valida', bloqueada: false, referencia, conta, fornecedor: fornecedor.registro,
+                situacao, totalCentavos: conta.originalCentavos, pagoCentavos: conta.pagoCentavos,
+                saldoCentavos: conta.saldoCentavos, proximoVencimento: conta.parcelas
+                    .filter((p) => p.saldoCentavos > 0).map((p) => p.vencimento).sort()[0] || '' };
+        });
+        let total = 0n, pago = 0n, aberto = 0n, vencido = 0n, proximo = 0n;
+        for (const item of contas.filter((registro) => !registro.bloqueada)) {
+            total += BigInt(item.totalCentavos); pago += BigInt(item.pagoCentavos);
+            if (!['cancelada', 'encerrada'].includes(item.situacao)) aberto += BigInt(item.saldoCentavos);
+            if (item.situacao === 'vencida') vencido += BigInt(item.saldoCentavos);
+            if (['pendente', 'parcial'].includes(item.situacao)) proximo += BigInt(item.saldoCentavos);
+        }
+        const limite = BigInt(Number.MAX_SAFE_INTEGER);
+        if ([total, pago, aberto, vencido, proximo].some((valor) => valor > limite)) {
+            return { ok: false, codigo: 'TOTAL_CONTAS_PAGAR_INSEGURO', contas, totais: null };
+        }
+        return { ok: true, codigo: 'SUCESSO', contas, totais: { totalCentavos: Number(total),
+            pagoCentavos: Number(pago), abertoCentavos: Number(aberto), vencidoCentavos: Number(vencido),
+            proximoCentavos: Number(proximo) } };
+    }
+
+    function obterProjecaoContaPagarPorReferencia(referencia, estadoExterno, dataReferencia) {
+        if (!decodificarReferenciaTipadaPagar(referencia, 'conta-pagar')) {
+            return { ok: false, estado: 'invalida', conta: null };
+        }
+        const projecao = obterProjecaoContasPagar(estadoExterno, dataReferencia);
+        if (!Array.isArray(projecao.contas)) return { ok: false, estado: 'invalida', conta: null };
+        const encontradas = projecao.contas.filter((item) => item.referencia === referencia);
+        if (!encontradas.length) return { ok: true, estado: 'ausente', conta: null };
+        if (encontradas.length !== 1 || encontradas[0].estado === 'duplicada') {
+            return { ok: false, estado: 'duplicada', conta: null };
+        }
+        if (encontradas[0].bloqueada) return { ok: false, estado: 'invalida', conta: null };
+        return { ok: true, estado: encontradas[0].situacao, conta: encontradas[0] };
+    }
+
     const travasConciliacaoFinanceira = new Set();
 
     function criarReferenciaConciliacaoFinanceira(id) {
@@ -6296,6 +6861,13 @@
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
     window.executarEstornoRecebimentoTransacional = executarEstornoRecebimentoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
+    window.criarReferenciaTipadaPagar = criarReferenciaTipadaPagar;
+    window.criarEntradaCadastroFornecedorPagar = criarEntradaCadastroFornecedorPagar;
+    window.criarEntradaCriacaoContaPagar = criarEntradaCriacaoContaPagar;
+    window.executarCadastroFornecedorTransacional = executarCadastroFornecedorTransacional;
+    window.executarCriacaoContaPagarTransacional = executarCriacaoContaPagarTransacional;
+    window.obterProjecaoContasPagar = obterProjecaoContasPagar;
+    window.obterProjecaoContaPagarPorReferencia = obterProjecaoContaPagarPorReferencia;
     window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;
     window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
