@@ -41,8 +41,11 @@
     const travasContaReceber = new Set();
     const travasFornecedor = new Set();
     const travasContaPagar = new Set();
+    const travasPagamentoContaPagar = new Set();
     const entradasFornecedorPagarConfiaveis = new WeakSet();
     const entradasContaPagarConfiaveis = new WeakSet();
+    const entradasPagamentoContaPagarConfiaveis = new WeakSet();
+    const comprovantesPagamentoContaPagarConfiaveis = new WeakSet();
     const conclusoesConfirmadasPorArmazenamento = new WeakMap();
     let prepararAutorizacaoPublicacaoConfiavel = null;
     let cancelarAutorizacaoPublicacaoConfiavel = null;
@@ -5319,7 +5322,7 @@
     }
 
     function criarReferenciaTipadaPagar(prefixo, id) {
-        if (!['fornecedor', 'conta-pagar', 'parcela-pagar', 'proposta', 'locacao', 'evento'].includes(prefixo)) return '';
+        if (!['fornecedor', 'conta-pagar', 'parcela-pagar', 'pagamento-pagar', 'proposta', 'locacao', 'evento'].includes(prefixo)) return '';
         const tipo = typeof id;
         if ((tipo === 'string' && (!id.trim() || id.length > 200))
             || (tipo === 'number' && (!Number.isFinite(id) || Object.is(id, -0)))
@@ -5380,6 +5383,60 @@
         return entrada;
     }
 
+    function criarComprovantePagamentoContaPagar(nomeArquivo, tipoMime, tamanho, hashSha256,
+        referenciaExterna = '') {
+        if (typeof nomeArquivo !== 'string' || typeof tipoMime !== 'string'
+            || typeof tamanho !== 'number' || typeof hashSha256 !== 'string'
+            || typeof referenciaExterna !== 'string') return null;
+        const comprovante = { nomeArquivo, tipoMime, tamanho, hashSha256 };
+        if (referenciaExterna !== '') comprovante.referenciaExterna = referenciaExterna;
+        if (!comprovanteConciliacaoValido(comprovante)) return null;
+        Object.freeze(comprovante);
+        comprovantesPagamentoContaPagarConfiaveis.add(comprovante);
+        return comprovante;
+    }
+
+    function criarEntradaPagamentoContaPagar(contaPagarReferencia, parcelaReferencia,
+        valorPagoTexto, dataPagamento, formaPagamento, descricao, comprovante, operacaoId,
+        criadoEm, responsavel, dataReferencia, persistenciaVersao, persistenciaData,
+        persistenciaUltimaEdicao) {
+        const textos = [contaPagarReferencia, parcelaReferencia, valorPagoTexto, dataPagamento,
+            formaPagamento, descricao, operacaoId, criadoEm, responsavel, dataReferencia,
+            persistenciaVersao, persistenciaData];
+        if (textos.some((valor) => typeof valor !== 'string')
+            || typeof persistenciaUltimaEdicao !== 'number') return null;
+        if (comprovante !== null && !comprovantesPagamentoContaPagarConfiaveis.has(comprovante)) return null;
+        const comprovanteCapturado = comprovante === null ? null : Object.freeze({
+            nomeArquivo: comprovante.nomeArquivo,
+            tipoMime: comprovante.tipoMime,
+            tamanho: comprovante.tamanho,
+            hashSha256: comprovante.hashSha256,
+            ...(Object.prototype.hasOwnProperty.call(comprovante, 'referenciaExterna')
+                ? { referenciaExterna: comprovante.referenciaExterna } : {})
+        });
+        const entrada = {
+            contaPagarReferencia,
+            parcelaReferencia,
+            valorPagoTexto,
+            dataPagamento,
+            formaPagamento,
+            descricao,
+            comprovante: comprovanteCapturado,
+            operacaoId,
+            criadoEm,
+            responsavel,
+            dataReferencia,
+            persistencia: Object.freeze({
+                versao: persistenciaVersao,
+                data: persistenciaData,
+                ultimaEdicao: persistenciaUltimaEdicao
+            })
+        };
+        Object.freeze(entrada);
+        entradasPagamentoContaPagarConfiaveis.add(entrada);
+        return entrada;
+    }
+
     function decodificarReferenciaTipadaPagar(referencia, prefixo) {
         if (typeof referencia !== 'string' || !referencia.startsWith(`${prefixo}:`) || referencia.length > 700) return null;
         try {
@@ -5415,8 +5472,18 @@
             || parcela.pagoCentavos + parcela.saldoCentavos !== parcela.originalCentavos
             || !validarDataLocalContaReceber(parcela.vencimento)) return 'invalida';
         if (parcela.saldoCentavos === 0) return 'paga';
-        if (parcela.vencimento < hoje) return 'vencida';
-        return parcela.pagoCentavos > 0 ? 'parcial' : 'pendente';
+        if (parcela.pagoCentavos > 0) return 'parcial';
+        return parcela.vencimento < hoje ? 'vencida' : 'pendente';
+    }
+
+    function instantePagamentoPagarMs(valor) {
+        return instanteFinanceiroIntegro(valor) ? Date.parse(valor) : null;
+    }
+
+    function instantePagamentoPagarPosterior(posterior, anterior) {
+        const posteriorMs = instantePagamentoPagarMs(posterior);
+        const anteriorMs = instantePagamentoPagarMs(anterior);
+        return posteriorMs !== null && anteriorMs !== null && posteriorMs > anteriorMs;
     }
 
     function validarFornecedorPagar(fornecedor) {
@@ -5436,6 +5503,151 @@
             && Array.isArray(fornecedor.historico);
     }
 
+    function baseEvidenciaPagamentoPagar(registro) {
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)) return null;
+        const base = {
+            tipo: registro.tipo,
+            acao: registro.acao,
+            origem: registro.origem,
+            pagamentoId: registro.pagamentoId,
+            pagamentoReferencia: registro.pagamentoReferencia,
+            operacaoId: registro.operacaoId,
+            contaPagarReferencia: registro.contaPagarReferencia,
+            parcelaReferencia: registro.parcelaReferencia,
+            fornecedorReferencia: registro.fornecedorReferencia,
+            propostaReferencia: registro.propostaReferencia,
+            locacaoReferencia: registro.locacaoReferencia,
+            valorPagoCentavos: registro.valorPagoCentavos,
+            dataPagamento: registro.dataPagamento,
+            dataReferencia: registro.dataReferencia,
+            formaPagamento: registro.formaPagamento,
+            descricao: registro.descricao,
+            responsavel: registro.responsavel,
+            usuario: registro.usuario,
+            data: registro.data,
+            timestamp: registro.timestamp,
+            criadoEm: registro.criadoEm,
+            parcelaPagoAnteriorCentavos: registro.parcelaPagoAnteriorCentavos,
+            parcelaPagoPosteriorCentavos: registro.parcelaPagoPosteriorCentavos,
+            parcelaSaldoAnteriorCentavos: registro.parcelaSaldoAnteriorCentavos,
+            parcelaSaldoPosteriorCentavos: registro.parcelaSaldoPosteriorCentavos,
+            parcelaSituacaoAnterior: registro.parcelaSituacaoAnterior,
+            parcelaSituacaoPosterior: registro.parcelaSituacaoPosterior,
+            contaPagoAnteriorCentavos: registro.contaPagoAnteriorCentavos,
+            contaPagoPosteriorCentavos: registro.contaPagoPosteriorCentavos,
+            contaSaldoAnteriorCentavos: registro.contaSaldoAnteriorCentavos,
+            contaSaldoPosteriorCentavos: registro.contaSaldoPosteriorCentavos,
+            contaSituacaoAnterior: registro.contaSituacaoAnterior,
+            contaSituacaoPosterior: registro.contaSituacaoPosterior,
+            comprovante: registro.comprovante ?? null
+        };
+        return ordenarChavesCanonicas(base);
+    }
+
+    function assinaturaPagamentoContaPagar(base) {
+        return `pagamento-conta-pagar-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(ordenarChavesCanonicas(base)))}`;
+    }
+
+    function validarPagamentoContaPagar(pagamento, conta, parcela) {
+        if (!pagamento || typeof pagamento !== 'object' || Array.isArray(pagamento)
+            || pagamento.id !== pagamento.pagamentoId
+            || pagamento.pagamentoReferencia !== criarReferenciaTipadaPagar('pagamento-pagar', pagamento.id)
+            || pagamento.contaPagarReferencia !== conta.contaPagarReferencia
+            || pagamento.parcelaReferencia !== parcela.parcelaReferencia
+            || pagamento.fornecedorReferencia !== conta.fornecedorReferencia
+            || pagamento.propostaReferencia !== conta.propostaReferencia
+            || pagamento.locacaoReferencia !== conta.locacaoReferencia
+            || pagamento.tipo !== 'financeiro'
+            || pagamento.origem !== 'contas_pagar'
+            || pagamento.acao !== 'pagamento_conta_pagar'
+            || !Number.isSafeInteger(pagamento.valorPagoCentavos) || pagamento.valorPagoCentavos <= 0
+            || !validarDataLocalContaReceber(pagamento.dataPagamento)
+            || !validarDataLocalContaReceber(pagamento.dataReferencia)
+            || !instanteFinanceiroIntegro(pagamento.criadoEm)
+            || textoPagar(pagamento.formaPagamento, 100, true) === null
+            || textoPagar(pagamento.descricao, 1000) === null
+            || textoPagar(pagamento.responsavel, 300, true) === null
+            || pagamento.usuario !== pagamento.responsavel
+            || pagamento.data !== pagamento.criadoEm
+            || pagamento.timestamp !== pagamento.criadoEm
+            || !Number.isSafeInteger(pagamento.parcelaPagoAnteriorCentavos)
+            || !Number.isSafeInteger(pagamento.parcelaPagoPosteriorCentavos)
+            || !Number.isSafeInteger(pagamento.parcelaSaldoAnteriorCentavos)
+            || !Number.isSafeInteger(pagamento.parcelaSaldoPosteriorCentavos)
+            || !Number.isSafeInteger(pagamento.contaPagoAnteriorCentavos)
+            || !Number.isSafeInteger(pagamento.contaPagoPosteriorCentavos)
+            || !Number.isSafeInteger(pagamento.contaSaldoAnteriorCentavos)
+            || !Number.isSafeInteger(pagamento.contaSaldoPosteriorCentavos)
+            || pagamento.parcelaPagoPosteriorCentavos - pagamento.parcelaPagoAnteriorCentavos !== pagamento.valorPagoCentavos
+            || pagamento.parcelaSaldoAnteriorCentavos - pagamento.parcelaSaldoPosteriorCentavos !== pagamento.valorPagoCentavos
+            || pagamento.contaPagoPosteriorCentavos - pagamento.contaPagoAnteriorCentavos !== pagamento.valorPagoCentavos
+            || pagamento.contaSaldoAnteriorCentavos - pagamento.contaSaldoPosteriorCentavos !== pagamento.valorPagoCentavos
+            || !['pendente', 'parcial', 'vencida'].includes(pagamento.parcelaSituacaoAnterior)
+            || !['parcial', 'paga'].includes(pagamento.parcelaSituacaoPosterior)
+            || pagamento.contaSituacaoAnterior !== 'ativa'
+            || pagamento.contaSituacaoPosterior !== 'ativa'
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(pagamento.operacaoId)
+            || !comprovanteConciliacaoValido(pagamento.comprovante)) return false;
+        const base = baseEvidenciaPagamentoPagar(pagamento);
+        const assinatura = assinaturaPagamentoContaPagar(base);
+        const evidencia = ordenarChavesCanonicas({ ...base, assinaturaPlano: assinatura });
+        return pagamento.assinaturaPlano === assinatura
+            && JSON.stringify(ordenarChavesCanonicas(pagamento.evidenciaPagamento)) === JSON.stringify(evidencia);
+    }
+
+    function criarRegistroEvidenciaPagamentoPagar(pagamento, escopo) {
+        const configuracoes = {
+            pagamento: { id: pagamento.id, acao: 'pagamento_conta_pagar' },
+            parcela: { id: `historico-parcela-${pagamento.operacaoId}`, acao: 'pagamento_conta_pagar' },
+            conta: { id: `historico-conta-${pagamento.operacaoId}`, acao: 'pagamento_conta_pagar' },
+            locacao: { id: `historico-locacao-${pagamento.operacaoId}`, acao: 'pagamento_conta_pagar' },
+            auditoria: { id: `auditoria-${pagamento.operacaoId}`, acao: 'pagar_conta' }
+        };
+        const configuracao = configuracoes[escopo];
+        if (!configuracao) return null;
+        return {
+            ...baseEvidenciaPagamentoPagar(pagamento),
+            id: configuracao.id,
+            acao: configuracao.acao,
+            data: pagamento.criadoEm,
+            timestamp: pagamento.criadoEm,
+            usuario: pagamento.responsavel,
+            assinaturaPlano: pagamento.assinaturaPlano,
+            evidenciaPagamento: pagamento.evidenciaPagamento
+        };
+    }
+
+    function registroEvidenciaPagamentoPagarCorresponde(registro, pagamento, escopo) {
+        const esperado = criarRegistroEvidenciaPagamentoPagar(pagamento, escopo);
+        if (!esperado || !registro || typeof registro !== 'object' || Array.isArray(registro)) return false;
+        return Object.keys(esperado).every((chave) => Object.prototype.hasOwnProperty.call(registro, chave)
+            && JSON.stringify(ordenarChavesCanonicas(registro[chave]))
+                === JSON.stringify(ordenarChavesCanonicas(esperado[chave])));
+    }
+
+    function validarEvidenciasPagamentoPagar(estado, conta, parcela, pagamento) {
+        const operacaoId = pagamento.operacaoId;
+        const historicosParcela = parcela.historico.filter((item) => item?.operacaoId === operacaoId);
+        const historicosConta = conta.historico.filter((item) => item?.operacaoId === operacaoId);
+        const auditorias = estado.logsAuditoria.filter((item) => item?.operacaoId === operacaoId);
+        const historicosLocacao = conta.locacaoReferencia
+            ? estado.locacoes.flatMap((locacao) => (Array.isArray(locacao?.historicoAlteracoes)
+                ? locacao.historicoAlteracoes : []).filter((item) => item?.operacaoId === operacaoId)) : [];
+        const evidencias = [
+            [pagamento, 'pagamento'],
+            [historicosParcela.length === 1 ? historicosParcela[0] : null, 'parcela'],
+            [historicosConta.length === 1 ? historicosConta[0] : null, 'conta'],
+            [auditorias.length === 1 ? auditorias[0] : null, 'auditoria']
+        ];
+        if (conta.locacaoReferencia) {
+            evidencias.push([historicosLocacao.length === 1 ? historicosLocacao[0] : null, 'locacao']);
+        } else if (historicosLocacao.length) return false;
+        return historicosParcela.length === 1 && historicosConta.length === 1 && auditorias.length === 1
+            && (!conta.locacaoReferencia || historicosLocacao.length === 1)
+            && evidencias.every(([registro, escopo]) => registroEvidenciaPagamentoPagarCorresponde(
+                registro, pagamento, escopo));
+    }
+
     function validarContaPagar(conta, estado, hoje) {
         if (!conta || typeof conta !== 'object' || Array.isArray(conta)
             || conta.contaId !== conta.id
@@ -5443,7 +5655,9 @@
             || !['ativa', 'cancelada', 'encerrada'].includes(conta.situacaoAdministrativa)
             || !Number.isSafeInteger(conta.originalCentavos) || conta.originalCentavos <= 0
             || !Number.isSafeInteger(conta.previstoCentavos) || conta.previstoCentavos < 0
-            || conta.pagoCentavos !== 0 || conta.saldoCentavos !== conta.originalCentavos
+            || !Number.isSafeInteger(conta.pagoCentavos) || conta.pagoCentavos < 0
+            || !Number.isSafeInteger(conta.saldoCentavos) || conta.saldoCentavos < 0
+            || conta.pagoCentavos + conta.saldoCentavos !== conta.originalCentavos
             || !Number.isSafeInteger(conta.quantidadeParcelas) || conta.quantidadeParcelas <= 0
             || !validarDataLocalContaReceber(conta.dataEmissao)
             || !instanteFinanceiroIntegro(conta.criadoEm) || !instanteFinanceiroIntegro(conta.atualizadoEm)
@@ -5453,6 +5667,12 @@
             || textoPagar(conta.origem, 100, true) === null
             || !Array.isArray(conta.parcelas) || conta.parcelas.length !== conta.quantidadeParcelas
             || !Array.isArray(conta.historico)) return false;
+        const criadoContaMs = instantePagamentoPagarMs(conta.criadoEm);
+        const atualizadoContaMs = instantePagamentoPagarMs(conta.atualizadoEm);
+        if (criadoContaMs === null || atualizadoContaMs === null || atualizadoContaMs < criadoContaMs
+            || conta.historico.some((item) => !item || !instanteFinanceiroIntegro(item.data)
+                || (Object.prototype.hasOwnProperty.call(item, 'timestamp')
+                    && !instanteFinanceiroIntegro(item.timestamp)))) return false;
         const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', estado.fornecedores);
         if (fornecedor.estado !== 'encontrada'
             || typeof conta.fornecedorId !== typeof fornecedor.id || !Object.is(conta.fornecedorId, fornecedor.id)) return false;
@@ -5464,7 +5684,12 @@
         }
         if (conta.eventoReferencia !== '') return false;
         let soma = 0n;
+        let somaPaga = 0n;
         const referencias = new Set();
+        const pagamentosIds = new Set();
+        const pagamentosRefs = new Set();
+        const operacoesPagamento = new Set();
+        const pagamentosConta = [];
         for (let indice = 0; indice < conta.parcelas.length; indice += 1) {
             const parcela = conta.parcelas[indice];
             if (!parcela || parcela.parcelaId !== parcela.id
@@ -5472,12 +5697,82 @@
                 || referencias.has(parcela.parcelaReferencia) || parcela.numero !== indice + 1
                 || parcela.totalParcelas !== conta.quantidadeParcelas
                 || situacaoEfetivaParcelaPagar(parcela, hoje) === 'invalida'
-                || parcela.pagoCentavos !== 0 || !Array.isArray(parcela.pagamentos)
-                || parcela.pagamentos.length !== 0 || !Array.isArray(parcela.historico)) return false;
+                || !Array.isArray(parcela.pagamentos) || !Array.isArray(parcela.historico)) return false;
+            const criadoParcelaMs = instantePagamentoPagarMs(parcela.criadoEm);
+            const atualizadoParcelaMs = instantePagamentoPagarMs(parcela.atualizadoEm);
+            if (criadoParcelaMs === null || atualizadoParcelaMs === null
+                || atualizadoParcelaMs < criadoParcelaMs
+                || parcela.historico.some((item) => !item || !instanteFinanceiroIntegro(item.data)
+                    || (Object.prototype.hasOwnProperty.call(item, 'timestamp')
+                        && !instanteFinanceiroIntegro(item.timestamp)))) return false;
             referencias.add(parcela.parcelaReferencia);
             soma += BigInt(parcela.originalCentavos);
+            let pagoParcela = 0n;
+            let ultimoInstante = parcela.criadoEm;
+            let pagoParcelaAnterior = 0;
+            let saldoParcelaAnterior = parcela.originalCentavos;
+            const pagamentosOrdenados = parcela.pagamentos.slice().sort((a, b) => {
+                const aMs = instantePagamentoPagarMs(a?.criadoEm);
+                const bMs = instantePagamentoPagarMs(b?.criadoEm);
+                return (aMs ?? Number.NEGATIVE_INFINITY) - (bMs ?? Number.NEGATIVE_INFINITY);
+            });
+            for (const pagamento of pagamentosOrdenados) {
+                const situacaoAnterior = situacaoEfetivaParcelaPagar({ ...parcela,
+                    pagoCentavos: pagoParcelaAnterior, saldoCentavos: saldoParcelaAnterior },
+                pagamento.dataReferencia);
+                const pagoPosterior = pagoParcelaAnterior + pagamento.valorPagoCentavos;
+                const saldoPosterior = saldoParcelaAnterior - pagamento.valorPagoCentavos;
+                const situacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
+                    pagoCentavos: pagoPosterior, saldoCentavos: saldoPosterior },
+                pagamento.dataReferencia);
+                if (!validarPagamentoContaPagar(pagamento, conta, parcela)
+                    || pagamentosIds.has(criarReferenciaTipadaPagar('pagamento-pagar', pagamento.id))
+                    || pagamentosRefs.has(pagamento.pagamentoReferencia)
+                    || operacoesPagamento.has(pagamento.operacaoId)
+                    || !instantePagamentoPagarPosterior(pagamento.criadoEm, ultimoInstante)
+                    || !instantePagamentoPagarPosterior(pagamento.criadoEm, conta.criadoEm)
+                    || pagamento.dataPagamento < converterInstanteEmDataLocalFinanceira(parcela.criadoEm)
+                    || pagamento.parcelaPagoAnteriorCentavos !== pagoParcelaAnterior
+                    || pagamento.parcelaPagoPosteriorCentavos !== pagoPosterior
+                    || pagamento.parcelaSaldoAnteriorCentavos !== saldoParcelaAnterior
+                    || pagamento.parcelaSaldoPosteriorCentavos !== saldoPosterior
+                    || pagamento.parcelaSituacaoAnterior !== situacaoAnterior
+                    || pagamento.parcelaSituacaoPosterior !== situacaoPosterior
+                    || !validarEvidenciasPagamentoPagar(estado, conta, parcela, pagamento)) return false;
+                pagamentosIds.add(criarReferenciaTipadaPagar('pagamento-pagar', pagamento.id));
+                pagamentosRefs.add(pagamento.pagamentoReferencia);
+                operacoesPagamento.add(pagamento.operacaoId);
+                pagoParcela += BigInt(pagamento.valorPagoCentavos);
+                ultimoInstante = pagamento.criadoEm;
+                pagoParcelaAnterior = pagoPosterior;
+                saldoParcelaAnterior = saldoPosterior;
+                pagamentosConta.push(pagamento);
+            }
+            if (pagoParcela !== BigInt(parcela.pagoCentavos)
+                || parcela.atualizadoEm !== (pagamentosOrdenados.length
+                    ? pagamentosOrdenados[pagamentosOrdenados.length - 1].criadoEm : parcela.criadoEm)) return false;
+            somaPaga += pagoParcela;
         }
-        return soma === BigInt(conta.originalCentavos);
+        pagamentosConta.sort((a, b) => Date.parse(a.criadoEm) - Date.parse(b.criadoEm));
+        let pagoContaAnterior = 0;
+        let saldoContaAnterior = conta.originalCentavos;
+        let instanteContaAnterior = conta.criadoEm;
+        for (const pagamento of pagamentosConta) {
+            if (!instantePagamentoPagarPosterior(pagamento.criadoEm, instanteContaAnterior)
+                || pagamento.contaPagoAnteriorCentavos !== pagoContaAnterior
+                || pagamento.contaPagoPosteriorCentavos !== pagoContaAnterior + pagamento.valorPagoCentavos
+                || pagamento.contaSaldoAnteriorCentavos !== saldoContaAnterior
+                || pagamento.contaSaldoPosteriorCentavos !== saldoContaAnterior - pagamento.valorPagoCentavos
+                || pagamento.contaSituacaoAnterior !== 'ativa'
+                || pagamento.contaSituacaoPosterior !== 'ativa') return false;
+            pagoContaAnterior += pagamento.valorPagoCentavos;
+            saldoContaAnterior -= pagamento.valorPagoCentavos;
+            instanteContaAnterior = pagamento.criadoEm;
+        }
+        return soma === BigInt(conta.originalCentavos)
+            && somaPaga === BigInt(conta.pagoCentavos)
+            && conta.atualizadoEm === (pagamentosConta.length
+                ? pagamentosConta[pagamentosConta.length - 1].criadoEm : conta.criadoEm);
     }
 
     function validarFundacaoContasPagar(estado, hoje) {
@@ -5499,6 +5794,12 @@
             const id = criarReferenciaTipadaPagar('conta-pagar', conta.id);
             if (idsContas.has(id) || refsContas.has(conta.contaPagarReferencia) || operacoes.has(conta.operacaoId)) return false;
             idsContas.add(id); refsContas.add(conta.contaPagarReferencia); operacoes.add(conta.operacaoId);
+            for (const parcela of conta.parcelas) {
+                for (const pagamento of parcela.pagamentos) {
+                    if (operacoes.has(pagamento.operacaoId)) return false;
+                    operacoes.add(pagamento.operacaoId);
+                }
+            }
         }
         return true;
     }
@@ -5816,6 +6117,286 @@
         return executarCriacaoFundacaoPagar(entrada, dependencias, 'conta-pagar');
     }
 
+    function localizarPagamentoContaPagarPorOperacao(estado, operacaoId) {
+        const pagamentos = [];
+        const historicosParcelas = [];
+        const historicosContas = [];
+        const historicosLocacoes = [];
+        for (const conta of estado.contasPagar) {
+            for (const parcela of conta.parcelas) {
+                parcela.pagamentos.filter((item) => item?.operacaoId === operacaoId)
+                    .forEach((item) => pagamentos.push({ conta, parcela, item }));
+                parcela.historico.filter((item) => item?.operacaoId === operacaoId)
+                    .forEach((item) => historicosParcelas.push(item));
+            }
+            conta.historico.filter((item) => item?.operacaoId === operacaoId)
+                .forEach((item) => historicosContas.push(item));
+        }
+        estado.locacoes.flatMap((locacao) => Array.isArray(locacao?.historicoAlteracoes)
+            ? locacao.historicoAlteracoes : []).filter((item) => item?.operacaoId === operacaoId)
+            .forEach((item) => historicosLocacoes.push(item));
+        const auditorias = estado.logsAuditoria.filter((item) => item?.operacaoId === operacaoId);
+        const total = pagamentos.length + historicosParcelas.length + historicosContas.length
+            + historicosLocacoes.length + auditorias.length;
+        if (total === 0) return { estado: 'nao_executada', completo: false };
+        if (pagamentos.length !== 1 || historicosParcelas.length !== 1
+            || historicosContas.length !== 1 || auditorias.length !== 1) {
+            return { estado: 'parcial', completo: false };
+        }
+        const alvo = pagamentos[0];
+        const esperadoLocacao = alvo.conta.locacaoReferencia ? 1 : 0;
+        if (historicosLocacoes.length !== esperadoLocacao
+            || !validarPagamentoContaPagar(alvo.item, alvo.conta, alvo.parcela)
+            || !validarEvidenciasPagamentoPagar(estado, alvo.conta, alvo.parcela, alvo.item)) {
+            return { estado: 'parcial', completo: false };
+        }
+        return { estado: 'concluida', completo: true, ...alvo };
+    }
+
+    function pagamentoContaPagarCorrespondeEntrada(evidencia, entrada, valorPagoCentavos) {
+        if (!evidencia?.completo) return false;
+        const pagamento = evidencia.item;
+        const comprovanteEntrada = entrada.comprovante ?? null;
+        return pagamento.operacaoId === entrada.operacaoId
+            && pagamento.contaPagarReferencia === entrada.contaPagarReferencia
+            && pagamento.parcelaReferencia === entrada.parcelaReferencia
+            && pagamento.valorPagoCentavos === valorPagoCentavos
+            && pagamento.dataPagamento === entrada.dataPagamento
+            && pagamento.formaPagamento === textoPagar(entrada.formaPagamento, 100, true)
+            && pagamento.descricao === (textoPagar(entrada.descricao, 1000) ?? '')
+            && pagamento.responsavel === entrada.responsavel
+            && pagamento.criadoEm === entrada.criadoEm
+            && JSON.stringify(ordenarChavesCanonicas(pagamento.comprovante))
+                === JSON.stringify(ordenarChavesCanonicas(comprovanteEntrada));
+    }
+
+    function executarPagamentoContaPagarTransacional(entradaRecebida, dependencias = {}) {
+        if (!entradaRecebida || !entradasPagamentoContaPagarConfiaveis.has(entradaRecebida)) {
+            return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_NAO_CONFIAVEL');
+        }
+        const permissaoConcedida = () => {
+            if (typeof dependencias?.validarPermissaoPagar !== 'function') return false;
+            try { return dependencias.validarPermissaoPagar('pagar_conta') === true; }
+            catch (_erro) { return false; }
+        };
+        if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA');
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
+        const cloneEntrada = clonarJsonInterno(entradaRecebida);
+        if (!cloneEntrada.ok) return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
+        const entrada = cloneEntrada.valor;
+        const valor = normalizarTextoMonetarioCentavos(entrada.valorPagoTexto, { permitirZero: false });
+        const persistencia = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!valor.ok || !decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')
+            || !decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')
+            || !validarDataLocalContaReceber(entrada.dataPagamento)
+            || !validarDataLocalContaReceber(entrada.dataReferencia)
+            || !instanteFinanceiroIntegro(entrada.criadoEm)
+            || textoPagar(entrada.formaPagamento, 100, true) === null
+            || textoPagar(entrada.descricao, 1000) === null
+            || textoPagar(entrada.responsavel, 300, true) === null
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || !comprovanteConciliacaoValido(entrada.comprovante)
+            || !persistencia || typeof persistencia !== 'object'
+            || typeof persistencia.versao !== 'string' || persistencia.data !== entrada.criadoEm
+            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
+            || !dependencias.armazenamento) return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
+        const trava = `${entrada.contaPagarReferencia}|${entrada.parcelaReferencia}`;
+        if (travasFornecedor.size || travasContaPagar.size || travasPagamentoContaPagar.size) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        }
+        travasPagamentoContaPagar.add(trava);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !validarFundacaoContasPagar(memoria.valor, entrada.dataReferencia)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistencia, 'chave')) opcoesArmazenamento.chave = persistencia.chave;
+            let leitura;
+            try { leitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !validarFundacaoContasPagar(persistido.valor, entrada.dataReferencia)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const evidenciaMemoria = localizarPagamentoContaPagarPorOperacao(memoria.valor, entrada.operacaoId);
+            const evidenciaPersistida = localizarPagamentoContaPagarPorOperacao(persistido.valor, entrada.operacaoId);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                return evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoria.json === persistido.json
+                    && pagamentoContaPagarCorrespondeEntrada(evidenciaMemoria, entrada, valor.centavos)
+                    && pagamentoContaPagarCorrespondeEntrada(evidenciaPersistida, entrada, valor.centavos)
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
+                        idempotente: true, renderizar: true, operacao: { operacaoId: entrada.operacaoId,
+                            pagamentoReferencia: evidenciaMemoria.item.pagamentoReferencia } })
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contaResolvida = resolverReferenciaExataPagar(entrada.contaPagarReferencia, 'conta-pagar', candidato.valor.contasPagar);
+            if (contaResolvida.estado !== 'encontrada') return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
+            const conta = contaResolvida.registro;
+            if (conta.situacaoAdministrativa !== 'ativa') return resultadoBase('CONTA_PAGAR_BLOQUEADA');
+            const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === entrada.parcelaReferencia);
+            if (parcelas.length !== 1) return resultadoBase('PARCELA_PAGAR_NAO_DISPONIVEL');
+            const parcela = parcelas[0];
+            const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', candidato.valor.fornecedores);
+            if (fornecedor.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (valor.centavos > parcela.saldoCentavos) return resultadoBase('PAGAMENTO_ACIMA_DO_SALDO');
+            const ultimoPagamento = parcela.pagamentos[parcela.pagamentos.length - 1] || null;
+            const limiteCronologico = ultimoPagamento?.criadoEm || parcela.criadoEm;
+            if (entrada.criadoEm <= limiteCronologico
+                || entrada.dataPagamento < converterInstanteEmDataLocalFinanceira(parcela.criadoEm)) {
+                return resultadoBase('CRONOLOGIA_PAGAMENTO_INVALIDA');
+            }
+            const pagamentoId = `pagamento-${entrada.operacaoId}`;
+            const pagamentoReferencia = criarReferenciaTipadaPagar('pagamento-pagar', pagamentoId);
+            const parcelaSituacaoAnterior = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            const parcelaSituacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
+                pagoCentavos: parcela.pagoCentavos + valor.centavos,
+                saldoCentavos: parcela.saldoCentavos - valor.centavos }, entrada.dataReferencia);
+            const base = ordenarChavesCanonicas({
+                tipo: 'financeiro', acao: 'pagamento_conta_pagar', origem: 'contas_pagar',
+                pagamentoId, pagamentoReferencia, operacaoId: entrada.operacaoId,
+                contaPagarReferencia: conta.contaPagarReferencia,
+                parcelaReferencia: parcela.parcelaReferencia,
+                fornecedorReferencia: conta.fornecedorReferencia,
+                propostaReferencia: conta.propostaReferencia,
+                locacaoReferencia: conta.locacaoReferencia,
+                valorPagoCentavos: valor.centavos,
+                dataPagamento: entrada.dataPagamento,
+                dataReferencia: entrada.dataReferencia,
+                formaPagamento: textoPagar(entrada.formaPagamento, 100, true),
+                descricao: textoPagar(entrada.descricao, 1000) ?? '',
+                responsavel: entrada.responsavel, usuario: entrada.responsavel,
+                data: entrada.criadoEm, timestamp: entrada.criadoEm, criadoEm: entrada.criadoEm,
+                parcelaPagoAnteriorCentavos: parcela.pagoCentavos,
+                parcelaPagoPosteriorCentavos: parcela.pagoCentavos + valor.centavos,
+                parcelaSaldoAnteriorCentavos: parcela.saldoCentavos,
+                parcelaSaldoPosteriorCentavos: parcela.saldoCentavos - valor.centavos,
+                parcelaSituacaoAnterior,
+                parcelaSituacaoPosterior,
+                contaPagoAnteriorCentavos: conta.pagoCentavos,
+                contaPagoPosteriorCentavos: conta.pagoCentavos + valor.centavos,
+                contaSaldoAnteriorCentavos: conta.saldoCentavos,
+                contaSaldoPosteriorCentavos: conta.saldoCentavos - valor.centavos,
+                contaSituacaoAnterior: conta.situacaoAdministrativa,
+                contaSituacaoPosterior: conta.situacaoAdministrativa,
+                comprovante: entrada.comprovante ?? null
+            });
+            const assinaturaPlano = assinaturaPagamentoContaPagar(base);
+            const evidenciaPagamento = ordenarChavesCanonicas({ ...base, assinaturaPlano });
+            const pagamento = { ...base, id: pagamentoId, assinaturaPlano, evidenciaPagamento };
+            Object.assign(pagamento, criarRegistroEvidenciaPagamentoPagar(pagamento, 'pagamento'));
+            parcela.pagamentos = [...parcela.pagamentos, pagamento];
+            parcela.pagoCentavos += valor.centavos;
+            parcela.saldoCentavos -= valor.centavos;
+            parcela.situacao = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            parcela.atualizadoEm = entrada.criadoEm;
+            const historicoParcela = criarRegistroEvidenciaPagamentoPagar(pagamento, 'parcela');
+            parcela.historico = [...parcela.historico, historicoParcela];
+            conta.pagoCentavos += valor.centavos;
+            conta.saldoCentavos -= valor.centavos;
+            conta.atualizadoEm = entrada.criadoEm;
+            conta.historico = [...conta.historico,
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'conta')];
+            if (conta.locacaoReferencia) {
+                const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
+                if (locacao.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                locacao.registro.historicoAlteracoes = [...(Array.isArray(locacao.registro.historicoAlteracoes)
+                    ? locacao.registro.historicoAlteracoes : []),
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'locacao')];
+            }
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'auditoria')];
+            const evidenciaCandidata = localizarPagamentoContaPagarPorOperacao(candidato.valor, entrada.operacaoId);
+            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
+                || !evidenciaCandidata.completo) return resultadoBase('CANDIDATO_PAGAMENTO_PAGAR_INVALIDO');
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                clonarDescartavel(candidatoCanonico), clonarDescartavel(persistencia)); } catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({ versao: persistencia.versao, data: persistencia.data,
+                ultimaEdicao: persistencia.ultimaEdicao, ...candidatoCanonico });
+            const externo = preparadoValido.ok ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA');
+            try { dependencias.persistirSnapshotLocalConfirmavel(clonarDescartavel(snapshot.valor), { ...opcoesArmazenamento }); }
+            catch (_erro) { /* a releitura confirma ou rejeita */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok || !validarFundacaoContasPagar(operacionalRelido.valor, entrada.dataReferencia)
+                || !localizarPagamentoContaPagarPorOperacao(operacionalRelido.valor, entrada.operacaoId).completo) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (!permissaoConcedida()) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true, bloqueios: [{ codigo: 'PERMISSAO_PAGAR_REVOGADA',
+                    mensagem: 'A permissão mudou após a persistência.' }]
+            });
+            let erroPublicacao = null;
+            try { dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacional.valor), {
+                jsonOperacionalEsperado: jsonPublicacaoEsperado, autorizacaoPublicacao: autorizacao,
+                exigirConfirmacaoInterna: true }); } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({ operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado, estadoAnterior: raizAnterior,
+                autorizacaoPublicacao: autorizacao }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const avisos = erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                ultimaEdicao: persistencia.ultimaEdicao, operacaoId: entrada.operacaoId,
+                assinaturaPlano }) === true; } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('PAGAMENTO_CONTA_PAGAR_APLICADO', { ok: true, aplicado: true,
+                publicacaoRealizada: true, avisos, renderizar: true, sincronizar,
+                operacao: { operacaoId: entrada.operacaoId, pagamentoId,
+                    pagamentoReferencia, assinaturaPlano } });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada ? 'PAGAMENTO_CONTA_PAGAR_APLICADO' : 'FALHA_PAGAMENTO_CONTA_PAGAR', {
+                ok: publicacaoRealizada, aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                avisos: publicacaoRealizada ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [],
+                renderizar: publicacaoRealizada, sincronizar: false
+            });
+        } finally {
+            if (autorizacao) try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao); } catch (_erro) { /* encerrada */ }
+            travasPagamentoContaPagar.delete(trava);
+        }
+    }
+
     function obterProjecaoContasPagar(estadoExterno, dataReferencia) {
         if (!validarDataLocalContaReceber(dataReferencia) || !validarValorExternoPersistivelSeguro(estadoExterno)) {
             return { ok: false, codigo: 'PROJECAO_CONTAS_PAGAR_INVALIDA', contas: [], totais: null };
@@ -5840,8 +6421,9 @@
             let situacao = conta.situacaoAdministrativa;
             if (situacao === 'ativa') {
                 if (conta.saldoCentavos === 0) situacao = 'paga';
+                else if (conta.pagoCentavos > 0) situacao = 'parcial';
                 else if (conta.parcelas.some((p) => situacaoEfetivaParcelaPagar(p, dataReferencia) === 'vencida')) situacao = 'vencida';
-                else situacao = conta.pagoCentavos > 0 ? 'parcial' : 'pendente';
+                else situacao = 'pendente';
             }
             return { estado: 'valida', bloqueada: false, referencia, conta, fornecedor: fornecedor.registro,
                 situacao, totalCentavos: conta.originalCentavos, pagoCentavos: conta.pagoCentavos,
@@ -6151,6 +6733,7 @@
         if (!base || !validarDataLocalContaReceber(base.data)
             || !Number.isSafeInteger(base.valorCentavos) || base.valorCentavos <= 0
             || !['entrada', 'saida', 'previsto'].includes(base.natureza)) return null;
+        const direcao = base.direcao === 'saida' || base.natureza === 'saida' ? 'saida' : 'entrada';
         const movimento = {
             referencia: base.referencia,
             natureza: base.natureza,
@@ -6158,7 +6741,8 @@
             data: base.data,
             competencia: base.data.slice(0, 7),
             valorCentavos: base.valorCentavos,
-            valorLiquidoCentavos: base.natureza === 'saida' ? -base.valorCentavos : base.valorCentavos,
+            valorLiquidoCentavos: direcao === 'saida' ? -base.valorCentavos : base.valorCentavos,
+            direcao,
             clienteId: base.clienteId,
             clienteReferencia: base.clienteReferencia,
             clienteNome: base.clienteNome,
@@ -6168,6 +6752,8 @@
             contaReferencia: base.contaReferencia || '',
             parcelaReferencia: base.parcelaReferencia || '',
             lancamentoReferencia: base.lancamentoReferencia || '',
+            categoria: base.categoria || '',
+            centroCusto: base.centroCusto || '',
             situacaoFinanceira: base.situacaoFinanceira,
             situacaoConciliacao: base.situacaoConciliacao || 'nao_aplicavel',
             conciliacaoReferencia: base.conciliacaoReferencia || '',
@@ -6178,7 +6764,8 @@
             responsavel: base.responsavel || '',
             auditoriaConfirmada: base.auditoriaConfirmada === true
         };
-        return movimento.referencia && movimento.locacaoReferencia ? movimento : null;
+        return movimento.referencia && (movimento.locacaoReferencia || movimento.contaReferencia)
+            ? movimento : null;
     }
 
     function converterInstanteEmDataLocalFinanceira(instante) {
@@ -6295,6 +6882,7 @@
         const estado = clone.valor;
         if (!Array.isArray(estado.locacoes) || !Array.isArray(estado.locadores)
             || !Array.isArray(estado.contasReceber) || !Array.isArray(estado.conciliacoesFinanceiras)
+            || !Array.isArray(estado.fornecedores) || !Array.isArray(estado.contasPagar)
             || !Array.isArray(estado.logsAuditoria)) {
             return { ok: false, codigo: 'FLUXO_CAIXA_ESTADO_INCOMPLETO', movimentos: [], diagnosticos: [] };
         }
@@ -6467,6 +7055,83 @@
             }
         }
 
+        const projecaoPagar = obterProjecaoContasPagar(estado, dataReferencia);
+        if (!projecaoPagar.ok) {
+            diagnosticos.push({ codigo: projecaoPagar.codigo || 'CONTAS_PAGAR_FLUXO_INVALIDAS', referencia: '' });
+        } else {
+            for (const item of projecaoPagar.contas) {
+                if (item.bloqueada || ['cancelada', 'encerrada'].includes(item.situacao)) continue;
+                const conta = item.conta;
+                let locacaoId = '';
+                let locacaoReferencia = conta.locacaoReferencia || '';
+                let evento = '';
+                if (locacaoReferencia) {
+                    const locacao = resolverReferenciaExataPagar(locacaoReferencia, 'locacao', estado.locacoes);
+                    if (locacao.estado !== 'encontrada') {
+                        diagnosticos.push({ codigo: 'CONTA_PAGAR_LOCACAO_INVALIDA', referencia: conta.contaPagarReferencia });
+                        continue;
+                    }
+                    locacaoId = locacao.id;
+                    evento = typeof locacao.registro.eventoNome === 'string' ? locacao.registro.eventoNome : '';
+                }
+                for (const parcela of conta.parcelas) {
+                    for (const pagamento of parcela.pagamentos) {
+                        const movimento = criarMovimentoFluxoCaixa({
+                            referencia: pagamento.pagamentoReferencia,
+                            natureza: 'saida',
+                            direcao: 'saida',
+                            tipo: 'pagamento_conta_pagar',
+                            data: pagamento.dataPagamento,
+                            valorCentavos: pagamento.valorPagoCentavos,
+                            clienteId: item.fornecedor.id,
+                            clienteReferencia: item.fornecedor.fornecedorReferencia,
+                            clienteNome: item.fornecedor.nome,
+                            locacaoId,
+                            locacaoReferencia,
+                            evento,
+                            contaReferencia: conta.contaPagarReferencia,
+                            parcelaReferencia: parcela.parcelaReferencia,
+                            lancamentoReferencia: pagamento.pagamentoReferencia,
+                            categoria: conta.categoria,
+                            centroCusto: conta.centroCusto,
+                            situacaoFinanceira: item.situacao,
+                            situacaoConciliacao: 'nao_aplicavel',
+                            origem: 'conta_pagar',
+                            detalhes: pagamento.descricao || `${conta.descricao} · ${parcela.numero}/${parcela.totalParcelas}`,
+                            operacaoId: pagamento.operacaoId,
+                            responsavel: pagamento.responsavel,
+                            auditoriaConfirmada: true
+                        });
+                        if (movimento) movimentos.push(movimento);
+                    }
+                    if (parcela.saldoCentavos > 0) {
+                        const movimento = criarMovimentoFluxoCaixa({
+                            referencia: `fluxo-previsto-pagar:${parcela.parcelaReferencia}`,
+                            natureza: 'previsto',
+                            direcao: 'saida',
+                            tipo: 'parcela_conta_pagar',
+                            data: parcela.vencimento,
+                            valorCentavos: parcela.saldoCentavos,
+                            clienteId: item.fornecedor.id,
+                            clienteReferencia: item.fornecedor.fornecedorReferencia,
+                            clienteNome: item.fornecedor.nome,
+                            locacaoId,
+                            locacaoReferencia,
+                            evento,
+                            contaReferencia: conta.contaPagarReferencia,
+                            parcelaReferencia: parcela.parcelaReferencia,
+                            categoria: conta.categoria,
+                            centroCusto: conta.centroCusto,
+                            situacaoFinanceira: situacaoEfetivaParcelaPagar(parcela, dataReferencia),
+                            origem: 'conta_pagar',
+                            detalhes: `${conta.descricao} · ${parcela.numero}/${parcela.totalParcelas}`
+                        });
+                        if (movimento) movimentos.push(movimento);
+                    }
+                }
+            }
+        }
+
         const contagemChaves = new Map();
         movimentos.forEach((movimento) => {
             const chave = `${movimento.natureza}|${movimento.referencia}`;
@@ -6486,7 +7151,7 @@
         const saidas = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza === 'saida')
             .map((item) => item.valorCentavos));
         const projetado = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza === 'previsto')
-            .map((item) => item.valorCentavos));
+            .map((item) => item.valorLiquidoCentavos));
         const conciliado = somarCentavosFluxoCaixa(unicos.filter((item) => item.natureza !== 'previsto'
             && item.situacaoConciliacao === 'conciliado').map((item) => item.valorCentavos));
         const liquido = entradas.ok && saidas.ok
@@ -6864,8 +7529,11 @@
     window.criarReferenciaTipadaPagar = criarReferenciaTipadaPagar;
     window.criarEntradaCadastroFornecedorPagar = criarEntradaCadastroFornecedorPagar;
     window.criarEntradaCriacaoContaPagar = criarEntradaCriacaoContaPagar;
+    window.criarComprovantePagamentoContaPagar = criarComprovantePagamentoContaPagar;
+    window.criarEntradaPagamentoContaPagar = criarEntradaPagamentoContaPagar;
     window.executarCadastroFornecedorTransacional = executarCadastroFornecedorTransacional;
     window.executarCriacaoContaPagarTransacional = executarCriacaoContaPagarTransacional;
+    window.executarPagamentoContaPagarTransacional = executarPagamentoContaPagarTransacional;
     window.obterProjecaoContasPagar = obterProjecaoContasPagar;
     window.obterProjecaoContaPagarPorReferencia = obterProjecaoContaPagarPorReferencia;
     window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;

@@ -1145,7 +1145,7 @@
             .map((item) => [item.clienteReferencia, item.clienteNome])).entries()]
             .sort((a, b) => compararTextoDeterministico(a[1], b[1])
                 || compararTextoDeterministico(a[0], b[0]));
-        select.innerHTML = '<option value="">Todos os clientes</option>' + opcoes.map(([referencia, nome]) => (
+        select.innerHTML = '<option value="">Todos os clientes e fornecedores</option>' + opcoes.map(([referencia, nome]) => (
             `<option value="${sanitizarTexto(referencia)}">${sanitizarTexto(nome)}</option>`)).join('');
         select.value = opcoes.some(([referencia]) => referencia === anterior) ? anterior : '';
     }
@@ -1156,7 +1156,7 @@
         const estornos = somarMovimentosFluxoCaixa(movimentos
             .filter((item) => item.natureza === 'saida'), (item) => item.valorCentavos);
         const projetado = somarMovimentosFluxoCaixa(movimentos
-            .filter((item) => item.natureza === 'previsto'), (item) => item.valorCentavos);
+            .filter((item) => item.natureza === 'previsto'), (item) => item.valorLiquidoCentavos);
         const conciliado = somarMovimentosFluxoCaixa(movimentos
             .filter((item) => item.natureza !== 'previsto' && item.situacaoConciliacao === 'conciliado'),
         (item) => item.valorCentavos);
@@ -1187,11 +1187,13 @@
             const chave = mensal ? item.competencia : item.data;
             if (!grupos.has(chave)) grupos.set(chave, { entrada: 0n, saida: 0n, previsto: 0n });
             const grupo = grupos.get(chave);
-            grupo[item.natureza] += BigInt(item.valorCentavos);
+            grupo[item.natureza] += BigInt(item.natureza === 'previsto'
+                ? item.valorLiquidoCentavos : item.valorCentavos);
         }
         return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([periodo, grupo]) => {
             const valores = [grupo.entrada, grupo.saida, grupo.previsto];
-            if (valores.some((valor) => valor > BigInt(Number.MAX_SAFE_INTEGER))) {
+            if (valores.some((valor) => valor > BigInt(Number.MAX_SAFE_INTEGER)
+                || valor < BigInt(Number.MIN_SAFE_INTEGER))) {
                 return { periodo, ok: false, entrada: 0, saida: 0, previsto: 0 };
             }
             return { periodo, ok: true, entrada: Number(grupo.entrada),
@@ -1204,7 +1206,7 @@
         if (!destino) return;
         const grupos = agruparMovimentosFluxoCaixa(movimentos, mensal);
         const maximo = grupos.reduce((maior, grupo) => grupo.ok
-            ? Math.max(maior, grupo.entrada, grupo.saida, grupo.previsto) : maior, 0);
+            ? Math.max(maior, Math.abs(grupo.entrada), Math.abs(grupo.saida), Math.abs(grupo.previsto)) : maior, 0);
         if (!grupos.length) {
             destino.innerHTML = '<p class="muted-note">Sem movimentos no período.</p>';
             return;
@@ -1212,12 +1214,12 @@
         destino.innerHTML = grupos.map((grupo) => {
             if (!grupo.ok) return `<div class="fluxo-caixa-serie-linha"><strong>${sanitizarTexto(grupo.periodo)}</strong><span>Valor indisponível</span></div>`;
             const percentual = (valor) => maximo > 0
-                ? Number((BigInt(valor) * 100n) / BigInt(maximo)) : 0;
+                ? Number((BigInt(Math.abs(valor)) * 100n) / BigInt(maximo)) : 0;
             return `<div class="fluxo-caixa-serie-linha">
                 <strong>${sanitizarTexto(grupo.periodo)}</strong>
                 <div class="fluxo-caixa-barras">
                     <span class="fluxo-barra entrada" style="--fluxo-barra:${percentual(grupo.entrada)}%" title="Entradas: ${formatarCentavosFluxoCaixa(grupo.entrada)}"></span>
-                    <span class="fluxo-barra saida" style="--fluxo-barra:${percentual(grupo.saida)}%" title="Estornos: ${formatarCentavosFluxoCaixa(grupo.saida)}"></span>
+                    <span class="fluxo-barra saida" style="--fluxo-barra:${percentual(grupo.saida)}%" title="Saídas: ${formatarCentavosFluxoCaixa(grupo.saida)}"></span>
                     <span class="fluxo-barra previsto" style="--fluxo-barra:${percentual(grupo.previsto)}%" title="Projetado: ${formatarCentavosFluxoCaixa(grupo.previsto)}"></span>
                 </div>
                 <small>${formatarCentavosFluxoCaixa(grupo.entrada)} · ${formatarCentavosFluxoCaixa(grupo.saida)} · ${formatarCentavosFluxoCaixa(grupo.previsto)}</small>
@@ -1269,14 +1271,16 @@
         renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', movimentosFluxoCaixaAtuais, true);
         tabela.innerHTML = movimentosFluxoCaixaAtuais.length ? movimentosFluxoCaixaAtuais.map((item) => {
             const argumento = encodeURIComponent(JSON.stringify([item.natureza, item.referencia]));
-            const valor = item.natureza === 'saida' ? -item.valorCentavos : item.valorCentavos;
+            const valor = item.valorLiquidoCentavos;
             const rotuloTipo = item.tipo === 'recebimento' ? 'Recebimento'
-                : item.tipo === 'estorno' ? 'Estorno' : 'Parcela prevista';
+                : item.tipo === 'estorno' ? 'Estorno'
+                    : item.tipo === 'pagamento_conta_pagar' ? 'Pagamento'
+                        : item.tipo === 'parcela_conta_pagar' ? 'Despesa prevista' : 'Parcela prevista';
             return `<tr><td>${formatarDataCurta(item.data)}</td><td>${sanitizarTexto(item.competencia)}</td>
                 <td>${rotuloTipo}</td><td>${sanitizarTexto(item.clienteNome)}</td>
                 <td>${sanitizarTexto(item.evento || '-')}<div class="table-cell-sub">${sanitizarTexto(item.locacaoReferencia)}</div></td>
                 <td>${sanitizarTexto(item.contaReferencia || 'Legado')}<div class="table-cell-sub">${sanitizarTexto(item.parcelaReferencia || '-')}</div></td>
-                <td class="fluxo-caixa-valor ${item.natureza}">${formatarCentavosFluxoCaixa(valor)}</td>
+                <td class="fluxo-caixa-valor ${item.direcao === 'saida' ? 'saida' : item.natureza}">${formatarCentavosFluxoCaixa(valor)}</td>
                 <td>${sanitizarTexto(item.situacaoFinanceira)}</td><td>${sanitizarTexto(item.situacaoConciliacao)}</td>
                 <td>${sanitizarTexto(item.origem)}</td><td><button type="button" class="btn btn-sm btn-info table-action-btn" data-action="abrirDetalhesFluxoCaixa" data-arg="${sanitizarTexto(argumento)}" aria-label="Ver detalhes do movimento de ${sanitizarTexto(item.clienteNome)}"><i class="bi bi-eye"></i></button></td></tr>`;
         }).join('') : '<tr><td colspan="11">Nenhum movimento encontrado.</td></tr>';

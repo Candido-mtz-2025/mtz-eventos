@@ -72,6 +72,11 @@
                 coletar(parcela.lancamentosFinanceiros);
             });
         });
+        (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
+            (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
+                coletar(parcela.pagamentos);
+            });
+        });
         return alvos;
     }
 
@@ -106,6 +111,11 @@
                 'eventoReferencia', 'operacaoId']);
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
+                (Array.isArray(parcela.pagamentos) ? parcela.pagamentos : []).forEach((pagamento) => {
+                    proteger(pagamento, ['id', 'pagamentoId', 'pagamentoReferencia', 'operacaoId',
+                        'contaPagarReferencia', 'parcelaReferencia', 'fornecedorReferencia',
+                        'propostaReferencia', 'locacaoReferencia']);
+                });
             });
         });
         (Array.isArray(estado?.conciliacoesFinanceiras) ? estado.conciliacoesFinanceiras : []).forEach((registro) => {

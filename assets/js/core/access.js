@@ -86,6 +86,7 @@ function temPermissao(acao) {
         'editar_fornecedor',
         'visualizar_contas_pagar',
         'criar_conta_pagar',
+        'pagar_conta',
         'cancelar_locacao',
         'configuracao'
     ]);

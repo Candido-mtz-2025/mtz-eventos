@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.68">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.69">
 </head>
 <body>
 
@@ -2111,7 +2111,7 @@
                     <div class="section-toolbar">
                         <div>
                             <h3 id="fluxoCaixaTitulo">Fluxo de Caixa</h3>
-                            <p class="muted-note">Entradas e estornos realizados, saldos previstos e qualificação da conciliação.</p>
+                            <p class="muted-note">Entradas e saídas realizadas, saldos previstos e qualificação da conciliação.</p>
                         </div>
                         <div class="inline-chip-row">
                             <button type="button" class="btn btn-secondary btn-sm" data-action="exportarFluxoCaixaCsv"><i class="bi bi-file-earmark-spreadsheet"></i> Exportar</button>
@@ -2123,17 +2123,17 @@
                     <div id="fluxoCaixaConteudo">
                         <div class="locacao-kpi-grid fluxo-caixa-kpis" aria-label="Indicadores do fluxo de caixa">
                             <div class="locacao-kpi-card" data-tone="aberto"><small>Entradas realizadas</small><strong id="fluxoKpiEntradas">R$ 0,00</strong></div>
-                            <div class="locacao-kpi-card" data-tone="atrasado"><small>Estornos</small><strong id="fluxoKpiEstornos">R$ 0,00</strong></div>
+                            <div class="locacao-kpi-card" data-tone="atrasado"><small>Saídas realizadas</small><strong id="fluxoKpiEstornos">R$ 0,00</strong></div>
                             <div class="locacao-kpi-card" data-tone="total"><small>Realizado líquido</small><strong id="fluxoKpiLiquido">R$ 0,00</strong></div>
-                            <div class="locacao-kpi-card" data-tone="pendente"><small>Entradas projetadas</small><strong id="fluxoKpiProjetado">R$ 0,00</strong></div>
+                            <div class="locacao-kpi-card" data-tone="pendente"><small>Projetado líquido</small><strong id="fluxoKpiProjetado">R$ 0,00</strong></div>
                             <div class="locacao-kpi-card" data-tone="info"><small>Total conciliado</small><strong id="fluxoKpiConciliado">R$ 0,00</strong></div>
                             <div class="locacao-kpi-card" data-tone="neutro"><small>Pendente / divergente</small><strong id="fluxoKpiPendencias">0 / 0</strong></div>
                         </div>
 
                         <div class="cadastros-search-toolbar fluxo-caixa-filtros" aria-label="Filtros do fluxo de caixa">
-                            <input id="buscaFluxoCaixa" class="search-input" type="search" placeholder="Buscar cliente, evento, conta ou parcela" data-input="renderFluxoCaixa">
-                            <select id="fluxoCaixaCliente" aria-label="Filtrar por cliente" data-change="renderFluxoCaixa"><option value="">Todos os clientes</option></select>
-                            <select id="fluxoCaixaNatureza" aria-label="Filtrar por natureza" data-change="renderFluxoCaixa"><option value="todos">Realizado e projetado</option><option value="entrada">Entradas realizadas</option><option value="saida">Estornos</option><option value="previsto">Entradas projetadas</option></select>
+                            <input id="buscaFluxoCaixa" class="search-input" type="search" placeholder="Buscar cliente, fornecedor, evento, conta ou parcela" data-input="renderFluxoCaixa">
+                            <select id="fluxoCaixaCliente" aria-label="Filtrar por cliente ou fornecedor" data-change="renderFluxoCaixa"><option value="">Todos os clientes e fornecedores</option></select>
+                            <select id="fluxoCaixaNatureza" aria-label="Filtrar por natureza" data-change="renderFluxoCaixa"><option value="todos">Realizado e projetado</option><option value="entrada">Entradas realizadas</option><option value="saida">Saídas realizadas</option><option value="previsto">Movimentos projetados</option></select>
                             <select id="fluxoCaixaSituacao" aria-label="Filtrar por situação financeira" data-change="renderFluxoCaixa"><option value="todos">Todas as situações</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option><option value="vencida">Vencida</option><option value="paga">Paga</option></select>
                             <select id="fluxoCaixaConciliacao" aria-label="Filtrar por conciliação" data-change="renderFluxoCaixa"><option value="todos">Todas as conciliações</option><option value="pendente">Pendente</option><option value="conciliado">Conciliado</option><option value="divergente">Divergente</option><option value="nao_aplicavel">Não aplicável</option></select>
                             <label class="fluxo-caixa-data"><span>De</span><input id="fluxoCaixaInicio" type="date" data-change="renderFluxoCaixa"></label>
@@ -2149,7 +2149,7 @@
 
                         <div class="table-responsive fluxo-caixa-tabela">
                             <table class="table">
-                                <thead><tr><th>Data</th><th>Competência</th><th>Tipo</th><th>Cliente</th><th>Evento / locação</th><th>Conta / parcela</th><th>Valor</th><th>Financeiro</th><th>Conciliação</th><th>Origem</th><th class="col-actions">Ação</th></tr></thead>
+                                <thead><tr><th>Data</th><th>Competência</th><th>Tipo</th><th>Cliente / fornecedor</th><th>Evento / locação</th><th>Conta / parcela</th><th>Valor</th><th>Financeiro</th><th>Conciliação</th><th>Origem</th><th class="col-actions">Ação</th></tr></thead>
                                 <tbody id="tblFluxoCaixa"></tbody>
                             </table>
                         </div>
@@ -3113,7 +3113,7 @@
     <div id="modalContaPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="contaPagarTitulo" aria-describedby="contaPagarDescricaoAjuda" tabindex="-1">
         <div class="modal-content modal-xl contas-pagar-modal">
             <div class="modal-header"><h3 id="contaPagarTitulo">Nova conta a pagar</h3><button type="button" class="btn-close-modal" data-action="fecharCriacaoContaPagar" aria-label="Fechar criação da conta"><i class="bi bi-x-lg"></i></button></div>
-            <p id="contaPagarDescricaoAjuda" class="muted-note">Informe a despesa e o parcelamento. Pagamentos serão tratados em uma etapa posterior.</p>
+            <p id="contaPagarDescricaoAjuda" class="muted-note">Informe a despesa e o parcelamento.</p>
             <form id="formContaPagar" novalidate>
                 <div class="form-row"><div class="form-group"><label for="contaPagarFornecedor">Fornecedor</label><select id="contaPagarFornecedor" required aria-describedby="contaPagarErro"><option value="">Selecione...</option></select></div><div class="form-group"><label for="contaPagarDescricao">Descrição</label><input id="contaPagarDescricao" type="text" maxlength="500" required aria-describedby="contaPagarErro"></div></div>
                 <div class="form-row"><div class="form-group"><label for="contaPagarCategoria">Categoria</label><input id="contaPagarCategoria" type="text" maxlength="200" required aria-describedby="contaPagarErro"></div><div class="form-group"><label for="contaPagarCentroCusto">Centro de custo</label><input id="contaPagarCentroCusto" type="text" maxlength="200" required aria-describedby="contaPagarErro"></div><div class="form-group"><label for="contaPagarOrigem">Origem</label><input id="contaPagarOrigem" type="text" maxlength="100" required aria-describedby="contaPagarErro"></div></div>
@@ -3130,9 +3130,30 @@
         <div class="modal-content modal-xl contas-pagar-modal">
             <div class="modal-header"><h3 id="detalhesContaPagarTitulo">Detalhes da conta a pagar</h3><button id="fecharDetalhesContaPagarBotao" type="button" class="btn-close-modal" data-action="fecharDetalhesContaPagar" aria-label="Fechar detalhes"><i class="bi bi-x-lg"></i></button></div>
             <p id="detalhesContaPagarResumo" class="muted-note"></p>
-            <div class="table-responsive"><table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Original</th><th>Pago</th><th>Saldo</th><th>Situação</th></tr></thead><tbody id="detalhesContaPagarParcelas"></tbody></table></div>
+            <div class="table-responsive"><table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Original</th><th>Pago</th><th>Saldo</th><th>Situação</th><th>Ação</th></tr></thead><tbody id="detalhesContaPagarParcelas"></tbody></table></div>
+            <h4>Pagamentos</h4><pre id="detalhesContaPagarPagamentos" class="contas-pagar-historico"></pre>
             <h4>Histórico</h4><pre id="detalhesContaPagarHistorico" class="contas-pagar-historico"></pre>
             <div class="inline-chip-row modal-actions"><button type="button" class="btn btn-secondary" data-action="fecharDetalhesContaPagar">Fechar</button></div>
+        </div>
+    </div>
+
+    <div id="modalPagamentoContaPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pagamentoContaPagarTitulo" aria-describedby="pagamentoContaPagarDescricaoAjuda" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header"><h3 id="pagamentoContaPagarTitulo">Registrar pagamento</h3><button type="button" class="btn-close-modal" data-action="fecharPagamentoContaPagar" aria-label="Fechar pagamento"><i class="bi bi-x-lg"></i></button></div>
+            <p id="pagamentoContaPagarDescricaoAjuda" class="muted-note">Registre o pagamento parcial ou total da parcela selecionada.</p>
+            <p id="pagamentoContaPagarResumo"></p>
+            <div class="pagamento-modal-kpi"><small>Saldo da parcela</small><strong id="pagamentoContaPagarSaldo">R$ 0,00</strong></div>
+            <form id="formPagamentoContaPagar" novalidate>
+                <div class="form-row"><div class="form-group"><label for="pagamentoContaPagarValor">Valor</label><input id="pagamentoContaPagarValor" type="text" inputmode="decimal" placeholder="0,00" required aria-describedby="pagamentoContaPagarErro"></div><div class="form-group"><label for="pagamentoContaPagarData">Data do pagamento</label><input id="pagamentoContaPagarData" type="date" required aria-describedby="pagamentoContaPagarErro"></div></div>
+                <div class="form-row"><div class="form-group"><label for="pagamentoContaPagarForma">Forma de pagamento</label><select id="pagamentoContaPagarForma" aria-describedby="pagamentoContaPagarErro"><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option><option value="outro">Outro</option></select></div><div class="form-group"><label for="pagamentoContaPagarDescricao">Descrição</label><input id="pagamentoContaPagarDescricao" type="text" maxlength="1000" aria-describedby="pagamentoContaPagarErro"></div></div>
+                <fieldset class="contas-pagar-vinculos"><legend>Comprovante opcional</legend>
+                    <div class="form-row"><div class="form-group"><label for="pagamentoContaPagarComprovanteNome">Nome do arquivo</label><input id="pagamentoContaPagarComprovanteNome" type="text" maxlength="160" aria-describedby="pagamentoContaPagarErro"></div><div class="form-group"><label for="pagamentoContaPagarComprovanteMime">Tipo</label><select id="pagamentoContaPagarComprovanteMime" aria-describedby="pagamentoContaPagarErro"><option value="">Selecione...</option><option value="application/pdf">PDF</option><option value="image/png">PNG</option><option value="image/jpeg">JPEG</option></select></div></div>
+                    <div class="form-row"><div class="form-group"><label for="pagamentoContaPagarComprovanteTamanho">Tamanho em bytes</label><input id="pagamentoContaPagarComprovanteTamanho" type="text" inputmode="numeric" aria-describedby="pagamentoContaPagarErro"></div><div class="form-group"><label for="pagamentoContaPagarComprovanteHash">SHA-256</label><input id="pagamentoContaPagarComprovanteHash" type="text" maxlength="64" aria-describedby="pagamentoContaPagarErro"></div></div>
+                    <div class="form-group"><label for="pagamentoContaPagarComprovanteReferencia">Referência externa</label><input id="pagamentoContaPagarComprovanteReferencia" type="text" maxlength="1000" placeholder="https://... ou future:identificador" aria-describedby="pagamentoContaPagarErro"></div>
+                </fieldset>
+                <p id="pagamentoContaPagarErro" class="validation-message" role="alert" aria-live="assertive" data-pagar-erro hidden></p>
+                <div class="inline-chip-row modal-actions"><button type="button" class="btn btn-secondary" data-action="fecharPagamentoContaPagar">Cancelar</button><button type="submit" id="pagamentoContaPagarConfirmar" class="btn btn-primary">Registrar pagamento</button></div>
+            </form>
         </div>
     </div>
 
@@ -3249,13 +3270,13 @@
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.3"></script>
+    <script src="./assets/js/core/access.js?v=1.4"></script>
     <script src="./assets/js/core/migrations.js?v=12.15"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.15"></script>
-<script src="./assets/js/core/transaction-services.js?v=2.25"></script>
+<script src="./assets/js/core/transaction-services.js?v=2.28"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.4"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.7"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.8"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.22"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
@@ -3278,10 +3299,10 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=3.2"></script>
-    <script src="./assets/js/render/contas-pagar.js?v=1.1"></script>
+    <script src="./assets/js/render/novas-abas.js?v=3.3"></script>
+    <script src="./assets/js/render/contas-pagar.js?v=1.3"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
-    <script src="./assets/js/core/app.js?v=23.16"></script>
+    <script src="./assets/js/core/app.js?v=23.17"></script>
         
 </body>
 </html>

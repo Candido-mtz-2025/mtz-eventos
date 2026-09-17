@@ -37,7 +37,7 @@ const TAB_TOPBAR_CONFIG = {
     devolucoes: { icon: 'bi-arrow-return-left', titulo: 'Devoluções', descricao: 'Conferência e fechamento de retorno.', meta: 'Pós-operação' },
     orcamentos: { icon: 'bi-file-earmark-text', titulo: 'Orçamentos', descricao: 'Propostas comerciais e pré-vendas.', meta: 'Comercial' },
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
-    'fluxo-caixa': { icon: 'bi-bar-chart-line', titulo: 'Fluxo de Caixa', descricao: 'Entradas realizadas e recebimentos projetados.', meta: 'Tesouraria' },
+    'fluxo-caixa': { icon: 'bi-bar-chart-line', titulo: 'Fluxo de Caixa', descricao: 'Entradas, saídas e movimentos projetados.', meta: 'Tesouraria' },
     'contas-pagar': { icon: 'bi-receipt-cutoff', titulo: 'Contas a Pagar', descricao: 'Fornecedores, despesas e vencimentos.', meta: 'Financeiro' },
     agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
     transporte: { icon: 'bi-truck-front', titulo: 'Transporte', descricao: 'Rotas, veículos, motoristas e custo por km.', meta: 'Logística' },

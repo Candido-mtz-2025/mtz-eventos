@@ -24361,7 +24361,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 
 #modalFornecedorPagar .modal-actions,
 #modalContaPagar .modal-actions,
-#modalDetalhesContaPagar .modal-actions {
+#modalDetalhesContaPagar .modal-actions,
+#modalPagamentoContaPagar .modal-actions {
     justify-content: flex-end;
     margin-top: 18px;
 }
@@ -24381,7 +24382,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
     #tab-contas-pagar .contas-pagar-filtros { grid-template-columns: 1fr; }
     #modalFornecedorPagar .modal-content,
     #modalContaPagar .modal-content,
-    #modalDetalhesContaPagar .modal-content {
+    #modalDetalhesContaPagar .modal-content,
+    #modalPagamentoContaPagar .modal-content {
         width: 100%;
         max-width: 100%;
     }

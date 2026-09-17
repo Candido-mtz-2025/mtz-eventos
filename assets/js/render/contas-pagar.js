@@ -4,6 +4,7 @@
 
     let sessaoFornecedor = null;
     let sessaoConta = null;
+    let sessaoPagamento = null;
     let acionadorModal = null;
     let emProcessamento = false;
     const modaisRegistrados = new Set();
@@ -182,7 +183,10 @@
     }
 
     function executarEfeitosPagar(resultado) {
-        if (resultado?.efeitos?.renderizar) renderContasPagar();
+        if (resultado?.efeitos?.renderizar) {
+            renderContasPagar();
+            if (typeof renderFluxoCaixa === 'function') renderFluxoCaixa();
+        }
         if (resultado?.efeitos?.sincronizar && typeof sincronizar === 'function') sincronizar('salvar');
         if (resultado?.avisos?.some((aviso) => aviso.codigo === 'METADADO_SYNC_PENDENTE')
             && typeof mostrarToast === 'function') mostrarToast('Registro confirmado; sincronização pendente.', 'info');
@@ -404,15 +408,23 @@
         const item = encontrados[0];
         const modal = document.getElementById('modalDetalhesContaPagar');
         document.getElementById('detalhesContaPagarResumo').textContent = `${item.fornecedor.nome} · ${item.conta.descricao} · ${formatarCentavosPagar(item.totalCentavos)}`;
+        const podePagar = typeof temPermissao !== 'function' || temPermissao('pagar_conta');
         document.getElementById('detalhesContaPagarParcelas').innerHTML = item.conta.parcelas.map((parcela) => {
             const situacao = parcela.saldoCentavos === 0 ? 'paga'
-                : parcela.vencimento < hojeLocalPagar() ? 'vencida'
-                    : parcela.pagoCentavos > 0 ? 'parcial' : 'pendente';
+                : parcela.pagoCentavos > 0 ? 'parcial'
+                    : parcela.vencimento < hojeLocalPagar() ? 'vencida' : 'pendente';
+            const argumento = encodeURIComponent(JSON.stringify([item.referencia, parcela.parcelaReferencia]));
+            const acao = podePagar && item.conta.situacaoAdministrativa === 'ativa' && parcela.saldoCentavos > 0
+                ? `<button type="button" class="btn btn-sm btn-primary" data-action="abrirPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Registrar pagamento</button>` : '';
             return (
             `<tr><td>${parcela.numero}/${parcela.totalParcelas}</td><td>${escaparPagar(parcela.vencimento)}</td>
             <td>${formatarCentavosPagar(parcela.originalCentavos)}</td><td>${formatarCentavosPagar(parcela.pagoCentavos)}</td>
-            <td>${formatarCentavosPagar(parcela.saldoCentavos)}</td><td>${escaparPagar(situacao)}</td></tr>`);
+            <td>${formatarCentavosPagar(parcela.saldoCentavos)}</td><td>${escaparPagar(situacao)}</td><td>${acao}</td></tr>`);
         }).join('');
+        document.getElementById('detalhesContaPagarPagamentos').textContent = item.conta.parcelas
+            .flatMap((parcela) => parcela.pagamentos.map((pagamento) => (
+                `${pagamento.dataPagamento} · ${formatarCentavosPagar(pagamento.valorPagoCentavos)} · ${pagamento.formaPagamento} · ${pagamento.responsavel}`)))
+            .join('\n') || 'Sem pagamentos.';
         document.getElementById('detalhesContaPagarHistorico').textContent = (item.conta.historico || [])
             .map((registro) => `${registro.data} · ${registro.acao} · ${registro.usuario}`).join('\n') || 'Sem histórico.';
         registrarModalPagar('modalDetalhesContaPagar', fecharDetalhesContaPagar);
@@ -421,6 +433,108 @@
 
     function fecharDetalhesContaPagar() {
         return fecharModalPagar('modalDetalhesContaPagar');
+    }
+
+    function resolverArgumentoPagamentoPagar(argumento) {
+        if (typeof argumento !== 'string') return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(argumento));
+            if (!Array.isArray(dados) || dados.length !== 2
+                || dados.some((item) => typeof item !== 'string' || !item)) return null;
+            return { contaReferencia: dados[0], parcelaReferencia: dados[1] };
+        } catch (_erro) { return null; }
+    }
+
+    function abrirPagamentoContaPagar(argumento) {
+        if (sessaoPagamento || emProcessamento) return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('pagar_conta', 'Você não possui permissão para pagar contas.')) return false;
+        const alvo = resolverArgumentoPagamentoPagar(argumento);
+        if (!alvo || typeof obterProjecaoContaPagarPorReferencia !== 'function') return false;
+        const resolvida = obterProjecaoContaPagarPorReferencia(
+            alvo.contaReferencia, estadoPagar(), hojeLocalPagar());
+        const conta = resolvida?.conta?.conta;
+        if (!resolvida?.ok || !conta || conta.situacaoAdministrativa !== 'ativa') return false;
+        const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === alvo.parcelaReferencia);
+        if (parcelas.length !== 1 || parcelas[0].saldoCentavos <= 0) return false;
+        const parcela = parcelas[0];
+        sessaoPagamento = { ...alvo, operacaoId: operacaoIdPagar('pagamento-conta-pagar') };
+        document.getElementById('formPagamentoContaPagar')?.reset();
+        document.getElementById('pagamentoContaPagarResumo').textContent = `${conta.descricao} · Parcela ${parcela.numero}/${parcela.totalParcelas}`;
+        document.getElementById('pagamentoContaPagarSaldo').textContent = formatarCentavosPagar(parcela.saldoCentavos);
+        document.getElementById('pagamentoContaPagarData').value = hojeLocalPagar();
+        registrarModalPagar('modalPagamentoContaPagar', fecharPagamentoContaPagar, confirmarPagamentoContaPagar);
+        fecharModalPagar('modalDetalhesContaPagar');
+        return abrirModalPagar('modalPagamentoContaPagar', 'pagamentoContaPagarValor');
+    }
+
+    function fecharPagamentoContaPagar() {
+        if (!fecharModalPagar('modalPagamentoContaPagar')) return false;
+        sessaoPagamento = null;
+        return true;
+    }
+
+    function comprovantePagamentoPagar() {
+        const nome = document.getElementById('pagamentoContaPagarComprovanteNome')?.value || '';
+        const mime = document.getElementById('pagamentoContaPagarComprovanteMime')?.value || '';
+        const tamanhoTexto = document.getElementById('pagamentoContaPagarComprovanteTamanho')?.value || '';
+        const hash = document.getElementById('pagamentoContaPagarComprovanteHash')?.value || '';
+        const referencia = document.getElementById('pagamentoContaPagarComprovanteReferencia')?.value || '';
+        if (![nome, mime, tamanhoTexto, hash, referencia].some((item) => item !== '')) return null;
+        if (!/^\d+$/.test(tamanhoTexto)) return false;
+        const tamanhoBig = BigInt(tamanhoTexto);
+        if (tamanhoBig > BigInt(Number.MAX_SAFE_INTEGER)) return false;
+        if (typeof criarComprovantePagamentoContaPagar !== 'function') return false;
+        return criarComprovantePagamentoContaPagar(nome, mime, Number(tamanhoBig), hash, referencia) || false;
+    }
+
+    function confirmarPagamentoContaPagar() {
+        if (!sessaoPagamento || emProcessamento) return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('pagar_conta', 'Você não possui permissão para pagar contas.')) return false;
+        const valor = document.getElementById('pagamentoContaPagarValor');
+        const forma = document.getElementById('pagamentoContaPagarForma');
+        const comprovante = comprovantePagamentoPagar();
+        if (comprovante === false) {
+            definirErroPagar('modalPagamentoContaPagar', 'Confira os metadados do comprovante.',
+                document.getElementById('pagamentoContaPagarComprovanteTamanho'));
+            return false;
+        }
+        const agora = agoraIsoPagar();
+        const metadados = metadadosPagar(agora);
+        const entrada = typeof criarEntradaPagamentoContaPagar === 'function'
+            ? criarEntradaPagamentoContaPagar(sessaoPagamento.contaReferencia,
+                sessaoPagamento.parcelaReferencia, valor?.value, document.getElementById('pagamentoContaPagarData')?.value,
+                forma?.value, document.getElementById('pagamentoContaPagarDescricao')?.value || '',
+                comprovante, sessaoPagamento.operacaoId, agora, usuarioPagar(), hojeLocalPagar(),
+                metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        if (!entrada || typeof executarPagamentoContaPagarTransacional !== 'function'
+            || typeof criarDependenciasExecutorContasPagar !== 'function') {
+            definirErroPagar('modalPagamentoContaPagar', 'Confira os dados do pagamento.', valor);
+            return false;
+        }
+        emProcessamento = true;
+        document.getElementById('pagamentoContaPagarConfirmar').disabled = true;
+        try {
+            const resultado = executarPagamentoContaPagarTransacional(entrada,
+                criarDependenciasExecutorContasPagar({ armazenamento: localStorage }));
+            executarEfeitosPagar(resultado);
+            if (resultado.ok && ['PAGAMENTO_CONTA_PAGAR_APLICADO', 'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+                emProcessamento = false;
+                fecharPagamentoContaPagar();
+                if (typeof mostrarToast === 'function') mostrarToast('Pagamento registrado.');
+                return true;
+            }
+            definirErroPagar('modalPagamentoContaPagar', resultado.requerRecuperacao
+                ? 'A operação exige recuperação explícita antes de continuar.'
+                : resultado.codigo === 'PAGAMENTO_ACIMA_DO_SALDO'
+                    ? 'O valor informado supera o saldo da parcela.'
+                    : 'Não foi possível registrar o pagamento.', valor);
+            return false;
+        } finally {
+            emProcessamento = false;
+            document.getElementById('pagamentoContaPagarConfirmar').disabled = false;
+        }
     }
 
     window.renderContasPagar = renderContasPagar;
@@ -432,4 +546,7 @@
     window.salvarContaPagar = salvarContaPagar;
     window.abrirDetalhesContaPagar = abrirDetalhesContaPagar;
     window.fecharDetalhesContaPagar = fecharDetalhesContaPagar;
+    window.abrirPagamentoContaPagar = abrirPagamentoContaPagar;
+    window.fecharPagamentoContaPagar = fecharPagamentoContaPagar;
+    window.confirmarPagamentoContaPagar = confirmarPagamentoContaPagar;
 })();
