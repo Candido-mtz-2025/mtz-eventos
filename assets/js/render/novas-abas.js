@@ -1275,7 +1275,8 @@
             const rotuloTipo = item.tipo === 'recebimento' ? 'Recebimento'
                 : item.tipo === 'estorno' ? 'Estorno'
                     : item.tipo === 'pagamento_conta_pagar' ? 'Pagamento'
-                        : item.tipo === 'parcela_conta_pagar' ? 'Despesa prevista' : 'Parcela prevista';
+                        : item.tipo === 'estorno_pagamento_conta_pagar' ? 'Estorno de pagamento'
+                            : item.tipo === 'parcela_conta_pagar' ? 'Despesa prevista' : 'Parcela prevista';
             return `<tr><td>${formatarDataCurta(item.data)}</td><td>${sanitizarTexto(item.competencia)}</td>
                 <td>${rotuloTipo}</td><td>${sanitizarTexto(item.clienteNome)}</td>
                 <td>${sanitizarTexto(item.evento || '-')}<div class="table-cell-sub">${sanitizarTexto(item.locacaoReferencia)}</div></td>

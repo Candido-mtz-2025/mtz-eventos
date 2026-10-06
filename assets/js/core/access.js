@@ -87,6 +87,7 @@ function temPermissao(acao) {
         'visualizar_contas_pagar',
         'criar_conta_pagar',
         'pagar_conta',
+        'estornar_pagamento_conta',
         'cancelar_locacao',
         'configuracao'
     ]);

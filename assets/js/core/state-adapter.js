@@ -75,6 +75,7 @@
         (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 coletar(parcela.pagamentos);
+                coletar(parcela.estornos);
             });
         });
         return alvos;
@@ -115,6 +116,12 @@
                     proteger(pagamento, ['id', 'pagamentoId', 'pagamentoReferencia', 'operacaoId',
                         'contaPagarReferencia', 'parcelaReferencia', 'fornecedorReferencia',
                         'propostaReferencia', 'locacaoReferencia']);
+                });
+                (Array.isArray(parcela.estornos) ? parcela.estornos : []).forEach((estorno) => {
+                    proteger(estorno, ['id', 'estornoPagamentoId', 'estornoPagamentoReferencia',
+                        'pagamentoOriginalReferencia', 'operacaoId', 'contaPagarReferencia',
+                        'parcelaReferencia', 'fornecedorReferencia', 'propostaReferencia',
+                        'locacaoReferencia']);
                 });
             });
         });

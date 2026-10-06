@@ -5,6 +5,7 @@
     let sessaoFornecedor = null;
     let sessaoConta = null;
     let sessaoPagamento = null;
+    let sessaoEstorno = null;
     let acionadorModal = null;
     let emProcessamento = false;
     const modaisRegistrados = new Set();
@@ -421,10 +422,30 @@
             <td>${formatarCentavosPagar(parcela.originalCentavos)}</td><td>${formatarCentavosPagar(parcela.pagoCentavos)}</td>
             <td>${formatarCentavosPagar(parcela.saldoCentavos)}</td><td>${escaparPagar(situacao)}</td><td>${acao}</td></tr>`);
         }).join('');
-        document.getElementById('detalhesContaPagarPagamentos').textContent = item.conta.parcelas
-            .flatMap((parcela) => parcela.pagamentos.map((pagamento) => (
-                `${pagamento.dataPagamento} · ${formatarCentavosPagar(pagamento.valorPagoCentavos)} · ${pagamento.formaPagamento} · ${pagamento.responsavel}`)))
-            .join('\n') || 'Sem pagamentos.';
+        const podeEstornar = typeof temPermissao !== 'function'
+            || temPermissao('estornar_pagamento_conta');
+        document.getElementById('detalhesContaPagarPagamentos').innerHTML = item.conta.parcelas
+            .flatMap((parcela) => parcela.pagamentos.map((pagamento) => {
+                const estornos = (Array.isArray(parcela.estornos) ? parcela.estornos : [])
+                    .filter((estorno) => estorno.pagamentoOriginalReferencia === pagamento.pagamentoReferencia);
+                const estornado = estornos.reduce((total, estorno) => total + estorno.valorEstornoCentavos, 0);
+                const disponivel = pagamento.valorPagoCentavos - estornado;
+                const argumento = encodeURIComponent(JSON.stringify([
+                    item.referencia, parcela.parcelaReferencia, pagamento.pagamentoReferencia
+                ]));
+                const acao = podeEstornar && item.conta.situacaoAdministrativa === 'ativa' && disponivel > 0
+                    ? `<button type="button" class="btn btn-sm btn-warning" data-action="abrirEstornoPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Estornar</button>` : '';
+                const listaEstornos = estornos.length
+                    ? `<ul>${estornos.map((estorno) => `<li>${escaparPagar(estorno.dataEstorno)} · ${formatarCentavosPagar(estorno.valorEstornoCentavos)} · ${escaparPagar(estorno.motivo)}</li>`).join('')}</ul>`
+                    : '<span class="muted-note">Sem estornos.</span>';
+                return `<article class="contas-pagar-pagamento-item">
+                    <div><strong>${escaparPagar(pagamento.dataPagamento)} · ${formatarCentavosPagar(pagamento.valorPagoCentavos)}</strong>
+                    <span>${escaparPagar(pagamento.formaPagamento)} · ${escaparPagar(pagamento.responsavel)}</span></div>
+                    <dl><div><dt>Pago</dt><dd>${formatarCentavosPagar(pagamento.valorPagoCentavos)}</dd></div>
+                    <div><dt>Estornado</dt><dd>${formatarCentavosPagar(estornado)}</dd></div>
+                    <div><dt>Disponível</dt><dd>${formatarCentavosPagar(disponivel)}</dd></div></dl>
+                    ${acao}${listaEstornos}</article>`;
+            })).join('') || '<p>Sem pagamentos.</p>';
         document.getElementById('detalhesContaPagarHistorico').textContent = (item.conta.historico || [])
             .map((registro) => `${registro.data} · ${registro.acao} · ${registro.usuario}`).join('\n') || 'Sem histórico.';
         registrarModalPagar('modalDetalhesContaPagar', fecharDetalhesContaPagar);
@@ -474,12 +495,12 @@
         return true;
     }
 
-    function comprovantePagamentoPagar() {
-        const nome = document.getElementById('pagamentoContaPagarComprovanteNome')?.value || '';
-        const mime = document.getElementById('pagamentoContaPagarComprovanteMime')?.value || '';
-        const tamanhoTexto = document.getElementById('pagamentoContaPagarComprovanteTamanho')?.value || '';
-        const hash = document.getElementById('pagamentoContaPagarComprovanteHash')?.value || '';
-        const referencia = document.getElementById('pagamentoContaPagarComprovanteReferencia')?.value || '';
+    function comprovantePagamentoPagar(prefixo = 'pagamentoContaPagar') {
+        const nome = document.getElementById(`${prefixo}ComprovanteNome`)?.value || '';
+        const mime = document.getElementById(`${prefixo}ComprovanteMime`)?.value || '';
+        const tamanhoTexto = document.getElementById(`${prefixo}ComprovanteTamanho`)?.value || '';
+        const hash = document.getElementById(`${prefixo}ComprovanteHash`)?.value || '';
+        const referencia = document.getElementById(`${prefixo}ComprovanteReferencia`)?.value || '';
         if (![nome, mime, tamanhoTexto, hash, referencia].some((item) => item !== '')) return null;
         if (!/^\d+$/.test(tamanhoTexto)) return false;
         const tamanhoBig = BigInt(tamanhoTexto);
@@ -537,6 +558,122 @@
         }
     }
 
+    function resolverArgumentoEstornoPagar(argumento) {
+        if (typeof argumento !== 'string') return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(argumento));
+            if (!Array.isArray(dados) || dados.length !== 3
+                || dados.some((item) => typeof item !== 'string' || !item)) return null;
+            return { contaReferencia: dados[0], parcelaReferencia: dados[1],
+                pagamentoOriginalReferencia: dados[2] };
+        } catch (_erro) { return null; }
+    }
+
+    function abrirEstornoPagamentoContaPagar(argumento) {
+        if (sessaoEstorno || emProcessamento) return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('estornar_pagamento_conta',
+                'Você não possui permissão para estornar pagamentos.')) return false;
+        const alvo = resolverArgumentoEstornoPagar(argumento);
+        if (!alvo || typeof obterProjecaoContaPagarPorReferencia !== 'function') return false;
+        const resolvida = obterProjecaoContaPagarPorReferencia(
+            alvo.contaReferencia, estadoPagar(), hojeLocalPagar());
+        const conta = resolvida?.conta?.conta;
+        if (!resolvida?.ok || !conta || conta.situacaoAdministrativa !== 'ativa') return false;
+        const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === alvo.parcelaReferencia);
+        if (parcelas.length !== 1) return false;
+        const parcela = parcelas[0];
+        const pagamentos = parcela.pagamentos.filter((item) => (
+            item?.pagamentoReferencia === alvo.pagamentoOriginalReferencia));
+        if (pagamentos.length !== 1) return false;
+        const pagamento = pagamentos[0];
+        const estornado = (Array.isArray(parcela.estornos) ? parcela.estornos : [])
+            .filter((item) => item?.pagamentoOriginalReferencia === pagamento.pagamentoReferencia)
+            .reduce((total, item) => total + item.valorEstornoCentavos, 0);
+        const disponivel = pagamento.valorPagoCentavos - estornado;
+        if (!Number.isSafeInteger(disponivel) || disponivel <= 0) return false;
+        sessaoEstorno = { ...alvo, operacaoId: operacaoIdPagar('estorno-pagamento-conta-pagar') };
+        document.getElementById('formEstornoPagamentoContaPagar')?.reset();
+        document.getElementById('estornoPagamentoContaPagarResumo').textContent
+            = `${conta.descricao} · Parcela ${parcela.numero}/${parcela.totalParcelas}`;
+        document.getElementById('estornoPagamentoContaPagarOriginal').textContent
+            = formatarCentavosPagar(pagamento.valorPagoCentavos);
+        document.getElementById('estornoPagamentoContaPagarJaEstornado').textContent
+            = formatarCentavosPagar(estornado);
+        document.getElementById('estornoPagamentoContaPagarDisponivel').textContent
+            = formatarCentavosPagar(disponivel);
+        document.getElementById('estornoPagamentoContaPagarData').value = hojeLocalPagar();
+        document.getElementById('estornoPagamentoContaPagarResponsavel').value = usuarioPagar();
+        registrarModalPagar('modalEstornoPagamentoContaPagar',
+            fecharEstornoPagamentoContaPagar, confirmarEstornoPagamentoContaPagar);
+        fecharModalPagar('modalDetalhesContaPagar');
+        return abrirModalPagar('modalEstornoPagamentoContaPagar', 'estornoPagamentoContaPagarValor');
+    }
+
+    function fecharEstornoPagamentoContaPagar() {
+        if (!fecharModalPagar('modalEstornoPagamentoContaPagar')) return false;
+        sessaoEstorno = null;
+        return true;
+    }
+
+    function confirmarEstornoPagamentoContaPagar() {
+        if (!sessaoEstorno || emProcessamento) return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('estornar_pagamento_conta',
+                'Você não possui permissão para estornar pagamentos.')) return false;
+        const valor = document.getElementById('estornoPagamentoContaPagarValor');
+        const motivo = document.getElementById('estornoPagamentoContaPagarMotivo');
+        if (typeof motivo?.value !== 'string' || motivo.value.trim() === '') {
+            definirErroPagar('modalEstornoPagamentoContaPagar',
+                'Informe o motivo do estorno.', motivo);
+            return false;
+        }
+        const comprovante = comprovantePagamentoPagar('estornoPagamentoContaPagar');
+        if (comprovante === false) {
+            definirErroPagar('modalEstornoPagamentoContaPagar',
+                'Confira os metadados do comprovante.',
+                document.getElementById('estornoPagamentoContaPagarComprovanteTamanho'));
+            return false;
+        }
+        const agora = agoraIsoPagar();
+        const metadados = metadadosPagar(agora);
+        const entrada = typeof criarEntradaEstornoPagamentoContaPagar === 'function'
+            ? criarEntradaEstornoPagamentoContaPagar(sessaoEstorno.contaReferencia,
+                sessaoEstorno.parcelaReferencia, sessaoEstorno.pagamentoOriginalReferencia,
+                valor?.value, document.getElementById('estornoPagamentoContaPagarData')?.value,
+                motivo?.value, comprovante, sessaoEstorno.operacaoId, agora, usuarioPagar(),
+                hojeLocalPagar(), metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        if (!entrada || typeof executarEstornoPagamentoContaPagarTransacional !== 'function'
+            || typeof criarDependenciasExecutorContasPagar !== 'function') {
+            definirErroPagar('modalEstornoPagamentoContaPagar',
+                'Confira os dados do estorno.', valor);
+            return false;
+        }
+        emProcessamento = true;
+        document.getElementById('estornoPagamentoContaPagarConfirmar').disabled = true;
+        try {
+            const resultado = executarEstornoPagamentoContaPagarTransacional(entrada,
+                criarDependenciasExecutorContasPagar({ armazenamento: localStorage }));
+            executarEfeitosPagar(resultado);
+            if (resultado.ok && ['ESTORNO_PAGAMENTO_CONTA_PAGAR_APLICADO',
+                'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+                emProcessamento = false;
+                fecharEstornoPagamentoContaPagar();
+                if (typeof mostrarToast === 'function') mostrarToast('Estorno registrado.');
+                return true;
+            }
+            definirErroPagar('modalEstornoPagamentoContaPagar', resultado.requerRecuperacao
+                ? 'A operação exige recuperação explícita antes de continuar.'
+                : resultado.codigo === 'ESTORNO_ACIMA_DO_DISPONIVEL'
+                    ? 'O valor supera o total disponível para estorno.'
+                    : 'Não foi possível registrar o estorno.', valor);
+            return false;
+        } finally {
+            emProcessamento = false;
+            document.getElementById('estornoPagamentoContaPagarConfirmar').disabled = false;
+        }
+    }
+
     window.renderContasPagar = renderContasPagar;
     window.abrirCadastroFornecedor = abrirCadastroFornecedor;
     window.fecharCadastroFornecedor = fecharCadastroFornecedor;
@@ -549,4 +686,7 @@
     window.abrirPagamentoContaPagar = abrirPagamentoContaPagar;
     window.fecharPagamentoContaPagar = fecharPagamentoContaPagar;
     window.confirmarPagamentoContaPagar = confirmarPagamentoContaPagar;
+    window.abrirEstornoPagamentoContaPagar = abrirEstornoPagamentoContaPagar;
+    window.fecharEstornoPagamentoContaPagar = fecharEstornoPagamentoContaPagar;
+    window.confirmarEstornoPagamentoContaPagar = confirmarEstornoPagamentoContaPagar;
 })();

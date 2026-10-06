@@ -24347,14 +24347,16 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 
 #tab-contas-pagar .contas-pagar-tabela table { min-width: 920px; }
 
-#modalContaPagar .contas-pagar-vinculos {
+#modalContaPagar .contas-pagar-vinculos,
+#modalEstornoPagamentoContaPagar .contas-pagar-vinculos {
     margin: 16px 0;
     padding: 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
 }
 
-#modalContaPagar .contas-pagar-vinculos legend {
+#modalContaPagar .contas-pagar-vinculos legend,
+#modalEstornoPagamentoContaPagar .contas-pagar-vinculos legend {
     padding: 0 6px;
     font-weight: 700;
 }
@@ -24362,7 +24364,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 #modalFornecedorPagar .modal-actions,
 #modalContaPagar .modal-actions,
 #modalDetalhesContaPagar .modal-actions,
-#modalPagamentoContaPagar .modal-actions {
+#modalPagamentoContaPagar .modal-actions,
+#modalEstornoPagamentoContaPagar .modal-actions {
     justify-content: flex-end;
     margin-top: 18px;
 }
@@ -24374,6 +24377,35 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
     overflow-wrap: anywhere;
 }
 
+.contas-pagar-pagamento-item {
+    display: grid;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color, #d9dee7);
+    white-space: normal;
+}
+
+.contas-pagar-pagamento-item > div,
+.contas-pagar-pagamento-item dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+}
+
+.contas-pagar-pagamento-item dl { margin: 0; }
+.contas-pagar-pagamento-item dl div { min-width: 110px; }
+.contas-pagar-pagamento-item dt { color: var(--text-muted); font-size: 12px; }
+.contas-pagar-pagamento-item dd { margin: 2px 0 0; font-weight: 700; }
+.contas-pagar-pagamento-item ul { margin: 0; padding-left: 20px; }
+
+.contas-pagar-estorno-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
 @media (max-width: 700px) {
     #tab-contas-pagar .section-toolbar,
     #tab-contas-pagar .inline-chip-row { align-items: stretch; }
@@ -24383,10 +24415,12 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
     #modalFornecedorPagar .modal-content,
     #modalContaPagar .modal-content,
     #modalDetalhesContaPagar .modal-content,
-    #modalPagamentoContaPagar .modal-content {
+    #modalPagamentoContaPagar .modal-content,
+    #modalEstornoPagamentoContaPagar .modal-content {
         width: 100%;
         max-width: 100%;
     }
+    .contas-pagar-estorno-kpis { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 701px) and (max-width: 1050px) {
