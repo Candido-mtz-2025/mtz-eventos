@@ -88,6 +88,9 @@ function temPermissao(acao) {
         'criar_conta_pagar',
         'pagar_conta',
         'estornar_pagamento_conta',
+        'alterar_vencimento_conta_pagar',
+        'cancelar_conta_pagar',
+        'encerrar_conta_pagar',
         'cancelar_locacao',
         'configuracao'
     ]);

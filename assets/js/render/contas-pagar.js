@@ -6,6 +6,8 @@
     let sessaoConta = null;
     let sessaoPagamento = null;
     let sessaoEstorno = null;
+    let sessaoOperacaoAdministrativa = null;
+    let acionadorOperacaoAdministrativa = null;
     let acionadorModal = null;
     let emProcessamento = false;
     const modaisRegistrados = new Set();
@@ -122,6 +124,7 @@
             if (!modal.classList.contains('active')) return;
             if (evento.key === 'Escape' && !emProcessamento) {
                 evento.preventDefault();
+                evento.stopPropagation();
                 fechar();
                 return;
             }
@@ -168,7 +171,7 @@
     }
 
     function abrirCadastroFornecedor() {
-        if (sessaoFornecedor || sessaoConta || emProcessamento) return false;
+        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('cadastrar_fornecedor', 'Você não possui permissão para cadastrar fornecedores.')) return false;
         sessaoFornecedor = { operacaoId: operacaoIdPagar('fornecedor') };
@@ -269,7 +272,7 @@
     }
 
     function abrirCriacaoContaPagar() {
-        if (sessaoFornecedor || sessaoConta || emProcessamento) return false;
+        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('criar_conta_pagar', 'Você não possui permissão para criar contas a pagar.')) return false;
         const fornecedores = fornecedoresValidos();
@@ -396,7 +399,7 @@
             : `<tr><td>${escaparPagar(item.fornecedor?.nome || 'Fornecedor indisponível')}</td>
                 <td>${escaparPagar(item.conta.descricao)}</td><td>${escaparPagar(item.conta.categoria)}</td>
                 <td>${escaparPagar(item.proximoVencimento || '-')}</td><td>${formatarCentavosPagar(item.totalCentavos)}</td>
-                <td>${formatarCentavosPagar(item.saldoCentavos)}</td><td><span class="badge badge-info">${escaparPagar(item.situacao)}</span></td>
+                <td>${formatarCentavosPagar(item.saldoCentavos)}</td><td><span class="badge badge-info">${escaparPagar(item.situacaoAdministrativa)}</span> <span class="badge">${escaparPagar(item.situacaoFinanceira)}</span></td>
                 <td><button type="button" class="btn btn-sm btn-info" data-action="abrirDetalhesContaPagar" data-arg="${escaparPagar(item.referencia)}" aria-label="Ver detalhes da conta"><i class="bi bi-list-check"></i></button></td></tr>`).join('')
             : '<tr><td colspan="8">Nenhuma conta a pagar encontrada.</td></tr>';
     }
@@ -409,18 +412,48 @@
         const item = encontrados[0];
         const modal = document.getElementById('modalDetalhesContaPagar');
         document.getElementById('detalhesContaPagarResumo').textContent = `${item.fornecedor.nome} · ${item.conta.descricao} · ${formatarCentavosPagar(item.totalCentavos)}`;
+        document.getElementById('detalhesContaPagarSituacoes').innerHTML
+            = `<span><small>Administrativa</small><strong>${escaparPagar(item.situacaoAdministrativa)}</strong></span>
+                <span><small>Financeira</small><strong>${escaparPagar(item.situacaoFinanceira)}</strong></span>`;
+        const contaAtiva = item.conta.situacaoAdministrativa === 'ativa';
+        const podeCancelar = typeof temPermissao !== 'function' || temPermissao('cancelar_conta_pagar');
+        const podeEncerrar = typeof temPermissao !== 'function' || temPermissao('encerrar_conta_pagar');
+        const argumentoConta = (acao) => escaparPagar(encodeURIComponent(JSON.stringify([
+            acao, item.referencia, ''
+        ])));
+        document.getElementById('detalhesContaPagarAcoes').innerHTML = contaAtiva
+            ? `${podeCancelar && item.conta.saldoCentavos > 0
+                ? `<button type="button" class="btn btn-warning" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoConta('cancelar_conta_pagar')}">Cancelar conta</button>` : ''}
+                ${podeEncerrar
+                ? `<button type="button" class="btn btn-secondary" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoConta('encerrar_conta_pagar')}">Encerrar conta</button>` : ''}` : '';
         const podePagar = typeof temPermissao !== 'function' || temPermissao('pagar_conta');
+        const podeAlterarVencimento = typeof temPermissao !== 'function'
+            || temPermissao('alterar_vencimento_conta_pagar');
         document.getElementById('detalhesContaPagarParcelas').innerHTML = item.conta.parcelas.map((parcela) => {
             const situacao = parcela.saldoCentavos === 0 ? 'paga'
                 : parcela.pagoCentavos > 0 ? 'parcial'
                     : parcela.vencimento < hojeLocalPagar() ? 'vencida' : 'pendente';
+            const situacaoAdministrativa = parcela.situacaoAdministrativa || 'ativa';
             const argumento = encodeURIComponent(JSON.stringify([item.referencia, parcela.parcelaReferencia]));
-            const acao = podePagar && item.conta.situacaoAdministrativa === 'ativa' && parcela.saldoCentavos > 0
-                ? `<button type="button" class="btn btn-sm btn-primary" data-action="abrirPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Registrar pagamento</button>` : '';
+            const argumentoAdministrativo = (acao) => escaparPagar(encodeURIComponent(JSON.stringify([
+                acao, item.referencia, parcela.parcelaReferencia
+            ])));
+            const acoes = [];
+            if (podePagar && contaAtiva && situacaoAdministrativa === 'ativa' && parcela.saldoCentavos > 0) {
+                acoes.push(`<button type="button" class="btn btn-sm btn-primary" data-action="abrirPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Registrar pagamento</button>`);
+            }
+            if (podeAlterarVencimento && contaAtiva && situacaoAdministrativa === 'ativa'
+                && parcela.saldoCentavos > 0) {
+                acoes.push(`<button type="button" class="btn btn-sm btn-secondary" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoAdministrativo('alterar_vencimento_conta_pagar')}">Alterar vencimento</button>`);
+            }
+            if (podeCancelar && contaAtiva && situacaoAdministrativa === 'ativa'
+                && parcela.saldoCentavos > 0) {
+                acoes.push(`<button type="button" class="btn btn-sm btn-warning" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoAdministrativo('cancelar_parcela_conta_pagar')}">Cancelar parcela</button>`);
+            }
             return (
             `<tr><td>${parcela.numero}/${parcela.totalParcelas}</td><td>${escaparPagar(parcela.vencimento)}</td>
             <td>${formatarCentavosPagar(parcela.originalCentavos)}</td><td>${formatarCentavosPagar(parcela.pagoCentavos)}</td>
-            <td>${formatarCentavosPagar(parcela.saldoCentavos)}</td><td>${escaparPagar(situacao)}</td><td>${acao}</td></tr>`);
+            <td>${formatarCentavosPagar(parcela.saldoCentavos)}</td><td><span class="badge badge-info">${escaparPagar(situacaoAdministrativa)}</span> ${escaparPagar(situacao)}</td><td><div class="contas-pagar-acoes-parcela">${acoes.join('')}</div></td></tr>`);
         }).join('');
         const podeEstornar = typeof temPermissao !== 'function'
             || temPermissao('estornar_pagamento_conta');
@@ -433,7 +466,8 @@
                 const argumento = encodeURIComponent(JSON.stringify([
                     item.referencia, parcela.parcelaReferencia, pagamento.pagamentoReferencia
                 ]));
-                const acao = podeEstornar && item.conta.situacaoAdministrativa === 'ativa' && disponivel > 0
+                const acao = podeEstornar && item.conta.situacaoAdministrativa === 'ativa'
+                    && (parcela.situacaoAdministrativa || 'ativa') === 'ativa' && disponivel > 0
                     ? `<button type="button" class="btn btn-sm btn-warning" data-action="abrirEstornoPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Estornar</button>` : '';
                 const listaEstornos = estornos.length
                     ? `<ul>${estornos.map((estorno) => `<li>${escaparPagar(estorno.dataEstorno)} · ${formatarCentavosPagar(estorno.valorEstornoCentavos)} · ${escaparPagar(estorno.motivo)}</li>`).join('')}</ul>`
@@ -447,7 +481,12 @@
                     ${acao}${listaEstornos}</article>`;
             })).join('') || '<p>Sem pagamentos.</p>';
         document.getElementById('detalhesContaPagarHistorico').textContent = (item.conta.historico || [])
-            .map((registro) => `${registro.data} · ${registro.acao} · ${registro.usuario}`).join('\n') || 'Sem histórico.';
+            .map((registro) => {
+                const vencimento = registro.acao === 'alterar_vencimento_conta_pagar'
+                    ? ` · ${registro.vencimentoAnterior} → ${registro.vencimentoNovo}` : '';
+                const motivo = registro.motivo ? ` · ${registro.motivo}` : '';
+                return `${registro.data} · ${registro.acao}${vencimento}${motivo} · ${registro.usuario || registro.responsavel}`;
+            }).join('\n') || 'Sem histórico.';
         registrarModalPagar('modalDetalhesContaPagar', fecharDetalhesContaPagar);
         return abrirModalPagar('modalDetalhesContaPagar', 'fecharDetalhesContaPagarBotao');
     }
@@ -467,7 +506,7 @@
     }
 
     function abrirPagamentoContaPagar(argumento) {
-        if (sessaoPagamento || emProcessamento) return false;
+        if (sessaoPagamento || sessaoOperacaoAdministrativa || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('pagar_conta', 'Você não possui permissão para pagar contas.')) return false;
         const alvo = resolverArgumentoPagamentoPagar(argumento);
@@ -477,7 +516,8 @@
         const conta = resolvida?.conta?.conta;
         if (!resolvida?.ok || !conta || conta.situacaoAdministrativa !== 'ativa') return false;
         const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === alvo.parcelaReferencia);
-        if (parcelas.length !== 1 || parcelas[0].saldoCentavos <= 0) return false;
+        if (parcelas.length !== 1 || parcelas[0].saldoCentavos <= 0
+            || (parcelas[0].situacaoAdministrativa || 'ativa') !== 'ativa') return false;
         const parcela = parcelas[0];
         sessaoPagamento = { ...alvo, operacaoId: operacaoIdPagar('pagamento-conta-pagar') };
         document.getElementById('formPagamentoContaPagar')?.reset();
@@ -570,7 +610,7 @@
     }
 
     function abrirEstornoPagamentoContaPagar(argumento) {
-        if (sessaoEstorno || emProcessamento) return false;
+        if (sessaoEstorno || sessaoOperacaoAdministrativa || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('estornar_pagamento_conta',
                 'Você não possui permissão para estornar pagamentos.')) return false;
@@ -581,7 +621,8 @@
         const conta = resolvida?.conta?.conta;
         if (!resolvida?.ok || !conta || conta.situacaoAdministrativa !== 'ativa') return false;
         const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === alvo.parcelaReferencia);
-        if (parcelas.length !== 1) return false;
+        if (parcelas.length !== 1
+            || (parcelas[0].situacaoAdministrativa || 'ativa') !== 'ativa') return false;
         const parcela = parcelas[0];
         const pagamentos = parcela.pagamentos.filter((item) => (
             item?.pagamentoReferencia === alvo.pagamentoOriginalReferencia));
@@ -674,6 +715,196 @@
         }
     }
 
+    function resolverArgumentoOperacaoAdministrativaPagar(argumento) {
+        if (typeof argumento !== 'string') return null;
+        try {
+            const dados = JSON.parse(decodeURIComponent(argumento));
+            if (!Array.isArray(dados) || dados.length !== 3
+                || dados.some((item) => typeof item !== 'string')
+                || !dados[0] || !dados[1]) return null;
+            const contratos = {
+                alterar_vencimento_conta_pagar: { escopo: 'parcela', permissao: 'alterar_vencimento_conta_pagar' },
+                cancelar_parcela_conta_pagar: { escopo: 'parcela', permissao: 'cancelar_conta_pagar' },
+                cancelar_conta_pagar: { escopo: 'conta', permissao: 'cancelar_conta_pagar' },
+                encerrar_conta_pagar: { escopo: 'conta', permissao: 'encerrar_conta_pagar' }
+            };
+            const contrato = contratos[dados[0]];
+            if (!contrato || (contrato.escopo === 'parcela' && !dados[2])
+                || (contrato.escopo === 'conta' && dados[2] !== '')) return null;
+            return { acao: dados[0], contaReferencia: dados[1],
+                parcelaReferencia: dados[2], ...contrato };
+        } catch (_erro) { return null; }
+    }
+
+    function abrirOperacaoAdministrativaContaPagar(argumento) {
+        if (sessaoOperacaoAdministrativa || sessaoPagamento || sessaoEstorno
+            || sessaoFornecedor || sessaoConta || emProcessamento) return false;
+        const alvo = resolverArgumentoOperacaoAdministrativaPagar(argumento);
+        if (!alvo) return false;
+        const mensagensPermissao = {
+            alterar_vencimento_conta_pagar: 'Você não possui permissão para alterar vencimentos.',
+            cancelar_conta_pagar: 'Você não possui permissão para cancelar contas ou parcelas.',
+            encerrar_conta_pagar: 'Você não possui permissão para encerrar contas.'
+        };
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao(alvo.permissao, mensagensPermissao[alvo.permissao])) return false;
+        const resolvida = obterProjecaoContaPagarPorReferencia(
+            alvo.contaReferencia, estadoPagar(), hojeLocalPagar());
+        const conta = resolvida?.conta?.conta;
+        if (!resolvida?.ok || !conta || conta.situacaoAdministrativa !== 'ativa') return false;
+        const parcelas = alvo.escopo === 'parcela'
+            ? conta.parcelas.filter((item) => item?.parcelaReferencia === alvo.parcelaReferencia) : [];
+        if (alvo.escopo === 'parcela' && (parcelas.length !== 1
+            || (parcelas[0].situacaoAdministrativa || 'ativa') !== 'ativa')) return false;
+        const parcela = parcelas[0] || null;
+        if (alvo.acao === 'alterar_vencimento_conta_pagar' && parcela.saldoCentavos === 0) return false;
+        const textos = {
+            alterar_vencimento_conta_pagar: {
+                titulo: 'Alterar vencimento',
+                descricao: 'Confirme o novo vencimento. Valores, pagamentos e estornos não serão alterados.',
+                resumo: `${conta.descricao} · Parcela ${parcela?.numero}/${parcela?.totalParcelas} · vencimento atual ${parcela?.vencimento}`,
+                botao: 'Alterar vencimento'
+            },
+            cancelar_parcela_conta_pagar: {
+                titulo: 'Cancelar parcela',
+                descricao: 'O saldo aberto desta parcela sairá da projeção. O histórico financeiro será preservado.',
+                resumo: `${conta.descricao} · Parcela ${parcela?.numero}/${parcela?.totalParcelas}`,
+                botao: 'Cancelar parcela'
+            },
+            cancelar_conta_pagar: {
+                titulo: 'Cancelar conta',
+                descricao: 'Somente o saldo aberto será retirado da projeção. Pagamentos e estornos permanecem históricos.',
+                resumo: `${conta.descricao} · saldo ${formatarCentavosPagar(conta.saldoCentavos)}`,
+                botao: 'Cancelar conta'
+            },
+            encerrar_conta_pagar: {
+                titulo: 'Encerrar conta',
+                descricao: 'O encerramento é administrativo: não cria pagamento e retira o saldo aberto da projeção.',
+                resumo: `${conta.descricao} · saldo documental ${formatarCentavosPagar(conta.saldoCentavos)}`,
+                botao: 'Encerrar conta'
+            }
+        }[alvo.acao];
+        const acionadorOperacao = [...document.querySelectorAll(
+            '[data-action="abrirOperacaoAdministrativaContaPagar"]')]
+            .find((elemento) => elemento instanceof HTMLElement
+                && elemento.dataset.arg === argumento) || null;
+        acionadorOperacaoAdministrativa = acionadorOperacao;
+        sessaoOperacaoAdministrativa = {
+            ...alvo,
+            operacaoId: operacaoIdPagar(alvo.acao.replaceAll('_', '-'))
+        };
+        document.getElementById('formOperacaoAdministrativaContaPagar')?.reset();
+        document.getElementById('operacaoAdministrativaContaPagarTitulo').textContent = textos.titulo;
+        document.getElementById('operacaoAdministrativaContaPagarDescricao').textContent = textos.descricao;
+        document.getElementById('operacaoAdministrativaContaPagarResumo').textContent = textos.resumo;
+        document.getElementById('operacaoAdministrativaContaPagarConfirmar').textContent = textos.botao;
+        const grupoVencimento = document.getElementById('operacaoAdministrativaContaPagarVencimentoGrupo');
+        grupoVencimento.hidden = alvo.acao !== 'alterar_vencimento_conta_pagar';
+        const vencimento = document.getElementById('operacaoAdministrativaContaPagarVencimento');
+        vencimento.required = alvo.acao === 'alterar_vencimento_conta_pagar';
+        if (parcela) vencimento.value = parcela.vencimento;
+        registrarModalPagar('modalOperacaoAdministrativaContaPagar',
+            fecharOperacaoAdministrativaContaPagar, confirmarOperacaoAdministrativaContaPagar);
+        const detalhes = document.getElementById('modalDetalhesContaPagar');
+        if (acionadorOperacao) acionadorOperacao.focus({ preventScroll: true });
+        detalhes?.setAttribute('aria-hidden', 'true');
+        return abrirModalPagar('modalOperacaoAdministrativaContaPagar',
+            alvo.acao === 'alterar_vencimento_conta_pagar'
+                ? 'operacaoAdministrativaContaPagarVencimento'
+                : 'operacaoAdministrativaContaPagarMotivo');
+    }
+
+    function fecharOperacaoAdministrativaContaPagar(retornarDetalhes = true) {
+        const acionadorOperacao = acionadorOperacaoAdministrativa;
+        const contaReferencia = sessaoOperacaoAdministrativa?.contaReferencia || '';
+        if (!fecharModalPagar('modalOperacaoAdministrativaContaPagar')) return false;
+        sessaoOperacaoAdministrativa = null;
+        acionadorOperacaoAdministrativa = null;
+        const detalhes = document.getElementById('modalDetalhesContaPagar');
+        if (retornarDetalhes) {
+            detalhes?.setAttribute('aria-hidden', 'false');
+            if (acionadorOperacao?.isConnected) {
+                requestAnimationFrame(() => setTimeout(() => {
+                    acionadorOperacao.focus({ preventScroll: true });
+                }, 0));
+            }
+        } else {
+            detalhes?.classList.remove('active');
+            detalhes?.setAttribute('aria-hidden', 'true');
+            const acionadorDetalhes = [...document.querySelectorAll(
+                '[data-action="abrirDetalhesContaPagar"]')]
+                .find((elemento) => elemento instanceof HTMLElement
+                    && elemento.dataset.arg === contaReferencia);
+            if (acionadorDetalhes?.isConnected) {
+                requestAnimationFrame(() => setTimeout(() => {
+                    acionadorDetalhes.focus({ preventScroll: true });
+                }, 0));
+            }
+        }
+        return true;
+    }
+
+    function confirmarOperacaoAdministrativaContaPagar() {
+        if (!sessaoOperacaoAdministrativa || emProcessamento) return false;
+        const sessao = sessaoOperacaoAdministrativa;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao(sessao.permissao,
+                'Você não possui permissão para esta operação administrativa.')) return false;
+        const motivo = document.getElementById('operacaoAdministrativaContaPagarMotivo');
+        const vencimento = document.getElementById('operacaoAdministrativaContaPagarVencimento');
+        if (typeof motivo?.value !== 'string' || motivo.value.trim() === '') {
+            definirErroPagar('modalOperacaoAdministrativaContaPagar',
+                'Informe o motivo da operação.', motivo);
+            return false;
+        }
+        const agora = agoraIsoPagar();
+        const metadados = metadadosPagar(agora);
+        const entrada = typeof criarEntradaOperacaoAdministrativaContaPagar === 'function'
+            ? criarEntradaOperacaoAdministrativaContaPagar(
+                sessao.acao, sessao.escopo, sessao.contaReferencia,
+                sessao.parcelaReferencia,
+                sessao.acao === 'alterar_vencimento_conta_pagar' ? vencimento?.value : '',
+                motivo.value, sessao.operacaoId, agora, usuarioPagar(), hojeLocalPagar(),
+                metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        if (!entrada || typeof executarOperacaoAdministrativaContaPagarTransacional !== 'function'
+            || typeof criarDependenciasExecutorContasPagar !== 'function') {
+            definirErroPagar('modalOperacaoAdministrativaContaPagar',
+                'Confira os dados da operação.',
+                sessao.acao === 'alterar_vencimento_conta_pagar' ? vencimento : motivo);
+            return false;
+        }
+        emProcessamento = true;
+        const confirmar = document.getElementById('operacaoAdministrativaContaPagarConfirmar');
+        confirmar.disabled = true;
+        try {
+            const resultado = executarOperacaoAdministrativaContaPagarTransacional(
+                entrada, criarDependenciasExecutorContasPagar({ armazenamento: localStorage }));
+            executarEfeitosPagar(resultado);
+            if (resultado.ok && ['OPERACAO_ADMINISTRATIVA_CONTA_PAGAR_APLICADA',
+                'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+                emProcessamento = false;
+                fecharOperacaoAdministrativaContaPagar(false);
+                if (typeof mostrarToast === 'function') mostrarToast('Operação administrativa confirmada.');
+                return true;
+            }
+            const mensagens = {
+                VENCIMENTO_SEM_ALTERACAO: 'Informe uma data diferente do vencimento atual.',
+                PARCELA_PAGA_NAO_ALTERAVEL: 'Parcelas pagas não podem ter o vencimento alterado.',
+                CANCELAMENTO_PARCIAL_CONTRADITORIO: 'Cancele a conta inteira para retirar o último saldo aberto.',
+                CONTA_SEM_SALDO_PARA_CANCELAR: 'Contas sem saldo devem ser encerradas, não canceladas.',
+                CRONOLOGIA_OPERACAO_ADMINISTRATIVA_PAGAR_INVALIDA: 'A data/hora da operação não é posterior ao histórico.'
+            };
+            definirErroPagar('modalOperacaoAdministrativaContaPagar', resultado.requerRecuperacao
+                ? 'A operação exige recuperação explícita antes de continuar.'
+                : (mensagens[resultado.codigo] || 'Não foi possível confirmar a operação.'),
+            sessao.acao === 'alterar_vencimento_conta_pagar' ? vencimento : motivo);
+            return false;
+        } finally {
+            emProcessamento = false;
+            confirmar.disabled = false;
+        }
+    }
+
     window.renderContasPagar = renderContasPagar;
     window.abrirCadastroFornecedor = abrirCadastroFornecedor;
     window.fecharCadastroFornecedor = fecharCadastroFornecedor;
@@ -689,4 +920,7 @@
     window.abrirEstornoPagamentoContaPagar = abrirEstornoPagamentoContaPagar;
     window.fecharEstornoPagamentoContaPagar = fecharEstornoPagamentoContaPagar;
     window.confirmarEstornoPagamentoContaPagar = confirmarEstornoPagamentoContaPagar;
+    window.abrirOperacaoAdministrativaContaPagar = abrirOperacaoAdministrativaContaPagar;
+    window.fecharOperacaoAdministrativaContaPagar = fecharOperacaoAdministrativaContaPagar;
+    window.confirmarOperacaoAdministrativaContaPagar = confirmarOperacaoAdministrativaContaPagar;
 })();

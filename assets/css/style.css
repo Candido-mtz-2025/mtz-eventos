@@ -24365,10 +24365,33 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 #modalContaPagar .modal-actions,
 #modalDetalhesContaPagar .modal-actions,
 #modalPagamentoContaPagar .modal-actions,
-#modalEstornoPagamentoContaPagar .modal-actions {
+#modalEstornoPagamentoContaPagar .modal-actions,
+#modalOperacaoAdministrativaContaPagar .modal-actions {
     justify-content: flex-end;
     margin-top: 18px;
 }
+
+#modalOperacaoAdministrativaContaPagar [hidden] { display: none !important; }
+
+.contas-pagar-situacoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.contas-pagar-situacoes > span {
+    display: grid;
+    gap: 3px;
+    min-width: 130px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color, #d9dee7);
+    border-radius: 8px;
+}
+
+.contas-pagar-situacoes small { color: var(--text-muted); }
+.contas-pagar-acoes-administrativas { margin-bottom: 14px; }
+.contas-pagar-acoes-parcela { display: flex; flex-wrap: wrap; gap: 6px; min-width: 260px; }
 
 #modalDetalhesContaPagar .contas-pagar-historico {
     max-height: 220px;
@@ -24416,7 +24439,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
     #modalContaPagar .modal-content,
     #modalDetalhesContaPagar .modal-content,
     #modalPagamentoContaPagar .modal-content,
-    #modalEstornoPagamentoContaPagar .modal-content {
+    #modalEstornoPagamentoContaPagar .modal-content,
+    #modalOperacaoAdministrativaContaPagar .modal-content {
         width: 100%;
         max-width: 100%;
     }

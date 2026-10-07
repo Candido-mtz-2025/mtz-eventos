@@ -73,11 +73,27 @@
             });
         });
         (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
+            coletar(conta.operacoesAdministrativas);
+            (Array.isArray(conta.historico) ? conta.historico : [])
+                .filter((item) => item?.origem === 'contas_pagar'
+                    && item?.operacaoAdministrativaReferencia)
+                .forEach(coletar);
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 coletar(parcela.pagamentos);
                 coletar(parcela.estornos);
+                coletar(parcela.operacoesAdministrativas);
             });
         });
+        (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
+            (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+                .filter((item) => item?.origem === 'contas_pagar'
+                    && item?.operacaoAdministrativaReferencia)
+                .forEach(coletar);
+        });
+        (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((item) => item?.origem === 'contas_pagar'
+                && item?.operacaoAdministrativaReferencia)
+            .forEach(coletar);
         return alvos;
     }
 
@@ -123,6 +139,20 @@
                         'parcelaReferencia', 'fornecedorReferencia', 'propostaReferencia',
                         'locacaoReferencia']);
                 });
+                (Array.isArray(parcela.operacoesAdministrativas)
+                    ? parcela.operacoesAdministrativas : []).forEach((operacao) => {
+                    proteger(operacao, ['id', 'operacaoAdministrativaId',
+                        'operacaoAdministrativaReferencia', 'operacaoId',
+                        'contaPagarReferencia', 'parcelaReferencia',
+                        'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia']);
+                });
+            });
+            (Array.isArray(conta.operacoesAdministrativas)
+                ? conta.operacoesAdministrativas : []).forEach((operacao) => {
+                proteger(operacao, ['id', 'operacaoAdministrativaId',
+                    'operacaoAdministrativaReferencia', 'operacaoId',
+                    'contaPagarReferencia', 'parcelaReferencia',
+                    'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia']);
             });
         });
         (Array.isArray(estado?.conciliacoesFinanceiras) ? estado.conciliacoesFinanceiras : []).forEach((registro) => {

@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.70">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.71">
 </head>
 <body>
 
@@ -3130,6 +3130,8 @@
         <div class="modal-content modal-xl contas-pagar-modal">
             <div class="modal-header"><h3 id="detalhesContaPagarTitulo">Detalhes da conta a pagar</h3><button id="fecharDetalhesContaPagarBotao" type="button" class="btn-close-modal" data-action="fecharDetalhesContaPagar" aria-label="Fechar detalhes"><i class="bi bi-x-lg"></i></button></div>
             <p id="detalhesContaPagarResumo" class="muted-note"></p>
+            <div id="detalhesContaPagarSituacoes" class="contas-pagar-situacoes" aria-label="Situações da conta"></div>
+            <div id="detalhesContaPagarAcoes" class="inline-chip-row contas-pagar-acoes-administrativas" aria-label="Ações administrativas da conta"></div>
             <div class="table-responsive"><table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Original</th><th>Pago</th><th>Saldo</th><th>Situação</th><th>Ação</th></tr></thead><tbody id="detalhesContaPagarParcelas"></tbody></table></div>
             <h4>Pagamentos e estornos</h4><div id="detalhesContaPagarPagamentos" class="contas-pagar-historico"></div>
             <h4>Histórico</h4><pre id="detalhesContaPagarHistorico" class="contas-pagar-historico"></pre>
@@ -3177,6 +3179,20 @@
                 </fieldset>
                 <p id="estornoPagamentoContaPagarErro" class="validation-message" role="alert" aria-live="assertive" data-pagar-erro hidden></p>
                 <div class="inline-chip-row modal-actions"><button type="button" class="btn btn-secondary" data-action="fecharEstornoPagamentoContaPagar">Cancelar</button><button type="submit" id="estornoPagamentoContaPagarConfirmar" class="btn btn-warning">Registrar estorno</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalOperacaoAdministrativaContaPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="operacaoAdministrativaContaPagarTitulo" aria-describedby="operacaoAdministrativaContaPagarDescricao" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header"><h3 id="operacaoAdministrativaContaPagarTitulo">Operação administrativa</h3><button type="button" class="btn-close-modal" data-action="fecharOperacaoAdministrativaContaPagar" aria-label="Fechar operação administrativa"><i class="bi bi-x-lg"></i></button></div>
+            <p id="operacaoAdministrativaContaPagarDescricao" class="muted-note"></p>
+            <p id="operacaoAdministrativaContaPagarResumo"></p>
+            <form id="formOperacaoAdministrativaContaPagar" novalidate>
+                <div id="operacaoAdministrativaContaPagarVencimentoGrupo" class="form-group" hidden><label for="operacaoAdministrativaContaPagarVencimento">Novo vencimento</label><input id="operacaoAdministrativaContaPagarVencimento" type="date" aria-describedby="operacaoAdministrativaContaPagarErro"></div>
+                <div class="form-group"><label for="operacaoAdministrativaContaPagarMotivo">Motivo</label><textarea id="operacaoAdministrativaContaPagarMotivo" maxlength="1000" required aria-describedby="operacaoAdministrativaContaPagarErro"></textarea></div>
+                <p id="operacaoAdministrativaContaPagarErro" class="validation-message" role="alert" aria-live="assertive" data-pagar-erro hidden></p>
+                <div class="inline-chip-row modal-actions"><button type="button" class="btn btn-secondary" data-action="fecharOperacaoAdministrativaContaPagar">Cancelar</button><button type="submit" id="operacaoAdministrativaContaPagarConfirmar" class="btn btn-warning">Confirmar operação</button></div>
             </form>
         </div>
     </div>
@@ -3294,13 +3310,13 @@
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.5"></script>
+    <script src="./assets/js/core/access.js?v=1.6"></script>
     <script src="./assets/js/core/migrations.js?v=12.15"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.15"></script>
-<script src="./assets/js/core/transaction-services.js?v=2.29"></script>
+<script src="./assets/js/core/transaction-services.js?v=2.34"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.4"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.9"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.10"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.22"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
@@ -3324,7 +3340,7 @@
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
     <script src="./assets/js/render/novas-abas.js?v=3.4"></script>
-    <script src="./assets/js/render/contas-pagar.js?v=1.5"></script>
+    <script src="./assets/js/render/contas-pagar.js?v=2.3"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.17"></script>
         
