@@ -91,6 +91,8 @@ function temPermissao(acao) {
         'alterar_vencimento_conta_pagar',
         'cancelar_conta_pagar',
         'encerrar_conta_pagar',
+        'conciliar_pagamento_conta_pagar',
+        'desconsiderar_conciliacao_conta_pagar',
         'cancelar_locacao',
         'configuracao'
     ]);

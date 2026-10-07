@@ -11,7 +11,8 @@
         'contasReceber',
         'fornecedores',
         'contasPagar',
-        'conciliacoesFinanceiras'
+        'conciliacoesFinanceiras',
+        'conciliacoesPagamentosPagar'
     ]);
     const CHAVES_METADADOS_PERSISTENCIA = new Set(['versao', 'data', 'ultimaEdicao']);
     const CAMPO_PROVAS_RECUPERACAO = 'provasRecuperacao';

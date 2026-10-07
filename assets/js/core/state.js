@@ -11,6 +11,7 @@
         fornecedores: [],
         contasPagar: [],
         conciliacoesFinanceiras: [],
+        conciliacoesPagamentosPagar: [],
         movimentacoesEstoque: [],
         transportes: [],
         tipos: [],

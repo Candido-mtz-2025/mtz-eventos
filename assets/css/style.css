@@ -24348,7 +24348,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 #tab-contas-pagar .contas-pagar-tabela table { min-width: 920px; }
 
 #modalContaPagar .contas-pagar-vinculos,
-#modalEstornoPagamentoContaPagar .contas-pagar-vinculos {
+#modalEstornoPagamentoContaPagar .contas-pagar-vinculos,
+#modalConciliacaoPagamentoPagar .contas-pagar-vinculos {
     margin: 16px 0;
     padding: 14px;
     border: 1px solid var(--border);
@@ -24356,7 +24357,8 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 }
 
 #modalContaPagar .contas-pagar-vinculos legend,
-#modalEstornoPagamentoContaPagar .contas-pagar-vinculos legend {
+#modalEstornoPagamentoContaPagar .contas-pagar-vinculos legend,
+#modalConciliacaoPagamentoPagar .contas-pagar-vinculos legend {
     padding: 0 6px;
     font-weight: 700;
 }
@@ -24366,12 +24368,14 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 #modalDetalhesContaPagar .modal-actions,
 #modalPagamentoContaPagar .modal-actions,
 #modalEstornoPagamentoContaPagar .modal-actions,
+#modalConciliacaoPagamentoPagar .modal-actions,
 #modalOperacaoAdministrativaContaPagar .modal-actions {
     justify-content: flex-end;
     margin-top: 18px;
 }
 
-#modalOperacaoAdministrativaContaPagar [hidden] { display: none !important; }
+#modalOperacaoAdministrativaContaPagar [hidden],
+#modalConciliacaoPagamentoPagar [hidden] { display: none !important; }
 
 .contas-pagar-situacoes {
     display: flex;
@@ -24421,6 +24425,14 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 .contas-pagar-pagamento-item dt { color: var(--text-muted); font-size: 12px; }
 .contas-pagar-pagamento-item dd { margin: 2px 0 0; font-weight: 700; }
 .contas-pagar-pagamento-item ul { margin: 0; padding-left: 20px; }
+.contas-pagar-conciliacao-resumo {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px 14px !important;
+    padding: 10px;
+    border: 1px solid var(--border-color, #d9dee7);
+    border-radius: 8px;
+}
 
 .contas-pagar-estorno-kpis {
     display: grid;
@@ -24440,6 +24452,7 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
     #modalDetalhesContaPagar .modal-content,
     #modalPagamentoContaPagar .modal-content,
     #modalEstornoPagamentoContaPagar .modal-content,
+    #modalConciliacaoPagamentoPagar .modal-content,
     #modalOperacaoAdministrativaContaPagar .modal-content {
         width: 100%;
         max-width: 100%;

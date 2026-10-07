@@ -7,6 +7,7 @@
     let sessaoPagamento = null;
     let sessaoEstorno = null;
     let sessaoOperacaoAdministrativa = null;
+    let sessaoConciliacao = null;
     let acionadorOperacaoAdministrativa = null;
     let acionadorModal = null;
     let emProcessamento = false;
@@ -171,7 +172,8 @@
     }
 
     function abrirCadastroFornecedor() {
-        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa || emProcessamento) return false;
+        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa
+            || sessaoConciliacao || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('cadastrar_fornecedor', 'Você não possui permissão para cadastrar fornecedores.')) return false;
         sessaoFornecedor = { operacaoId: operacaoIdPagar('fornecedor') };
@@ -272,7 +274,8 @@
     }
 
     function abrirCriacaoContaPagar() {
-        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa || emProcessamento) return false;
+        if (sessaoFornecedor || sessaoConta || sessaoOperacaoAdministrativa
+            || sessaoConciliacao || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('criar_conta_pagar', 'Você não possui permissão para criar contas a pagar.')) return false;
         const fornecedores = fornecedoresValidos();
@@ -457,6 +460,11 @@
         }).join('');
         const podeEstornar = typeof temPermissao !== 'function'
             || temPermissao('estornar_pagamento_conta');
+        const podeConciliar = typeof temPermissao !== 'function'
+            || temPermissao('conciliar_pagamento_conta_pagar');
+        const podeDesconsiderar = typeof temPermissao !== 'function'
+            || temPermissao('desconsiderar_conciliacao_conta_pagar');
+        const estadoAtual = estadoPagar();
         document.getElementById('detalhesContaPagarPagamentos').innerHTML = item.conta.parcelas
             .flatMap((parcela) => parcela.pagamentos.map((pagamento) => {
                 const estornos = (Array.isArray(parcela.estornos) ? parcela.estornos : [])
@@ -469,6 +477,31 @@
                 const acao = podeEstornar && item.conta.situacaoAdministrativa === 'ativa'
                     && (parcela.situacaoAdministrativa || 'ativa') === 'ativa' && disponivel > 0
                     ? `<button type="button" class="btn btn-sm btn-warning" data-action="abrirEstornoPagamentoContaPagar" data-arg="${escaparPagar(argumento)}">Estornar</button>` : '';
+                const conciliacao = typeof obterSituacaoConciliacaoPagamentoPagar === 'function'
+                    ? obterSituacaoConciliacaoPagamentoPagar(estadoAtual, item.referencia,
+                        parcela.parcelaReferencia, pagamento.pagamentoReferencia)
+                    : { estado: 'invalida', conciliacao: null };
+                const situacaoConciliacao = disponivel === 0
+                    ? 'desconsiderada' : conciliacao.estado;
+                const acaoConciliar = podeConciliar && item.conta.situacaoAdministrativa === 'ativa'
+                    && (parcela.situacaoAdministrativa || 'ativa') === 'ativa'
+                    && disponivel > 0 && ['pendente', 'desconsiderada'].includes(situacaoConciliacao)
+                    ? `<button type="button" class="btn btn-sm btn-secondary" data-action="abrirConciliacaoPagamentoPagar" data-arg="${escaparPagar(argumento)}">Conciliar</button>` : '';
+                const acaoDesconsiderar = podeDesconsiderar && conciliacao.conciliacao
+                    ? `<button type="button" class="btn btn-sm btn-secondary" data-action="abrirDesconsideracaoConciliacaoPagamentoPagar" data-arg="${escaparPagar(argumento)}">Desconsiderar conciliação</button>` : '';
+                const detalhesConciliacao = conciliacao.conciliacao
+                    ? `<dl class="contas-pagar-conciliacao-resumo"><div><dt>Conciliação</dt><dd>${escaparPagar(situacaoConciliacao)}</dd></div><div><dt>Valor bancário</dt><dd>${formatarCentavosPagar(conciliacao.conciliacao.valorBancarioCentavos)}</dd></div><div><dt>Diferença</dt><dd>${formatarCentavosPagar(Math.abs(conciliacao.conciliacao.diferencaCentavos))}</dd></div><div><dt>Data bancária</dt><dd>${escaparPagar(conciliacao.conciliacao.dataBancaria)}</dd></div><div><dt>Responsável</dt><dd>${escaparPagar(conciliacao.conciliacao.responsavel)}</dd></div></dl>`
+                    : `<p class="muted-note">Conciliação: ${escaparPagar(situacaoConciliacao)}</p>`;
+                const historicoConciliacao = conciliacao.estado === 'invalida' ? '' : (Array.isArray(
+                    estadoAtual?.conciliacoesPagamentosPagar)
+                    ? estadoAtual.conciliacoesPagamentosPagar : []).filter((registro) => (
+                    registro?.contaPagarReferencia === item.referencia
+                    && registro.parcelaReferencia === parcela.parcelaReferencia
+                    && registro.pagamentoReferencia === pagamento.pagamentoReferencia))
+                    .sort((a, b) => a.registradoEm.localeCompare(b.registradoEm))
+                    .map((registro) => registro.tipo === 'conciliacao'
+                        ? `<li>${escaparPagar(registro.registradoEm)} · ${escaparPagar(registro.situacao)} · ${formatarCentavosPagar(registro.valorBancarioCentavos)} · ${escaparPagar(registro.responsavel)}</li>`
+                        : `<li>${escaparPagar(registro.registradoEm)} · desconsiderada · ${escaparPagar(registro.motivo)} · ${escaparPagar(registro.responsavel)}</li>`).join('');
                 const listaEstornos = estornos.length
                     ? `<ul>${estornos.map((estorno) => `<li>${escaparPagar(estorno.dataEstorno)} · ${formatarCentavosPagar(estorno.valorEstornoCentavos)} · ${escaparPagar(estorno.motivo)}</li>`).join('')}</ul>`
                     : '<span class="muted-note">Sem estornos.</span>';
@@ -478,7 +511,10 @@
                     <dl><div><dt>Pago</dt><dd>${formatarCentavosPagar(pagamento.valorPagoCentavos)}</dd></div>
                     <div><dt>Estornado</dt><dd>${formatarCentavosPagar(estornado)}</dd></div>
                     <div><dt>Disponível</dt><dd>${formatarCentavosPagar(disponivel)}</dd></div></dl>
-                    ${acao}${listaEstornos}</article>`;
+                    <div class="inline-chip-row">${acao}${acaoConciliar}${acaoDesconsiderar}</div>
+                    ${detalhesConciliacao}${historicoConciliacao
+                        ? `<ul aria-label="Histórico da conciliação">${historicoConciliacao}</ul>` : ''}
+                    ${listaEstornos}</article>`;
             })).join('') || '<p>Sem pagamentos.</p>';
         document.getElementById('detalhesContaPagarHistorico').textContent = (item.conta.historico || [])
             .map((registro) => {
@@ -506,7 +542,8 @@
     }
 
     function abrirPagamentoContaPagar(argumento) {
-        if (sessaoPagamento || sessaoOperacaoAdministrativa || emProcessamento) return false;
+        if (sessaoPagamento || sessaoOperacaoAdministrativa || sessaoConciliacao
+            || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('pagar_conta', 'Você não possui permissão para pagar contas.')) return false;
         const alvo = resolverArgumentoPagamentoPagar(argumento);
@@ -610,7 +647,8 @@
     }
 
     function abrirEstornoPagamentoContaPagar(argumento) {
-        if (sessaoEstorno || sessaoOperacaoAdministrativa || emProcessamento) return false;
+        if (sessaoEstorno || sessaoOperacaoAdministrativa || sessaoConciliacao
+            || emProcessamento) return false;
         if (typeof validarPermissao === 'function'
             && !validarPermissao('estornar_pagamento_conta',
                 'Você não possui permissão para estornar pagamentos.')) return false;
@@ -715,6 +753,177 @@
         }
     }
 
+    function textoCentavosPagar(valor) {
+        if (!Number.isSafeInteger(valor) || valor < 0) return '';
+        return `${Math.floor(valor / 100)},${String(valor % 100).padStart(2, '0')}`;
+    }
+
+    function abrirModalConciliacaoPagamentoPagar(argumento, tipo) {
+        if (sessaoConciliacao || sessaoPagamento || sessaoEstorno
+            || sessaoOperacaoAdministrativa || emProcessamento) return false;
+        const permissao = tipo === 'conciliacao'
+            ? 'conciliar_pagamento_conta_pagar' : 'desconsiderar_conciliacao_conta_pagar';
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao(permissao, 'Você não possui permissão para esta conciliação.')) {
+            return false;
+        }
+        const alvoArgumento = resolverArgumentoEstornoPagar(argumento);
+        if (!alvoArgumento || typeof obterProjecaoContaPagarPorReferencia !== 'function') return false;
+        const resolvida = obterProjecaoContaPagarPorReferencia(
+            alvoArgumento.contaReferencia, estadoPagar(), hojeLocalPagar());
+        const conta = resolvida?.conta?.conta;
+        if (!resolvida?.ok || !conta) return false;
+        const parcelas = conta.parcelas.filter((item) => (
+            item?.parcelaReferencia === alvoArgumento.parcelaReferencia));
+        const pagamentos = parcelas.length === 1 ? parcelas[0].pagamentos.filter((item) => (
+            item?.pagamentoReferencia === alvoArgumento.pagamentoOriginalReferencia)) : [];
+        if (pagamentos.length !== 1) return false;
+        const pagamento = pagamentos[0];
+        const estornado = (Array.isArray(parcelas[0].estornos) ? parcelas[0].estornos : [])
+            .filter((item) => item.pagamentoOriginalReferencia === pagamento.pagamentoReferencia)
+            .reduce((total, item) => total + item.valorEstornoCentavos, 0);
+        const situacao = typeof obterSituacaoConciliacaoPagamentoPagar === 'function'
+            ? obterSituacaoConciliacaoPagamentoPagar(estadoPagar(), conta.contaPagarReferencia,
+                parcelas[0].parcelaReferencia, pagamento.pagamentoReferencia)
+            : { estado: 'invalida', conciliacao: null };
+        if ((tipo === 'conciliacao' && (conta.situacaoAdministrativa !== 'ativa'
+                || pagamento.valorPagoCentavos - estornado <= 0
+                || !['pendente', 'desconsiderada'].includes(situacao.estado)))
+            || (tipo === 'desconsideracao' && !situacao.conciliacao)) return false;
+        sessaoConciliacao = {
+            tipo,
+            contaReferencia: conta.contaPagarReferencia,
+            parcelaReferencia: parcelas[0].parcelaReferencia,
+            pagamentoReferencia: pagamento.pagamentoReferencia,
+            conciliacaoOriginalReferencia:
+                situacao.conciliacao?.conciliacaoPagamentoPagarReferencia || '',
+            operacaoId: operacaoIdPagar(tipo === 'conciliacao'
+                ? 'conciliacao-pagamento-pagar' : 'desconsideracao-conciliacao-pagamento-pagar')
+        };
+        document.getElementById('formConciliacaoPagamentoPagar')?.reset();
+        document.getElementById('conciliacaoPagamentoPagarTitulo').textContent = tipo === 'conciliacao'
+            ? 'Conciliar pagamento' : 'Desconsiderar conciliação';
+        document.getElementById('conciliacaoPagamentoPagarDescricaoAjuda').textContent
+            = tipo === 'conciliacao'
+                ? 'Qualifique a saída existente sem criar um novo movimento financeiro.'
+                : 'A conciliação original será preservada e marcada como desconsiderada.';
+        document.getElementById('conciliacaoPagamentoPagarResumo').textContent
+            = `${conta.descricao} · ${pagamento.dataPagamento} · ${formatarCentavosPagar(
+                pagamento.valorPagoCentavos)}`;
+        const camposConciliacao = document.getElementById('conciliacaoPagamentoPagarCampos');
+        const camposDesconsideracao = document.getElementById('desconsideracaoPagamentoPagarCampos');
+        camposConciliacao.hidden = tipo !== 'conciliacao';
+        camposDesconsideracao.hidden = tipo !== 'desconsideracao';
+        document.getElementById('conciliacaoPagamentoPagarValor').value
+            = textoCentavosPagar(pagamento.valorPagoCentavos);
+        document.getElementById('conciliacaoPagamentoPagarData').value = hojeLocalPagar();
+        document.getElementById('conciliacaoPagamentoPagarConfirmar').textContent
+            = tipo === 'conciliacao' ? 'Registrar conciliação' : 'Desconsiderar conciliação';
+        registrarModalPagar('modalConciliacaoPagamentoPagar',
+            fecharConciliacaoPagamentoPagar, confirmarConciliacaoPagamentoPagar);
+        fecharModalPagar('modalDetalhesContaPagar');
+        return abrirModalPagar('modalConciliacaoPagamentoPagar',
+            tipo === 'conciliacao'
+                ? 'conciliacaoPagamentoPagarValor' : 'desconsideracaoPagamentoPagarMotivo');
+    }
+
+    function abrirConciliacaoPagamentoPagar(argumento) {
+        return abrirModalConciliacaoPagamentoPagar(argumento, 'conciliacao');
+    }
+
+    function abrirDesconsideracaoConciliacaoPagamentoPagar(argumento) {
+        return abrirModalConciliacaoPagamentoPagar(argumento, 'desconsideracao');
+    }
+
+    function fecharConciliacaoPagamentoPagar() {
+        if (!fecharModalPagar('modalConciliacaoPagamentoPagar')) return false;
+        sessaoConciliacao = null;
+        return true;
+    }
+
+    function confirmarConciliacaoPagamentoPagar() {
+        if (!sessaoConciliacao || emProcessamento) return false;
+        const sessao = sessaoConciliacao;
+        const permissao = sessao.tipo === 'conciliacao'
+            ? 'conciliar_pagamento_conta_pagar' : 'desconsiderar_conciliacao_conta_pagar';
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao(permissao, 'Você não possui permissão para esta conciliação.')) {
+            return false;
+        }
+        const agora = agoraIsoPagar();
+        const metadados = metadadosPagar(agora);
+        let entrada = null;
+        let campoErro = null;
+        if (sessao.tipo === 'conciliacao') {
+            const valor = document.getElementById('conciliacaoPagamentoPagarValor');
+            const situacao = document.getElementById('conciliacaoPagamentoPagarSituacao');
+            const data = document.getElementById('conciliacaoPagamentoPagarData');
+            const comprovante = comprovantePagamentoPagar('conciliacaoPagamentoPagar');
+            campoErro = valor;
+            if (comprovante === false) {
+                definirErroPagar('modalConciliacaoPagamentoPagar',
+                    'Confira os metadados do comprovante.',
+                    document.getElementById('conciliacaoPagamentoPagarComprovanteNome'));
+                return false;
+            }
+            entrada = typeof criarEntradaConciliacaoPagamentoPagar === 'function'
+                ? criarEntradaConciliacaoPagamentoPagar(
+                    sessao.contaReferencia, sessao.parcelaReferencia,
+                    sessao.pagamentoReferencia, situacao?.value, valor?.value, data?.value,
+                    document.getElementById('conciliacaoPagamentoPagarMeio')?.value,
+                    document.getElementById('conciliacaoPagamentoPagarConta')?.value,
+                    document.getElementById('conciliacaoPagamentoPagarIdentificador')?.value,
+                    document.getElementById('conciliacaoPagamentoPagarMotivoDivergencia')?.value,
+                    document.getElementById('conciliacaoPagamentoPagarObservacao')?.value,
+                    comprovante, sessao.operacaoId, agora, usuarioPagar(), hojeLocalPagar(),
+                    metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        } else {
+            const motivo = document.getElementById('desconsideracaoPagamentoPagarMotivo');
+            campoErro = motivo;
+            entrada = typeof criarEntradaDesconsideracaoConciliacaoPagamentoPagar === 'function'
+                ? criarEntradaDesconsideracaoConciliacaoPagamentoPagar(
+                    sessao.contaReferencia, sessao.parcelaReferencia,
+                    sessao.pagamentoReferencia, sessao.conciliacaoOriginalReferencia,
+                    motivo?.value, sessao.operacaoId, agora, usuarioPagar(), hojeLocalPagar(),
+                    metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        }
+        const executor = sessao.tipo === 'conciliacao'
+            ? window.executarConciliacaoPagamentoPagarTransacional
+            : window.executarDesconsideracaoConciliacaoPagamentoPagarTransacional;
+        if (!entrada || typeof executor !== 'function'
+            || typeof criarDependenciasExecutorContasPagar !== 'function') {
+            definirErroPagar('modalConciliacaoPagamentoPagar',
+                'Confira os dados da conciliação.', campoErro);
+            return false;
+        }
+        emProcessamento = true;
+        const confirmar = document.getElementById('conciliacaoPagamentoPagarConfirmar');
+        confirmar.disabled = true;
+        try {
+            const resultado = executor(entrada,
+                criarDependenciasExecutorContasPagar({ armazenamento: localStorage }));
+            executarEfeitosPagar(resultado);
+            if (resultado.ok && ['CONCILIACAO_PAGAMENTO_PAGAR_APLICADA',
+                'CONCILIACAO_PAGAMENTO_PAGAR_DESCONSIDERADA',
+                'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+                emProcessamento = false;
+                fecharConciliacaoPagamentoPagar();
+                if (typeof mostrarToast === 'function') {
+                    mostrarToast(sessao.tipo === 'conciliacao'
+                        ? 'Pagamento conciliado.' : 'Conciliação desconsiderada.');
+                }
+                return true;
+            }
+            definirErroPagar('modalConciliacaoPagamentoPagar', resultado.requerRecuperacao
+                ? 'A conciliação exige recuperação explícita antes de continuar.'
+                : 'Não foi possível confirmar a conciliação.', campoErro);
+            return false;
+        } finally {
+            emProcessamento = false;
+            confirmar.disabled = false;
+        }
+    }
+
     function resolverArgumentoOperacaoAdministrativaPagar(argumento) {
         if (typeof argumento !== 'string') return null;
         try {
@@ -738,7 +947,7 @@
 
     function abrirOperacaoAdministrativaContaPagar(argumento) {
         if (sessaoOperacaoAdministrativa || sessaoPagamento || sessaoEstorno
-            || sessaoFornecedor || sessaoConta || emProcessamento) return false;
+            || sessaoConciliacao || sessaoFornecedor || sessaoConta || emProcessamento) return false;
         const alvo = resolverArgumentoOperacaoAdministrativaPagar(argumento);
         if (!alvo) return false;
         const mensagensPermissao = {
@@ -920,6 +1129,11 @@
     window.abrirEstornoPagamentoContaPagar = abrirEstornoPagamentoContaPagar;
     window.fecharEstornoPagamentoContaPagar = fecharEstornoPagamentoContaPagar;
     window.confirmarEstornoPagamentoContaPagar = confirmarEstornoPagamentoContaPagar;
+    window.abrirConciliacaoPagamentoPagar = abrirConciliacaoPagamentoPagar;
+    window.abrirDesconsideracaoConciliacaoPagamentoPagar
+        = abrirDesconsideracaoConciliacaoPagamentoPagar;
+    window.fecharConciliacaoPagamentoPagar = fecharConciliacaoPagamentoPagar;
+    window.confirmarConciliacaoPagamentoPagar = confirmarConciliacaoPagamentoPagar;
     window.abrirOperacaoAdministrativaContaPagar = abrirOperacaoAdministrativaContaPagar;
     window.fecharOperacaoAdministrativaContaPagar = fecharOperacaoAdministrativaContaPagar;
     window.confirmarOperacaoAdministrativaContaPagar = confirmarOperacaoAdministrativaContaPagar;

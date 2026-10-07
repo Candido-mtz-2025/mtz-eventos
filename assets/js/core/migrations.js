@@ -1103,6 +1103,7 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         fornecedores: clonarArraySeguro(dadosBase.fornecedores),
         contasPagar: clonarArraySeguro(dadosBase.contasPagar),
         conciliacoesFinanceiras: clonarArraySeguro(dadosBase.conciliacoesFinanceiras),
+        conciliacoesPagamentosPagar: clonarArraySeguro(dadosBase.conciliacoesPagamentosPagar),
         movimentacoesEstoque: clonarArraySeguro(dadosBase.movimentacoesEstoque).map((movimentacao, indice) => normalizarMovimentacaoEstoqueV12(movimentacao, indice)),
         transportes: clonarArraySeguro(dadosBase.transportes),
         tipos: clonarArraySeguro(dadosBase.tipos),
@@ -1131,6 +1132,10 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     if (!Object.prototype.hasOwnProperty.call(dadosBase, 'conciliacoesFinanceiras')) {
         contexto.houveMudanca = true;
         contexto.logs.push('Coleção de conciliações financeiras inicializada sem alterar lançamentos existentes.');
+    }
+    if (!Object.prototype.hasOwnProperty.call(dadosBase, 'conciliacoesPagamentosPagar')) {
+        contexto.houveMudanca = true;
+        contexto.logs.push('Coleção de conciliações de pagamentos a pagar inicializada sem migrar registros antigos.');
     }
     if (!Object.prototype.hasOwnProperty.call(dadosBase, 'fornecedores')) {
         contexto.houveMudanca = true;

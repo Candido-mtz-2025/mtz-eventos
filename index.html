@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.71">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.72">
 </head>
 <body>
 
@@ -3183,6 +3183,25 @@
         </div>
     </div>
 
+    <div id="modalConciliacaoPagamentoPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="conciliacaoPagamentoPagarTitulo" aria-describedby="conciliacaoPagamentoPagarDescricaoAjuda" tabindex="-1">
+        <div class="modal-content modal-xl contas-pagar-modal">
+            <div class="modal-header"><h3 id="conciliacaoPagamentoPagarTitulo">Conciliar pagamento</h3><button type="button" class="btn-close-modal" data-action="fecharConciliacaoPagamentoPagar" aria-label="Fechar conciliação"><i class="bi bi-x-lg"></i></button></div>
+            <p id="conciliacaoPagamentoPagarDescricaoAjuda" class="muted-note">Qualifique a saída existente sem criar um novo movimento financeiro.</p>
+            <p id="conciliacaoPagamentoPagarResumo"></p>
+            <form id="formConciliacaoPagamentoPagar" novalidate>
+                <div id="conciliacaoPagamentoPagarCampos">
+                    <div class="form-row"><div class="form-group"><label for="conciliacaoPagamentoPagarValor">Valor bancário</label><input id="conciliacaoPagamentoPagarValor" type="text" inputmode="decimal" required aria-describedby="conciliacaoPagamentoPagarErro"></div><div class="form-group"><label for="conciliacaoPagamentoPagarData">Data bancária</label><input id="conciliacaoPagamentoPagarData" type="date" required aria-describedby="conciliacaoPagamentoPagarErro"></div><div class="form-group"><label for="conciliacaoPagamentoPagarSituacao">Situação</label><select id="conciliacaoPagamentoPagarSituacao" aria-describedby="conciliacaoPagamentoPagarErro"><option value="conciliada">Conciliada</option><option value="divergente">Divergente</option></select></div></div>
+                    <div class="form-row"><div class="form-group"><label for="conciliacaoPagamentoPagarMeio">Meio de pagamento</label><select id="conciliacaoPagamentoPagarMeio" aria-describedby="conciliacaoPagamentoPagarErro"><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="cartao">Cartão</option><option value="dinheiro">Dinheiro</option><option value="outro">Outro</option></select></div><div class="form-group"><label for="conciliacaoPagamentoPagarConta">Conta financeira</label><input id="conciliacaoPagamentoPagarConta" type="text" maxlength="200" required aria-describedby="conciliacaoPagamentoPagarErro"></div><div class="form-group"><label for="conciliacaoPagamentoPagarIdentificador">Identificador bancário</label><input id="conciliacaoPagamentoPagarIdentificador" type="text" maxlength="300" required aria-describedby="conciliacaoPagamentoPagarErro"></div></div>
+                    <div class="form-row"><div class="form-group"><label for="conciliacaoPagamentoPagarMotivoDivergencia">Motivo da divergência</label><textarea id="conciliacaoPagamentoPagarMotivoDivergencia" maxlength="500" aria-describedby="conciliacaoPagamentoPagarErro"></textarea></div><div class="form-group"><label for="conciliacaoPagamentoPagarObservacao">Observação</label><textarea id="conciliacaoPagamentoPagarObservacao" maxlength="1000" aria-describedby="conciliacaoPagamentoPagarErro"></textarea></div></div>
+                    <fieldset class="contas-pagar-vinculos"><legend>Comprovante opcional</legend><div class="form-row"><div class="form-group"><label for="conciliacaoPagamentoPagarComprovanteNome">Nome do arquivo</label><input id="conciliacaoPagamentoPagarComprovanteNome" type="text" maxlength="160" aria-describedby="conciliacaoPagamentoPagarErro"></div><div class="form-group"><label for="conciliacaoPagamentoPagarComprovanteMime">Tipo</label><select id="conciliacaoPagamentoPagarComprovanteMime" aria-describedby="conciliacaoPagamentoPagarErro"><option value="">Selecione...</option><option value="application/pdf">PDF</option><option value="image/png">PNG</option><option value="image/jpeg">JPEG</option></select></div></div><div class="form-row"><div class="form-group"><label for="conciliacaoPagamentoPagarComprovanteTamanho">Tamanho em bytes</label><input id="conciliacaoPagamentoPagarComprovanteTamanho" type="text" inputmode="numeric" aria-describedby="conciliacaoPagamentoPagarErro"></div><div class="form-group"><label for="conciliacaoPagamentoPagarComprovanteHash">SHA-256</label><input id="conciliacaoPagamentoPagarComprovanteHash" type="text" maxlength="64" aria-describedby="conciliacaoPagamentoPagarErro"></div></div><div class="form-group"><label for="conciliacaoPagamentoPagarComprovanteReferencia">Referência externa</label><input id="conciliacaoPagamentoPagarComprovanteReferencia" type="text" maxlength="500" placeholder="https://... ou future:identificador" aria-describedby="conciliacaoPagamentoPagarErro"></div></fieldset>
+                </div>
+                <div id="desconsideracaoPagamentoPagarCampos" hidden><div class="form-group"><label for="desconsideracaoPagamentoPagarMotivo">Motivo da desconsideração</label><textarea id="desconsideracaoPagamentoPagarMotivo" maxlength="1000" required aria-describedby="conciliacaoPagamentoPagarErro"></textarea></div></div>
+                <p id="conciliacaoPagamentoPagarErro" class="validation-message" role="alert" aria-live="assertive" data-pagar-erro hidden></p>
+                <div class="inline-chip-row modal-actions"><button type="button" class="btn btn-secondary" data-action="fecharConciliacaoPagamentoPagar">Cancelar</button><button type="submit" id="conciliacaoPagamentoPagarConfirmar" class="btn btn-primary">Registrar conciliação</button></div>
+            </form>
+        </div>
+    </div>
+
     <div id="modalOperacaoAdministrativaContaPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="operacaoAdministrativaContaPagarTitulo" aria-describedby="operacaoAdministrativaContaPagarDescricao" tabindex="-1">
         <div class="modal-content modal-pagamento-locacao">
             <div class="modal-header"><h3 id="operacaoAdministrativaContaPagarTitulo">Operação administrativa</h3><button type="button" class="btn-close-modal" data-action="fecharOperacaoAdministrativaContaPagar" aria-label="Fechar operação administrativa"><i class="bi bi-x-lg"></i></button></div>
@@ -3305,18 +3324,18 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.8"></script>
+    <script src="./assets/js/core/state.js?v=12.9"></script>
     <script src="./assets/js/core/utils.js?v=2.5"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.1"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.6"></script>
-    <script src="./assets/js/core/migrations.js?v=12.15"></script>
+    <script src="./assets/js/core/access.js?v=1.7"></script>
+    <script src="./assets/js/core/migrations.js?v=12.16"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
-    <script src="./assets/js/core/storage.js?v=12.15"></script>
-<script src="./assets/js/core/transaction-services.js?v=2.34"></script>
-    <script src="./assets/js/core/recovery-services.js?v=1.4"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.10"></script>
+    <script src="./assets/js/core/storage.js?v=12.16"></script>
+<script src="./assets/js/core/transaction-services.js?v=2.35"></script>
+    <script src="./assets/js/core/recovery-services.js?v=1.5"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.11"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.22"></script>
     <script src="./assets/js/modules/propostas.js?v=4.20"></script>
@@ -3330,7 +3349,7 @@
     <script src="./assets/js/modules/relatorios.js?v=1.8"></script>
     <script src="./assets/js/modules/devolucoes.js?v=3.0"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
-    <script src="./assets/js/modules/backup-tools.js?v=1.3"></script>
+    <script src="./assets/js/modules/backup-tools.js?v=1.4"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.2"></script>
     <script src="./assets/js/modules/transporte.js?v=1.3"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.3"></script>
@@ -3340,7 +3359,7 @@
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
     <script src="./assets/js/render/novas-abas.js?v=3.4"></script>
-    <script src="./assets/js/render/contas-pagar.js?v=2.3"></script>
+    <script src="./assets/js/render/contas-pagar.js?v=2.4"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
     <script src="./assets/js/core/app.js?v=23.17"></script>
         

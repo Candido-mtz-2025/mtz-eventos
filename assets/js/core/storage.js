@@ -68,6 +68,8 @@ function gerarSnapshotDadosSistema() {
         fornecedores: Array.isArray(fornecedores) ? fornecedores : [],
         contasPagar: Array.isArray(contasPagar) ? contasPagar : [],
         conciliacoesFinanceiras: Array.isArray(conciliacoesFinanceiras) ? conciliacoesFinanceiras : [],
+        conciliacoesPagamentosPagar: Array.isArray(conciliacoesPagamentosPagar)
+            ? conciliacoesPagamentosPagar : [],
         movimentacoesEstoque: Array.isArray(movimentacoesEstoque) ? movimentacoesEstoque : [],
         transportes: Array.isArray(transportes) ? transportes : [],
         tipos: Array.isArray(tipos) ? tipos : [],
@@ -131,6 +133,7 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'fornecedores',
     'contasPagar',
     'conciliacoesFinanceiras',
+    'conciliacoesPagamentosPagar',
     'movimentacoesEstoque',
     'transportes',
     'tipos',
@@ -614,6 +617,8 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         contasPagar: Array.isArray(dadosNormalizados.contasPagar) ? dadosNormalizados.contasPagar : [],
         conciliacoesFinanceiras: Array.isArray(dadosNormalizados.conciliacoesFinanceiras)
             ? dadosNormalizados.conciliacoesFinanceiras : [],
+        conciliacoesPagamentosPagar: Array.isArray(dadosNormalizados.conciliacoesPagamentosPagar)
+            ? dadosNormalizados.conciliacoesPagamentosPagar : [],
         movimentacoesEstoque: Array.isArray(dadosNormalizados.movimentacoesEstoque) ? dadosNormalizados.movimentacoesEstoque : [],
         transportes: Array.isArray(dadosNormalizados.transportes) ? dadosNormalizados.transportes : [],
         tipos: Array.isArray(dadosNormalizados.tipos) ? dadosNormalizados.tipos : [],
@@ -642,6 +647,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         fornecedores = estadoNormalizado.fornecedores;
         contasPagar = estadoNormalizado.contasPagar;
         conciliacoesFinanceiras = estadoNormalizado.conciliacoesFinanceiras;
+        conciliacoesPagamentosPagar = estadoNormalizado.conciliacoesPagamentosPagar;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
         transportes = estadoNormalizado.transportes;
         tipos = estadoNormalizado.tipos;
@@ -807,6 +813,7 @@ async function sincronizar(modo) {
                 snapshotLocal.fornecedores.length > 0 ||
                 snapshotLocal.contasPagar.length > 0 ||
                 snapshotLocal.conciliacoesFinanceiras.length > 0 ||
+                snapshotLocal.conciliacoesPagamentosPagar.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
 
             if (temDadosLocais) {

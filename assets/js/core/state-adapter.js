@@ -84,6 +84,8 @@
                 coletar(parcela.operacoesAdministrativas);
             });
         });
+        coletar(Array.isArray(estado?.conciliacoesPagamentosPagar)
+            ? estado.conciliacoesPagamentosPagar : []);
         (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
             (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
                 .filter((item) => item?.origem === 'contas_pagar'
@@ -132,6 +134,16 @@
                     proteger(pagamento, ['id', 'pagamentoId', 'pagamentoReferencia', 'operacaoId',
                         'contaPagarReferencia', 'parcelaReferencia', 'fornecedorReferencia',
                         'propostaReferencia', 'locacaoReferencia']);
+                    (Array.isArray(pagamento.conciliacoes) ? pagamento.conciliacoes : [])
+                        .forEach((registro) => {
+                            proteger(registro, ['id', 'conciliacaoPagamentoPagarId',
+                                'conciliacaoPagamentoPagarReferencia', 'operacaoId',
+                                'contaPagarReferencia', 'parcelaReferencia',
+                                'pagamentoReferencia', 'fornecedorReferencia',
+                                'propostaReferencia', 'locacaoReferencia',
+                                'conciliacaoOriginalReferencia']);
+                            congelarProfundamente(registro);
+                        });
                 });
                 (Array.isArray(parcela.estornos) ? parcela.estornos : []).forEach((estorno) => {
                     proteger(estorno, ['id', 'estornoPagamentoId', 'estornoPagamentoReferencia',
@@ -158,6 +170,15 @@
         (Array.isArray(estado?.conciliacoesFinanceiras) ? estado.conciliacoesFinanceiras : []).forEach((registro) => {
             proteger(registro, ['id', 'conciliacaoReferencia', 'operacaoId', 'tipo', 'contaReferencia',
                 'parcelaReferencia', 'locacaoId', 'locacaoReferencia', 'lancamentoReferencia',
+                'conciliacaoOriginalReferencia']);
+            congelarProfundamente(registro);
+        });
+        (Array.isArray(estado?.conciliacoesPagamentosPagar)
+            ? estado.conciliacoesPagamentosPagar : []).forEach((registro) => {
+            proteger(registro, ['id', 'conciliacaoPagamentoPagarId',
+                'conciliacaoPagamentoPagarReferencia', 'operacaoId', 'tipo',
+                'contaPagarReferencia', 'parcelaReferencia', 'pagamentoReferencia',
+                'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia',
                 'conciliacaoOriginalReferencia']);
             congelarProfundamente(registro);
         });

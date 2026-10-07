@@ -76,7 +76,8 @@
                 ? gerarSnapshotDadosSistema()
                 : {
                     locadores, pecas, locacoes, propostas, devolucoes, contasReceber,
-                    fornecedores, contasPagar, conciliacoesFinanceiras, transportes, tipos, usuarios, config,
+                    fornecedores, contasPagar, conciliacoesFinanceiras,
+                    conciliacoesPagamentosPagar, transportes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem
                 };
@@ -151,6 +152,8 @@
                         fornecedores = normalizarListaBackup(j.fornecedores);
                         contasPagar = normalizarListaBackup(j.contasPagar);
                         conciliacoesFinanceiras = normalizarListaBackup(j.conciliacoesFinanceiras);
+                        conciliacoesPagamentosPagar = normalizarListaBackup(
+                            j.conciliacoesPagamentosPagar);
                         transportes = normalizarListaBackup(j.transportes);
                         tipos = normalizarListaBackup(j.tipos);
                         usuarios = normalizarListaBackup(j.usuarios);
