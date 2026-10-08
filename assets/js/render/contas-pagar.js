@@ -9,7 +9,7 @@
     let sessaoOperacaoAdministrativa = null;
     let sessaoConciliacao = null;
     let acionadorOperacaoAdministrativa = null;
-    let acionadorModal = null;
+    const acionadoresModal = new Map();
     let emProcessamento = false;
     const modaisRegistrados = new Set();
 
@@ -113,6 +113,20 @@
         }
     }
 
+    function limparErroCampoPagar(modal, campo) {
+        if (!(campo instanceof HTMLElement) || campo.getAttribute('aria-invalid') !== 'true') return;
+        const erro = modal?.querySelector('[data-pagar-erro]');
+        campo.removeAttribute('aria-invalid');
+        const ids = (campo.getAttribute('aria-describedby') || '').split(/\s+/)
+            .filter((id) => id && id !== erro?.id);
+        if (ids.length) campo.setAttribute('aria-describedby', ids.join(' '));
+        else campo.removeAttribute('aria-describedby');
+        if (erro && !modal.querySelector('[aria-invalid="true"]')) {
+            erro.textContent = '';
+            erro.hidden = true;
+        }
+    }
+
     function registrarModalPagar(modalId, fechar, confirmar = null) {
         if (modaisRegistrados.has(modalId)) return;
         const modal = document.getElementById(modalId);
@@ -138,6 +152,8 @@
             if (evento.shiftKey && document.activeElement === primeiro) { evento.preventDefault(); ultimo.focus(); }
             else if (!evento.shiftKey && document.activeElement === ultimo) { evento.preventDefault(); primeiro.focus(); }
         });
+        modal.addEventListener('input', (evento) => limparErroCampoPagar(modal, evento.target));
+        modal.addEventListener('change', (evento) => limparErroCampoPagar(modal, evento.target));
         const formulario = modal.querySelector('form');
         if (formulario && typeof confirmar === 'function') {
             formulario.addEventListener('submit', (evento) => {
@@ -147,10 +163,15 @@
         }
     }
 
-    function abrirModalPagar(id, focoId) {
+    function abrirModalPagar(id, focoId, acionador = null, fallback = null, modalPaiId = '') {
         const modal = document.getElementById(id);
         if (!modal) return false;
-        acionadorModal = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const atual = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        acionadoresModal.set(id, {
+            principal: acionador instanceof HTMLElement ? acionador : atual,
+            fallback: fallback instanceof HTMLElement || typeof fallback === 'function' ? fallback : null,
+            modalPaiId: typeof modalPaiId === 'string' ? modalPaiId : ''
+        });
         modal.classList.add('active');
         modal.setAttribute('aria-hidden', 'false');
         requestAnimationFrame(() => setTimeout(() => {
@@ -165,9 +186,18 @@
         modal.classList.remove('active');
         modal.setAttribute('aria-hidden', 'true');
         definirErroPagar(id, '');
-        const retorno = acionadorModal;
-        acionadorModal = null;
-        if (retorno?.isConnected) retorno.focus({ preventScroll: true });
+        const retorno = acionadoresModal.get(id);
+        acionadoresModal.delete(id);
+        const fallback = typeof retorno?.fallback === 'function'
+            ? retorno.fallback() : retorno?.fallback;
+        const alvo = retorno?.principal?.isConnected ? retorno.principal
+            : fallback?.isConnected ? fallback : null;
+        if (alvo === retorno?.principal && retorno.modalPaiId) {
+            const modalPai = document.getElementById(retorno.modalPaiId);
+            modalPai?.classList.add('active');
+            modalPai?.setAttribute('aria-hidden', 'false');
+        }
+        alvo?.focus({ preventScroll: true });
         return true;
     }
 
@@ -308,6 +338,8 @@
             && !validarPermissao('criar_conta_pagar', 'Você não possui permissão para criar contas a pagar.')) return false;
         const fornecedor = document.getElementById('contaPagarFornecedor');
         const descricao = document.getElementById('contaPagarDescricao');
+        const centroCusto = document.getElementById('contaPagarCentroCusto');
+        const origem = document.getElementById('contaPagarOrigem');
         const valor = document.getElementById('contaPagarValor');
         const originalCentavos = parseCentavosPagar(valor?.value || '');
         const previstoTexto = document.getElementById('contaPagarPrevisto')?.value || '';
@@ -315,12 +347,20 @@
         const quantidadeTexto = document.getElementById('contaPagarParcelas')?.value || '';
         const quantidadeParcelas = /^\d+$/.test(quantidadeTexto) ? Number(quantidadeTexto) : NaN;
         let campoErro = !fornecedor?.value ? fornecedor : !descricao?.value.trim() ? descricao
+            : !centroCusto?.value.trim() ? centroCusto
+                : !origem?.value.trim() ? origem
             : originalCentavos === null || originalCentavos <= 0 ? valor
                 : previstoCentavos === null ? document.getElementById('contaPagarPrevisto')
                     : !Number.isSafeInteger(quantidadeParcelas) || quantidadeParcelas <= 0
                         || quantidadeParcelas > originalCentavos ? document.getElementById('contaPagarParcelas')
                         : null;
-        if (campoErro) { definirErroPagar('modalContaPagar', 'Confira os campos obrigatórios e os valores informados.', campoErro); return false; }
+        if (campoErro) {
+            const mensagem = campoErro === centroCusto ? 'Informe o centro de custo.'
+                : campoErro === origem ? 'Informe a origem.'
+                    : 'Confira os campos obrigatórios e os valores informados.';
+            definirErroPagar('modalContaPagar', mensagem, campoErro);
+            return false;
+        }
         const agora = agoraIsoPagar();
         const metadados = metadadosPagar(agora);
         if (typeof criarEntradaCriacaoContaPagar !== 'function') return false;
@@ -790,6 +830,12 @@
                 || pagamento.valorPagoCentavos - estornado <= 0
                 || !['pendente', 'desconsiderada'].includes(situacao.estado)))
             || (tipo === 'desconsideracao' && !situacao.conciliacao)) return false;
+        const acionadorConciliacao = document.activeElement instanceof HTMLElement
+            ? document.activeElement : null;
+        const acionadorDetalhes = acionadoresModal.get('modalDetalhesContaPagar')?.principal || null;
+        const localizarAcionadorDetalhes = () => [...document.querySelectorAll(
+            '[data-action="abrirDetalhesContaPagar"]')].find((elemento) => (
+            elemento.getAttribute('data-arg') === conta.contaPagarReferencia)) || acionadorDetalhes;
         sessaoConciliacao = {
             tipo,
             contaReferencia: conta.contaPagarReferencia,
@@ -824,7 +870,8 @@
         fecharModalPagar('modalDetalhesContaPagar');
         return abrirModalPagar('modalConciliacaoPagamentoPagar',
             tipo === 'conciliacao'
-                ? 'conciliacaoPagamentoPagarValor' : 'desconsideracaoPagamentoPagarMotivo');
+                ? 'conciliacaoPagamentoPagarValor' : 'desconsideracaoPagamentoPagarMotivo',
+            acionadorConciliacao, localizarAcionadorDetalhes, 'modalDetalhesContaPagar');
     }
 
     function abrirConciliacaoPagamentoPagar(argumento) {
