@@ -2,6 +2,12 @@
 const PERFIL_ADMIN = 'admin';
 const PERFIL_OPERACAO = 'operacao';
 const PERFIL_KEY = 'mtzUserRole';
+const PERMISSOES_ABAS_RESTRITAS = Object.freeze({
+    auditoria: 'visualizar_auditoria',
+    config: 'visualizar_configuracoes',
+    'fluxo-caixa': 'visualizar_fluxo_caixa',
+    'contas-pagar': 'visualizar_contas_pagar'
+});
 
 function normalizarListaEmails(texto) {
     return String(texto || '')
@@ -94,10 +100,26 @@ function temPermissao(acao) {
         'conciliar_pagamento_conta_pagar',
         'desconsiderar_conciliacao_conta_pagar',
         'cancelar_locacao',
+        'visualizar_auditoria',
+        'visualizar_configuracoes',
         'configuracao'
     ]);
 
     return !bloqueadas.has(acao);
+}
+
+function temAcessoAba(aba) {
+    if (typeof aba !== 'string') return false;
+    const permissao = PERMISSOES_ABAS_RESTRITAS[aba];
+    return !permissao || temPermissao(permissao);
+}
+
+function validarAcessoAba(aba, opcoes = {}) {
+    if (temAcessoAba(aba)) return true;
+    if (opcoes.silencioso !== true && typeof mostrarToast === 'function') {
+        mostrarToast('Você não possui permissão para acessar esta área.', 'erro');
+    }
+    return false;
 }
 
 function validarPermissao(acao, mensagem = '') {
@@ -133,6 +155,41 @@ function aplicarPermissoesInterface() {
         if (bloquear) el.title = 'Disponível apenas para administradores';
     });
 
+    document.querySelectorAll('[data-tab]').forEach((el) => {
+        const aba = el.getAttribute('data-tab');
+        if (!PERMISSOES_ABAS_RESTRITAS[aba]) return;
+        const permitido = temAcessoAba(aba);
+        el.hidden = !permitido;
+        if ('disabled' in el) el.disabled = !permitido;
+        el.setAttribute('aria-hidden', permitido ? 'false' : 'true');
+    });
+    document.querySelectorAll('.nav-menu-trigger[aria-controls]').forEach((gatilho) => {
+        const menu = document.getElementById(gatilho.getAttribute('aria-controls'));
+        if (!menu) return;
+        const itens = Array.from(menu.querySelectorAll('[data-tab]'));
+        const possuiItemVisivel = itens.some((item) => !item.hidden);
+        gatilho.hidden = !possuiItemVisivel;
+        gatilho.setAttribute('aria-hidden', possuiItemVisivel ? 'false' : 'true');
+    });
+
+    const abaAtiva = document.querySelector('.tab-content.active')?.id?.replace(/^tab-/, '') || '';
+    if (abaAtiva && !temAcessoAba(abaAtiva) && typeof abrirTab === 'function') {
+        abrirTab('dashboard', { semRolagem: true });
+    }
+
+    if (!admin) {
+        const tabelaAuditoria = document.getElementById('tblLogs');
+        if (tabelaAuditoria) tabelaAuditoria.replaceChildren();
+        document.querySelectorAll('#tab-config input, #tab-config textarea, #tab-config select')
+            .forEach((campo) => {
+                if (campo instanceof HTMLInputElement && ['button', 'submit', 'reset'].includes(campo.type)) return;
+                if (campo instanceof HTMLInputElement && ['checkbox', 'radio'].includes(campo.type)) campo.checked = false;
+                else campo.value = '';
+            });
+        const previewLogo = document.getElementById('previewLogo');
+        if (previewLogo) previewLogo.replaceChildren();
+    }
+
     const camposValor = [
         document.getElementById('pecaValor'),
         document.getElementById('editPecaValor'),
@@ -153,6 +210,8 @@ function atualizarPerfilAcesso() {
 
 window.temPermissao = temPermissao;
 window.validarPermissao = validarPermissao;
+window.temAcessoAba = temAcessoAba;
+window.validarAcessoAba = validarAcessoAba;
 window.ehAdmin = ehAdmin;
 window.obterPerfilAcesso = obterPerfilAcesso;
 window.rotuloPerfilAcesso = rotuloPerfilAcesso;

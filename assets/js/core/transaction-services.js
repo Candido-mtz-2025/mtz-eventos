@@ -29,6 +29,7 @@
         'usuarios',
         'locacoes',
         'devolucoes',
+        'transportes',
         'contasReceber',
         'conciliacoesFinanceiras',
         'conciliacoesPagamentosPagar'
@@ -46,6 +47,7 @@
     const travasEstornoPagamentoContaPagar = new Set();
     const travasOperacaoAdministrativaContaPagar = new Set();
     const travasConciliacaoPagamentoPagar = new Set();
+    const travasTransporte = new Set();
     const entradasFornecedorPagarConfiaveis = new WeakSet();
     const entradasContaPagarConfiaveis = new WeakSet();
     const entradasPagamentoContaPagarConfiaveis = new WeakSet();
@@ -9617,6 +9619,313 @@
         return executarRegistroConciliacaoFinanceira(entrada, dependencias, 'desconsideracao');
     }
 
+    function criarReferenciaTransporteInterna(id) {
+        const identidade = referenciaEstrita(id);
+        if (!identidade) return '';
+        const tipo = typeof id;
+        const valor = Object.is(id, -0) ? 0 : id;
+        return `transporte:${encodeURIComponent(JSON.stringify([tipo, valor]))}`;
+    }
+
+    function resolverReferenciaTransporteInterna(colecao, referencia) {
+        if (typeof referencia !== 'string' || !referencia.startsWith('transporte:')) {
+            return { encontrado: false, estado: 'invalido', registro: null, indice: -1, quantidade: 0 };
+        }
+        let dados;
+        try { dados = JSON.parse(decodeURIComponent(referencia.slice('transporte:'.length))); }
+        catch (_erro) { return { encontrado: false, estado: 'invalido', registro: null, indice: -1, quantidade: 0 }; }
+        if (!Array.isArray(dados) || dados.length !== 2) {
+            return { encontrado: false, estado: 'invalido', registro: null, indice: -1, quantidade: 0 };
+        }
+        const [tipo, id] = dados;
+        if ((tipo !== 'string' && tipo !== 'number') || typeof id !== tipo
+            || !referenciaEstrita(id) || criarReferenciaTransporteInterna(id) !== referencia) {
+            return { encontrado: false, estado: 'invalido', registro: null, indice: -1, quantidade: 0 };
+        }
+        const indices = [];
+        (Array.isArray(colecao) ? colecao : []).forEach((registro, indice) => {
+            if (registro && typeof registro === 'object' && !Array.isArray(registro)
+                && typeof registro.id === tipo && Object.is(registro.id, id)) indices.push(indice);
+        });
+        return indices.length === 1
+            ? { encontrado: true, estado: 'encontrado', registro: colecao[indices[0]], indice: indices[0], quantidade: 1 }
+            : { encontrado: false, estado: indices.length > 1 ? 'duplicado' : 'ausente', registro: null,
+                indice: -1, quantidade: indices.length };
+    }
+
+    function resolverLocacaoTransporteInterna(colecao, id) {
+        if (id === '') return { encontrado: false, estado: 'sem_vinculo', registro: null, quantidade: 0 };
+        const identidade = referenciaEstrita(id);
+        if (!identidade) return { encontrado: false, estado: 'invalido', registro: null, quantidade: 0 };
+        const correspondencias = (Array.isArray(colecao) ? colecao : []).filter((registro) => (
+            registro && typeof registro === 'object' && !Array.isArray(registro)
+            && referenciaEstrita(registro.id) === identidade
+        ));
+        return correspondencias.length === 1
+            ? { encontrado: true, estado: 'encontrado', registro: correspondencias[0], quantidade: 1 }
+            : { encontrado: false, estado: correspondencias.length > 1 ? 'duplicado' : 'ausente',
+                registro: null, quantidade: correspondencias.length };
+    }
+
+    function assinaturaOperacaoTransporte(entrada, referencia) {
+        const base = ordenarChavesCanonicas({
+            tipo: 'operacao_transporte_v1',
+            acao: entrada.acao,
+            operacaoId: entrada.operacaoId,
+            transporteReferencia: referencia,
+            registro: entrada.acao === 'criar' || entrada.acao === 'editar' ? entrada.registro : null,
+            status: entrada.status || '',
+            dataConclusao: entrada.dataConclusao || '',
+            atualizadoEm: entrada.atualizadoEm,
+            atualizadoPor: entrada.atualizadoPor,
+            descricao: entrada.descricao || '',
+            persistencia: {
+                versao: entrada.persistencia?.versao,
+                data: entrada.persistencia?.data,
+                ultimaEdicao: entrada.persistencia?.ultimaEdicao
+            }
+        });
+        return `transporte-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
+    }
+
+    function executarOperacaoTransporteTransacional(entradaRecebida, dependencias = {}) {
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        let trava = '';
+        try {
+            if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_TRANSPORTE_INVALIDA');
+            const cloneEntrada = clonarJsonInterno(entradaRecebida);
+            if (!cloneEntrada.ok) return resultadoBase(cloneEntrada.codigo);
+            const entrada = cloneEntrada.valor;
+            const acoes = new Set(['criar', 'editar', 'excluir', 'status']);
+            if (!acoes.has(entrada.acao)
+                || typeof entrada.operacaoId !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+                || typeof entrada.atualizadoEm !== 'string' || !Number.isFinite(Date.parse(entrada.atualizadoEm))
+                || typeof entrada.atualizadoPor !== 'string' || !entrada.atualizadoPor.trim()
+                || !entrada.persistencia || typeof entrada.persistencia !== 'object') {
+                return resultadoBase('ENTRADA_TRANSPORTE_INVALIDA');
+            }
+            if (typeof dependencias.validarPermissaoTransporte !== 'function'
+                || dependencias.validarPermissaoTransporte('gerenciar_transporte') !== true) {
+                return resultadoBase('PERMISSAO_NEGADA');
+            }
+            const referenciaCriacao = entrada.acao === 'criar'
+                ? criarReferenciaTransporteInterna(entrada.registro?.id) : '';
+            const referencia = entrada.acao === 'criar' ? referenciaCriacao : entrada.transporteReferencia;
+            if (!referencia) return resultadoBase('REFERENCIA_TRANSPORTE_INVALIDA');
+            const assinaturaPlano = assinaturaOperacaoTransporte(entrada, referencia);
+            trava = referencia;
+            if (travasTransporte.has(trava)) return resultadoBase('OPERACAO_TRANSPORTE_EM_ANDAMENTO');
+            travasTransporte.add(trava);
+
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual?.();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok) return resultadoBase(memoria.codigo);
+            const opcoesStorage = { armazenamento: dependencias.armazenamento,
+                chave: typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup' };
+            const leituraExterna = dependencias.lerSnapshotLocalConfirmavel?.({ ...opcoesStorage });
+            const leitura = validarRetornoLeituraSnapshotFinanceiro(leituraExterna);
+            if (!leitura.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leitura.snapshot);
+            if (!persistidoInicial.ok || persistidoInicial.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            const evidenciasMemoria = (Array.isArray(memoria.valor.logsAuditoria) ? memoria.valor.logsAuditoria : [])
+                .filter((item) => item?.operacaoId === entrada.operacaoId);
+            const evidenciasPersistidas = (Array.isArray(persistidoInicial.valor.logsAuditoria)
+                ? persistidoInicial.valor.logsAuditoria : []).filter((item) => item?.operacaoId === entrada.operacaoId);
+            if (evidenciasMemoria.length || evidenciasPersistidas.length) {
+                const coerente = evidenciasMemoria.length === 1 && evidenciasPersistidas.length === 1
+                    && evidenciasMemoria[0].origem === 'transporte_transacional'
+                    && evidenciasMemoria[0].transporteReferencia === referencia
+                    && evidenciasMemoria[0].acaoTransporte === entrada.acao
+                    && evidenciasMemoria[0].assinaturaPlano === assinaturaPlano
+                    && JSON.stringify(ordenarChavesCanonicas(evidenciasMemoria[0]))
+                        === JSON.stringify(ordenarChavesCanonicas(evidenciasPersistidas[0]));
+                if (coerente) return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, idempotente: true });
+                const evidenciaExistenteCoerente = evidenciasMemoria.length === 1 && evidenciasPersistidas.length === 1
+                    && JSON.stringify(ordenarChavesCanonicas(evidenciasMemoria[0]))
+                        === JSON.stringify(ordenarChavesCanonicas(evidenciasPersistidas[0]));
+                const mesmaOperacaoAlvo = evidenciaExistenteCoerente
+                    && evidenciasMemoria[0].origem === 'transporte_transacional'
+                    && evidenciasMemoria[0].transporteReferencia === referencia
+                    && evidenciasMemoria[0].acaoTransporte === entrada.acao;
+                return mesmaOperacaoAlvo
+                    ? resultadoBase('CONFLITO_OPERACAO_TRANSPORTE')
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            const candidatoClone = clonarJsonInterno(memoria.valor);
+            if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
+            const candidato = candidatoClone.valor;
+            if (!Array.isArray(candidato.transportes) || !Array.isArray(candidato.logsAuditoria)) {
+                return resultadoBase('ESTADO_TRANSPORTE_INVALIDO');
+            }
+            const resolucao = resolverReferenciaTransporteInterna(candidato.transportes, referencia);
+            if (entrada.acao === 'criar') {
+                if (resolucao.estado === 'duplicado' || resolucao.encontrado) return resultadoBase('TRANSPORTE_ID_DUPLICADO');
+                if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
+                    || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
+                    return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
+                }
+                const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
+                if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
+                    return resultadoBase(locacao.estado === 'duplicado'
+                        ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
+                }
+                candidato.transportes.unshift(clonarJsonInterno(entrada.registro).valor);
+            } else {
+                if (!resolucao.encontrado) return resultadoBase(resolucao.estado === 'duplicado'
+                    ? 'TRANSPORTE_ID_DUPLICADO' : 'TRANSPORTE_NAO_ENCONTRADO');
+                if (entrada.acao === 'editar') {
+                    if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
+                        || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
+                        return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
+                    }
+                    const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
+                    if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
+                        return resultadoBase(locacao.estado === 'duplicado'
+                            ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
+                    }
+                    candidato.transportes[resolucao.indice] = {
+                        ...resolucao.registro,
+                        ...clonarJsonInterno(entrada.registro).valor,
+                        id: resolucao.registro.id
+                    };
+                } else if (entrada.acao === 'excluir') {
+                    candidato.transportes.splice(resolucao.indice, 1);
+                } else {
+                    if (typeof entrada.status !== 'string'
+                        || !['pendente', 'em_rota', 'entregue', 'retirado', 'concluido', 'cancelado'].includes(entrada.status)) {
+                        return resultadoBase('STATUS_TRANSPORTE_INVALIDO');
+                    }
+                    if (resolucao.registro.status === entrada.status) {
+                        return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, idempotente: true });
+                    }
+                    candidato.transportes[resolucao.indice] = {
+                        ...resolucao.registro,
+                        status: entrada.status,
+                        atualizadoEm: entrada.atualizadoEm,
+                        ...(entrada.status === 'concluido' && !resolucao.registro.dataChegada
+                            ? { dataChegada: entrada.dataConclusao || '' } : {})
+                    };
+                }
+            }
+            candidato.logsAuditoria.unshift({
+                id: `audit-transporte-${entrada.operacaoId}`,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                tipo: 'sistema',
+                acao: `transporte_${entrada.acao}`,
+                acaoTransporte: entrada.acao,
+                origem: 'transporte_transacional',
+                transporteReferencia: referencia,
+                timestamp: entrada.atualizadoEm,
+                data: entrada.atualizadoEm,
+                usuario: entrada.atualizadoPor,
+                descricao: entrada.descricao || `Operação ${entrada.acao} de transporte confirmada.`
+            });
+
+            const metadados = entrada.persistencia;
+            const preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto?.(
+                clonarDescartavel(candidato), clonarDescartavel(metadados));
+            const preparado = validarRetornoPreparacaoSnapshotFinanceiro(preparadoExterno);
+            if (!preparado.ok || preparado.snapshot.versao !== metadados.versao
+                || preparado.snapshot.data !== metadados.data
+                || preparado.snapshot.ultimaEdicao !== metadados.ultimaEdicao) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacionalPreparado = prepararEstadoOperacionalInterno(preparado.snapshot);
+            const candidatoPreparado = prepararEstadoOperacionalInterno(candidato);
+            if (!operacionalPreparado.ok || !candidatoPreparado.ok
+                || operacionalPreparado.json !== candidatoPreparado.json) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const snapshotAutoritativo = clonarJsonInterno({
+                versao: metadados.versao,
+                data: metadados.data,
+                ultimaEdicao: metadados.ultimaEdicao,
+                ...candidatoPreparado.valor
+            });
+            if (!snapshotAutoritativo.ok) return resultadoBase(snapshotAutoritativo.codigo);
+            const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
+            if (dependencias.obterEstadoMemoriaAtual() !== raizAnterior) return resultadoBase('REVISAO_DIVERGENTE');
+            try {
+                dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshotAutoritativo.valor), { ...opcoesStorage });
+            } catch (_erro) { /* A releitura autoritativa determina o resultado. */ }
+            const releitura = validarRetornoLeituraSnapshotFinanceiro(
+                dependencias.lerSnapshotLocalConfirmavel?.({ ...opcoesStorage }));
+            if (!releitura.ok) return resultadoBase('PERSISTENCIA_INDETERMINADA', { requerRecuperacao: true });
+            const jsonReleitura = JSON.stringify(ordenarChavesCanonicas(releitura.snapshot));
+            if (jsonReleitura !== jsonEsperado) {
+                const releituraOperacional = prepararEstadoOperacionalInterno(releitura.snapshot);
+                const naoGravado = releituraOperacional.ok && releituraOperacional.json === memoria.json;
+                return resultadoBase(naoGravado ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
+                    { requerRecuperacao: !naoGravado });
+            }
+            persistenciaConfirmada = true;
+            if (dependencias.validarPermissaoTransporte('gerenciar_transporte') !== true) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const operacionalConfirmado = prepararEstadoOperacionalInterno(releitura.snapshot);
+            const jsonPublicacao = JSON.stringify(operacionalConfirmado.valor);
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacao);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior
+            });
+            if (!autorizacao) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalConfirmado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacao,
+                    autorizacaoPublicacao: autorizacao,
+                    exigirConfirmacaoInterna: true
+                });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior,
+                autorizacaoPublicacao: autorizacao
+            });
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            return resultadoBase('TRANSPORTE_APLICADO', {
+                ok: true,
+                aplicado: true,
+                publicacaoRealizada: true,
+                renderizar: true,
+                sincronizar: true,
+                operacao: { operacaoId: entrada.operacaoId, assinaturaPlano, transporteReferencia: referencia },
+                avisos: erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []
+            });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'TRANSPORTE_APLICADO' : 'FALHA_TRANSACIONAL_TRANSPORTE', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                renderizar: publicacaoRealizada,
+                sincronizar: publicacaoRealizada,
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
+            });
+        } finally {
+            if (autorizacao) cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao);
+            if (trava) travasTransporte.delete(trava);
+        }
+    }
+
     window.capturarRevisaoEstoque = capturarRevisaoEstoque;
     window.planejarDestinacaoPecas = planejarDestinacaoPecas;
     window.planejarAlteracaoPeca = planejarAlteracaoPeca;
@@ -9666,5 +9975,6 @@
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;
+    window.executarOperacaoTransporteTransacional = executarOperacaoTransporteTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

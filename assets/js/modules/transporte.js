@@ -3,6 +3,86 @@
     const FILTROS_TRANSPORTE = new Set(['todos', 'pendente', 'em_rota', 'concluido']);
     const CHAVE_FILTRO_TRANSPORTE = 'mtz:transporteFiltro';
     let filtroTransporteAtual = lerFiltroTransportePersistido();
+    let operacaoTransporteInterfaceAtiva = false;
+
+    function criarReferenciaTransporte(id) {
+        return typeof criarReferenciaTipadaEntidade === 'function'
+            ? criarReferenciaTipadaEntidade('transporte', id) : '';
+    }
+
+    function resolverTransporte(referencia) {
+        return typeof resolverRegistroPorReferenciaTipada === 'function'
+            ? resolverRegistroPorReferenciaTipada(transportes, 'transporte', referencia)
+            : { encontrado: false, estado: 'invalido', registro: null };
+    }
+
+    function gerarOperacaoIdTransporte(acao) {
+        const sufixo = globalThis.crypto?.randomUUID
+            ? globalThis.crypto.randomUUID().replace(/[^a-z0-9]/gi, '').toLowerCase()
+            : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+        return `transporte-${acao}-${sufixo}`.slice(0, 160);
+    }
+
+    function obterEntradaBaseTransporte(acao) {
+        const agora = new Date();
+        return {
+            acao,
+            operacaoId: gerarOperacaoIdTransporte(acao),
+            atualizadoEm: agora.toISOString(),
+            atualizadoPor: localStorage.getItem('usuarioEmail') || 'Offline',
+            persistencia: {
+                versao: window.SCHEMA_VERSION_V12 || (typeof STORAGE_VERSION !== 'undefined' ? STORAGE_VERSION : '12.0'),
+                data: agora.toISOString(),
+                ultimaEdicao: agora.getTime()
+            }
+        };
+    }
+
+    function mensagemFalhaTransporte(resultado) {
+        if (resultado?.requerRecuperacao) return 'A operação de transporte exige recuperação explícita. Recarregue os dados antes de tentar novamente.';
+        const mensagens = {
+            PERMISSAO_NEGADA: 'Você não possui permissão para alterar transportes.',
+            TRANSPORTE_ID_DUPLICADO: 'Existem transportes com a mesma identidade. Corrija o cadastro antes de continuar.',
+            TRANSPORTE_NAO_ENCONTRADO: 'O transporte não está mais disponível.',
+            REFERENCIA_TRANSPORTE_INVALIDA: 'A referência do transporte é inválida ou foi alterada.',
+            OPERACAO_TRANSPORTE_EM_ANDAMENTO: 'Uma operação deste transporte já está em andamento.',
+            CONFLITO_OPERACAO_TRANSPORTE: 'Esta operação já foi usada com outros dados. Nenhuma alteração foi aplicada.',
+            FALHA_PERSISTENCIA: 'Não foi possível confirmar a gravação do transporte.'
+        };
+        return mensagens[resultado?.codigo] || 'Não foi possível concluir a operação de transporte.';
+    }
+
+    function executarTransportePelaInterface(entrada, mensagemSucesso) {
+        if (operacaoTransporteInterfaceAtiva) return null;
+        if (typeof executarOperacaoTransporteTransacional !== 'function'
+            || typeof criarDependenciasExecutorTransporte !== 'function') {
+            mostrarToast('Serviço transacional de transporte indisponível.', 'erro');
+            return null;
+        }
+        operacaoTransporteInterfaceAtiva = true;
+        let resultado;
+        try {
+            resultado = executarOperacaoTransporteTransacional(
+                entrada, criarDependenciasExecutorTransporte());
+        } finally {
+            operacaoTransporteInterfaceAtiva = false;
+        }
+        if (!resultado?.ok) {
+            mostrarToast(mensagemFalhaTransporte(resultado), 'erro');
+            return resultado;
+        }
+        if (!resultado.idempotente) {
+            if (resultado.efeitos?.renderizar && typeof renderTudo === 'function') renderTudo();
+            if (resultado.efeitos?.sincronizar) {
+                if (typeof atualizarMetadadoSincronizacao === 'function') {
+                    atualizarMetadadoSincronizacao({ ultimaEdicao: entrada.persistencia.ultimaEdicao });
+                }
+                if (typeof sincronizar === 'function') sincronizar('salvar');
+            }
+        }
+        if (mensagemSucesso) mostrarToast(mensagemSucesso);
+        return resultado;
+    }
 
     function textoSeguro(valor, fallback = '') {
         const texto = valor == null ? '' : String(valor);
@@ -57,9 +137,10 @@
     }
 
     function obterLocacaoPorId(id) {
-        const alvo = String(id || '');
-        if (!alvo || !Array.isArray(locacoes)) return null;
-        return locacoes.find((locacao) => String(locacao.id) === alvo) || null;
+        const resultado = typeof id === 'string' && id.startsWith('locacao:')
+            ? resolverRegistroPorReferenciaTipada(locacoes, 'locacao', id)
+            : resolverRegistroPorIdExato(locacoes, id);
+        return resultado.encontrado ? resultado.registro : null;
     }
 
     function obterClientePorLocacao(locacao) {
@@ -219,8 +300,10 @@
         const custoEstimado = numero(registro.custoEstimado, distanciaKm * valorKm * trechos);
 
         return {
-            id: registro.id || Date.now(),
-            locacaoId: textoSeguro(registro.locacaoId),
+            ...registro,
+            id: registro.id ?? Date.now(),
+            locacaoId: normalizarIdEntidadeExato(registro.locacaoId).valido
+                ? normalizarIdEntidadeExato(registro.locacaoId).valor : '',
             clienteNome: textoSeguro(registro.clienteNome, 'Cliente nao informado'),
             endereco: textoSeguro(registro.endereco),
             cidade: textoSeguro(registro.cidade),
@@ -292,15 +375,17 @@
         const select = document.getElementById('transporteLocacao');
         if (!select) return;
 
-        const valorAtual = String(select.value || '');
+        const valorAtual = select.value;
         const lista = Array.isArray(locacoes) ? locacoes : [];
         const opcoes = lista
             .slice()
-            .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
+            .sort((a, b) => criarReferenciaTipadaEntidade('locacao', a.id)
+                .localeCompare(criarReferenciaTipadaEntidade('locacao', b.id)))
             .map((locacao) => {
                 const nome = obterNomeClienteLocacao(locacao);
                 const codigo = `#${String(locacao.id || '').slice(-4)}`;
-                return `<option value="${html(locacao.id)}">${html(`${codigo} - ${nome}`)}</option>`;
+                const referencia = criarReferenciaTipadaEntidade('locacao', locacao.id);
+                return `<option value="${html(referencia)}">${html(`${codigo} - ${nome}`)}</option>`;
             })
             .join('');
 
@@ -362,11 +447,16 @@
         calcularCustoTransporte();
     }
 
-    function obterPayloadFormularioTransporte() {
+    function obterPayloadFormularioTransporte(idRegistro) {
         const calculo = calcularCustoTransporte();
+        const referenciaLocacao = lerCampo('transporteLocacao');
+        const resolucaoLocacao = referenciaLocacao
+            ? resolverRegistroPorReferenciaTipada(locacoes, 'locacao', referenciaLocacao)
+            : { encontrado: false, estado: 'ausente', registro: null };
+        if (referenciaLocacao && !resolucaoLocacao.encontrado) return null;
         return normalizarTransporte({
-            id: lerCampo('transporteId') || Date.now(),
-            locacaoId: lerCampo('transporteLocacao'),
+            id: idRegistro ?? Date.now(),
+            locacaoId: resolucaoLocacao.registro?.id ?? '',
             clienteNome: lerCampo('transporteClienteNome'),
             endereco: lerCampo('transporteEndereco'),
             cidade: lerCampo('transporteCidade'),
@@ -389,7 +479,19 @@
     }
 
     function salvarTransporte() {
-        const payload = obterPayloadFormularioTransporte();
+        const referenciaAtual = lerCampo('transporteId');
+        const resolucaoAtual = referenciaAtual ? resolverTransporte(referenciaAtual) : null;
+        if (referenciaAtual && !resolucaoAtual?.encontrado) {
+            mostrarToast(resolucaoAtual?.estado === 'duplicado'
+                ? 'Existem transportes com a mesma identidade. A edição foi bloqueada.'
+                : 'O transporte em edição não está mais disponível.', 'erro');
+            return;
+        }
+        const payload = obterPayloadFormularioTransporte(resolucaoAtual?.registro?.id);
+        if (!payload) {
+            mostrarToast('A locação vinculada é inválida, duplicada ou foi removida.', 'erro');
+            return;
+        }
         if (!payload.clienteNome || payload.clienteNome === 'Cliente nao informado') {
             if (typeof mostrarToast === 'function') {
                 mostrarToast('Informe o cliente ou selecione uma locacao para o transporte.', 'erro');
@@ -397,39 +499,28 @@
             return;
         }
 
-        const idAtual = String(lerCampo('transporteId') || '');
-        const existe = idAtual && Array.isArray(transportes) && transportes.some((item) => String(item.id) === idAtual);
-        payload.atualizadoEm = new Date().toISOString();
-
-        if (!Array.isArray(transportes)) transportes = [];
-        if (existe) {
-            transportes = transportes.map((item) => String(item.id) === idAtual ? { ...item, ...payload } : item);
-        } else {
-            payload.criadoEm = new Date().toISOString();
-            transportes.unshift(payload);
-        }
-
-        if (typeof registrarLog === 'function') {
-            registrarLog('sistema', existe ? 'transporte_editar' : 'transporte_criar', `Transporte ${existe ? 'atualizado' : 'criado'} para ${payload.clienteNome}.`);
-        }
-
+        const existe = Boolean(resolucaoAtual?.encontrado);
+        const entrada = obterEntradaBaseTransporte(existe ? 'editar' : 'criar');
+        payload.atualizadoEm = entrada.atualizadoEm;
+        if (!existe) payload.criadoEm = entrada.atualizadoEm;
+        entrada.registro = payload;
+        entrada.transporteReferencia = existe ? referenciaAtual : criarReferenciaTransporte(payload.id);
+        entrada.descricao = `Transporte ${existe ? 'atualizado' : 'criado'} para ${payload.clienteNome}.`;
+        const resultado = executarTransportePelaInterface(entrada, 'Transporte salvo com sucesso!');
+        if (!resultado?.ok) return;
         limparFormularioTransporte({ semRender: true });
-        if (typeof salvarLocal === 'function') salvarLocal();
-        if (typeof renderTudo === 'function') renderTudo();
-        if (typeof sincronizar === 'function') sincronizar('salvar');
-        if (typeof mostrarToast === 'function') mostrarToast('Transporte salvo com sucesso!');
 
         setTimeout(() => irParaTransporteLista(), 120);
     }
 
     function criarTransporteDaLocacao(locacao, opcoes = {}) {
-        if (!locacao || !locacao.id) return null;
+        if (!locacao || !normalizarIdEntidadeExato(locacao.id).valido) return null;
         if (!Array.isArray(transportes)) transportes = [];
 
         const tipoOperacao = textoSeguro(opcoes.tipoOperacao, 'entrega');
         const evitarDuplicado = opcoes.evitarDuplicado !== false;
         const jaExiste = transportes.some((item) => (
-            String(item.locacaoId) === String(locacao.id) &&
+            idsEntidadeExatos(item.locacaoId, locacao.id) &&
             textoSeguro(item.tipoOperacao, 'entrega') === tipoOperacao
         ));
         if (evitarDuplicado && jaExiste) return null;
@@ -442,8 +533,8 @@
         const custoEstimado = numero(opcoes.custoEstimado ?? logistica.custoFrete, distanciaKm * valorKm * trechos);
 
         const registro = normalizarTransporte({
-            id: opcoes.id || Date.now() + Math.floor(Math.random() * 900),
-            locacaoId: String(locacao.id),
+            id: opcoes.id ?? Date.now() + Math.floor(Math.random() * 900),
+            locacaoId: locacao.id,
             clienteNome: textoSeguro(opcoes.clienteNome, obterNomeClienteLocacao(locacao)),
             endereco: textoSeguro(opcoes.endereco, obterEnderecoLocacao(locacao, cliente)),
             cidade: textoSeguro(opcoes.cidade, obterCidadeLocacao(locacao, cliente)),
@@ -508,9 +599,11 @@
     }
 
     function editarTransporte(id) {
-        const registro = (Array.isArray(transportes) ? transportes : []).find((item) => String(item.id) === String(id));
-        if (!registro) {
-            if (typeof mostrarToast === 'function') mostrarToast('Transporte nao encontrado.', 'erro');
+        const resultado = resolverTransporte(id);
+        const registro = resultado.registro;
+        if (!resultado.encontrado) {
+            if (typeof mostrarToast === 'function') mostrarToast(resultado.estado === 'duplicado'
+                ? 'Existem transportes com a mesma identidade.' : 'Transporte nao encontrado.', 'erro');
             return;
         }
 
@@ -518,8 +611,9 @@
         if (typeof abrirTab === 'function') abrirTab('transporte', { semRolagem: true });
         setTimeout(() => {
             popularSelectLocacaoTransporte();
-            preencherCampo('transporteId', item.id);
-            preencherCampo('transporteLocacao', item.locacaoId);
+            preencherCampo('transporteId', criarReferenciaTransporte(item.id));
+            preencherCampo('transporteLocacao', item.locacaoId === '' ? ''
+                : criarReferenciaTipadaEntidade('locacao', item.locacaoId));
             preencherCampo('transporteClienteNome', item.clienteNome);
             preencherCampo('transporteEndereco', item.endereco);
             preencherCampo('transporteCidade', item.cidade);
@@ -550,29 +644,29 @@
     }
 
     function duplicarTransporte(id) {
-        const registro = (Array.isArray(transportes) ? transportes : []).find((item) => String(item.id) === String(id));
-        if (!registro) return;
+        const resolucao = resolverTransporte(id);
+        const registro = resolucao.registro;
+        if (!resolucao.encontrado) return;
+        const entrada = obterEntradaBaseTransporte('criar');
         const copia = normalizarTransporte({
             ...registro,
             id: Date.now(),
             status: 'pendente',
-            criadoEm: new Date().toISOString(),
-            atualizadoEm: new Date().toISOString()
+            criadoEm: entrada.atualizadoEm,
+            atualizadoEm: entrada.atualizadoEm
         });
-        transportes.unshift(copia);
-        if (typeof salvarLocal === 'function') salvarLocal();
-        if (typeof renderTudo === 'function') renderTudo();
-        if (typeof sincronizar === 'function') sincronizar('salvar');
-        if (typeof mostrarToast === 'function') mostrarToast('Transporte duplicado.');
+        entrada.registro = copia;
+        entrada.transporteReferencia = criarReferenciaTransporte(copia.id);
+        entrada.descricao = `Transporte duplicado para ${copia.clienteNome}.`;
+        executarTransportePelaInterface(entrada, 'Transporte duplicado.');
     }
 
     function excluirTransporte(id) {
         const remover = () => {
-            transportes = (Array.isArray(transportes) ? transportes : []).filter((item) => String(item.id) !== String(id));
-            if (typeof salvarLocal === 'function') salvarLocal();
-            if (typeof renderTudo === 'function') renderTudo();
-            if (typeof sincronizar === 'function') sincronizar('salvar');
-            if (typeof mostrarToast === 'function') mostrarToast('Transporte excluido.');
+            const entrada = obterEntradaBaseTransporte('excluir');
+            entrada.transporteReferencia = id;
+            entrada.descricao = 'Transporte excluído.';
+            executarTransportePelaInterface(entrada, 'Transporte excluido.');
         };
 
         if (typeof confirmarAcao === 'function') {
@@ -584,17 +678,12 @@
 
     function alterarStatusTransporte(id, status) {
         const statusNormalizado = textoSeguro(status, 'pendente');
-        transportes = (Array.isArray(transportes) ? transportes : []).map((item) => {
-            if (String(item.id) !== String(id)) return item;
-            const atualizado = normalizarTransporte({ ...item, status: statusNormalizado, atualizadoEm: new Date().toISOString() });
-            if (statusNormalizado === 'concluido' && !atualizado.dataChegada) {
-                atualizado.dataChegada = hojeIso();
-            }
-            return atualizado;
-        });
-        if (typeof salvarLocal === 'function') salvarLocal();
-        if (typeof renderTudo === 'function') renderTudo();
-        if (typeof sincronizar === 'function') sincronizar('salvar');
+        const entrada = obterEntradaBaseTransporte('status');
+        entrada.transporteReferencia = id;
+        entrada.status = statusNormalizado;
+        entrada.dataConclusao = statusNormalizado === 'concluido' ? hojeIso() : '';
+        entrada.descricao = `Status do transporte alterado para ${statusNormalizado}.`;
+        executarTransportePelaInterface(entrada, 'Status do transporte atualizado.');
     }
 
     function aplicarFiltroTransporteRapido(filtro = 'todos') {
@@ -671,7 +760,7 @@
         const filtrados = filtrarTransportes(base, buscaRaw).sort((a, b) => {
             const dataA = a.dataSaida || '9999-12-31';
             const dataB = b.dataSaida || '9999-12-31';
-            if (dataA === dataB) return Number(b.id || 0) - Number(a.id || 0);
+            if (dataA === dataB) return criarReferenciaTransporte(a.id).localeCompare(criarReferenciaTransporte(b.id));
             return dataA.localeCompare(dataB);
         });
 
@@ -708,8 +797,10 @@
             return;
         }
 
-        tabela.innerHTML = filtrados.map((item) => `
-            <tr data-transporte-id="${html(item.id)}">
+        tabela.innerHTML = filtrados.map((item) => {
+            const referencia = criarReferenciaTransporte(item.id);
+            return `
+            <tr data-transporte-ref="${html(referencia)}">
                 <td>
                     <strong>${formatarDataCurtaTransporte(item.dataSaida)}</strong>
                     <small>${html(item.horaSaida || item.tipoOperacao)}</small>
@@ -733,15 +824,16 @@
                 </td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-info table-action-btn" data-action="editarTransporte" data-arg="${html(item.id)}" title="Editar transporte"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusTransporte" data-arg="${html(item.id)}" data-arg2="em_rota" title="Marcar em rota"><i class="bi bi-truck"></i></button>
-                        <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusTransporte" data-arg="${html(item.id)}" data-arg2="concluido" title="Concluir transporte"><i class="bi bi-check2"></i></button>
-                        <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarTransporte" data-arg="${html(item.id)}" title="Duplicar transporte"><i class="bi bi-copy"></i></button>
-                        <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirTransporte" data-arg="${html(item.id)}" title="Excluir transporte"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-sm btn-info table-action-btn" data-action="editarTransporte" data-arg="${html(referencia)}" title="Editar transporte"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusTransporte" data-arg="${html(referencia)}" data-arg2="em_rota" title="Marcar em rota"><i class="bi bi-truck"></i></button>
+                        <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusTransporte" data-arg="${html(referencia)}" data-arg2="concluido" title="Concluir transporte"><i class="bi bi-check2"></i></button>
+                        <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarTransporte" data-arg="${html(referencia)}" title="Duplicar transporte"><i class="bi bi-copy"></i></button>
+                        <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirTransporte" data-arg="${html(referencia)}" title="Excluir transporte"><i class="bi bi-trash"></i></button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     function irParaTransporteFormulario() {

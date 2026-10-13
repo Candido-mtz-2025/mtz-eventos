@@ -43,6 +43,8 @@ function limparLogsAntigos() {
  * Exporta logs como CSV
  */
 function exportarLogsCSV() {
+    if (typeof validarPermissao === 'function'
+        && !validarPermissao('visualizar_auditoria', 'Somente administrador pode exportar a auditoria.')) return;
     if (logsAuditoria.length === 0) {
         mostrarToast('Nenhum log para exportar!', 'erro');
         return;
@@ -79,6 +81,10 @@ function exportarLogsCSV() {
 function renderLogs(filtro = 'todos') {
     const tbody = document.getElementById('tblLogs');
     if (!tbody) return;
+    if (typeof temPermissao === 'function' && !temPermissao('visualizar_auditoria')) {
+        tbody.innerHTML = '';
+        return;
+    }
 
     window.filtroLogAtual = filtro;
 

@@ -330,6 +330,37 @@ function resolverRegistroPorIdExato(colecao, id) {
     };
 }
 
+function criarReferenciaTipadaEntidade(prefixo, id) {
+    if (typeof prefixo !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(prefixo)) return '';
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido) return '';
+    return `${prefixo}:${encodeURIComponent(JSON.stringify([identidade.tipo, identidade.valor]))}`;
+}
+
+function resolverRegistroPorReferenciaTipada(colecao, prefixo, referencia) {
+    const invalido = {
+        encontrado: false,
+        estado: 'invalido',
+        codigo: 'REFERENCIA_INVALIDA',
+        registro: null,
+        quantidade: 0
+    };
+    if (typeof prefixo !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(prefixo)
+        || typeof referencia !== 'string' || !referencia.startsWith(`${prefixo}:`)) return invalido;
+    let dados;
+    try {
+        dados = JSON.parse(decodeURIComponent(referencia.slice(prefixo.length + 1)));
+    } catch (_erro) {
+        return invalido;
+    }
+    if (!Array.isArray(dados) || dados.length !== 2) return invalido;
+    const [tipo, id] = dados;
+    const identidade = normalizarIdEntidadeExato(id);
+    if (!identidade.valido || identidade.tipo !== tipo
+        || criarReferenciaTipadaEntidade(prefixo, id) !== referencia) return invalido;
+    return resolverRegistroPorIdExato(colecao, identidade.valor);
+}
+
 function resolverClientePorIdExato(clientes, id) {
     const resultado = resolverRegistroPorIdExato(clientes, id);
     return { ...resultado, cliente: resultado.registro };
@@ -509,6 +540,8 @@ window.resolverRegistroPorIdExato = resolverRegistroPorIdExato;
 window.resolverClientePorIdExato = resolverClientePorIdExato;
 window.criarReferenciaTipadaCliente = criarReferenciaTipadaCliente;
 window.resolverClientePorReferenciaTipada = resolverClientePorReferenciaTipada;
+window.criarReferenciaTipadaEntidade = criarReferenciaTipadaEntidade;
+window.resolverRegistroPorReferenciaTipada = resolverRegistroPorReferenciaTipada;
 window.criarEstadoUI = criarEstadoUI;
 window.criarEstadoPainel = criarEstadoPainel;
 window.criarLinhaTabelaEstado = criarLinhaTabelaEstado;

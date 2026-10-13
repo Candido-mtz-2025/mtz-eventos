@@ -2179,6 +2179,7 @@ function irParaLocacoesFormulario() {
 }
 
 function irParaAuditoriaBusca() {
+    if (typeof validarAcessoAba === 'function' && !validarAcessoAba('auditoria')) return false;
     const abaAtual = obterAbaAtivaAtual();
     const campoBusca = document.getElementById('auditBusca');
     if (abaAtual === 'auditoria' && campoBusca) {
@@ -2206,6 +2207,7 @@ function irParaAuditoriaBusca() {
 }
 
 function aplicarFiltroAuditoria(filtro = 'todos', focarBusca = false) {
+    if (typeof validarAcessoAba === 'function' && !validarAcessoAba('auditoria')) return false;
     navegarComFocoAtalho({
         tabId: 'auditoria',
         preparar: () => {
@@ -2234,6 +2236,7 @@ function aplicarFiltroAuditoriaRapido(filtro = 'todos') {
 }
 
 function irParaConfigGeral() {
+    if (typeof validarAcessoAba === 'function' && !validarAcessoAba('config')) return false;
     const abaAtual = obterAbaAtivaAtual();
     const campoRodape = document.getElementById('confRodape');
     if (abaAtual === 'config' && campoRodape) {
@@ -2356,6 +2359,7 @@ function acionarImportacaoEstoqueViaAtalho() {
 }
 
 function irParaConfigBackup() {
+    if (typeof validarAcessoAba === 'function' && !validarAcessoAba('config')) return false;
     const abaAtual = obterAbaAtivaAtual();
     const cardBackupAtual = document.querySelector('#tab-config .config-actions-card')
         || document.querySelector('#tab-config .card');
@@ -3340,9 +3344,10 @@ document.addEventListener('keydown', (event) => {
 
     function abrirTab(id, opcoes = {}) {
         id = String(id || '').trim() === 'orcamentos' ? 'propostas' : id;
+        if (typeof validarAcessoAba === 'function' && !validarAcessoAba(id, opcoes)) return false;
         const alvoId = `tab-${id}`;
         const tabExiste = document.getElementById(alvoId);
-        if (!tabExiste) return;
+        if (!tabExiste) return false;
 
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach((tab) => {
@@ -3371,6 +3376,7 @@ document.addEventListener('keydown', (event) => {
                 : obterAlvoInicialDaTab(id);
             if (alvo) rolarParaElementoAtalho(alvo, 'start', { forcar: true, bloquearDuranteEdicao: true });
         }, Number(opcoes.delayMs) || 80);
+        return true;
     }
     
     function fecharModal(id) { const m = document.getElementById(id); if(m) m.classList.remove('active'); }

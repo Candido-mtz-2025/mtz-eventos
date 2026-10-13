@@ -39,18 +39,34 @@ function salvarTipo() {
 }
 
 function abrirEditarTipo(id) {
-    const t = tipos.find((x) => String(x.id) === String(id));
-    if (!t) return;
-    document.getElementById('editTipoId').value = t.id;
+    const resultado = typeof resolverRegistroPorReferenciaTipada === 'function'
+        ? resolverRegistroPorReferenciaTipada(tipos, 'tipo', id)
+        : { encontrado: false, estado: 'invalido', registro: null };
+    const t = resultado.registro;
+    if (!resultado.encontrado) {
+        mostrarToast(resultado.estado === 'duplicado'
+            ? 'Existem tipos com a mesma identidade. Corrija o cadastro antes de editar.'
+            : 'O tipo selecionado não está disponível.', 'erro');
+        return;
+    }
+    document.getElementById('editTipoId').value = criarReferenciaTipadaEntidade('tipo', t.id);
     document.getElementById('editTipoNome').value = t.nome;
     document.getElementById('editTipoDesc').value = t.desc || '';
     document.getElementById('modalEditarTipo').classList.add('active');
 }
 
 function salvarEdicaoTipo() {
-    const id = document.getElementById('editTipoId')?.value;
-    const t = tipos.find((x) => String(x.id) === String(id));
-    if (!t) return;
+    const referencia = document.getElementById('editTipoId')?.value;
+    const resultado = typeof resolverRegistroPorReferenciaTipada === 'function'
+        ? resolverRegistroPorReferenciaTipada(tipos, 'tipo', referencia)
+        : { encontrado: false, estado: 'invalido', registro: null };
+    const t = resultado.registro;
+    if (!resultado.encontrado) {
+        mostrarToast(resultado.estado === 'duplicado'
+            ? 'Existem tipos com a mesma identidade. A edição foi bloqueada.'
+            : 'O tipo em edição não está mais disponível.', 'erro');
+        return;
+    }
 
     const nome = String(document.getElementById('editTipoNome')?.value || '').trim();
     const desc = String(document.getElementById('editTipoDesc')?.value || '').trim();
@@ -61,7 +77,7 @@ function salvarEdicaoTipo() {
     }
 
     const nomeNormalizado = normalizarNomeTipo(nome);
-    const duplicado = tipos.some((tipo) => String(tipo.id) !== String(id) && normalizarNomeTipo(tipo.nome) === nomeNormalizado);
+    const duplicado = tipos.some((tipo) => tipo !== t && normalizarNomeTipo(tipo.nome) === nomeNormalizado);
     if (duplicado) {
         mostrarToast('Já existe um tipo com esse nome.', 'erro');
         document.getElementById('editTipoNome')?.focus();

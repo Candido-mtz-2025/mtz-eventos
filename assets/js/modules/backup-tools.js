@@ -70,6 +70,8 @@
 
     // --- FUNÇÕES DE BACKUP ---
     function baixarBackup() {
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('configuracao', 'Somente administrador pode baixar backups.')) return;
         try {
             const versaoSchemaAtual = window.SCHEMA_VERSION_V12 || (typeof STORAGE_VERSION !== 'undefined' ? STORAGE_VERSION : '12.0');
             const snapshot = typeof gerarSnapshotDadosSistema === 'function'
@@ -122,6 +124,11 @@
         const reader = new FileReader();
 
         reader.onload = function(e) {
+            if (typeof validarPermissao === 'function'
+                && !validarPermissao('restaurar_backup', 'A permissão para restaurar backup foi revogada.')) {
+                limparInputBackup(input);
+                return;
+            }
             try {
                 const j = JSON.parse(e.target?.result || '{}');
                 if (!backupTemEstruturaMinima(j)) {
@@ -131,6 +138,11 @@
                 }
 
                 const confirmarRestauro = () => {
+                    if (typeof validarPermissao === 'function'
+                        && !validarPermissao('restaurar_backup', 'A permissão para restaurar backup foi revogada.')) {
+                        limparInputBackup(input);
+                        return;
+                    }
                     // Cria snapshot de segurança antes da substituição.
                     if (typeof criarBackupEmergencia === 'function') {
                         try {
@@ -140,6 +152,11 @@
                         }
                     }
 
+                    if (typeof validarPermissao === 'function'
+                        && !validarPermissao('restaurar_backup', 'A permissão para restaurar backup foi revogada.')) {
+                        limparInputBackup(input);
+                        return;
+                    }
                     if (typeof aplicarDadosSistema === 'function') {
                         aplicarDadosSistema(j, { manterConfigAtual: true, origem: 'backup_json' });
                     } else {

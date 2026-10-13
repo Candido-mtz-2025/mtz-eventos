@@ -2802,9 +2802,15 @@ function abrirHistoricoLocacao(id) {
         return;
     }
 
-    const locacao = locacoes.find((x) => String(x.id) === String(id));
-    if (!locacao) {
-        mostrarToast('Locação não encontrada.', 'erro');
+    const resultado = typeof id === 'string' && id.startsWith('locacao:')
+        && typeof resolverRegistroPorReferenciaTipada === 'function'
+        ? resolverRegistroPorReferenciaTipada(locacoes, 'locacao', id)
+        : resolverRegistroPorIdExato(locacoes, id);
+    const locacao = resultado.registro;
+    if (!resultado.encontrado) {
+        mostrarToast(resultado.estado === 'duplicado'
+            ? 'A locação possui identidade duplicada. Corrija o cadastro antes de abrir o histórico.'
+            : 'Locação não encontrada.', 'erro');
         return;
     }
 

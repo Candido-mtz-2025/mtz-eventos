@@ -107,7 +107,9 @@ function atualizarResumoTiposExecutivo() {
     const totalTipos = Array.isArray(tipos) ? tipos.length : 0;
 
     const tiposComUso = Array.isArray(tipos)
-        ? tipos.filter((t) => (Array.isArray(pecas) ? pecas.some((p) => Number(p.tipoId) === Number(t.id)) : false)).length
+        ? tipos.filter((t) => (Array.isArray(pecas)
+            ? pecas.some((p) => typeof idsEntidadeExatos === 'function' && idsEntidadeExatos(p.tipoId, t.id))
+            : false)).length
         : 0;
 
     const tiposSemUso = Math.max(totalTipos - tiposComUso, 0);
@@ -179,17 +181,22 @@ function renderTipos() {
     
     const totalPorTipo = new Map();
     (Array.isArray(pecas) ? pecas : []).forEach((p) => {
-        const chave = String(p.tipoId || 0);
+        const chave = typeof criarReferenciaTipadaEntidade === 'function'
+            ? criarReferenciaTipadaEntidade('tipo', p.tipoId) : '';
+        if (!chave) return;
         totalPorTipo.set(chave, (totalPorTipo.get(chave) || 0) + 1);
     });
 
     tbody.innerHTML = tiposFiltrados.map((t) => {
         const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.nome || '') : (t.nome || '');
         const desc = typeof sanitizarTexto === 'function' ? sanitizarTexto(t.desc || '-') : (t.desc || '-');
-        const itensVinculados = totalPorTipo.get(String(t.id)) || 0;
+        const referencia = typeof criarReferenciaTipadaEntidade === 'function'
+            ? criarReferenciaTipadaEntidade('tipo', t.id) : '';
+        const referenciaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(referencia) : referencia;
+        const itensVinculados = totalPorTipo.get(referencia) || 0;
         const classeLinha = itensVinculados > 0 ? 'tipo-row tipo-row--ativo' : 'tipo-row tipo-row--sem-uso';
         return `
-        <tr class="${classeLinha}" data-tipo-id="${t.id}">
+        <tr class="${classeLinha}" data-tipo-ref="${referenciaSegura}">
             <td>
                 <div class="table-cell-title">${nome}</div>
                 <div class="table-cell-sub">${itensVinculados} item(ns) no estoque</div>
@@ -197,7 +204,7 @@ function renderTipos() {
             <td>${desc}</td>
             <td class="col-actions">
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-info table-action-btn" title="Editar tipo" aria-label="Editar tipo" data-action="abrirEditarTipo" data-arg="${t.id}">
+                    <button class="btn btn-sm btn-info table-action-btn" title="Editar tipo" aria-label="Editar tipo" data-action="abrirEditarTipo" data-arg="${referenciaSegura}">
                         <i class="bi bi-pencil"></i>
                     </button>
                 </div>
@@ -263,17 +270,20 @@ function renderTipos() {
             tipos.push(tipoGeral);
         }
 
-        const tOpts = `<option value="${tipoGeral.id}">Geral</option>` + tipos
-            .filter((x) => String(x.id) !== String(tipoGeral.id))
+        const referenciaGeral = criarReferenciaTipadaEntidade('tipo', tipoGeral.id);
+        const tOpts = `<option value="${sanitizarTexto(referenciaGeral)}">Geral</option>` + tipos
+            .filter((x) => x !== tipoGeral)
             .map((x) => {
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');
-            return `<option value="${x.id}">${nome}</option>`;
+            const referencia = criarReferenciaTipadaEntidade('tipo', x.id);
+            return referencia ? `<option value="${sanitizarTexto(referencia)}">${nome}</option>` : '';
         }).join('');
         const t = document.getElementById('pecaTipo'); if(t) t.innerHTML=tOpts;
         const tE = document.getElementById('editPecaTipo'); if(tE) tE.innerHTML=tOpts;
     } 
 
 function renderConfig() {
+    if (typeof temPermissao === 'function' && !temPermissao('visualizar_configuracoes')) return;
     // Preenche os inputs com os dados da memória
     const elRodape = document.getElementById('confRodape');
     const elTel = document.getElementById('confTel');

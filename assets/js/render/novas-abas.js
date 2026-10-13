@@ -412,8 +412,13 @@
             return;
         }
 
-        tabela.innerHTML = filtrados.map((item) => `
-            <tr data-orcamento-id="${item.id}">
+        tabela.innerHTML = filtrados.map((item) => {
+            const referencia = typeof criarReferenciaTipadaEntidade === 'function'
+                ? criarReferenciaTipadaEntidade('locacao', item.id) : '';
+            const referenciaSegura = typeof sanitizarTexto === 'function'
+                ? sanitizarTexto(referencia) : referencia;
+            return `
+            <tr data-orcamento-ref="${referenciaSegura}">
                 <td>#${String(item.id || '').slice(-4)}</td>
                 <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
                 <td>${formatarDataCurta(item.dataAluguel)} até ${formatarDataCurta(item.dataDevolucaoPrevisao)}</td>
@@ -421,12 +426,13 @@
                 <td><span class="badge ${classeBadgeStatus(item.statusFluxo)}">${rotuloStatusFluxo(item.statusFluxo)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${item.id}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
-                        <button class="btn btn-sm btn-primary table-action-btn" data-action="abrirHistoricoLocacao" data-arg="${item.id}" title="Ver histórico"><i class="bi bi-clock-history"></i></button>
+                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${referenciaSegura}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
+                        <button class="btn btn-sm btn-primary table-action-btn" data-action="abrirHistoricoLocacao" data-arg="${referenciaSegura}" title="Ver histórico"><i class="bi bi-clock-history"></i></button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
     function atualizarKpisFinanceiro(lista) {
@@ -1636,7 +1642,13 @@
         filtrados.sort((a, b) => {
             const dataA = parseDataIsoLocal(a.dataMontagem)?.getTime() || 0;
             const dataB = parseDataIsoLocal(b.dataMontagem)?.getTime() || 0;
-            if (dataA === dataB) return Number(b.id || 0) - Number(a.id || 0);
+            if (dataA === dataB) {
+                const referenciaA = typeof criarReferenciaTipadaEntidade === 'function'
+                    ? criarReferenciaTipadaEntidade('locacao', a.id) : '';
+                const referenciaB = typeof criarReferenciaTipadaEntidade === 'function'
+                    ? criarReferenciaTipadaEntidade('locacao', b.id) : '';
+                return referenciaA.localeCompare(referenciaB);
+            }
             return dataA - dataB;
         });
 
@@ -1670,8 +1682,12 @@
             return;
         }
 
-        tabela.innerHTML = filtrados.map((item) => `
-            <tr data-agenda-id="${item.id}">
+        tabela.innerHTML = filtrados.map((item) => {
+            const referencia = typeof criarReferenciaTipadaEntidade === 'function'
+                ? criarReferenciaTipadaEntidade('locacao', item.id) : '';
+            const referenciaSegura = typeof sanitizarTexto === 'function' ? sanitizarTexto(referencia) : referencia;
+            return `
+            <tr data-agenda-ref="${referenciaSegura}">
                 <td>${formatarDataCurta(item.dataMontagem)}</td>
                 <td>${typeof sanitizarTexto === 'function' ? sanitizarTexto(item.clienteNome) : item.clienteNome}</td>
                 <td>${formatarDataCurta(item.dataMontagem)}</td>
@@ -1679,17 +1695,34 @@
                 <td><span class="badge ${classeBadgeStatus(item.statusVisual)}">${rotuloStatusFluxo(item.statusFluxo)}</span></td>
                 <td class="col-actions">
                     <div class="actions-cell">
-                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${item.id}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
-                        <button class="btn btn-sm btn-primary table-action-btn" data-action="abrirHistoricoLocacao" data-arg="${item.id}" title="Ver histórico"><i class="bi bi-clock-history"></i></button>
+                        <button class="btn btn-sm btn-info table-action-btn" data-action="irParaLocacaoPorId" data-arg="${referenciaSegura}" title="Abrir na locação"><i class="bi bi-box-arrow-up-right"></i></button>
+                        <button class="btn btn-sm btn-primary table-action-btn" data-action="abrirHistoricoLocacao" data-arg="${referenciaSegura}" title="Ver histórico"><i class="bi bi-clock-history"></i></button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
-    function irParaLocacaoPorId(id) {
-        const locacaoId = String(id || '').trim();
-        if (!locacaoId) return;
+    function irParaLocacaoPorId(referenciaOuId) {
+        const resultado = typeof referenciaOuId === 'string' && referenciaOuId.startsWith('locacao:')
+            && typeof resolverRegistroPorReferenciaTipada === 'function'
+            ? resolverRegistroPorReferenciaTipada(locacoes, 'locacao', referenciaOuId)
+            : (typeof resolverRegistroPorIdExato === 'function'
+                ? resolverRegistroPorIdExato(locacoes, referenciaOuId)
+                : { encontrado: false, estado: 'invalido' });
+        if (!resultado.encontrado) {
+            const mensagem = resultado.estado === 'duplicado'
+                ? 'A locação possui identidade duplicada e não pode ser aberta pela Agenda.'
+                : resultado.estado === 'ausente'
+                    ? 'A locação da Agenda não está mais disponível.'
+                    : 'A referência da locação na Agenda é inválida.';
+            if (typeof mostrarToast === 'function') mostrarToast(mensagem, 'erro');
+            return;
+        }
+        const locacao = resultado.registro;
+        const referencia = criarReferenciaTipadaEntidade('locacao', locacao.id);
+        const locacaoIdBusca = typeof locacao.id === 'string' ? locacao.id : String(locacao.id);
 
         if (typeof abrirTab === 'function') {
             abrirTab('locacoes', { semRolagem: true });
@@ -1700,16 +1733,17 @@
 
             const campoBusca = document.getElementById('buscaLocacoes');
             if (campoBusca) {
-                campoBusca.value = locacaoId;
+                campoBusca.value = locacaoIdBusca;
                 if (typeof atualizarPersistenciaBuscaRapida === 'function') {
-                    atualizarPersistenciaBuscaRapida('buscaLocacoes', locacaoId);
+                    atualizarPersistenciaBuscaRapida('buscaLocacoes', locacaoIdBusca);
                 }
             }
 
             if (typeof renderLocacoes === 'function') renderLocacoes();
 
             setTimeout(() => {
-                const linha = document.querySelector(`#tblLocacoes tr[data-locacao-id="${locacaoId}"]`);
+                const linha = Array.from(document.querySelectorAll('#tblLocacoes tr[data-locacao-ref]'))
+                    .find((registro) => registro.dataset.locacaoRef === referencia);
                 if (!linha) return;
                 if (typeof rolarParaElementoAtalho === 'function') {
                     rolarParaElementoAtalho(linha, 'center');

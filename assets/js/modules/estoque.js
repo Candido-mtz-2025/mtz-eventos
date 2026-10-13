@@ -61,14 +61,14 @@ function obterOuCriarTipoGeral() {
         tipos.push(tipo);
     }
 
-    return Number(tipo.id);
+    return tipo.id;
 }
 
 function resolverTipoSelecionado(valorSelecionado) {
-    const tipoId = Number(valorSelecionado);
-    if (Number.isFinite(tipoId) && tipoId > 0) {
-        return tipoId;
-    }
+    const resultado = typeof resolverRegistroPorReferenciaTipada === 'function'
+        ? resolverRegistroPorReferenciaTipada(tipos, 'tipo', valorSelecionado)
+        : { encontrado: false };
+    if (resultado.encontrado) return resultado.registro.id;
     return obterOuCriarTipoGeral();
 }
 
@@ -91,23 +91,25 @@ function encontrarPecaDuplicada(dados, idIgnorar = null) {
     const codigo = normalizarIdentificadorEstoque(dados?.codigo);
     const barras = normalizarIdentificadorEstoque(dados?.barras);
     const medida = normalizarTextoEstoque(dados?.medida);
-    const tipoId = Number(dados?.tipoId || 0);
+    const tipoId = dados?.tipoId;
 
     return pecas.find((peca) => {
-        if (idIgnorar != null && String(peca.id) === String(idIgnorar)) return false;
+        if (idIgnorar != null && typeof idsEntidadeExatos === 'function'
+            && idsEntidadeExatos(peca.id, idIgnorar)) return false;
 
         const codigoPeca = normalizarIdentificadorEstoque(peca.codigo);
         const barrasPeca = normalizarIdentificadorEstoque(peca.barras || peca.codigoBarras);
         const nomePeca = normalizarTextoEstoque(peca.nome);
         const medidaPeca = normalizarTextoEstoque(peca.medida);
-        const tipoPeca = Number(peca.tipoId || 0);
+        const tipoPeca = peca.tipoId;
 
         if (codigo && codigoPeca && codigo === codigoPeca) return true;
         if (barras && barrasPeca && barras === barrasPeca) return true;
 
         const mesmoNome = nome && nomePeca && nome === nomePeca;
         const mesmaMedida = medida && medidaPeca && medida === medidaPeca;
-        const mesmoTipo = tipoId > 0 && tipoPeca > 0 && tipoId === tipoPeca;
+        const mesmoTipo = typeof idsEntidadeExatos === 'function'
+            && idsEntidadeExatos(tipoId, tipoPeca);
 
         return Boolean(mesmoNome && (mesmaMedida || mesmoTipo));
     }) || null;

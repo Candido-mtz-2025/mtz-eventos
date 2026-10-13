@@ -1,4 +1,5 @@
 // Configurações gerais
+let geracaoConversaoLogo = 0;
 function normalizarEmailsPermitidos(texto) {
     return String(texto || '')
         .split(/[\n,;]+/)
@@ -214,12 +215,28 @@ function salvarConfig() {
 }
 
 function converterLogo() {
+    if (typeof validarPermissao === 'function'
+        && !validarPermissao('configuracao', 'Somente administrador pode alterar configurações.')) return;
     const input = document.getElementById('confLogo');
     if (!input?.files?.[0]) return;
+    const geracaoAtual = ++geracaoConversaoLogo;
 
     const reader = new FileReader();
     reader.onloadend = function() {
-        config.logo = reader.result;
+        if (geracaoAtual !== geracaoConversaoLogo) return;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('configuracao', 'A permissão para alterar configurações foi revogada.')) {
+            input.value = '';
+            return;
+        }
+        const logoLido = reader.result;
+        if (geracaoAtual !== geracaoConversaoLogo) return;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('configuracao', 'A permissão para alterar configurações foi revogada.')) {
+            input.value = '';
+            return;
+        }
+        config.logo = logoLido;
         const preview = document.getElementById('previewLogo');
         if (preview) preview.innerHTML = `<img src="${config.logo}" style="height:50px">`;
     };
