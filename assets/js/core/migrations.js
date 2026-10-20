@@ -39,6 +39,47 @@ const CATEGORIAS_ORCAMENTO_PADRAO_V12 = [
     { id: 'outros', nome: 'Outros', cor: '#64748b', icone: 'bi-box-seam' }
 ];
 const CATEGORIAS_PROPOSTA_V12 = CATEGORIAS_ORCAMENTO_PADRAO_V12.map((categoria) => categoria.nome);
+const snapshotsMigraveisV12 = new WeakSet();
+const AUTORIZACAO_CATEGORIA_V12 = Object.freeze({});
+
+function congelarSnapshotMigravelV12(valor, visitados = new WeakSet()) {
+    if (!valor || typeof valor !== 'object' || visitados.has(valor)) return;
+    visitados.add(valor);
+    snapshotsMigraveisV12.add(valor);
+    if (Array.isArray(valor)) {
+        for (let indice = 0; indice < valor.length; indice += 1) {
+            congelarSnapshotMigravelV12(valor[indice], visitados);
+        }
+    } else {
+        Object.keys(valor).forEach((chave) => congelarSnapshotMigravelV12(valor[chave], visitados));
+    }
+    Object.freeze(valor);
+}
+
+function criarSnapshotMigravelV12(textoJson, extrairDados = false) {
+    if (typeof textoJson !== 'string' || typeof extrairDados !== 'boolean') {
+        return { ok: false, codigo: 'SNAPSHOT_MIGRAVEL_INVALIDO', snapshot: null };
+    }
+    let raiz;
+    try {
+        raiz = JSON.parse(textoJson);
+    } catch (_erro) {
+        return { ok: false, codigo: 'SNAPSHOT_MIGRAVEL_INVALIDO', snapshot: null };
+    }
+    const snapshot = extrairDados && raiz && typeof raiz === 'object' && !Array.isArray(raiz)
+        && raiz.dados && typeof raiz.dados === 'object' && !Array.isArray(raiz.dados)
+        ? raiz.dados
+        : raiz;
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+        return { ok: false, codigo: 'SNAPSHOT_MIGRAVEL_INVALIDO', snapshot: null };
+    }
+    congelarSnapshotMigravelV12(snapshot);
+    return Object.freeze({ ok: true, codigo: 'SUCESSO', snapshot });
+}
+
+function ehSnapshotMigravelV12(valor) {
+    return !!valor && typeof valor === 'object' && snapshotsMigraveisV12.has(valor);
+}
 
 function clonarObjetoSeguro(valor, fallback = {}) {
     if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return { ...fallback };
@@ -237,19 +278,106 @@ function normalizarBooleanoPropostaV12(valor, fallback = false) {
     return !!fallback;
 }
 
-function criarCategoriaOrcamentoV12(origem = {}, indice = 0, globais = {}, regrasLegadas = {}) {
-    const entrada = typeof origem === 'string' ? { nome: origem } : (origem && typeof origem === 'object' ? origem : {});
+function prototipoNativoPersistivelMigracaoV12(prototipo, nomeEsperado) {
+    if (!prototipo || typeof prototipo !== 'object') return false;
+    const descritor = Object.getOwnPropertyDescriptor(prototipo, 'constructor');
+    if (!descritor || !Object.prototype.hasOwnProperty.call(descritor, 'value')
+        || typeof descritor.value !== 'function') return false;
+    let fonte;
+    try { fonte = Function.prototype.toString.call(descritor.value); }
+    catch (_erro) { return false; }
+    if (fonte !== `function ${nomeEsperado}() { [native code] }`) return false;
+    if (nomeEsperado === 'Object') return Object.getPrototypeOf(prototipo) === null;
+    return prototipoNativoPersistivelMigracaoV12(Object.getPrototypeOf(prototipo), 'Object');
+}
+
+function clonarCampoFuturoCategoriaV12(valor, referencias = new WeakSet(), autorizacao = null) {
+    if (autorizacao !== AUTORIZACAO_CATEGORIA_V12) return { ok: false, valor: null };
+    if (valor === null || typeof valor === 'string' || typeof valor === 'boolean') {
+        return { ok: true, valor };
+    }
+    if (typeof valor === 'number') {
+        return Number.isFinite(valor) ? { ok: true, valor } : { ok: false, valor: null };
+    }
+    if (!valor || typeof valor !== 'object' || referencias.has(valor)) {
+        return { ok: false, valor: null };
+    }
+    let prototipo;
+    let chaves;
+    let descritores;
+    try {
+        prototipo = Object.getPrototypeOf(valor);
+        chaves = Reflect.ownKeys(valor);
+        descritores = Object.getOwnPropertyDescriptors(valor);
+    } catch (_erro) {
+        return { ok: false, valor: null };
+    }
+    const ehArray = Array.isArray(valor);
+    const prototipoEsperado = ehArray ? Array.prototype : Object.prototype;
+    if ((prototipo !== prototipoEsperado
+        && !prototipoNativoPersistivelMigracaoV12(prototipo, ehArray ? 'Array' : 'Object'))
+        || chaves.some((chave) => typeof chave === 'symbol')) {
+        return { ok: false, valor: null };
+    }
+    referencias.add(valor);
+    const copia = ehArray ? [] : {};
+    const chavesDados = ehArray ? chaves.filter((chave) => chave !== 'length') : chaves;
+    for (const chave of chavesDados) {
+        const descritor = descritores[chave];
+        if (!descritor || !Object.prototype.hasOwnProperty.call(descritor, 'value')
+            || typeof descritor.get !== 'undefined' || typeof descritor.set !== 'undefined'
+            || descritor.enumerable !== true
+            || (!ehArray && ['__proto__', 'prototype', 'constructor'].includes(chave))) {
+            return { ok: false, valor: null };
+        }
+        const clone = clonarCampoFuturoCategoriaV12(
+            descritor.value, referencias, AUTORIZACAO_CATEGORIA_V12);
+        if (!clone.ok) return clone;
+        copia[chave] = clone.valor;
+    }
+    return { ok: true, valor: copia };
+}
+
+function criarCategoriaOrcamentoV12(
+    origem = {}, indice = 0, globais = {}, regrasLegadas = {}, autorizacao = null
+) {
+    if (autorizacao !== AUTORIZACAO_CATEGORIA_V12) return null;
+    const cloneOrigem = typeof origem === 'string'
+        ? { ok: true, valor: { nome: origem } }
+        : clonarCampoFuturoCategoriaV12(origem, new WeakSet(), AUTORIZACAO_CATEGORIA_V12);
+    const entrada = cloneOrigem.ok && cloneOrigem.valor && !Array.isArray(cloneOrigem.valor)
+        ? cloneOrigem.valor
+        : {};
+    const cloneGlobais = clonarCampoFuturoCategoriaV12(
+        globais, new WeakSet(), AUTORIZACAO_CATEGORIA_V12);
+    const globaisSeguros = cloneGlobais.ok && cloneGlobais.valor && !Array.isArray(cloneGlobais.valor)
+        ? cloneGlobais.valor
+        : {};
+    const cloneRegras = clonarCampoFuturoCategoriaV12(
+        regrasLegadas, new WeakSet(), AUTORIZACAO_CATEGORIA_V12);
+    const regrasSeguras = cloneRegras.ok && cloneRegras.valor && !Array.isArray(cloneRegras.valor)
+        ? cloneRegras.valor
+        : {};
     const def = obterCategoriaPadraoOrcamentoV12(entrada.id || entrada.nome || entrada.categoria || entrada.label);
     const nomeBase = textoSeguro(entrada.nome ?? entrada.label ?? entrada.categoria ?? def?.nome ?? entrada.id, 'Outros');
     const ehOutros = normalizarTextoBuscaMigracao(nomeBase) === normalizarTextoBuscaMigracao('Outros')
         || normalizarIdCategoriaOrcamentoV12(entrada.id || nomeBase) === 'outros';
     const id = ehOutros ? 'outros' : normalizarIdCategoriaOrcamentoV12(entrada.id || def?.id || nomeBase, `categoria-${indice + 1}`);
     const nome = ehOutros ? 'Outros' : nomeBase;
-    const regraLegada = regrasLegadas[id] || regrasLegadas[nome] || regrasLegadas[def?.nome] || {};
-    const regra = { ...regraLegada, ...entrada };
+    const regraLegadaOrigem = regrasSeguras[id] || regrasSeguras[nome] || regrasSeguras[def?.nome] || {};
+    const cloneRegraLegada = clonarCampoFuturoCategoriaV12(
+        regraLegadaOrigem, new WeakSet(), AUTORIZACAO_CATEGORIA_V12);
+    const regraLegada = cloneRegraLegada.ok && cloneRegraLegada.valor && !Array.isArray(cloneRegraLegada.valor)
+        ? cloneRegraLegada.valor
+        : {};
+    const camposFuturos = {};
+    Object.keys(regraLegada).forEach((chave) => { camposFuturos[chave] = regraLegada[chave]; });
+    Object.keys(entrada).forEach((chave) => { camposFuturos[chave] = entrada[chave]; });
+    const regra = { ...camposFuturos };
     const ehMaoObra = id === 'mao-de-obra' || normalizarTextoBuscaMigracao(nome) === normalizarTextoBuscaMigracao('Mão de Obra');
 
     return {
+        ...camposFuturos,
         id,
         nome,
         ativa: ehOutros ? true : normalizarBooleanoPropostaV12(regra.ativa, true),
@@ -258,20 +386,22 @@ function criarCategoriaOrcamentoV12(origem = {}, indice = 0, globais = {}, regra
         icone: textoSeguro(regra.icone ?? def?.icone, 'bi-tag'),
         fixa: ehOutros,
         aplicarHonorarios: normalizarBooleanoPropostaV12(regra.aplicarHonorarios, true),
-        percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globais.percentualHonorariosPadrao || 0),
+        percentualHonorarios: numeroNaoNegativo(regra.percentualHonorarios, globaisSeguros.percentualHonorariosPadrao || 0),
         aplicarEncargos: normalizarBooleanoPropostaV12(regra.aplicarEncargos, true),
-        percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globais.percentualEncargosPadrao || 0),
-        tipoCalculoEncargos: normalizarTipoTributoPropostaV12(regra.tipoCalculoEncargos, globais.tipoCalculoEncargosPadrao || 'simples'),
+        percentualEncargos: numeroNaoNegativo(regra.percentualEncargos, globaisSeguros.percentualEncargosPadrao || 0),
+        tipoCalculoEncargos: normalizarTipoTributoPropostaV12(regra.tipoCalculoEncargos, globaisSeguros.tipoCalculoEncargosPadrao || 'simples'),
         aplicarINSS: normalizarBooleanoPropostaV12(regra.aplicarINSS, ehMaoObra),
-        percentualINSS: numeroNaoNegativo(regra.percentualINSS, globais.percentualINSSPadrao || 0),
-        tipoCalculoINSS: normalizarTipoTributoPropostaV12(regra.tipoCalculoINSS, globais.tipoCalculoINSSPadrao || 'simples')
+        percentualINSS: numeroNaoNegativo(regra.percentualINSS, globaisSeguros.percentualINSSPadrao || 0),
+        tipoCalculoINSS: normalizarTipoTributoPropostaV12(regra.tipoCalculoINSS, globaisSeguros.tipoCalculoINSSPadrao || 'simples')
     };
 }
 
 function criarCategoriasOrcamentoV12(valor = null, regrasLegadas = {}, globais = {}) {
     const mapa = new Map();
     const adicionar = (origem, indice = mapa.size) => {
-        const categoria = criarCategoriaOrcamentoV12(origem, indice, globais, regrasLegadas);
+        const categoria = criarCategoriaOrcamentoV12(
+            origem, indice, globais, regrasLegadas, AUTORIZACAO_CATEGORIA_V12);
+        if (!categoria) return;
         const atual = mapa.get(categoria.id);
         mapa.set(categoria.id, atual ? { ...atual, ...categoria, fixa: atual.fixa || categoria.fixa } : categoria);
     };
@@ -1080,7 +1210,19 @@ function migrarUsuarioParaV12(usuarioOriginal, contexto, indice) {
     return migrado;
 }
 
-function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
+function migrarDadosParaV12(dadosEntrada, opcoes = {}) {
+    if (!ehSnapshotMigravelV12(dadosEntrada)) {
+        return {
+            ok: false,
+            codigo: 'SNAPSHOT_MIGRAVEL_NAO_CONFIAVEL',
+            dadosMigrados: null,
+            houveMudanca: false,
+            logs: [],
+            versaoOrigem: 'desconhecida',
+            versaoDestino: SCHEMA_VERSION_V12,
+            dataMigracao: ''
+        };
+    }
     const dadosBase = clonarObjetoSeguro(dadosEntrada);
     const contexto = {
         origem: opcoes.origem || 'desconhecida',
@@ -1264,7 +1406,13 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
         dadosMigrados.config.padroesOrcamento.categorias,
         dadosMigrados.config.padroesOrcamento.globais
     );
-    dadosMigrados.config.padroesOrcamento.categoriasOrcamento = dadosMigrados.config.categoriasOrcamento;
+    dadosMigrados.config.padroesOrcamento.categoriasOrcamento =
+        dadosMigrados.config.categoriasOrcamento.map((categoria) => {
+            const clone = clonarCampoFuturoCategoriaV12(
+                categoria, new WeakSet(), AUTORIZACAO_CATEGORIA_V12);
+            return clone.ok ? clone.valor : criarCategoriaOrcamentoV12(
+                {}, 0, {}, {}, AUTORIZACAO_CATEGORIA_V12);
+        });
 
     if (contexto.houveMudanca) {
         contexto.logs.push(
@@ -1274,6 +1422,8 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
     }
 
     return {
+        ok: true,
+        codigo: 'SUCESSO',
         dadosMigrados,
         houveMudanca: contexto.houveMudanca,
         logs: contexto.logs,
@@ -1284,4 +1434,6 @@ function migrarDadosParaV12(dadosEntrada = {}, opcoes = {}) {
 }
 
 window.SCHEMA_VERSION_V12 = SCHEMA_VERSION_V12;
+window.criarSnapshotMigravelV12 = criarSnapshotMigravelV12;
+window.ehSnapshotMigravelV12 = ehSnapshotMigravelV12;
 window.migrarDadosParaV12 = migrarDadosParaV12;

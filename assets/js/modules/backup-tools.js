@@ -130,7 +130,16 @@
                 return;
             }
             try {
-                const j = JSON.parse(e.target?.result || '{}');
+                const preparado = typeof criarSnapshotMigravelV12 === 'function'
+                    ? criarSnapshotMigravelV12(
+                        typeof e.target?.result === 'string' ? e.target.result : '{}')
+                    : { ok: false, snapshot: null };
+                const j = preparado.snapshot;
+                if (!preparado.ok || !j) {
+                    mostrarToast("Arquivo de backup inválido ou incompleto.", "erro");
+                    limparInputBackup(input);
+                    return;
+                }
                 if (!backupTemEstruturaMinima(j)) {
                     mostrarToast("Arquivo de backup inválido ou incompleto.", "erro");
                     limparInputBackup(input);

@@ -590,15 +590,14 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
             }
         };
 
-    const resultadoMigracao = typeof migrarDadosParaV12 === 'function'
-        ? migrarDadosParaV12(dados, { origem: origemCarga })
-        : {
-            dadosMigrados: dados,
-            houveMudanca: false,
-            logs: [],
-            versaoOrigem: String(dados?.versao || 'sem-versao'),
-            versaoDestino: STORAGE_VERSION
-        };
+    if (typeof ehSnapshotMigravelV12 !== 'function' || !ehSnapshotMigravelV12(dados)
+        || typeof migrarDadosParaV12 !== 'function') {
+        throw new Error('Snapshot de carga sem proveniência migrável confiável.');
+    }
+    const resultadoMigracao = migrarDadosParaV12(dados, { origem: origemCarga });
+    if (!resultadoMigracao?.ok || !resultadoMigracao.dadosMigrados) {
+        throw new Error(`Falha ao preparar snapshot migrável: ${resultadoMigracao?.codigo || 'DESCONHECIDA'}.`);
+    }
 
     const dadosNormalizados = resultadoMigracao?.dadosMigrados || dados || {};
     const configEntrada = dadosNormalizados.config && typeof dadosNormalizados.config === 'object'
@@ -793,12 +792,11 @@ async function sincronizar(modo) {
                 return;
             }
 
-            let dadosNuvem = JSON.parse(texto);
-            if (dadosNuvem?.dados && typeof dadosNuvem.dados === 'object') {
-                dadosNuvem = dadosNuvem.dados;
-            }
-
-            if (!dadosNuvem || typeof dadosNuvem !== 'object') {
+            const preparadoNuvem = typeof criarSnapshotMigravelV12 === 'function'
+                ? criarSnapshotMigravelV12(texto, true)
+                : { ok: false, snapshot: null };
+            const dadosNuvem = preparadoNuvem.snapshot;
+            if (!preparadoNuvem.ok || !dadosNuvem) {
                 console.warn('⚠️ Nuvem vazia ou inválida');
                 updStatus('offline');
                 return;
@@ -940,7 +938,9 @@ function restaurarBackupEmergencia() {
 
     if (!confirmar) return;
 
-    const dados = JSON.parse(backup);
+    const preparado = criarSnapshotMigravelV12(backup);
+    if (!preparado.ok) throw new Error('Backup de emergência inválido.');
+    const dados = preparado.snapshot;
     aplicarDadosSistema(dados, { manterConfigAtual: true, origem: 'backup_emergencia' });
     salvarLocal();
     renderTudo();
@@ -955,7 +955,9 @@ function verInfoBackup() {
     let msg = '📊 INFORMAÇÕES DE BACKUP\n\n';
 
     if (backup) {
-        const dados = JSON.parse(backup);
+        const preparado = criarSnapshotMigravelV12(backup);
+        if (!preparado.ok) throw new Error('Backup de recuperação inválido.');
+        const dados = preparado.snapshot;
         msg += '🆘 Backup de Emergência:\n';
         msg += `   Data: ${new Date(dados.data).toLocaleString()}\n`;
         msg += `   Registros: ${dados.locadores?.length || 0} clientes, ${dados.locacoes?.length || 0} locações, ${dados.modelosChecklist?.length || 0} modelos\n\n`;
@@ -989,7 +991,9 @@ function tentarRecuperacaoAutomatica() {
             throw new Error('Nenhum backup disponível');
         }
 
-        const dados = JSON.parse(backup);
+        const preparado = criarSnapshotMigravelV12(backup);
+        if (!preparado.ok) throw new Error('Backup de recuperação inválido.');
+        const dados = preparado.snapshot;
         aplicarDadosSistema(dados, {
             manterConfigAtual: true,
             origem: fonte === 'Emergência' ? 'backup_emergencia' : 'backup_automatico'
@@ -1065,14 +1069,16 @@ function carregarLocal() {
     try {
         const json = localStorage.getItem(STORAGE_KEY);
         if (!json) {
-            aplicarDadosSistema({}, { manterConfigAtual: false, origem: 'primeira_instalacao' });
+            aplicarDadosSistema(criarSnapshotMigravelV12('{}').snapshot,
+                { manterConfigAtual: false, origem: 'primeira_instalacao' });
             salvarLocal();
             console.log('📭 Estado inicial criado e persistido (primeira vez)');
             return;
         }
 
-        const dados = JSON.parse(json);
-        if (!dados || typeof dados !== 'object') {
+        const preparado = criarSnapshotMigravelV12(json);
+        const dados = preparado.snapshot;
+        if (!preparado.ok || !dados) {
             throw new Error('Estrutura inválida de dados.');
         }
 
@@ -1137,7 +1143,8 @@ function carregarLocal() {
                 'O sistema será reiniciado vazio.'
             );
 
-            aplicarDadosSistema({}, { manterConfigAtual: false, origem: 'reset_erro_local' });
+            aplicarDadosSistema(criarSnapshotMigravelV12('{}').snapshot,
+                { manterConfigAtual: false, origem: 'reset_erro_local' });
         }
     }
 }

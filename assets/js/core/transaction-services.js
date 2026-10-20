@@ -47,7 +47,9 @@
     const travasEstornoPagamentoContaPagar = new Set();
     const travasOperacaoAdministrativaContaPagar = new Set();
     const travasConciliacaoPagamentoPagar = new Set();
+    const travasConversaoProposta = new Set();
     const travasTransporte = new Set();
+    const entradasConversaoPropostaConfiaveis = new WeakSet();
     const entradasFornecedorPagarConfiaveis = new WeakSet();
     const entradasContaPagarConfiaveis = new WeakSet();
     const entradasPagamentoContaPagarConfiaveis = new WeakSet();
@@ -252,6 +254,34 @@
         } catch (_erro) {
             return false;
         }
+    }
+
+    function congelarEntradaConversaoInterna(valor, visitados = new WeakSet()) {
+        if (!valor || typeof valor !== 'object' || visitados.has(valor)) return;
+        visitados.add(valor);
+        if (Array.isArray(valor)) {
+            for (let indice = 0; indice < valor.length; indice += 1) {
+                congelarEntradaConversaoInterna(valor[indice], visitados);
+            }
+        } else {
+            Object.keys(valor).forEach((chave) => congelarEntradaConversaoInterna(valor[chave], visitados));
+        }
+        Object.freeze(valor);
+    }
+
+    function criarEntradaConversaoPropostaConfiavel(jsonEntrada) {
+        if (typeof jsonEntrada !== 'string') return null;
+        let entrada;
+        try {
+            entrada = JSON.parse(jsonEntrada);
+        } catch (_erro) {
+            return null;
+        }
+        if (!entrada || typeof entrada !== 'object' || Array.isArray(entrada)
+            || !validarValorExternoPersistivelSeguro(entrada)) return null;
+        congelarEntradaConversaoInterna(entrada);
+        entradasConversaoPropostaConfiaveis.add(entrada);
+        return entrada;
     }
 
     function validarSnapshotReservaExterno(snapshot) {
@@ -9619,12 +9649,1244 @@
         return executarRegistroConciliacaoFinanceira(entrada, dependencias, 'desconsideracao');
     }
 
-    function criarReferenciaTransporteInterna(id) {
+    function criarReferenciaEntidadeInterna(prefixo, id) {
+        if (typeof prefixo !== 'string' || !/^[a-z][a-z0-9-]{0,39}$/.test(prefixo)) return '';
         const identidade = referenciaEstrita(id);
         if (!identidade) return '';
         const tipo = typeof id;
         const valor = Object.is(id, -0) ? 0 : id;
-        return `transporte:${encodeURIComponent(JSON.stringify([tipo, valor]))}`;
+        return `${prefixo}:${encodeURIComponent(JSON.stringify([tipo, valor]))}`;
+    }
+
+    function resolverReferenciaEntidadeInterna(colecao, prefixo, referencia) {
+        const vazio = (estado = 'invalido', quantidade = 0) => ({
+            encontrado: false, estado, registro: null, indice: -1, quantidade, id: null
+        });
+        if (typeof prefixo !== 'string' || typeof referencia !== 'string'
+            || !referencia.startsWith(`${prefixo}:`)) return vazio();
+        let dados;
+        try { dados = JSON.parse(decodeURIComponent(referencia.slice(prefixo.length + 1))); }
+        catch (_erro) { return vazio(); }
+        if (!Array.isArray(dados) || dados.length !== 2) return vazio();
+        const [tipo, id] = dados;
+        if ((tipo !== 'string' && tipo !== 'number') || typeof id !== tipo
+            || !referenciaEstrita(id) || criarReferenciaEntidadeInterna(prefixo, id) !== referencia) return vazio();
+        const indices = [];
+        (Array.isArray(colecao) ? colecao : []).forEach((registro, indice) => {
+            if (registro && typeof registro === 'object' && !Array.isArray(registro)
+                && typeof registro.id === tipo && Object.is(registro.id, id)) indices.push(indice);
+        });
+        return indices.length === 1
+            ? { encontrado: true, estado: 'encontrado', registro: colecao[indices[0]], indice: indices[0],
+                quantidade: 1, id }
+            : vazio(indices.length > 1 ? 'duplicado' : 'ausente', indices.length);
+    }
+
+    function resolverIdEntidadeInterna(colecao, id) {
+        const identidade = referenciaEstrita(id);
+        if (!identidade) return { encontrado: false, estado: 'invalido', registro: null, indice: -1, quantidade: 0 };
+        const indices = [];
+        (Array.isArray(colecao) ? colecao : []).forEach((registro, indice) => {
+            if (registro && typeof registro === 'object' && !Array.isArray(registro)
+                && referenciaEstrita(registro.id) === identidade) indices.push(indice);
+        });
+        return indices.length === 1
+            ? { encontrado: true, estado: 'encontrado', registro: colecao[indices[0]], indice: indices[0], quantidade: 1 }
+            : { encontrado: false, estado: indices.length > 1 ? 'duplicado' : 'ausente', registro: null,
+                indice: -1, quantidade: indices.length };
+    }
+
+    function assinaturaConversaoProposta(entrada) {
+        const base = ordenarChavesCanonicas({
+            tipo: 'conversao_proposta_locacao_v1',
+            operacaoId: entrada.operacaoId,
+            propostaReferencia: entrada.propostaReferencia,
+            atualizadoEm: entrada.atualizadoEm,
+            atualizadoPor: entrada.atualizadoPor,
+            plano: entrada.plano,
+            persistencia: {
+                versao: entrada.persistencia?.versao,
+                data: entrada.persistencia?.data,
+                ultimaEdicao: entrada.persistencia?.ultimaEdicao
+            }
+        });
+        return `conversao-proposta-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
+    }
+
+    function chaveComparacaoCliente(valor) {
+        return typeof valor === 'string'
+            ? valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+            : '';
+    }
+
+    function documentoComparacaoCliente(valor) {
+        return typeof valor === 'string' ? valor.replace(/\D+/g, '') : '';
+    }
+
+    function encontrarCorrespondenciasClienteManual(colecao, registro) {
+        const documento = documentoComparacaoCliente(registro.documento || registro.cpfCnpj || '');
+        const email = chaveComparacaoCliente(registro.email || '');
+        const nome = chaveComparacaoCliente(registro.nome || registro.nomeCompleto || registro.empresa || '');
+        return (Array.isArray(colecao) ? colecao : []).filter((cliente) => {
+            if (!cliente || typeof cliente !== 'object' || Array.isArray(cliente)) return false;
+            const documentoAtual = documentoComparacaoCliente(cliente.documento || cliente.cpfCnpj || '');
+            const emailAtual = chaveComparacaoCliente(cliente.email || '');
+            const nomeAtual = chaveComparacaoCliente(cliente.nome || cliente.nomeCompleto || cliente.empresa || '');
+            return (documento && documentoAtual === documento)
+                || (email && emailAtual === email)
+                || (nome && nomeAtual === nome);
+        });
+    }
+
+    function localizarVinculosLegadosPropostaUnicos(propostas, locacoes, proposta) {
+        const id = proposta?.id;
+        if (!referenciaEstrita(id)) return { estado: 'ausente', registros: [] };
+        const propostasCompativeis = (Array.isArray(propostas) ? propostas : []).filter((item) => (
+            item && typeof item === 'object' && !Array.isArray(item)
+            && referenciaEstrita(item.id) && String(item.id) === String(id)
+        ));
+        const registros = (Array.isArray(locacoes) ? locacoes : []).filter((locacao) => {
+            if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)
+                || typeof locacao.propostaReferencia === 'string') return false;
+            return [locacao.propostaOrigemId, locacao.origemPropostaId, locacao.origem?.propostaId]
+                .some((valor) => referenciaEstrita(valor) && String(valor) === String(id));
+        });
+        if (!registros.length) return { estado: 'ausente', registros: [] };
+        if (propostasCompativeis.length !== 1 || registros.length !== 1) {
+            return { estado: 'ambiguo', registros };
+        }
+        return { estado: 'encontrado', registros };
+    }
+
+    function jsonCanonicoConversao(valor) {
+        return JSON.stringify(ordenarChavesCanonicas(valor));
+    }
+
+    function valoresCanonicosIguaisConversao(a, b) {
+        return jsonCanonicoConversao(a) === jsonCanonicoConversao(b);
+    }
+
+    function textoConversao(valor, fallback = '') {
+        return typeof valor === 'string' ? valor : fallback;
+    }
+
+    function numeroConversao(valor, fallback = 0) {
+        const numero = typeof valor === 'number' ? valor
+            : typeof valor === 'string' && valor.trim() ? Number(valor) : NaN;
+        return Number.isFinite(numero) && numero >= 0 ? numero : fallback;
+    }
+
+    function inteiroConversao(valor, fallback = 0) {
+        return Math.max(0, Math.trunc(numeroConversao(valor, fallback)));
+    }
+
+    function moedaConversao(valor) {
+        return Math.round((numeroConversao(valor, 0) + Number.EPSILON) * 100) / 100;
+    }
+
+    function percentualConversao(valor, fallback, maximo) {
+        const numero = typeof valor === 'number' ? valor
+            : typeof valor === 'string' ? Number(valor.replace(',', '.')) : NaN;
+        const normalizado = Number.isFinite(numero) ? numero : fallback;
+        return Math.min(Math.max(normalizado, 0), maximo);
+    }
+
+    function rotuloFormaPagamentoConversao(valor) {
+        const rotulos = {
+            pix: 'PIX', boleto: 'Boleto', transferencia: 'Transferencia',
+            cartao: 'Cartao', dinheiro: 'Dinheiro', outro: 'Outro'
+        };
+        return rotulos[normalizarTextoConversao(valor)] || '-';
+    }
+
+    function normalizarTextoConversao(valor) {
+        return textoConversao(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    }
+
+    function resolverPecaAutoritativaConversao(pecas, item) {
+        const descricao = normalizarTextoConversao(item?.descricao || item?.nome || '');
+        if (!descricao) return { ok: true, id: '' };
+        const candidatas = (Array.isArray(pecas) ? pecas : []).filter((peca) => {
+            const nome = normalizarTextoConversao(peca?.nome || '');
+            return nome === descricao;
+        });
+        if (candidatas.length > 1) return { ok: false, codigo: 'PECA_PROPOSTA_AMBIGUA' };
+        if (candidatas.length === 1) return { ok: true, id: candidatas[0].id };
+        const aproximadas = (Array.isArray(pecas) ? pecas : []).filter((peca) => {
+            const nome = normalizarTextoConversao(peca?.nome || '');
+            return nome && (nome.includes(descricao) || descricao.includes(nome));
+        });
+        if (aproximadas.length > 1) return { ok: false, codigo: 'PECA_PROPOSTA_AMBIGUA' };
+        return { ok: true, id: aproximadas.length === 1 ? aproximadas[0].id : '' };
+    }
+
+    function validarItensPlanoConversao(pecas, itensProposta, itensLocacao) {
+        const origem = Array.isArray(itensProposta) ? itensProposta : [];
+        const destino = Array.isArray(itensLocacao) ? itensLocacao : [];
+        if (origem.length !== destino.length) return { ok: false, codigo: 'PLANO_ITENS_DIVERGENTE' };
+        for (let indice = 0; indice < origem.length; indice += 1) {
+            const itemOrigem = origem[indice] || {};
+            const itemDestino = destino[indice] || {};
+            const quantidade = Math.max(1, inteiroConversao(itemOrigem.quantidade, 1));
+            const periodoDias = numeroConversao(itemOrigem.periodoDias ?? itemOrigem.periodo, 1) || 1;
+            const custoUnitario = numeroConversao(itemOrigem.custoUnitario ?? itemOrigem.valorUnitario, 0);
+            const valorTotal = numeroConversao(
+                itemOrigem.valorTotal,
+                moedaConversao(periodoDias * quantidade * custoUnitario)
+            );
+            const valorUnitario = quantidade > 0 && periodoDias > 0
+                ? moedaConversao(valorTotal / quantidade / periodoDias) : custoUnitario;
+            const peca = resolverPecaAutoritativaConversao(pecas, itemOrigem);
+            if (!peca.ok) return peca;
+            const esperado = {
+                descricao: textoConversao(itemOrigem.descricao || itemOrigem.nome),
+                quantidade,
+                periodoDias,
+                valor: valorUnitario,
+                custoUnitarioProposta: custoUnitario,
+                valorTotalProposta: valorTotal,
+                pecaId: peca.id,
+                categoria: textoConversao(itemOrigem.categoria),
+                categoriaId: itemOrigem.categoriaId ?? '',
+                origemCusto: textoConversao(itemOrigem.origemCusto, 'nao_informado'),
+                quantidadePropria: inteiroConversao(itemOrigem.quantidadePropria, 0),
+                quantidadeTerceirizada: inteiroConversao(itemOrigem.quantidadeTerceirizada, 0)
+            };
+            const recebido = {
+                descricao: textoConversao(itemDestino.descricao || itemDestino.nome),
+                quantidade: itemDestino.quantidade,
+                periodoDias: itemDestino.periodoDias,
+                valor: itemDestino.valor,
+                custoUnitarioProposta: itemDestino.custoUnitarioProposta,
+                valorTotalProposta: itemDestino.valorTotalProposta,
+                pecaId: itemDestino.pecaId ?? '',
+                categoria: itemDestino.categoria ?? '',
+                categoriaId: itemDestino.categoriaId ?? '',
+                origemCusto: itemDestino.origemCusto,
+                quantidadePropria: itemDestino.quantidadePropria,
+                quantidadeTerceirizada: itemDestino.quantidadeTerceirizada
+            };
+            if (!valoresCanonicosIguaisConversao(recebido, esperado)) {
+                return { ok: false, codigo: 'PLANO_ITENS_DIVERGENTE' };
+            }
+        }
+        return { ok: true };
+    }
+
+    function possuiSomenteCamposConversao(registro, camposPermitidos) {
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)) return false;
+        const permitidos = camposPermitidos instanceof Set ? camposPermitidos : new Set(camposPermitidos);
+        return Object.keys(registro).every((chave) => permitidos.has(chave));
+    }
+
+    function construirRegistroPermitidoConversao(registro, camposPermitidos) {
+        if (!possuiSomenteCamposConversao(registro, camposPermitidos)) {
+            return { ok: false, codigo: 'PLANO_CONTEM_CAMPOS_NAO_AUTORIZADOS', valor: null };
+        }
+        const resultado = {};
+        camposPermitidos.forEach((chave) => {
+            if (!Object.hasOwn(registro, chave)) return;
+            const clone = clonarJsonInterno(registro[chave]);
+            if (!clone.ok) return;
+            resultado[chave] = clone.valor;
+        });
+        return { ok: true, codigo: 'SUCESSO', valor: resultado };
+    }
+
+    function camposRaizLocacaoConversao() {
+        return new Set([
+            'id', 'propostaReferencia', 'origemTipo', 'origemPropostaId', 'propostaOrigemId',
+            'codigoProposta', 'codigoBaseProposta', 'revisaoProposta', 'numeroRevisaoProposta',
+            'codigoExibicaoProposta', 'propostaBaseOrigemId', 'dataConversaoProposta',
+            'responsavelConversao', 'origem', 'locadorId', 'clienteId', 'clienteSnapshot', 'cliente',
+            'dadosFiscaisCliente', 'dataAluguel', 'dataDevolucaoPrevisao', 'evento', 'eventoNome',
+            'eventoLocal', 'eventoEndereco', 'cidadeEvento', 'ufEvento', 'referenciaAcesso',
+            'observacoesGerais', 'items', 'comercial', 'status', 'statusFluxo', 'divisorFatura',
+            'datasMontagem', 'datasDesmontagem', 'equipe', 'logistica', 'financeiro',
+            'estoqueReserva', 'checklist', 'historicoAlteracoes', 'pago'
+        ]);
+    }
+
+    function camposTransporteConversao() {
+        return new Set([
+            'id', 'locacaoId', 'tipoOperacao', 'status', 'clienteNome', 'endereco', 'cidade',
+            'dataSaida', 'horaSaida', 'dataChegada', 'horaChegada', 'distanciaKm', 'valorKm',
+            'trechos', 'custoEstimado', 'observacoes'
+        ]);
+    }
+
+    function validarEstruturaFechadaLocacaoConversao(locacao, proposta) {
+        const camposRaiz = camposRaizLocacaoConversao();
+        Object.keys(proposta).forEach((chave) => {
+            if (!camposRaiz.has(chave) && Object.hasOwn(locacao, chave)
+                && valoresCanonicosIguaisConversao(locacao[chave], proposta[chave])) camposRaiz.add(chave);
+        });
+        if (!possuiSomenteCamposConversao(locacao, camposRaiz)) return false;
+        const estruturas = [
+            [locacao.origem, new Set(['tipo', 'propostaId', 'codigo', 'codigoBase', 'revisao',
+                'codigoExibicao', 'convertidoEm', 'convertidoPor'])],
+            [locacao.datasMontagem, new Set(['inicio', 'fim', 'horarioInicio', 'horarioFim'])],
+            [locacao.datasDesmontagem, new Set(['inicio', 'fim', 'horarioInicio', 'horarioFim'])],
+            [locacao.equipe, new Set(['responsavel', 'membros', 'observacoes'])],
+            [locacao.logistica, new Set(['veiculo', 'motorista', 'horarioSaida', 'horarioChegada',
+                'dataSaida', 'dataChegada', 'endereco', 'cidade', 'distanciaKm', 'valorKm', 'trechos',
+                'custoFrete', 'statusEntrega', 'statusRetirada', 'observacoes'])],
+            [locacao.estoqueReserva, new Set(['status', 'origem', 'movimentacaoIds', 'snapshot'])],
+            [locacao.checklist, new Set(['idChecklist', 'locacaoId', 'status', 'origem', 'resumo',
+                'ultimaAtualizacao', 'observacoes'])],
+            [locacao.checklist?.resumo, new Set(['totalItens', 'totalLinhas', 'conferidos', 'pendentes',
+                'faltando', 'avarias', 'percentual'])],
+            [locacao.comercial, new Set(['financeiro', 'custos', 'fiscal', 'controleInterno', 'escopo',
+                'clientePrecisaNotaFiscal'])]
+        ];
+        if (estruturas.some(([registro, campos]) => registro !== undefined
+            && !possuiSomenteCamposConversao(registro, campos))) return false;
+        const camposFinanceiros = new Set([
+            ...Object.keys(proposta.financeiro || {}), 'valorTotal', 'sinal', 'valorRestante', 'vencimento',
+            'formaPagamento', 'statusPagamento', 'notaFiscal', 'statusNotaFiscal', 'comprovante',
+            'condicaoPagamento', 'observacaoPagamento', 'percentualEntrada', 'percentualSaldo',
+            'percentualNF', 'tipoCalculoNF', 'valorNF', 'valorFinalComNF', 'valorLiquidoPrevisto',
+            'origemPropostaId', 'propostaOrigemId', 'codigoProposta', 'codigoBaseProposta', 'revisaoProposta'
+        ]);
+        if (!possuiSomenteCamposConversao(locacao.financeiro, camposFinanceiros)) return false;
+        const camposItemDerivados = [
+            'itemId', 'pecaId', 'nome', 'descricao', 'quantidade', 'origemCusto', 'quantidadePropria',
+            'quantidadeTerceirizada', 'valor', 'periodoDias', 'medida', 'tipoFiscal', 'categoria',
+            'categoriaId', 'fornecedor', 'fornecedorCusto', 'observacoes', 'custoUnitarioProposta',
+            'valorTotalProposta'
+        ];
+        if (!Array.isArray(locacao.items) || locacao.items.some((item, indice) => {
+            const origem = Array.isArray(proposta.itens) ? proposta.itens[indice] : null;
+            return !origem || !possuiSomenteCamposConversao(item,
+                new Set([...Object.keys(origem), ...camposItemDerivados]));
+        })) return false;
+        if (!Array.isArray(locacao.historicoAlteracoes)
+            || locacao.historicoAlteracoes.some((item) => !possuiSomenteCamposConversao(item,
+                new Set(['id', 'data', 'acao', 'descricao', 'origem', 'status', 'statusFluxo', 'usuario'])))) {
+            return false;
+        }
+        if (Object.hasOwn(locacao.estoqueReserva, 'snapshot')) {
+            const snapshot = locacao.estoqueReserva.snapshot;
+            if (!possuiSomenteCamposConversao(snapshot,
+                new Set(['versao', 'origem', 'capturadoEm', 'statusReserva', 'periodo', 'itens']))
+                || !possuiSomenteCamposConversao(snapshot.periodo, new Set(['inicio', 'fim', 'completo']))
+                || !Array.isArray(snapshot.itens)
+                || snapshot.itens.some((item) => !possuiSomenteCamposConversao(item,
+                    new Set(['pecaId', 'quantidadePropria', 'quantidadePendente', 'itemIds'])))) return false;
+        }
+        return true;
+    }
+
+    function resolverClienteAutoritativoConversao(estado, proposta, clientePlano) {
+        const idVinculado = proposta?.clienteId ?? proposta?.cliente?.id ?? proposta?.cliente?.clienteId;
+        if (referenciaEstrita(idVinculado)) {
+            const esperado = resolverIdEntidadeInterna(estado.locadores, idVinculado);
+            if (!esperado.encontrado) return { ok: false, codigo: esperado.estado === 'duplicado'
+                ? 'CLIENTE_ID_DUPLICADO' : 'CLIENTE_VINCULADO_INVALIDO' };
+            const referencia = criarReferenciaEntidadeInterna('cliente', esperado.registro.id);
+            if (clientePlano?.modo !== 'existente' || clientePlano.referencia !== referencia) {
+                return { ok: false, codigo: 'CLIENTE_PROPOSTA_DIVERGENTE' };
+            }
+            return { ok: true, registro: esperado.registro, id: esperado.registro.id,
+                referencia, criado: false };
+        }
+
+        const fonte = proposta?.clienteSnapshot || proposta?.cliente || {};
+        const correspondencias = encontrarCorrespondenciasClienteManual(estado.locadores, fonte);
+        if (correspondencias.length > 1) return { ok: false, codigo: 'CLIENTE_MANUAL_AMBIGUO' };
+        if (correspondencias.length === 1) {
+            const referencia = criarReferenciaEntidadeInterna('cliente', correspondencias[0].id);
+            if (clientePlano?.modo !== 'existente' || clientePlano.referencia !== referencia) {
+                return { ok: false, codigo: 'CLIENTE_PROPOSTA_DIVERGENTE' };
+            }
+            return { ok: true, registro: correspondencias[0], id: correspondencias[0].id,
+                referencia, criado: false };
+        }
+        const registro = clientePlano?.registro;
+        if (clientePlano?.modo !== 'novo' || !registro || typeof registro !== 'object'
+            || Array.isArray(registro) || !referenciaEstrita(registro.id)) {
+            return { ok: false, codigo: 'PLANO_CLIENTE_INVALIDO' };
+        }
+        const camposCliente = new Set([
+            'id', 'nome', 'documento', 'telefone', 'whatsapp', 'email', 'endereco',
+            'responsavelPedido', 'dadosFiscais'
+        ]);
+        const camposFiscais = new Set([
+            'razaoSocial', 'nomeFantasia', 'cpfCnpj', 'inscricaoEstadual', 'inscricaoMunicipal',
+            'enderecoFiscal', 'cidadeFiscal', 'ufFiscal', 'cepFiscal', 'emailFiscal',
+            'contatoFinanceiro', 'usarMesmoEnderecoCliente'
+        ]);
+        if (!possuiSomenteCamposConversao(registro, camposCliente)
+            || !possuiSomenteCamposConversao(registro.dadosFiscais, camposFiscais)) {
+            return { ok: false, codigo: 'PLANO_CLIENTE_INVALIDO' };
+        }
+        const fiscal = fonte.dadosFiscais && typeof fonte.dadosFiscais === 'object' ? fonte.dadosFiscais : {};
+        const nome = textoConversao(fonte.nome ?? fonte.nomeEmpresa ?? fonte.nomeFantasia, 'Cliente da proposta');
+        const documento = textoConversao(fonte.documento ?? fonte.cpfCnpj ?? fiscal.cpfCnpj);
+        const telefone = textoConversao(fonte.telefone ?? fonte.whatsapp);
+        const email = textoConversao(fonte.email);
+        const endereco = textoConversao(fonte.endereco);
+        const esperado = {
+            id: registro.id,
+            nome,
+            documento,
+            telefone,
+            whatsapp: telefone,
+            email,
+            endereco,
+            responsavelPedido: textoConversao(fonte.responsavelPedido),
+            dadosFiscais: {
+                razaoSocial: textoConversao(fonte.razaoSocial ?? fiscal.razaoSocial, nome),
+                nomeFantasia: textoConversao(fonte.nomeFantasia ?? fiscal.nomeFantasia, nome),
+                cpfCnpj: textoConversao(fonte.cpfCnpj ?? fiscal.cpfCnpj, documento),
+                inscricaoEstadual: textoConversao(fonte.inscricaoEstadual ?? fiscal.inscricaoEstadual),
+                inscricaoMunicipal: textoConversao(fonte.inscricaoMunicipal ?? fiscal.inscricaoMunicipal),
+                enderecoFiscal: textoConversao(fonte.enderecoFiscal ?? fiscal.enderecoFiscal, endereco),
+                cidadeFiscal: textoConversao(fonte.cidadeFiscal ?? fiscal.cidadeFiscal ?? fonte.cidade),
+                ufFiscal: textoConversao(fonte.ufFiscal ?? fiscal.ufFiscal ?? fonte.uf).toUpperCase().slice(0, 2),
+                cepFiscal: textoConversao(fonte.cepFiscal ?? fiscal.cepFiscal ?? fonte.cep),
+                emailFiscal: textoConversao(fonte.emailFiscal ?? fiscal.emailFiscal, email),
+                contatoFinanceiro: textoConversao(
+                    fonte.contatoFinanceiro ?? fiscal.contatoFinanceiro ?? fonte.responsavelPedido),
+                usarMesmoEnderecoCliente: fiscal.usarMesmoEnderecoCliente === true
+            }
+        };
+        const recebido = {
+            id: registro.id,
+            nome: registro.nome,
+            documento: registro.documento,
+            telefone: registro.telefone,
+            whatsapp: registro.whatsapp ?? telefone,
+            email: registro.email,
+            endereco: registro.endereco,
+            responsavelPedido: registro.responsavelPedido,
+            dadosFiscais: registro.dadosFiscais || esperado.dadosFiscais
+        };
+        if (!valoresCanonicosIguaisConversao(recebido, esperado)) {
+            return { ok: false, codigo: 'CLIENTE_PROPOSTA_DIVERGENTE' };
+        }
+        return { ok: true, registro: esperado, id: esperado.id,
+            referencia: criarReferenciaEntidadeInterna('cliente', registro.id), criado: true };
+    }
+
+    function validarPlanoConversaoAutoritativo(estado, proposta, entrada) {
+        const plano = entrada.plano;
+        const locacao = plano?.locacao;
+        if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)
+            || Object.hasOwn(locacao, 'conversaoProposta') || !referenciaEstrita(locacao.id)
+            || locacao.propostaReferencia !== entrada.propostaReferencia) {
+            return { ok: false, codigo: 'PLANO_LOCACAO_INVALIDO' };
+        }
+        const cliente = resolverClienteAutoritativoConversao(estado, proposta, plano.cliente);
+        if (!cliente.ok) return cliente;
+        if (!validarEstruturaFechadaLocacaoConversao(locacao, proposta)) {
+            return { ok: false, codigo: 'PLANO_LOCACAO_INVALIDO' };
+        }
+        if (referenciaEstrita(locacao.locadorId) !== referenciaEstrita(cliente.id)
+            || referenciaEstrita(locacao.clienteId) !== referenciaEstrita(cliente.id)) {
+            return { ok: false, codigo: 'VINCULO_CLIENTE_LOCACAO_DIVERGENTE' };
+        }
+        const evento = proposta.evento && typeof proposta.evento === 'object' ? proposta.evento : {};
+        const financeiro = proposta.financeiro && typeof proposta.financeiro === 'object' ? proposta.financeiro : {};
+        const custos = proposta.custos && typeof proposta.custos === 'object' ? proposta.custos : {};
+        const clienteSnapshot = proposta.clienteSnapshot && typeof proposta.clienteSnapshot === 'object'
+            ? proposta.clienteSnapshot : proposta.cliente && typeof proposta.cliente === 'object' ? proposta.cliente : {};
+        const idProposta = proposta.id;
+        const dataMontagem = evento.dataMontagem || evento.dataEvento || '';
+        const dataDesmontagem = evento.dataDesmontagem || evento.dataEvento || dataMontagem;
+        const camposFixosValidos = locacao.origemTipo === 'orcamento'
+            && Object.is(locacao.origemPropostaId, idProposta)
+            && Object.is(locacao.propostaOrigemId, idProposta)
+            && Object.is(locacao.origem?.propostaId, idProposta)
+            && locacao.origem?.tipo === 'orcamento'
+            && locacao.status === 'ativo'
+            && locacao.statusFluxo === 'aprovado'
+            && locacao.dataConversaoProposta === entrada.atualizadoEm
+            && locacao.responsavelConversao === entrada.atualizadoPor
+            && locacao.origem?.convertidoEm === entrada.atualizadoEm
+            && locacao.origem?.convertidoPor === entrada.atualizadoPor
+            && locacao.estoqueReserva?.status === 'nao_reservado'
+            && locacao.estoqueReserva?.origem === 'conversao_proposta'
+            && Array.isArray(locacao.estoqueReserva?.movimentacaoIds)
+            && locacao.estoqueReserva.movimentacaoIds.length === 0
+            && Object.is(locacao.checklist?.locacaoId, locacao.id)
+            && locacao.checklist?.origem === 'proposta_convertida'
+            && locacao.dataAluguel === dataMontagem
+            && locacao.dataDevolucaoPrevisao === dataDesmontagem
+            && locacao.eventoNome === textoConversao(evento.nome)
+            && locacao.eventoLocal === textoConversao(evento.local)
+            && locacao.eventoEndereco === textoConversao(evento.enderecoEvento)
+            && locacao.cidadeEvento === textoConversao(evento.cidadeEvento)
+            && locacao.ufEvento === textoConversao(evento.ufEvento)
+            && locacao.referenciaAcesso === textoConversao(evento.referenciaAcesso)
+            && locacao.observacoesGerais === textoConversao(evento.observacoesGerais)
+            && valoresCanonicosIguaisConversao(locacao.evento || {}, evento)
+            && valoresCanonicosIguaisConversao(locacao.clienteSnapshot || {}, clienteSnapshot)
+            && valoresCanonicosIguaisConversao(locacao.cliente || {}, clienteSnapshot)
+            && valoresCanonicosIguaisConversao(locacao.comercial?.financeiro || {}, financeiro)
+            && valoresCanonicosIguaisConversao(locacao.comercial?.custos || {}, custos)
+            && valoresCanonicosIguaisConversao(
+                locacao.comercial?.fiscal || {}, proposta.fiscal || proposta.dadosFiscais || {})
+            && valoresCanonicosIguaisConversao(
+                locacao.comercial?.controleInterno || {}, proposta.controleInterno || {})
+            && valoresCanonicosIguaisConversao(locacao.comercial?.escopo || {}, proposta.escopo || {})
+            && (locacao.comercial?.clientePrecisaNotaFiscal ?? false)
+                === (proposta.clientePrecisaNotaFiscal === true);
+        if (!camposFixosValidos) return { ok: false, codigo: 'PLANO_LOCACAO_DIVERGENTE' };
+        const itens = validarItensPlanoConversao(estado.pecas, proposta.itens, locacao.items);
+        if (!itens.ok) return itens;
+
+        const transportes = Array.isArray(plano.transportes) ? plano.transportes : null;
+        if (!transportes || transportes.length > 2) return { ok: false, codigo: 'PLANO_TRANSPORTES_INVALIDO' };
+        const distanciaKm = numeroConversao(custos.freteDistanciaKm ?? custos.distanciaKm, 0);
+        const valorKm = numeroConversao(custos.freteValorKm ?? custos.valorKm, 0);
+        const trechos = Math.max(1, inteiroConversao(custos.freteTrechos ?? custos.trechos, 1));
+        const custoFrete = distanciaKm > 0 && valorKm > 0
+            ? moedaConversao(distanciaKm * valorKm * trechos) : numeroConversao(custos.frete, 0);
+        const endereco = textoConversao(evento.enderecoEvento || evento.local);
+        const cidade = textoConversao(evento.cidadeEvento);
+        const tipoCalculoNF = textoConversao(financeiro.tipoCalculoNF) === 'acrescentar'
+            ? 'acrescentar' : 'descontar';
+        const valorFinalBase = numeroConversao(financeiro.valorFinal, 0);
+        const valorFinalComNF = numeroConversao(financeiro.valorFinalComNF, valorFinalBase);
+        const valorFinal = tipoCalculoNF === 'acrescentar' ? valorFinalComNF : valorFinalBase;
+        const valorEntrada = numeroConversao(financeiro.valorEntrada, 0);
+        const valorRestante = numeroConversao(financeiro.valorSaldo, Math.max(valorFinal - valorEntrada, 0));
+        const statusPagamento = valorFinal > 0 && valorRestante <= 0
+            ? 'pago' : valorEntrada > 0 ? 'parcial' : 'pendente';
+        const financeiroEsperado = {
+            valorTotal: valorFinal,
+            sinal: valorEntrada,
+            valorRestante,
+            vencimento: financeiro.vencimentoSaldo || evento.dataEvento || dataMontagem,
+            statusPagamento,
+            percentualEntrada: percentualConversao(financeiro.percentualEntrada, 50, 100),
+            percentualSaldo: percentualConversao(financeiro.percentualSaldo, 50, 100),
+            percentualNF: percentualConversao(financeiro.percentualNF, 0, 99.99),
+            tipoCalculoNF,
+            valorNF: numeroConversao(financeiro.valorNF, 0),
+            valorFinalComNF,
+            valorLiquidoPrevisto: numeroConversao(financeiro.valorLiquidoPrevisto, valorFinal),
+            origemPropostaId: idProposta,
+            propostaOrigemId: idProposta
+        };
+        const financeiroRecebido = Object.fromEntries(
+            Object.keys(financeiroEsperado).map((chave) => [chave, locacao.financeiro?.[chave]]));
+        if (Object.hasOwn(locacao.financeiro || {}, 'comprovante')
+            && locacao.financeiro.comprovante !== '') {
+            return { ok: false, codigo: 'PLANO_LOCACAO_DIVERGENTE' };
+        }
+        const camposFinanceirosSobrepostos = new Set([
+            ...Object.keys(financeiroEsperado), 'formaPagamento', 'notaFiscal', 'statusNotaFiscal',
+            'comprovante', 'condicaoPagamento', 'observacaoPagamento', 'codigoProposta',
+            'codigoBaseProposta', 'revisaoProposta'
+        ]);
+        for (const chave of Object.keys(financeiro)) {
+            if (camposFinanceirosSobrepostos.has(chave)) continue;
+            if (!Object.hasOwn(locacao.financeiro || {}, chave)
+                || !valoresCanonicosIguaisConversao(locacao.financeiro[chave], financeiro[chave])) {
+                return { ok: false, codigo: 'PLANO_LOCACAO_DIVERGENTE' };
+            }
+        }
+        const logisticaEsperada = {
+            horarioSaida: textoConversao(evento.horaMontagem),
+            horarioChegada: textoConversao(evento.horaInicioEvento),
+            dataSaida: dataMontagem,
+            dataChegada: dataMontagem,
+            endereco,
+            cidade,
+            distanciaKm,
+            valorKm,
+            trechos,
+            custoFrete,
+            statusEntrega: 'pendente',
+            statusRetirada: 'pendente'
+        };
+        const logisticaRecebida = Object.fromEntries(
+            Object.keys(logisticaEsperada).map((chave) => [chave, locacao.logistica?.[chave]]));
+        if (!valoresCanonicosIguaisConversao(financeiroRecebido, financeiroEsperado)
+            || !valoresCanonicosIguaisConversao(logisticaRecebida, logisticaEsperada)
+            || !valoresCanonicosIguaisConversao(locacao.datasMontagem, {
+                inicio: dataMontagem,
+                fim: evento.dataEvento || dataMontagem,
+                horarioInicio: textoConversao(evento.horaMontagem),
+                horarioFim: textoConversao(evento.horaInicioEvento)
+            })
+            || !valoresCanonicosIguaisConversao(locacao.datasDesmontagem, {
+                inicio: dataDesmontagem,
+                fim: dataDesmontagem,
+                horarioInicio: textoConversao(evento.horaFimEvento),
+                horarioFim: textoConversao(evento.horaDesmontagem)
+            })) {
+            return { ok: false, codigo: 'PLANO_LOCACAO_DIVERGENTE' };
+        }
+        const deveCriar = custoFrete > 0 || Boolean(endereco) || Boolean(cidade);
+        const deveRetirada = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);
+        const tiposEsperados = deveCriar ? (deveRetirada ? ['entrega', 'retirada'] : ['entrega']) : [];
+        if (transportes.length !== tiposEsperados.length) {
+            return { ok: false, codigo: 'PLANO_TRANSPORTES_DIVERGENTE' };
+        }
+        const referencias = new Set();
+        const transportesInternos = [];
+        const freteCalculado = distanciaKm > 0 && valorKm > 0;
+        const dividirFrete = deveRetirada && freteCalculado && trechos > 1;
+        const observacoesBase = [textoConversao(evento.referenciaAcesso), textoConversao(evento.observacoesGerais)]
+            .filter(Boolean).join(' | ');
+        for (const tipo of tiposEsperados) {
+            const encontrados = transportes.filter((item) => item?.tipoOperacao === tipo);
+            if (encontrados.length !== 1) return { ok: false, codigo: 'PLANO_TRANSPORTES_DIVERGENTE' };
+            const transporte = encontrados[0];
+            if (Object.hasOwn(transporte, 'conversaoProposta') || !referenciaEstrita(transporte.id)
+                || referenciaEstrita(transporte.locacaoId) !== referenciaEstrita(locacao.id)
+                || transporte.status !== 'pendente' || transporte.endereco !== endereco || transporte.cidade !== cidade
+                || transporte.clienteNome !== textoConversao(cliente.registro.nome
+                    || cliente.registro.nomeCompleto || cliente.registro.empresa)) {
+                return { ok: false, codigo: 'PLANO_TRANSPORTES_DIVERGENTE' };
+            }
+            const retirada = tipo === 'retirada';
+            const trechosEsperados = retirada
+                ? (dividirFrete ? 1 : trechos)
+                : (dividirFrete ? Math.max(trechos - 1, 1) : trechos);
+            const custoEsperado = retirada
+                ? (dividirFrete ? moedaConversao(distanciaKm * valorKm) : 0)
+                : (dividirFrete
+                    ? moedaConversao(distanciaKm * valorKm * trechosEsperados) : custoFrete);
+            const observacoesEsperadas = retirada
+                ? ['Retirada criada automaticamente pela conversao da proposta.', observacoesBase,
+                    custoEsperado <= 0 && custoFrete > 0 ? 'Custo de frete consolidado na entrega.' : '']
+                    .filter(Boolean).join(' ')
+                : observacoesBase;
+            const esperado = {
+                id: `transporte-${tipo}-${locacao.id}`,
+                locacaoId: locacao.id,
+                tipoOperacao: tipo,
+                status: 'pendente',
+                clienteNome: textoConversao(cliente.registro.nome
+                    || cliente.registro.nomeCompleto || cliente.registro.empresa),
+                endereco,
+                cidade,
+                dataSaida: retirada ? dataDesmontagem : dataMontagem,
+                horaSaida: retirada
+                    ? textoConversao(evento.horaDesmontagem || evento.horaFimEvento)
+                    : textoConversao(evento.horaMontagem),
+                dataChegada: retirada ? dataDesmontagem : dataMontagem,
+                horaChegada: retirada
+                    ? textoConversao(evento.horaDesmontagem)
+                    : textoConversao(evento.horaInicioEvento),
+                distanciaKm,
+                valorKm,
+                trechos: trechosEsperados,
+                custoEstimado: custoEsperado,
+                observacoes: observacoesEsperadas
+            };
+            if (!possuiSomenteCamposConversao(transporte, camposTransporteConversao())) {
+                return { ok: false, codigo: 'PLANO_TRANSPORTES_INVALIDO' };
+            }
+            const recebido = Object.fromEntries(Object.keys(esperado).map((chave) => [chave, transporte[chave]]));
+            if (!valoresCanonicosIguaisConversao(recebido, esperado)) {
+                return { ok: false, codigo: 'PLANO_TRANSPORTES_DIVERGENTE' };
+            }
+            transportesInternos.push(esperado);
+            const referencia = criarReferenciaEntidadeInterna('transporte', transporte.id);
+            if (referencias.has(referencia)) return { ok: false, codigo: 'PLANO_TRANSPORTES_DUPLICADO' };
+            referencias.add(referencia);
+        }
+        const camposLocacaoInterna = camposRaizLocacaoConversao();
+        Object.keys(proposta).forEach((chave) => {
+            if (!camposLocacaoInterna.has(chave) && Object.hasOwn(locacao, chave)
+                && valoresCanonicosIguaisConversao(locacao[chave], proposta[chave])) camposLocacaoInterna.add(chave);
+        });
+        const locacaoInterna = construirRegistroPermitidoConversao(locacao, camposLocacaoInterna);
+        if (!locacaoInterna.ok) return locacaoInterna;
+        const clienteSnapshotInterno = clonarJsonInterno(clienteSnapshot);
+        const eventoInterno = clonarJsonInterno(evento);
+        const financeiroPropostaInterno = clonarJsonInterno(financeiro);
+        const custosInternos = clonarJsonInterno(custos);
+        const fiscalInterno = clonarJsonInterno(proposta.fiscal || proposta.dadosFiscais || {});
+        const controleInterno = clonarJsonInterno(proposta.controleInterno || {});
+        const escopoInterno = clonarJsonInterno(proposta.escopo || {});
+        if ([clienteSnapshotInterno, eventoInterno, financeiroPropostaInterno, custosInternos,
+            fiscalInterno, controleInterno, escopoInterno].some((clone) => !clone.ok)) {
+            return { ok: false, codigo: 'FONTE_AUTORITATIVA_INVALIDA' };
+        }
+        locacaoInterna.valor.clienteSnapshot = clienteSnapshotInterno.valor;
+        locacaoInterna.valor.cliente = clonarJsonInterno(clienteSnapshotInterno.valor).valor;
+        locacaoInterna.valor.dadosFiscaisCliente = clonarJsonInterno(
+            clienteSnapshotInterno.valor.dadosFiscais || proposta.cliente?.dadosFiscais || {}).valor;
+        locacaoInterna.valor.evento = eventoInterno.valor;
+        Object.keys(proposta).forEach((chave) => {
+            if (camposRaizLocacaoConversao().has(chave) || !Object.hasOwn(locacao, chave)) return;
+            const clone = clonarJsonInterno(proposta[chave]);
+            if (clone.ok) locacaoInterna.valor[chave] = clone.valor;
+        });
+        locacaoInterna.valor.comercial = {
+            financeiro: clonarJsonInterno(financeiroPropostaInterno.valor).valor,
+            custos: custosInternos.valor,
+            fiscal: fiscalInterno.valor,
+            controleInterno: controleInterno.valor,
+            escopo: escopoInterno.valor,
+            clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal === true
+        };
+        locacaoInterna.valor.financeiro = {
+            ...financeiroPropostaInterno.valor,
+            ...Object.fromEntries(Object.keys(financeiroEsperado).map((chave) => [chave, financeiroEsperado[chave]])),
+            comprovante: '',
+            formaPagamento: rotuloFormaPagamentoConversao(financeiro.formaPagamento),
+            notaFiscal: textoConversao(financeiro.notaFiscal),
+            statusNotaFiscal: textoConversao(financeiro.statusNotaFiscal || financeiro.notaFiscal, 'pendente'),
+            condicaoPagamento: textoConversao(financeiro.condicaoPagamento),
+            observacaoPagamento: textoConversao(financeiro.observacaoPagamento),
+            codigoProposta: textoConversao(proposta.codigo),
+            codigoBaseProposta: locacao.financeiro.codigoBaseProposta,
+            revisaoProposta: locacao.financeiro.revisaoProposta
+        };
+        locacaoInterna.valor.items = locacao.items.map((item, indice) => {
+            const origem = clonarJsonInterno(proposta.itens[indice]).valor;
+            const derivados = [
+                'itemId', 'pecaId', 'nome', 'descricao', 'quantidade', 'origemCusto',
+                'quantidadePropria', 'quantidadeTerceirizada', 'valor', 'periodoDias', 'medida',
+                'tipoFiscal', 'categoria', 'categoriaId', 'fornecedor', 'fornecedorCusto',
+                'observacoes', 'custoUnitarioProposta', 'valorTotalProposta'
+            ];
+            derivados.forEach((chave) => { origem[chave] = clonarJsonInterno(item[chave]).valor; });
+            return origem;
+        });
+        return {
+            ok: true,
+            cliente,
+            locacao: locacaoInterna.valor,
+            transportes: transportesInternos
+        };
+    }
+
+    function assinaturaRegistroConversao(registro) {
+        const clone = clonarJsonInterno(registro);
+        if (!clone.ok) return '';
+        delete clone.valor.conversaoProposta;
+        return `evidencia-conversao-v1:fnv1a64:${fingerprintFnv1a64(jsonCanonicoConversao(clone.valor))}`;
+    }
+
+    function montarMatrizEvidenciasConversao({ entrada, assinaturaPlano, proposta, locacao,
+        cliente, clienteCriado, transportes }) {
+        const marcadorLocacao = locacao.conversaoProposta;
+        return ordenarChavesCanonicas({
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano,
+            proposta: {
+                referencia: entrada.propostaReferencia,
+                id: proposta.id,
+                locacaoVinculadaId: proposta.locacaoVinculadaId,
+                locacaoId: proposta.locacaoId,
+                locacaoVinculadaReferencia: proposta.locacaoVinculadaReferencia,
+                clienteConversaoReferencia: proposta.clienteConversaoReferencia,
+                operacaoConversaoId: proposta.operacaoConversaoId,
+                assinaturaConversao: proposta.assinaturaConversao
+            },
+            locacao: {
+                id: locacao.id,
+                referencia: criarReferenciaEntidadeInterna('locacao', locacao.id),
+                propostaReferencia: locacao.propostaReferencia,
+                operacaoId: marcadorLocacao?.operacaoId,
+                assinaturaPlano: marcadorLocacao?.assinaturaPlano,
+                marcadorPropostaReferencia: marcadorLocacao?.propostaReferencia,
+                clienteReferencia: marcadorLocacao?.clienteReferencia,
+                transporteReferencias: marcadorLocacao?.transporteReferencias,
+                assinaturaRegistro: marcadorLocacao?.assinaturaRegistro
+            },
+            cliente: {
+                id: cliente.id,
+                referencia: criarReferenciaEntidadeInterna('cliente', cliente.id),
+                criado: clienteCriado === true,
+                marcador: clienteCriado === true ? cliente.conversaoProposta : null
+            },
+            transportes: transportes.map(({ referencia, registro }) => ({
+                id: registro.id,
+                referencia,
+                locacaoId: registro.locacaoId,
+                operacaoId: registro.conversaoProposta?.operacaoId,
+                assinaturaPlano: registro.conversaoProposta?.assinaturaPlano,
+                propostaReferencia: registro.conversaoProposta?.propostaReferencia,
+                locacaoReferencia: registro.conversaoProposta?.locacaoReferencia,
+                assinaturaRegistro: registro.conversaoProposta?.assinaturaRegistro
+            }))
+        });
+    }
+
+    function assinarMatrizEvidenciasConversao(matriz) {
+        return `conversao-evidencias-v2:fnv1a64:${fingerprintFnv1a64(jsonCanonicoConversao(matriz))}`;
+    }
+
+    function validarEvidenciasConversaoProposta(estado, entrada, assinaturaPlano) {
+        const auditorias = (Array.isArray(estado.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((item) => item?.operacaoId === entrada.operacaoId);
+        if (auditorias.length !== 1) return { completo: false };
+        const auditoria = auditorias[0];
+        if (auditoria.origem !== 'conversao_proposta_transacional'
+            || auditoria.propostaReferencia !== entrada.propostaReferencia
+            || auditoria.assinaturaPlano !== assinaturaPlano
+            || typeof auditoria.locacaoReferencia !== 'string'
+            || typeof auditoria.clienteReferencia !== 'string'
+            || !Array.isArray(auditoria.transporteReferencias)
+            || typeof auditoria.assinaturaEvidencias !== 'string') return { completo: false };
+        const proposta = resolverReferenciaEntidadeInterna(
+            estado.propostas, 'proposta', entrada.propostaReferencia);
+        const locacao = resolverReferenciaEntidadeInterna(
+            estado.locacoes, 'locacao', auditoria.locacaoReferencia);
+        const cliente = resolverReferenciaEntidadeInterna(
+            estado.locadores, 'cliente', auditoria.clienteReferencia);
+        if (!proposta.encontrado || !locacao.encontrado || !cliente.encontrado) return { completo: false };
+        const marcadorLocacao = locacao.registro.conversaoProposta;
+        if (!Object.is(proposta.registro.locacaoVinculadaId, locacao.registro.id)
+            || !Object.is(proposta.registro.locacaoId, locacao.registro.id)
+            || proposta.registro.locacaoVinculadaReferencia !== auditoria.locacaoReferencia
+            || proposta.registro.clienteConversaoReferencia !== auditoria.clienteReferencia
+            || proposta.registro.operacaoConversaoId !== entrada.operacaoId
+            || proposta.registro.assinaturaConversao !== assinaturaPlano
+            || locacao.registro.propostaReferencia !== entrada.propostaReferencia
+            || marcadorLocacao?.operacaoId !== entrada.operacaoId
+            || marcadorLocacao?.assinaturaPlano !== assinaturaPlano
+            || marcadorLocacao?.propostaReferencia !== entrada.propostaReferencia
+            || marcadorLocacao?.clienteReferencia !== auditoria.clienteReferencia
+            || !Array.isArray(marcadorLocacao?.transporteReferencias)
+            || !valoresCanonicosIguaisConversao(
+                marcadorLocacao.transporteReferencias, auditoria.transporteReferencias)
+            || marcadorLocacao?.assinaturaRegistro !== assinaturaRegistroConversao(locacao.registro)) {
+            return { completo: false };
+        }
+        const transportes = [];
+        const referenciasUnicas = new Set(auditoria.transporteReferencias);
+        if (referenciasUnicas.size !== auditoria.transporteReferencias.length) return { completo: false };
+        const transportesDaOperacao = (Array.isArray(estado.transportes) ? estado.transportes : [])
+            .filter((registro) => registro?.conversaoProposta?.operacaoId === entrada.operacaoId);
+        if (transportesDaOperacao.length !== auditoria.transporteReferencias.length) return { completo: false };
+        for (const referencia of auditoria.transporteReferencias) {
+            const resolucao = resolverReferenciaEntidadeInterna(estado.transportes, 'transporte', referencia);
+            const marcador = resolucao.registro?.conversaoProposta;
+            if (!resolucao.encontrado || marcador?.operacaoId !== entrada.operacaoId
+                || marcador?.assinaturaPlano !== assinaturaPlano
+                || marcador?.propostaReferencia !== entrada.propostaReferencia
+                || marcador?.locacaoReferencia !== auditoria.locacaoReferencia
+                || !Object.is(resolucao.registro.locacaoId, locacao.registro.id)
+                || marcador?.assinaturaRegistro !== assinaturaRegistroConversao(resolucao.registro)) {
+                return { completo: false };
+            }
+            transportes.push({ referencia, registro: resolucao.registro });
+        }
+        if (auditoria.clienteCriado === true) {
+            const marcador = cliente.registro.conversaoProposta;
+            if (marcador?.operacaoId !== entrada.operacaoId || marcador?.assinaturaPlano !== assinaturaPlano
+                || marcador?.assinaturaRegistro !== assinaturaRegistroConversao(cliente.registro)) {
+                return { completo: false };
+            }
+        }
+        const matriz = montarMatrizEvidenciasConversao({
+            entrada,
+            assinaturaPlano,
+            proposta: proposta.registro,
+            locacao: locacao.registro,
+            cliente: cliente.registro,
+            clienteCriado: auditoria.clienteCriado === true,
+            transportes
+        });
+        const dadosAuditoriaEsperados = {
+            entidade: 'proposta',
+            propostaId: proposta.registro.id,
+            propostaReferencia: entrada.propostaReferencia,
+            locacaoId: locacao.registro.id,
+            locacaoReferencia: auditoria.locacaoReferencia,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano
+        };
+        return {
+            completo: valoresCanonicosIguaisConversao(auditoria.dados, dadosAuditoriaEsperados)
+                && assinarMatrizEvidenciasConversao(matriz) === auditoria.assinaturaEvidencias
+        };
+    }
+
+    function existemVestigiosConversaoProposta(estado, entrada) {
+        const operacaoId = entrada.operacaoId;
+        const propostaMarcada = (Array.isArray(estado.propostas) ? estado.propostas : []).some((registro) => (
+            registro && typeof registro === 'object' && !Array.isArray(registro)
+            && registro.operacaoConversaoId === operacaoId
+        ));
+        if (propostaMarcada) return true;
+        return ['locadores', 'locacoes', 'transportes'].some((colecao) => (
+            (Array.isArray(estado[colecao]) ? estado[colecao] : []).some((registro) => (
+                registro && typeof registro === 'object' && !Array.isArray(registro)
+                && registro.conversaoProposta?.operacaoId === operacaoId
+            ))
+        ));
+    }
+
+    function executarConversaoPropostaLocacaoTransacional(entradaRecebida, dependencias = {}) {
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        let trava = '';
+        try {
+            if (!entradaRecebida || typeof entradaRecebida !== 'object'
+                || !entradasConversaoPropostaConfiaveis.has(entradaRecebida)) {
+                return resultadoBase('ENTRADA_CONVERSAO_INVALIDA');
+            }
+            const cloneEntrada = clonarJsonInterno(entradaRecebida);
+            if (!cloneEntrada.ok) return resultadoBase(cloneEntrada.codigo);
+            const entrada = cloneEntrada.valor;
+            if (typeof entrada.operacaoId !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+                || typeof entrada.propostaReferencia !== 'string'
+                || typeof entrada.atualizadoEm !== 'string' || !Number.isFinite(Date.parse(entrada.atualizadoEm))
+                || typeof entrada.atualizadoPor !== 'string' || !entrada.atualizadoPor.trim()
+                || !entrada.persistencia || typeof entrada.persistencia !== 'object'
+                || !entrada.plano || typeof entrada.plano !== 'object' || Array.isArray(entrada.plano)) {
+                return resultadoBase('ENTRADA_CONVERSAO_INVALIDA');
+            }
+            if (typeof dependencias.validarPermissaoConversao !== 'function'
+                || dependencias.validarPermissaoConversao('converter_proposta_locacao') !== true) {
+                return resultadoBase('PERMISSAO_NEGADA');
+            }
+            if (entrada.plano.propostaReferencia !== entrada.propostaReferencia) {
+                return resultadoBase('REFERENCIA_PROPOSTA_DIVERGENTE');
+            }
+            const assinaturaPlano = assinaturaConversaoProposta(entrada);
+            trava = entrada.propostaReferencia;
+            if (travasConversaoProposta.has(trava)) return resultadoBase('CONVERSAO_PROPOSTA_EM_ANDAMENTO');
+            travasConversaoProposta.add(trava);
+
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual?.();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok) return resultadoBase(memoria.codigo);
+            const opcoesStorage = { armazenamento: dependencias.armazenamento,
+                chave: typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup' };
+            const leitura = validarRetornoLeituraSnapshotFinanceiro(
+                dependencias.lerSnapshotLocalConfirmavel?.({ ...opcoesStorage }));
+            if (!leitura.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leitura.snapshot);
+            if (!persistidoInicial.ok || persistidoInicial.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+
+            const evidenciasMemoria = (Array.isArray(memoria.valor.logsAuditoria) ? memoria.valor.logsAuditoria : [])
+                .filter((item) => item?.operacaoId === entrada.operacaoId);
+            const evidenciasPersistidas = (Array.isArray(persistidoInicial.valor.logsAuditoria)
+                ? persistidoInicial.valor.logsAuditoria : []).filter((item) => item?.operacaoId === entrada.operacaoId);
+            if (evidenciasMemoria.length || evidenciasPersistidas.length) {
+                const evidenciasIguais = evidenciasMemoria.length === 1 && evidenciasPersistidas.length === 1
+                    && JSON.stringify(ordenarChavesCanonicas(evidenciasMemoria[0]))
+                        === JSON.stringify(ordenarChavesCanonicas(evidenciasPersistidas[0]));
+                const mesmaOperacao = evidenciasIguais
+                    && evidenciasMemoria[0].origem === 'conversao_proposta_transacional'
+                    && evidenciasMemoria[0].propostaReferencia === entrada.propostaReferencia;
+                if (mesmaOperacao && evidenciasMemoria[0].assinaturaPlano === assinaturaPlano) {
+                    const completasMemoria = validarEvidenciasConversaoProposta(
+                        memoria.valor, entrada, assinaturaPlano).completo;
+                    const completasPersistidas = validarEvidenciasConversaoProposta(
+                        persistidoInicial.valor, entrada, assinaturaPlano).completo;
+                    if (completasMemoria && completasPersistidas) {
+                        return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, idempotente: true });
+                    }
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+                return mesmaOperacao
+                    ? resultadoBase('CONFLITO_OPERACAO_CONVERSAO')
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (existemVestigiosConversaoProposta(memoria.valor, entrada)
+                || existemVestigiosConversaoProposta(persistidoInicial.valor, entrada)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const propostaMemoria = resolverReferenciaEntidadeInterna(
+                memoria.valor.propostas, 'proposta', entrada.propostaReferencia);
+            if (!propostaMemoria.encontrado) return resultadoBase(propostaMemoria.estado === 'duplicado'
+                ? 'PROPOSTA_ID_DUPLICADO' : propostaMemoria.estado === 'ausente'
+                    ? 'PROPOSTA_NAO_ENCONTRADA' : 'REFERENCIA_PROPOSTA_INVALIDA');
+            const planoAutoritativoMemoria = validarPlanoConversaoAutoritativo(
+                memoria.valor, propostaMemoria.registro, entrada);
+            if (!planoAutoritativoMemoria.ok) return resultadoBase(planoAutoritativoMemoria.codigo);
+
+            const candidatoClone = clonarJsonInterno(memoria.valor);
+            if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
+            const candidato = candidatoClone.valor;
+            if (!Array.isArray(candidato.propostas) || !Array.isArray(candidato.locadores)
+                || !Array.isArray(candidato.locacoes) || !Array.isArray(candidato.transportes)
+                || !Array.isArray(candidato.logsAuditoria)) return resultadoBase('ESTADO_CONVERSAO_INVALIDO');
+
+            const proposta = resolverReferenciaEntidadeInterna(
+                candidato.propostas, 'proposta', entrada.propostaReferencia);
+            if (!proposta.encontrado) return resultadoBase(proposta.estado === 'duplicado'
+                ? 'PROPOSTA_ID_DUPLICADO' : proposta.estado === 'ausente' ? 'PROPOSTA_NAO_ENCONTRADA' : 'REFERENCIA_PROPOSTA_INVALIDA');
+            const statusProposta = typeof proposta.registro.status === 'string'
+                ? proposta.registro.status.trim().toLowerCase() : '';
+            if (statusProposta !== 'aprovada') return resultadoBase('PROPOSTA_NAO_APROVADA');
+
+            const planoAutoritativo = validarPlanoConversaoAutoritativo(candidato, proposta.registro, entrada);
+            if (!planoAutoritativo.ok) return resultadoBase(planoAutoritativo.codigo);
+
+            const vinculadas = candidato.locacoes.filter((locacao) => {
+                if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)) return false;
+                if (locacao.propostaReferencia === entrada.propostaReferencia) return true;
+                return [locacao.propostaOrigemId, locacao.origemPropostaId, locacao.origem?.propostaId]
+                    .some((id) => referenciaEstrita(id) && referenciaEstrita(id) === referenciaEstrita(proposta.registro.id));
+            });
+            if (vinculadas.length) return resultadoBase(vinculadas.length > 1
+                ? 'CONVERSAO_PROPOSTA_AMBIGUA' : 'PROPOSTA_JA_CONVERTIDA');
+            const vinculoLegado = localizarVinculosLegadosPropostaUnicos(
+                candidato.propostas, candidato.locacoes, proposta.registro);
+            if (vinculoLegado.estado !== 'ausente') {
+                return resultadoBase(vinculoLegado.estado === 'encontrado'
+                    ? 'PROPOSTA_JA_CONVERTIDA' : 'CONVERSAO_PROPOSTA_AMBIGUA');
+            }
+
+            const plano = entrada.plano;
+            const colisaoLocacao = resolverIdEntidadeInterna(candidato.locacoes, plano.locacao.id);
+            if (colisaoLocacao.encontrado || colisaoLocacao.estado === 'duplicado') {
+                return resultadoBase('LOCACAO_ID_DUPLICADO');
+            }
+
+            const clientePlano = plano.cliente;
+            const clienteId = planoAutoritativo.cliente.id;
+            let clienteCriado = false;
+            if (planoAutoritativo.cliente.criado) {
+                const registro = clonarJsonInterno(planoAutoritativo.cliente.registro);
+                if (!registro.ok) return resultadoBase(registro.codigo);
+                const colisaoCliente = resolverIdEntidadeInterna(candidato.locadores, registro.valor.id);
+                if (colisaoCliente.encontrado || colisaoCliente.estado === 'duplicado') {
+                    return resultadoBase('CLIENTE_ID_DUPLICADO');
+                }
+                if (encontrarCorrespondenciasClienteManual(candidato.locadores, registro.valor).length) {
+                    return resultadoBase('CLIENTE_MANUAL_AMBIGUO');
+                }
+                const assinaturaRegistro = assinaturaRegistroConversao(registro.valor);
+                registro.valor.conversaoProposta = {
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano,
+                    propostaReferencia: entrada.propostaReferencia,
+                    assinaturaRegistro
+                };
+                candidato.locadores.push(registro.valor);
+                clienteCriado = true;
+            }
+
+            const transportesPlano = planoAutoritativo.transportes;
+            const referenciasTransporte = new Set();
+            const tiposTransporte = new Set();
+            for (const transporte of transportesPlano) {
+                const referenciaTransporte = criarReferenciaEntidadeInterna('transporte', transporte.id);
+                if (referenciasTransporte.has(referenciaTransporte) || tiposTransporte.has(transporte.tipoOperacao)) {
+                    return resultadoBase('PLANO_TRANSPORTES_DUPLICADO');
+                }
+                const colisaoTransporte = resolverIdEntidadeInterna(candidato.transportes, transporte.id);
+                if (colisaoTransporte.encontrado || colisaoTransporte.estado === 'duplicado') {
+                    return resultadoBase('TRANSPORTE_ID_DUPLICADO');
+                }
+                referenciasTransporte.add(referenciaTransporte);
+                tiposTransporte.add(transporte.tipoOperacao);
+            }
+
+            const locacaoCandidata = clonarJsonInterno(planoAutoritativo.locacao);
+            if (!locacaoCandidata.ok) return resultadoBase(locacaoCandidata.codigo);
+            const locacaoReferencia = criarReferenciaEntidadeInterna('locacao', locacaoCandidata.valor.id);
+            const clienteReferencia = planoAutoritativo.cliente.referencia;
+            const transporteReferencias = transportesPlano.map((item) => (
+                criarReferenciaEntidadeInterna('transporte', item.id)
+            ));
+            const assinaturaLocacao = assinaturaRegistroConversao(locacaoCandidata.valor);
+            locacaoCandidata.valor.conversaoProposta = {
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                propostaReferencia: entrada.propostaReferencia,
+                clienteReferencia,
+                transporteReferencias: [...transporteReferencias],
+                assinaturaRegistro: assinaturaLocacao
+            };
+            const transportesCandidatos = transportesPlano.map((transporte) => {
+                const clone = clonarJsonInterno(transporte);
+                if (!clone.ok) return null;
+                const assinaturaRegistro = assinaturaRegistroConversao(clone.valor);
+                clone.valor.conversaoProposta = {
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano,
+                    propostaReferencia: entrada.propostaReferencia,
+                    locacaoReferencia,
+                    assinaturaRegistro
+                };
+                return { registro: clone.valor, referencia: criarReferenciaEntidadeInterna('transporte', clone.valor.id),
+                    assinatura: assinaturaRegistro };
+            });
+            if (transportesCandidatos.some((item) => !item)) return resultadoBase('PLANO_TRANSPORTES_INVALIDO');
+            candidato.locacoes.push(locacaoCandidata.valor);
+            transportesCandidatos.forEach((item) => candidato.transportes.unshift(item.registro));
+            candidato.propostas[proposta.indice] = {
+                ...proposta.registro,
+                locacaoVinculadaId: locacaoCandidata.valor.id,
+                locacaoId: locacaoCandidata.valor.id,
+                locacaoVinculadaReferencia: locacaoReferencia,
+                operacaoConversaoId: entrada.operacaoId,
+                assinaturaConversao: assinaturaPlano,
+                clienteConversaoReferencia: clienteReferencia,
+                dataConversaoLocacao: entrada.atualizadoEm,
+                atualizadoEm: entrada.atualizadoEm
+            };
+            const clienteCandidato = resolverReferenciaEntidadeInterna(
+                candidato.locadores, 'cliente', clienteReferencia);
+            if (!clienteCandidato.encontrado) return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
+            const matrizEvidencias = montarMatrizEvidenciasConversao({
+                entrada,
+                assinaturaPlano,
+                proposta: candidato.propostas[proposta.indice],
+                locacao: locacaoCandidata.valor,
+                cliente: clienteCandidato.registro,
+                clienteCriado,
+                transportes: transportesCandidatos.map((item) => ({
+                    referencia: item.referencia,
+                    registro: item.registro
+                }))
+            });
+            const assinaturaEvidencias = assinarMatrizEvidenciasConversao(matrizEvidencias);
+            candidato.logsAuditoria.unshift({
+                id: `audit-conversao-${entrada.operacaoId}`,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                tipo: 'proposta',
+                acao: 'converter',
+                origem: 'conversao_proposta_transacional',
+                propostaReferencia: entrada.propostaReferencia,
+                locacaoReferencia,
+                clienteReferencia,
+                clienteCriado,
+                transporteReferencias: [...transporteReferencias],
+                assinaturaEvidencias,
+                timestamp: entrada.atualizadoEm,
+                data: entrada.atualizadoEm,
+                usuario: entrada.atualizadoPor,
+                descricao: `Proposta convertida na locação ${String(locacaoCandidata.valor.id)}.`,
+                dados: {
+                    entidade: 'proposta',
+                    propostaId: proposta.registro.id,
+                    propostaReferencia: entrada.propostaReferencia,
+                    locacaoId: locacaoCandidata.valor.id,
+                    locacaoReferencia,
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano
+                }
+            });
+
+            if (!validarEvidenciasConversaoProposta(candidato, entrada, assinaturaPlano).completo) {
+                return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
+            }
+
+            if (dependencias.validarPermissaoConversao('converter_proposta_locacao') !== true) {
+                return resultadoBase('PERMISSAO_NEGADA');
+            }
+            const metadados = entrada.persistencia;
+            const preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto?.(
+                clonarDescartavel(candidato), clonarDescartavel(metadados));
+            const preparado = validarRetornoPreparacaoSnapshotFinanceiro(preparadoExterno);
+            if (!preparado.ok || preparado.snapshot.versao !== metadados.versao
+                || preparado.snapshot.data !== metadados.data
+                || preparado.snapshot.ultimaEdicao !== metadados.ultimaEdicao) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacionalPreparado = prepararEstadoOperacionalInterno(preparado.snapshot);
+            const candidatoPreparado = prepararEstadoOperacionalInterno(candidato);
+            if (!operacionalPreparado.ok || !candidatoPreparado.ok
+                || operacionalPreparado.json !== candidatoPreparado.json) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const snapshotAutoritativo = clonarJsonInterno({
+                versao: metadados.versao,
+                data: metadados.data,
+                ultimaEdicao: metadados.ultimaEdicao,
+                ...candidatoPreparado.valor
+            });
+            if (!snapshotAutoritativo.ok) return resultadoBase(snapshotAutoritativo.codigo);
+            const jsonEsperado = JSON.stringify(ordenarChavesCanonicas(snapshotAutoritativo.valor));
+            if (dependencias.obterEstadoMemoriaAtual() !== raizAnterior) return resultadoBase('REVISAO_DIVERGENTE');
+            try {
+                dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshotAutoritativo.valor), { ...opcoesStorage });
+            } catch (_erro) { /* A releitura autoritativa determina o resultado. */ }
+            const releitura = validarRetornoLeituraSnapshotFinanceiro(
+                dependencias.lerSnapshotLocalConfirmavel?.({ ...opcoesStorage }));
+            if (!releitura.ok) return resultadoBase('PERSISTENCIA_INDETERMINADA', { requerRecuperacao: true });
+            const jsonReleitura = JSON.stringify(ordenarChavesCanonicas(releitura.snapshot));
+            if (jsonReleitura !== jsonEsperado) {
+                const releituraOperacional = prepararEstadoOperacionalInterno(releitura.snapshot);
+                const naoGravado = releituraOperacional.ok && releituraOperacional.json === memoria.json;
+                return resultadoBase(naoGravado ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE',
+                    { requerRecuperacao: !naoGravado });
+            }
+            const operacionalReleitura = prepararEstadoOperacionalInterno(releitura.snapshot);
+            if (!operacionalReleitura.ok
+                || !validarEvidenciasConversaoProposta(
+                    operacionalReleitura.valor, entrada, assinaturaPlano).completo) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: true });
+            }
+            persistenciaConfirmada = true;
+            if (dependencias.validarPermissaoConversao('converter_proposta_locacao') !== true) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const operacionalConfirmado = prepararEstadoOperacionalInterno(releitura.snapshot);
+            const jsonPublicacao = JSON.stringify(operacionalConfirmado.valor);
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacao);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior
+            });
+            if (!autorizacao) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacionalConfirmado.valor), {
+                    jsonOperacionalEsperado: jsonPublicacao,
+                    autorizacaoPublicacao: autorizacao,
+                    exigirConfirmacaoInterna: true
+                });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior,
+                autorizacaoPublicacao: autorizacao
+            });
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
+            return resultadoBase('CONVERSAO_PROPOSTA_APLICADA', {
+                ok: true,
+                aplicado: true,
+                publicacaoRealizada: true,
+                renderizar: true,
+                sincronizar: true,
+                operacao: {
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano,
+                    propostaReferencia: entrada.propostaReferencia,
+                    locacaoReferencia
+                },
+                avisos: erroPublicacao ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : []
+            });
+        } catch (erro) {
+            return resultadoBase(publicacaoRealizada ? 'CONVERSAO_PROPOSTA_APLICADA' : 'FALHA_TRANSACIONAL_CONVERSAO', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                renderizar: publicacaoRealizada,
+                sincronizar: publicacaoRealizada,
+                bloqueios: publicacaoRealizada ? [] : [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
+            });
+        } finally {
+            if (autorizacao) cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao);
+            if (trava) travasConversaoProposta.delete(trava);
+        }
+    }
+
+    function criarReferenciaTransporteInterna(id) {
+        return criarReferenciaEntidadeInterna('transporte', id);
     }
 
     function resolverReferenciaTransporteInterna(colecao, referencia) {
@@ -9975,6 +11237,8 @@
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;
+    window.criarEntradaConversaoPropostaConfiavel = criarEntradaConversaoPropostaConfiavel;
+    window.executarConversaoPropostaLocacaoTransacional = executarConversaoPropostaLocacaoTransacional;
     window.executarOperacaoTransporteTransacional = executarOperacaoTransporteTransacional;
     window.executarAjusteReservaLocacao = executarAjusteReservaLocacao;
 })();

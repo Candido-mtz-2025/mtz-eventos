@@ -1320,11 +1320,7 @@
     }
 
     function obterPadroesOrcamento() {
-        const normalizado = normalizarPadroesOrcamento(config?.padroesOrcamento);
-        if (config && typeof config === 'object') {
-            config.padroesOrcamento = normalizado;
-        }
-        return normalizado;
+        return normalizarPadroesOrcamento(config?.padroesOrcamento);
     }
 
     function obterRegraCategoriaParaItem(categoria) {
@@ -3511,12 +3507,20 @@
     }
 
     function obterAtividadesProposta(propostaId) {
-        if (!propostaId || typeof logsAuditoria === 'undefined' || !Array.isArray(logsAuditoria)) return [];
-        const id = String(propostaId);
+        if (!normalizarIdEntidadeExato(propostaId).valido
+            || typeof logsAuditoria === 'undefined' || !Array.isArray(logsAuditoria)) return [];
+        const propostaReferencia = criarReferenciaTipadaEntidade('proposta', propostaId);
+        const propostasMesmoTexto = obterPropostasBase().filter((item) => (
+            normalizarIdEntidadeExato(item?.id).valido && String(item.id) === String(propostaId)
+        ));
         return logsAuditoria
             .filter((log) => (
                 log?.tipo === 'proposta'
-                && String(log?.dados?.propostaId || '') === id
+                && (log?.dados?.propostaReferencia === propostaReferencia
+                    || (!log?.dados?.propostaReferencia
+                        && propostasMesmoTexto.length === 1
+                        && normalizarIdEntidadeExato(log?.dados?.propostaId).valido
+                        && String(log.dados.propostaId) === String(propostaId)))
             ))
             .slice()
             .sort((a, b) => {
@@ -4011,7 +4015,7 @@
                 </div>
                 <div class="proposta-revision-timeline">
                     ${linhaTempo.map((item) => `
-                        <button type="button" class="proposta-revision-step ${item.atual ? 'is-current' : ''}" data-action="editarProposta" data-arg="${item.id || atual.id}" title="Abrir ${sanitizar(item.codigo)}">
+                        <button type="button" class="proposta-revision-step ${item.atual ? 'is-current' : ''}" data-action="editarProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', item.id ?? atual.id))}" title="Abrir ${sanitizar(item.codigo)}">
                             <strong>Rev. ${formatarNumeroRevisaoProposta(item.revisao)}</strong>
                             <small>${item.atual ? 'Atual' : statusRotulo(item.status)}</small>
                         </button>
@@ -5928,11 +5932,20 @@
     }
 
     function localizarProposta(id) {
-        return obterPropostasBase().find((item) => String(item.id) === String(id)) || null;
+        const lista = obterPropostasBase();
+        const resultado = typeof id === 'string' && id.startsWith('proposta:')
+            ? resolverRegistroPorReferenciaTipada(lista, 'proposta', id)
+            : resolverRegistroPorIdExato(lista, id);
+        return resultado.encontrado ? resultado.registro : null;
     }
 
     function obterIdPropostaEmEdicao() {
         return textoSeguro(document.getElementById('propostaIdAtual')?.value);
+    }
+
+    function obterReferenciaPropostaEmEdicao() {
+        const hidden = document.getElementById('propostaIdAtual');
+        return textoSeguro(hidden?.dataset?.referenciaTipada, '') || obterIdPropostaEmEdicao();
     }
 
     function focarPendenciaProposta(pendencia) {
@@ -6416,7 +6429,10 @@
         });
 
         const hidden = document.getElementById('propostaIdAtual');
-        if (hidden) hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
+        if (hidden) {
+            hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
+            hidden.dataset.referenciaTipada = criarReferenciaTipadaEntidade('proposta', p.id);
+        }
 
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = p.clientePrecisaNotaFiscal === true || p.cliente.precisaNotaFiscal === true;
@@ -6471,6 +6487,7 @@
         if (hidden) {
             hidden.value = '';
             hidden.dataset.dataCriacao = obterHojeIso();
+            hidden.dataset.referenciaTipada = '';
         }
 
         const statusEl = document.getElementById('propStatus');
@@ -6648,7 +6665,7 @@
     }
 
     function editarPropostaAtual() {
-        const id = obterIdPropostaEmEdicao();
+        const id = obterReferenciaPropostaEmEdicao();
         if (!id) {
             mostrarToast('Selecione uma proposta da lista para editar.', 'info');
             return;
@@ -6668,20 +6685,29 @@
     function atualizarStatusProposta(id, novoStatus, opcoes = {}) {
         const status = normalizarStatusProposta(novoStatus);
         if (status === 'convertida') {
-            converterPropostaEmLocacaoFechada(id);
+            const proposta = localizarProposta(id);
+            const referencia = proposta ? criarReferenciaTipadaEntidade('proposta', proposta.id) : '';
+            if (!referencia) {
+                mostrarToast('Proposta não encontrada para conversão.', 'erro');
+                return;
+            }
+            converterPropostaEmLocacaoFechada(referencia);
             return;
         }
         const lista = obterPropostasBase();
-        const indice = lista.findIndex((item) => String(item.id) === String(id));
-        if (indice < 0) {
+        const resolucao = typeof id === 'string' && id.startsWith('proposta:')
+            ? resolverRegistroPorReferenciaTipada(lista, 'proposta', id)
+            : resolverRegistroPorIdExato(lista, id);
+        if (!resolucao.encontrado) {
             mostrarToast('Proposta nao encontrada para atualizar status.', 'erro');
             return;
         }
+        const indice = resolucao.indice;
 
         const anterior = lista[indice];
         if ((status === 'enviada' || status === 'aprovada') && !validarPropostaProntaParaUso(anterior, {
             modo: 'status',
-            focar: String(obterIdPropostaEmEdicao()) === String(id)
+            focar: idsEntidadeExatos(obterIdPropostaEmEdicao(), anterior.id)
         })) {
             return;
         }
@@ -6724,7 +6750,7 @@
         mostrarToast(`Proposta marcada como ${statusRotulo(status)}.`);
 
         const idEmEdicao = obterIdPropostaEmEdicao();
-        if (String(idEmEdicao) === String(id)) {
+        if (idsEntidadeExatos(idEmEdicao, anterior.id)) {
             preencherFormularioComProposta(lista[indice]);
         }
 
@@ -6737,7 +6763,10 @@
     }
 
     function alterarStatusPropostaRapido(arg) {
-        const [id, status] = textoSeguro(arg).split(':');
+        const texto = textoSeguro(arg);
+        const separador = texto.lastIndexOf('|');
+        const id = separador > 0 ? texto.slice(0, separador) : '';
+        const status = separador > 0 ? texto.slice(separador + 1) : '';
         if (!id || !status) {
             mostrarToast('Acao de status invalida.', 'erro');
             return;
@@ -6746,7 +6775,7 @@
     }
 
     function alterarStatusPropostaAtual(status) {
-        const id = obterIdPropostaEmEdicao();
+        const id = obterReferenciaPropostaEmEdicao();
         if (!id) {
             mostrarToast('Abra uma proposta para alterar o status.', 'info');
             return;
@@ -6930,12 +6959,12 @@
                 'excluir',
                 `Proposta ${formatarCodigoRevisaoProposta(proposta)} excluída.`
             );
-            propostas = obterPropostasBase().filter((item) => String(item.id) !== String(id));
+            propostas = obterPropostasBase().filter((item) => !idsEntidadeExatos(item.id, proposta.id));
             salvarLocal();
             renderTudo();
             sincronizar('salvar');
             mostrarToast('Proposta excluida.');
-            if (String(obterIdPropostaEmEdicao()) === String(id)) limparFormularioProposta();
+            if (idsEntidadeExatos(obterIdPropostaEmEdicao(), proposta.id)) limparFormularioProposta();
         };
 
         if (typeof confirmarAcao === 'function') {
@@ -6972,30 +7001,57 @@
             : 'Descontar do valor final';
     }
 
-    function encontrarOuCriarClienteDaProposta(proposta) {
-        const clienteVinculado = obterClienteCadastradoProposta(
-            proposta?.clienteId ?? proposta?.cliente?.id ?? proposta?.cliente?.clienteId
-        );
-        if (clienteVinculado) return clienteVinculado;
+    function planejarClienteDaProposta(proposta) {
+        const idVinculado = proposta?.clienteId ?? proposta?.cliente?.id ?? proposta?.cliente?.clienteId;
+        if (normalizarIdEntidadeExato(idVinculado).valido
+            || (typeof idVinculado === 'string' && idVinculado.startsWith('cliente:'))) {
+            const resolucao = typeof idVinculado === 'string' && idVinculado.startsWith('cliente:')
+                ? resolverClientePorReferenciaTipada(locadores, idVinculado)
+                : resolverClientePorIdExato(locadores, idVinculado);
+            if (!resolucao.encontrado) {
+                return {
+                    ok: false,
+                    codigo: resolucao.estado === 'duplicado' ? 'CLIENTE_ID_DUPLICADO' : 'CLIENTE_VINCULADO_INVALIDO'
+                };
+            }
+            return {
+                ok: true,
+                registro: resolucao.cliente,
+                plano: {
+                    modo: 'existente',
+                    referencia: criarReferenciaTipadaEntidade('cliente', resolucao.cliente.id)
+                }
+            };
+        }
 
         const clienteProposta = montarClientePropostaNormalizado(proposta?.clienteSnapshot || proposta?.cliente || {});
         const documento = String(clienteProposta.documento || '').replace(/\D+/g, '');
         const email = normalizarTextoBusca(clienteProposta.email || '');
         const nome = normalizarTextoBusca(clienteProposta.nome || '');
-
-        let cliente = (Array.isArray(locadores) ? locadores : []).find((item) => {
+        const correspondenciasFortes = (Array.isArray(locadores) ? locadores : []).filter((item) => {
             const docItem = String(item?.documento || '').replace(/\D+/g, '');
             const emailItem = normalizarTextoBusca(item?.email || '');
-            const nomeItem = normalizarTextoBusca(item?.nome || '');
-            if (documento && docItem === documento) return true;
-            if (email && emailItem && emailItem === email) return true;
-            return nome && nomeItem && nomeItem === nome;
+            return (documento && docItem === documento) || (email && emailItem && emailItem === email);
         });
-
-        if (cliente) return cliente;
+        if (correspondenciasFortes.length > 1) return { ok: false, codigo: 'CLIENTE_MANUAL_AMBIGUO' };
+        if (correspondenciasFortes.length === 1) {
+            const cliente = correspondenciasFortes[0];
+            return {
+                ok: true,
+                registro: cliente,
+                plano: {
+                    modo: 'existente',
+                    referencia: criarReferenciaTipadaEntidade('cliente', cliente.id)
+                }
+            };
+        }
+        const correspondenciasNome = nome
+            ? (Array.isArray(locadores) ? locadores : []).filter((item) => normalizarTextoBusca(item?.nome || '') === nome)
+            : [];
+        if (correspondenciasNome.length) return { ok: false, codigo: 'CLIENTE_MANUAL_AMBIGUO' };
 
         const novoId = Date.now() + Math.floor(Math.random() * 500);
-        cliente = {
+        const cliente = {
             id: novoId,
             nome: clienteProposta.nome || 'Cliente da proposta',
             documento: clienteProposta.documento || '',
@@ -7006,9 +7062,11 @@
             responsavelPedido: clienteProposta.responsavelPedido || '',
             dadosFiscais: { ...(clienteProposta.dadosFiscais || {}) }
         };
-        if (!Array.isArray(locadores)) locadores = [];
-        locadores.push(cliente);
-        return cliente;
+        return {
+            ok: true,
+            registro: cliente,
+            plano: { modo: 'novo', registro: clonarDadosConversaoProposta(cliente, {}) }
+        };
     }
 
     function encontrarPecaPorDescricao(itemProposta) {
@@ -7160,33 +7218,50 @@
 
     function localizarLocacaoConvertidaDaProposta(proposta) {
         if (!proposta || !Array.isArray(locacoes)) return null;
-        const propostaId = String(proposta.id || '');
-        const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId || proposta.locacaoId, '');
-        if (locacaoVinculadaId) {
-            const vinculada = locacoes.find((locacao) => String(locacao?.id || '') === locacaoVinculadaId);
-            if (vinculada) return vinculada;
+        const propostaReferencia = criarReferenciaTipadaEntidade('proposta', proposta.id);
+        if (!propostaReferencia) return null;
+        const referenciaVinculada = textoSeguro(proposta.locacaoVinculadaReferencia, '');
+        if (referenciaVinculada) {
+            const vinculada = resolverRegistroPorReferenciaTipada(locacoes, 'locacao', referenciaVinculada);
+            if (vinculada.encontrado) return vinculada.registro;
+            if (vinculada.estado === 'duplicado') return null;
+        }
+        const locacaoVinculadaId = proposta.locacaoVinculadaId ?? proposta.locacaoId;
+        if (normalizarIdEntidadeExato(locacaoVinculadaId).valido) {
+            const vinculada = resolverRegistroPorIdExato(locacoes, locacaoVinculadaId);
+            if (vinculada.encontrado) return vinculada.registro;
+            if (vinculada.estado === 'duplicado') return null;
         }
 
-        return locacoes.find((locacao) => {
-            const origemId = textoSeguro(
-                locacao?.propostaOrigemId
-                || locacao?.origemPropostaId
-                || locacao?.origem?.propostaId,
-                ''
-            );
-            return propostaId && origemId === propostaId;
-        }) || null;
+        const correspondencias = locacoes.filter((locacao) => (
+            locacao?.propostaReferencia === propostaReferencia
+            || [locacao?.propostaOrigemId, locacao?.origemPropostaId, locacao?.origem?.propostaId]
+                .some((id) => idsEntidadeExatos(id, proposta.id))
+        ));
+        if (correspondencias.length === 1) return correspondencias[0];
+        if (correspondencias.length > 1) return null;
+
+        const propostasCompativeis = obterPropostasBase().filter((item) => (
+            normalizarIdEntidadeExato(item?.id).valido && String(item.id) === String(proposta.id)
+        ));
+        const legadas = locacoes.filter((locacao) => {
+            if (typeof locacao?.propostaReferencia === 'string') return false;
+            return [locacao?.propostaOrigemId, locacao?.origemPropostaId, locacao?.origem?.propostaId]
+                .some((id) => normalizarIdEntidadeExato(id).valido && String(id) === String(proposta.id));
+        });
+        return propostasCompativeis.length === 1 && legadas.length === 1 ? legadas[0] : null;
     }
 
     function informarLocacaoExistenteDaProposta(proposta, locacao) {
-        const locacaoId = String(locacao?.id || proposta?.locacaoVinculadaId || proposta?.locacaoId || '');
+        const locacaoId = locacao?.id ?? proposta?.locacaoVinculadaId ?? proposta?.locacaoId;
+        const locacaoReferencia = criarReferenciaTipadaEntidade('locacao', locacaoId);
         const codigo = formatarCodigoRevisaoProposta(proposta);
         const abrirLocacao = () => {
-            if (locacaoId && typeof irParaLocacaoPorCodigo === 'function') {
-                irParaLocacaoPorCodigo(locacaoId);
+            if (locacaoReferencia && typeof irParaLocacaoPorCodigo === 'function') {
+                irParaLocacaoPorCodigo(locacaoReferencia);
             }
         };
-        const mensagem = `A proposta ${codigo} já foi convertida na locação #${locacaoId.slice(-6)}.`;
+        const mensagem = `A proposta ${codigo} já foi convertida na locação #${String(locacaoId ?? '').slice(-6)}.`;
 
         if (typeof confirmarAcao === 'function') {
             confirmarAcao(mensagem, abrirLocacao, {
@@ -7201,11 +7276,24 @@
     }
 
     function executarConversaoPropostaLocacao(proposta) {
-        const cliente = encontrarOuCriarClienteDaProposta(proposta);
+        const planejamentoCliente = planejarClienteDaProposta(proposta);
+        if (!planejamentoCliente.ok) {
+            const mensagem = planejamentoCliente.codigo === 'CLIENTE_MANUAL_AMBIGUO'
+                ? 'Há clientes compatíveis com os dados informados. Selecione explicitamente o cadastro correto antes de converter.'
+                : 'O cliente vinculado não possui uma identidade única válida. Revise o cadastro antes de converter.';
+            mostrarToast(mensagem, 'erro', 6500);
+            return null;
+        }
+        const cliente = planejamentoCliente.registro;
         const hojeIso = obterHojeIso();
         const agoraIso = obterAgoraIso();
         const responsavelConversao = obterUsuarioAtualNomeOuEmail();
-        const propostaId = String(proposta.id || '');
+        const propostaId = proposta.id;
+        const propostaReferencia = criarReferenciaTipadaEntidade('proposta', propostaId);
+        if (!propostaReferencia) {
+            mostrarToast('A proposta possui uma identidade inválida e não pode ser convertida.', 'erro');
+            return null;
+        }
         const codigoBaseProposta = obterCodigoBaseProposta(proposta);
         const revisaoProposta = normalizarNumeroRevisaoProposta(
             proposta.revisao ?? proposta.numeroRevisao,
@@ -7318,6 +7406,7 @@
 
         const novaLocacaoBase = {
             id: novaLocacaoId,
+            propostaReferencia,
             origemTipo: 'orcamento',
             origemPropostaId: propostaId,
             propostaOrigemId: propostaId,
@@ -7429,7 +7518,7 @@
             },
             checklist: {
                 idChecklist: null,
-                locacaoId: String(novaLocacaoId),
+                locacaoId: novaLocacaoId,
                 status: resumoChecklistPendente.totalLinhas > 0 ? 'pendente' : 'nao_iniciado',
                 origem: 'proposta_convertida',
                 resumo: resumoChecklistPendente,
@@ -7462,18 +7551,24 @@
             });
         }
 
-        if (!Array.isArray(locacoes)) locacoes = [];
-        locacoes.push(novaLocacao);
-        const deveCriarTransporte = typeof criarTransporteDaLocacao === 'function' && (custoFrete > 0 || enderecoEvento || cidadeEvento);
+        const transportesPlanejados = [];
+        const deveCriarTransporte = custoFrete > 0 || enderecoEvento || cidadeEvento;
         if (deveCriarTransporte) {
+            if (typeof montarTransporteDaLocacao !== 'function') {
+                mostrarToast('O construtor de transporte está indisponível. Nenhum dado foi alterado.', 'erro');
+                return null;
+            }
             const criarRetiradaAutomatica = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);
             const dividirFreteEntreRotas = criarRetiradaAutomatica && freteKm.calculoAtivo && freteKm.trechos > 1;
             const trechosEntrega = dividirFreteEntreRotas ? Math.max(freteKm.trechos - 1, 1) : freteKm.trechos;
             const custoEntrega = dividirFreteEntreRotas
                 ? arredondarMoeda(freteKm.distanciaKm * freteKm.valorKm * trechosEntrega)
                 : custoFrete;
-            criarTransporteDaLocacao(novaLocacao, {
+            const entrega = montarTransporteDaLocacao(novaLocacao, {
+                id: `transporte-entrega-${novaLocacaoId}`,
                 tipoOperacao: 'entrega',
+                cliente,
+                clienteNome: cliente.nome || cliente.nomeCompleto || cliente.empresa || '',
                 dataSaida: dataMontagem,
                 horaSaida: proposta.evento.horaMontagem || '',
                 dataChegada: dataMontagem,
@@ -7484,9 +7579,13 @@
                 valorKm: freteKm.valorKm,
                 trechos: trechosEntrega,
                 custoEstimado: custoEntrega,
-                observacoes: observacoesLogistica,
-                evitarDuplicado: true
+                observacoes: observacoesLogistica
             });
+            if (!entrega) {
+                mostrarToast('Não foi possível planejar o transporte de entrega. Nenhum dado foi alterado.', 'erro');
+                return null;
+            }
+            transportesPlanejados.push(entrega);
             if (criarRetiradaAutomatica) {
                 const custoRetirada = dividirFreteEntreRotas
                     ? arredondarMoeda(freteKm.distanciaKm * freteKm.valorKm)
@@ -7496,8 +7595,11 @@
                     observacoesLogistica,
                     custoRetirada <= 0 && custoFrete > 0 ? 'Custo de frete consolidado na entrega.' : ''
                 ].filter(Boolean).join(' ');
-                criarTransporteDaLocacao(novaLocacao, {
+                const retirada = montarTransporteDaLocacao(novaLocacao, {
+                    id: `transporte-retirada-${novaLocacaoId}`,
                     tipoOperacao: 'retirada',
+                    cliente,
+                    clienteNome: cliente.nome || cliente.nomeCompleto || cliente.empresa || '',
                     dataSaida: dataDesmontagem,
                     horaSaida: proposta.evento.horaDesmontagem || proposta.evento.horaFimEvento || '',
                     dataChegada: dataDesmontagem,
@@ -7508,24 +7610,94 @@
                     valorKm: freteKm.valorKm,
                     trechos: custoRetirada > 0 ? 1 : freteKm.trechos,
                     custoEstimado: custoRetirada,
-                    observacoes: observacoesRetirada,
-                    evitarDuplicado: true
+                    observacoes: observacoesRetirada
                 });
+                if (!retirada) {
+                    mostrarToast('Não foi possível planejar o transporte de retirada. Nenhum dado foi alterado.', 'erro');
+                    return null;
+                }
+                transportesPlanejados.push(retirada);
             }
         }
-        registrarAtividadeProposta(
-            proposta,
-            'converter',
-            `Proposta ${formatarCodigoRevisaoProposta(proposta)} convertida na locação #${String(novaLocacaoId).slice(-4)}.`,
-            { locacaoId: String(novaLocacaoId) }
-        );
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        mostrarToast('Proposta convertida em locacao fechada!');
-        if (typeof irParaLocacaoPorCodigo === 'function') {
-            setTimeout(() => irParaLocacaoPorCodigo(String(novaLocacaoId)), 120);
+        if (typeof criarEntradaConversaoPropostaConfiavel !== 'function'
+            || typeof executarConversaoPropostaLocacaoTransacional !== 'function'
+            || typeof criarDependenciasExecutorConversaoProposta !== 'function') {
+            mostrarToast('O serviço transacional de conversão está indisponível. Nenhum dado foi alterado.', 'erro');
+            return null;
         }
+        const sufixoOperacao = globalThis.crypto?.randomUUID
+            ? globalThis.crypto.randomUUID().replace(/[^a-z0-9]/gi, '').toLowerCase()
+            : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+        const entradaConversao = {
+            operacaoId: `converter-proposta-${sufixoOperacao}`.slice(0, 160),
+            propostaReferencia,
+            atualizadoEm: agoraIso,
+            atualizadoPor: responsavelConversao,
+            persistencia: {
+                versao: window.SCHEMA_VERSION_V12 || (typeof STORAGE_VERSION !== 'undefined' ? STORAGE_VERSION : '12.0'),
+                data: agoraIso,
+                ultimaEdicao: Date.parse(agoraIso)
+            },
+            plano: {
+                propostaReferencia,
+                cliente: planejamentoCliente.plano,
+                locacao: novaLocacao,
+                transportes: transportesPlanejados
+            }
+        };
+        const entradaConfiavel = criarEntradaConversaoPropostaConfiavel(JSON.stringify(entradaConversao));
+        if (!entradaConfiavel) {
+            mostrarToast('Não foi possível preparar a entrada segura da conversão. Nenhum dado foi alterado.', 'erro');
+            return null;
+        }
+        const resultado = executarConversaoPropostaLocacaoTransacional(
+            entradaConfiavel,
+            criarDependenciasExecutorConversaoProposta({ armazenamento: localStorage })
+        );
+        if (!resultado?.ok) {
+            const mensagens = {
+                PERMISSAO_NEGADA: 'Você não possui permissão para converter propostas.',
+                CLIENTE_MANUAL_AMBIGUO: 'O cliente precisa ser selecionado explicitamente antes da conversão.',
+                CLIENTE_ID_DUPLICADO: 'Existem clientes com a mesma identidade. Corrija o cadastro antes de converter.',
+                PROPOSTA_ID_DUPLICADO: 'Existem propostas com a mesma identidade. Corrija os dados antes de converter.',
+                LOCACAO_ID_DUPLICADO: 'O identificador planejado para a locação já existe. Tente novamente.',
+                TRANSPORTE_ID_DUPLICADO: 'O identificador planejado para o transporte já existe. Tente novamente.',
+                PROPOSTA_JA_CONVERTIDA: 'Esta proposta já possui uma locação vinculada.',
+                CONFLITO_OPERACAO_CONVERSAO: 'A operação de conversão foi reutilizada com dados diferentes.',
+                ENTRADA_CONVERSAO_INVALIDA: 'Os dados de conversão não formam uma entrada transacional válida.',
+                REFERENCIA_PROPOSTA_DIVERGENTE: 'A referência da proposta diverge do plano de conversão.',
+                PLANO_CLIENTE_INVALIDO: 'O plano do cliente possui estrutura ou identidade inválida.',
+                CLIENTE_PROPOSTA_DIVERGENTE: 'Os dados do cliente no plano divergem da proposta salva.',
+                VINCULO_CLIENTE_LOCACAO_DIVERGENTE: 'O vínculo do cliente com a locação planejada é inválido.',
+                PLANO_LOCACAO_INVALIDO: 'O plano da locação possui estrutura ou identidade inválida.',
+                PLANO_LOCACAO_DIVERGENTE: 'O plano da locação diverge dos dados autoritativos da proposta.',
+                PLANO_ITENS_DIVERGENTE: 'Os itens planejados divergem dos itens salvos na proposta.',
+                PLANO_TRANSPORTES_INVALIDO: 'O plano de transportes possui estrutura inválida.',
+                PLANO_TRANSPORTES_DIVERGENTE: 'Os transportes planejados divergem da proposta salva.',
+                EVIDENCIAS_CONVERSAO_INCOMPLETAS: 'As evidências planejadas da conversão estão incompletas.'
+            };
+            const mensagem = resultado.requerRecuperacao
+                ? 'A conversão exige recuperação explícita. Recarregue os dados antes de tentar novamente.'
+                : mensagens[resultado.codigo]
+                    || 'Não foi possível converter a proposta. Nenhum dado foi publicado.';
+            mostrarToast(mensagem, 'erro', 6500);
+            return resultado;
+        }
+        if (!resultado.idempotente) {
+            if (resultado.efeitos?.renderizar && typeof renderTudo === 'function') renderTudo();
+            if (resultado.efeitos?.sincronizar) {
+                if (typeof atualizarMetadadoSincronizacao === 'function') {
+                    atualizarMetadadoSincronizacao({ ultimaEdicao: entradaConversao.persistencia.ultimaEdicao });
+                }
+                if (typeof sincronizar === 'function') sincronizar('salvar');
+            }
+        }
+        mostrarToast('Proposta convertida em locação fechada!');
+        const locacaoReferencia = criarReferenciaTipadaEntidade('locacao', novaLocacaoId);
+        if (locacaoReferencia && typeof irParaLocacaoPorCodigo === 'function') {
+            setTimeout(() => irParaLocacaoPorCodigo(locacaoReferencia), 120);
+        }
+        return resultado;
     }
 
     function converterPropostaEmLocacaoFechada(id) {
@@ -7545,12 +7717,12 @@
         }
         if (!validarPropostaProntaParaUso(proposta, {
             modo: 'conversao',
-            focar: String(obterIdPropostaEmEdicao()) === String(id)
+            focar: idsEntidadeExatos(obterIdPropostaEmEdicao(), proposta.id)
         })) {
             return;
         }
         if (!validarDadosFiscaisObrigatoriosProposta(proposta, 'converter em locação', {
-            focar: String(obterIdPropostaEmEdicao()) === String(id)
+            focar: idsEntidadeExatos(obterIdPropostaEmEdicao(), proposta.id)
         })) {
             return;
         }
@@ -7559,7 +7731,7 @@
     }
 
     function converterPropostaAtual() {
-        const id = obterIdPropostaEmEdicao();
+        const id = obterReferenciaPropostaEmEdicao();
         if (!id) {
             mostrarToast('Abra uma proposta para converter.', 'info');
             return;
@@ -9323,13 +9495,13 @@
                             ${dataStatus ? `<small>${formatarData(dataStatus)}</small>` : ''}
                             ${motivoStatus ? `<em title="${sanitizar(motivoStatus)}">${sanitizar(motivoStatus)}</em>` : ''}
                             <div class="proposta-status-actions">
-                                <button class="btn btn-sm btn-info table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:enviada" title="Marcar como enviada" aria-label="Marcar proposta ${codigoAcessivel} como enviada" ${podeEnviar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-info table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${sanitizar(`${criarReferenciaTipadaEntidade('proposta', proposta.id)}|enviada`)}" title="Marcar como enviada" aria-label="Marcar proposta ${codigoAcessivel} como enviada" ${podeEnviar ? '' : 'disabled'}>
                                     <i class="bi bi-send"></i>
                                 </button>
-                                <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:aprovada" title="Marcar como aprovada" aria-label="Marcar proposta ${codigoAcessivel} como aprovada" ${podeAprovar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-success table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${sanitizar(`${criarReferenciaTipadaEntidade('proposta', proposta.id)}|aprovada`)}" title="Marcar como aprovada" aria-label="Marcar proposta ${codigoAcessivel} como aprovada" ${podeAprovar ? '' : 'disabled'}>
                                     <i class="bi bi-hand-thumbs-up"></i>
                                 </button>
-                                <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${proposta.id}:recusada" title="Marcar como recusada" aria-label="Marcar proposta ${codigoAcessivel} como recusada" ${podeRecusar ? '' : 'disabled'}>
+                                <button class="btn btn-sm btn-warning table-action-btn" data-action="alterarStatusPropostaRapido" data-arg="${sanitizar(`${criarReferenciaTipadaEntidade('proposta', proposta.id)}|recusada`)}" title="Marcar como recusada" aria-label="Marcar proposta ${codigoAcessivel} como recusada" ${podeRecusar ? '' : 'disabled'}>
                                     <i class="bi bi-hand-thumbs-down"></i>
                                 </button>
                             </div>
@@ -9339,26 +9511,26 @@
                     <td>${locacaoId ? `#${sanitizar(String(locacaoId).slice(-6))}` : '-'}</td>
                     <td class="col-actions">
                         <div class="actions-cell">
-                            <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${proposta.id}" title="Editar" aria-label="Editar proposta ${codigoAcessivel}">
+                            <button class="btn btn-sm btn-info table-action-btn" data-action="editarProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="Editar" aria-label="Editar proposta ${codigoAcessivel}">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${proposta.id}" title="Duplicar" aria-label="Duplicar proposta ${codigoAcessivel}">
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="duplicarProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="Duplicar" aria-label="Duplicar proposta ${codigoAcessivel}">
                                 <i class="bi bi-files"></i>
                             </button>
-                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="criarNovaRevisaoProposta" data-arg="${proposta.id}" title="Nova revisão" aria-label="Criar nova revisão da proposta ${codigoAcessivel}">
+                            <button class="btn btn-sm btn-secondary table-action-btn" data-action="criarNovaRevisaoProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="Nova revisão" aria-label="Criar nova revisão da proposta ${codigoAcessivel}">
                                 <i class="bi bi-layers"></i>
                             </button>
-                            <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${proposta.id}" title="Gerar PDF" aria-label="Gerar PDF da proposta ${codigoAcessivel}">
+                            <button class="btn btn-sm btn-primary table-action-btn" data-action="gerarPDFProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="Gerar PDF" aria-label="Gerar PDF da proposta ${codigoAcessivel}">
                                 <i class="bi bi-printer"></i>
                             </button>
                             ${locacaoId
-                                ? `<button class="btn btn-sm btn-success table-action-btn" data-action="irParaLocacaoPorCodigo" data-arg="${sanitizar(locacaoId)}" title="Abrir locação existente" aria-label="Abrir locação vinculada à proposta ${codigoAcessivel}">
+                                ? `<button class="btn btn-sm btn-success table-action-btn" data-action="irParaLocacaoPorCodigo" data-arg="${sanitizar(criarReferenciaTipadaEntidade('locacao', locacaoId))}" title="Abrir locação existente" aria-label="Abrir locação vinculada à proposta ${codigoAcessivel}">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </button>`
-                                : `<button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${proposta.id}" title="${statusAtual === 'aprovada' ? 'Converter para locação' : 'Aprove a proposta antes de converter'}" aria-label="Converter proposta ${codigoAcessivel} em locação" ${statusAtual === 'aprovada' ? '' : 'disabled'}>
+                                : `<button class="btn btn-sm btn-success table-action-btn" data-action="converterPropostaEmLocacaoFechada" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="${statusAtual === 'aprovada' ? 'Converter para locação' : 'Aprove a proposta antes de converter'}" aria-label="Converter proposta ${codigoAcessivel} em locação" ${statusAtual === 'aprovada' ? '' : 'disabled'}>
                                     <i class="bi bi-check2-circle"></i>
                                 </button>`}
-                            <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${proposta.id}" title="Excluir" aria-label="Excluir proposta ${codigoAcessivel}">
+                            <button class="btn btn-sm btn-danger table-action-btn" data-action="excluirProposta" data-arg="${sanitizar(criarReferenciaTipadaEntidade('proposta', proposta.id))}" title="Excluir" aria-label="Excluir proposta ${codigoAcessivel}">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>

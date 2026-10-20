@@ -583,6 +583,17 @@
         };
     }
 
+    function criarDependenciasExecutorConversaoProposta(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
+            validarPermissaoConversao: (acao) => typeof window.temPermissao === 'function'
+                && window.temPermissao(acao) === true,
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     function criarDependenciasExecutorTransporte(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
@@ -608,5 +619,6 @@
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
     window.criarDependenciasExecutorContasPagar = criarDependenciasExecutorContasPagar;
     window.criarDependenciasExecutorConciliacaoFinanceira = criarDependenciasExecutorConciliacaoFinanceira;
+    window.criarDependenciasExecutorConversaoProposta = criarDependenciasExecutorConversaoProposta;
     window.criarDependenciasExecutorTransporte = criarDependenciasExecutorTransporte;
 })();

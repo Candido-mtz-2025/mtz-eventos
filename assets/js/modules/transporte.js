@@ -513,26 +513,20 @@
         setTimeout(() => irParaTransporteLista(), 120);
     }
 
-    function criarTransporteDaLocacao(locacao, opcoes = {}) {
+    function montarTransporteDaLocacao(locacao, opcoes = {}) {
         if (!locacao || !normalizarIdEntidadeExato(locacao.id).valido) return null;
-        if (!Array.isArray(transportes)) transportes = [];
-
         const tipoOperacao = textoSeguro(opcoes.tipoOperacao, 'entrega');
-        const evitarDuplicado = opcoes.evitarDuplicado !== false;
-        const jaExiste = transportes.some((item) => (
-            idsEntidadeExatos(item.locacaoId, locacao.id) &&
-            textoSeguro(item.tipoOperacao, 'entrega') === tipoOperacao
-        ));
-        if (evitarDuplicado && jaExiste) return null;
-
-        const cliente = obterClientePorLocacao(locacao);
+        if (!['entrega', 'retirada'].includes(tipoOperacao)) return null;
+        const cliente = opcoes.cliente && typeof opcoes.cliente === 'object'
+            ? opcoes.cliente
+            : obterClientePorLocacao(locacao);
         const logistica = locacao.logistica || {};
         const distanciaKm = numero(opcoes.distanciaKm ?? logistica.distanciaKm, 0);
         const valorKm = numero(opcoes.valorKm ?? logistica.valorKm, obterValorKmPadrao());
         const trechos = obterTrechosTransporte(opcoes.trechos ?? logistica.trechos, 1);
         const custoEstimado = numero(opcoes.custoEstimado ?? logistica.custoFrete, distanciaKm * valorKm * trechos);
 
-        const registro = normalizarTransporte({
+        return normalizarTransporte({
             id: opcoes.id ?? Date.now() + Math.floor(Math.random() * 900),
             locacaoId: locacao.id,
             clienteNome: textoSeguro(opcoes.clienteNome, obterNomeClienteLocacao(locacao)),
@@ -554,6 +548,22 @@
             status: textoSeguro(opcoes.status, 'pendente'),
             observacoes: textoSeguro(opcoes.observacoes, logistica.observacoes || '')
         });
+    }
+
+    function criarTransporteDaLocacao(locacao, opcoes = {}) {
+        if (!locacao || !normalizarIdEntidadeExato(locacao.id).valido) return null;
+        if (!Array.isArray(transportes)) transportes = [];
+
+        const tipoOperacao = textoSeguro(opcoes.tipoOperacao, 'entrega');
+        const evitarDuplicado = opcoes.evitarDuplicado !== false;
+        const jaExiste = transportes.some((item) => (
+            idsEntidadeExatos(item.locacaoId, locacao.id) &&
+            textoSeguro(item.tipoOperacao, 'entrega') === tipoOperacao
+        ));
+        if (evitarDuplicado && jaExiste) return null;
+
+        const registro = montarTransporteDaLocacao(locacao, opcoes);
+        if (!registro) return null;
 
         transportes.unshift(registro);
 
@@ -876,6 +886,7 @@
     window.preencherTransporteDaLocacao = preencherTransporteDaLocacao;
     window.salvarTransporte = salvarTransporte;
     window.criarTransporteDaLocacao = criarTransporteDaLocacao;
+    window.montarTransporteDaLocacao = montarTransporteDaLocacao;
     window.limparFormularioTransporte = limparFormularioTransporte;
     window.editarTransporte = editarTransporte;
     window.duplicarTransporte = duplicarTransporte;
