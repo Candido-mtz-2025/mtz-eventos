@@ -11,6 +11,8 @@
         'contasReceber',
         'fornecedores',
         'contasPagar',
+        'categoriasFinanceiras',
+        'centrosCusto',
         'conciliacoesFinanceiras',
         'conciliacoesPagamentosPagar'
     ]);

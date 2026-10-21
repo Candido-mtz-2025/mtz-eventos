@@ -6,7 +6,8 @@ const PERMISSOES_ABAS_RESTRITAS = Object.freeze({
     auditoria: 'visualizar_auditoria',
     config: 'visualizar_configuracoes',
     'fluxo-caixa': 'visualizar_fluxo_caixa',
-    'contas-pagar': 'visualizar_contas_pagar'
+    'contas-pagar': 'visualizar_contas_pagar',
+    'classificacoes-financeiras': 'visualizar_classificacoes_financeiras'
 });
 
 function normalizarListaEmails(texto) {
@@ -92,6 +93,13 @@ function temPermissao(acao) {
         'editar_fornecedor',
         'visualizar_contas_pagar',
         'criar_conta_pagar',
+        'visualizar_classificacoes_financeiras',
+        'cadastrar_categoria_financeira',
+        'editar_categoria_financeira',
+        'inativar_categoria_financeira',
+        'cadastrar_centro_custo',
+        'editar_centro_custo',
+        'inativar_centro_custo',
         'pagar_conta',
         'estornar_pagamento_conta',
         'alterar_vencimento_conta_pagar',

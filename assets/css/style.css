@@ -24463,3 +24463,68 @@ body #appArea #dialogDestinacaoPecas [hidden] { display: none !important; }
 @media (min-width: 701px) and (max-width: 1050px) {
     #tab-contas-pagar .contas-pagar-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Classificações financeiras */
+.classificacoes-financeiras-painel {
+    display: grid;
+    gap: 24px;
+}
+
+.classificacao-financeira-secao {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+    padding-block: 8px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.classificacao-financeira-secao:last-child {
+    border-bottom: 0;
+}
+
+.classificacoes-financeiras-filtros {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px);
+    gap: 10px;
+}
+
+.classificacoes-financeiras-tabela {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+}
+
+.classificacoes-financeiras-tabela table {
+    min-width: 720px;
+}
+
+.classificacoes-financeiras-tabela .table-actions {
+    width: 112px;
+    white-space: nowrap;
+}
+
+.classificacao-financeira-modal {
+    width: min(880px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+}
+
+.classificacao-financeira-vinculos {
+    margin-block: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+}
+
+body #modalClassificacaoFinanceira [hidden] {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .classificacoes-financeiras-filtros {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .classificacao-financeira-modal {
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 20px);
+    }
+}

@@ -79,7 +79,8 @@
                 : {
                     locadores, pecas, locacoes, propostas, devolucoes, contasReceber,
                     fornecedores, contasPagar, conciliacoesFinanceiras,
-                    conciliacoesPagamentosPagar, transportes, tipos, usuarios, config,
+                    categoriasFinanceiras, centrosCusto, conciliacoesPagamentosPagar,
+                    transportes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem
                 };
@@ -145,6 +146,14 @@
                     limparInputBackup(input);
                     return;
                 }
+                const validacaoIntegridade = typeof migrarDadosParaV12 === 'function'
+                    ? migrarDadosParaV12(j, { origem: 'backup_json_prevalidacao' })
+                    : { ok: false };
+                if (!validacaoIntegridade.ok) {
+                    mostrarToast('Backup rejeitado: classificações financeiras inválidas.', 'erro');
+                    limparInputBackup(input);
+                    return;
+                }
 
                 const confirmarRestauro = () => {
                     if (typeof validarPermissao === 'function'
@@ -166,24 +175,15 @@
                         limparInputBackup(input);
                         return;
                     }
-                    if (typeof aplicarDadosSistema === 'function') {
+                    try {
+                        if (typeof aplicarDadosSistema !== 'function') {
+                            throw new Error('Carregador seguro de dados indisponível.');
+                        }
                         aplicarDadosSistema(j, { manterConfigAtual: true, origem: 'backup_json' });
-                    } else {
-                        locadores = normalizarListaBackup(j.locadores);
-                        pecas = normalizarListaBackup(j.pecas);
-                        locacoes = normalizarListaBackup(j.locacoes);
-                        propostas = normalizarListaBackup(j.propostas);
-                        devolucoes = normalizarListaBackup(j.devolucoes);
-                        contasReceber = normalizarListaBackup(j.contasReceber);
-                        fornecedores = normalizarListaBackup(j.fornecedores);
-                        contasPagar = normalizarListaBackup(j.contasPagar);
-                        conciliacoesFinanceiras = normalizarListaBackup(j.conciliacoesFinanceiras);
-                        conciliacoesPagamentosPagar = normalizarListaBackup(
-                            j.conciliacoesPagamentosPagar);
-                        transportes = normalizarListaBackup(j.transportes);
-                        tipos = normalizarListaBackup(j.tipos);
-                        usuarios = normalizarListaBackup(j.usuarios);
-                        config = j.config || config;
+                    } catch (_erro) {
+                        mostrarToast('Backup rejeitado: classificações financeiras inválidas.', 'erro');
+                        limparInputBackup(input);
+                        return;
                     }
                     salvarLocal();
                     renderTudo();

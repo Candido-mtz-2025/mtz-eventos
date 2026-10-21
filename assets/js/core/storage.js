@@ -67,6 +67,8 @@ function gerarSnapshotDadosSistema() {
         contasReceber: Array.isArray(contasReceber) ? contasReceber : [],
         fornecedores: Array.isArray(fornecedores) ? fornecedores : [],
         contasPagar: Array.isArray(contasPagar) ? contasPagar : [],
+        categoriasFinanceiras: Array.isArray(categoriasFinanceiras) ? categoriasFinanceiras : [],
+        centrosCusto: Array.isArray(centrosCusto) ? centrosCusto : [],
         conciliacoesFinanceiras: Array.isArray(conciliacoesFinanceiras) ? conciliacoesFinanceiras : [],
         conciliacoesPagamentosPagar: Array.isArray(conciliacoesPagamentosPagar)
             ? conciliacoesPagamentosPagar : [],
@@ -132,6 +134,8 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'contasReceber',
     'fornecedores',
     'contasPagar',
+    'categoriasFinanceiras',
+    'centrosCusto',
     'conciliacoesFinanceiras',
     'conciliacoesPagamentosPagar',
     'movimentacoesEstoque',
@@ -596,7 +600,11 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     }
     const resultadoMigracao = migrarDadosParaV12(dados, { origem: origemCarga });
     if (!resultadoMigracao?.ok || !resultadoMigracao.dadosMigrados) {
-        throw new Error(`Falha ao preparar snapshot migrável: ${resultadoMigracao?.codigo || 'DESCONHECIDA'}.`);
+        const erroMigracao = new Error(
+            `Falha ao preparar snapshot migrável: ${resultadoMigracao?.codigo || 'DESCONHECIDA'}.`
+        );
+        erroMigracao.codigo = resultadoMigracao?.codigo || 'MIGRACAO_INVALIDA';
+        throw erroMigracao;
     }
 
     const dadosNormalizados = resultadoMigracao?.dadosMigrados || dados || {};
@@ -614,6 +622,9 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         contasReceber: Array.isArray(dadosNormalizados.contasReceber) ? dadosNormalizados.contasReceber : [],
         fornecedores: Array.isArray(dadosNormalizados.fornecedores) ? dadosNormalizados.fornecedores : [],
         contasPagar: Array.isArray(dadosNormalizados.contasPagar) ? dadosNormalizados.contasPagar : [],
+        categoriasFinanceiras: Array.isArray(dadosNormalizados.categoriasFinanceiras)
+            ? dadosNormalizados.categoriasFinanceiras : [],
+        centrosCusto: Array.isArray(dadosNormalizados.centrosCusto) ? dadosNormalizados.centrosCusto : [],
         conciliacoesFinanceiras: Array.isArray(dadosNormalizados.conciliacoesFinanceiras)
             ? dadosNormalizados.conciliacoesFinanceiras : [],
         conciliacoesPagamentosPagar: Array.isArray(dadosNormalizados.conciliacoesPagamentosPagar)
@@ -645,6 +656,8 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         contasReceber = estadoNormalizado.contasReceber;
         fornecedores = estadoNormalizado.fornecedores;
         contasPagar = estadoNormalizado.contasPagar;
+        categoriasFinanceiras = estadoNormalizado.categoriasFinanceiras;
+        centrosCusto = estadoNormalizado.centrosCusto;
         conciliacoesFinanceiras = estadoNormalizado.conciliacoesFinanceiras;
         conciliacoesPagamentosPagar = estadoNormalizado.conciliacoesPagamentosPagar;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
@@ -682,6 +695,28 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
     window.checklistConferencia = checklistConferencia;
     window.checklistEtapasMontagem = checklistEtapasMontagem;
     window.transportes = transportes;
+}
+
+function validarClassificacoesFinanceirasAntesDeEfeito(snapshot) {
+    if (typeof criarSnapshotMigravelV12 !== 'function'
+        || typeof validarClassificacoesFinanceirasSnapshotV12 !== 'function') return false;
+    try {
+        const preparado = criarSnapshotMigravelV12(JSON.stringify(snapshot));
+        return preparado.ok
+            && validarClassificacoesFinanceirasSnapshotV12(preparado.snapshot).ok === true;
+    } catch (_erro) {
+        return false;
+    }
+}
+
+function validarSnapshotMigravelAntesDeCarga(snapshot, origem) {
+    if (typeof ehSnapshotMigravelV12 !== 'function' || !ehSnapshotMigravelV12(snapshot)
+        || typeof migrarDadosParaV12 !== 'function') return false;
+    try {
+        return migrarDadosParaV12(snapshot, { origem }).ok === true;
+    } catch (_erro) {
+        return false;
+    }
 }
 
 function obterContextoSyncSeguro() {
@@ -801,6 +836,11 @@ async function sincronizar(modo) {
                 updStatus('offline');
                 return;
             }
+            if (!validarSnapshotMigravelAntesDeCarga(dadosNuvem, 'nuvem_prevalidacao')) {
+                console.warn('⚠️ Nuvem rejeitada por classificações financeiras inválidas');
+                updStatus('offline');
+                return;
+            }
 
             const snapshotLocal = gerarSnapshotDadosSistema();
             const temDadosLocais =
@@ -810,6 +850,8 @@ async function sincronizar(modo) {
                 snapshotLocal.contasReceber.length > 0 ||
                 snapshotLocal.fornecedores.length > 0 ||
                 snapshotLocal.contasPagar.length > 0 ||
+                snapshotLocal.categoriasFinanceiras.length > 0 ||
+                snapshotLocal.centrosCusto.length > 0 ||
                 snapshotLocal.conciliacoesFinanceiras.length > 0 ||
                 snapshotLocal.conciliacoesPagamentosPagar.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
@@ -851,6 +893,10 @@ async function sincronizar(modo) {
                 versao: STORAGE_VERSION,
                 ultimaEdicao: timestamp
             };
+
+            if (!validarClassificacoesFinanceirasAntesDeEfeito(dadosParaEnviar)) {
+                throw new Error('Classificações financeiras inválidas impedem a sincronização.');
+            }
 
             localStorage.setItem(STORAGE_EDIT_KEY, String(timestamp));
 
@@ -1030,6 +1076,10 @@ function salvarLocal() {
             ...gerarSnapshotDadosSistema()
         };
 
+        if (!validarClassificacoesFinanceirasAntesDeEfeito(dados)) {
+            throw new Error('Classificações financeiras inválidas impedem a persistência.');
+        }
+
         const json = JSON.stringify(dados);
         const tamanhoKB = (new Blob([json]).size / 1024).toFixed(2);
         const tamanhoMB = (Number(tamanhoKB) / 1024).toFixed(2);
@@ -1133,7 +1183,10 @@ function carregarLocal() {
             if (restaurar) {
                 tentarRecuperacaoAutomatica();
             }
-        } else {
+        } else if (!String(erro?.codigo || '').startsWith('CLASSIFICACAO_')
+            && !String(erro?.codigo || '').startsWith('CLASSIFICACOES_')
+            && !String(erro?.codigo || '').startsWith('CATEGORIA_FINANCEIRA_')
+            && !String(erro?.codigo || '').startsWith('CENTRO_CUSTO_')) {
             alert(
                 '🔴 ERRO CRÍTICO: Dados corrompidos e sem backup!\n\n' +
                 'Causas possíveis:\n' +
@@ -1145,6 +1198,12 @@ function carregarLocal() {
 
             aplicarDadosSistema(criarSnapshotMigravelV12('{}').snapshot,
                 { manterConfigAtual: false, origem: 'reset_erro_local' });
+        } else {
+            alert(
+                '🔴 Classificações financeiras inválidas foram detectadas.\n\n' +
+                'A raiz atual foi preservada e nenhuma gravação foi realizada.\n' +
+                'Use uma recuperação explícita com um backup válido.'
+            );
         }
     }
 }

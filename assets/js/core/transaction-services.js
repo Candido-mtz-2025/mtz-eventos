@@ -31,6 +31,8 @@
         'devolucoes',
         'transportes',
         'contasReceber',
+        'categoriasFinanceiras',
+        'centrosCusto',
         'conciliacoesFinanceiras',
         'conciliacoesPagamentosPagar'
     ]);
@@ -43,6 +45,7 @@
     const travasContaReceber = new Set();
     const travasFornecedor = new Set();
     const travasContaPagar = new Set();
+    const travasClassificacoesFinanceiras = new Set();
     const travasPagamentoContaPagar = new Set();
     const travasEstornoPagamentoContaPagar = new Set();
     const travasOperacaoAdministrativaContaPagar = new Set();
@@ -52,6 +55,7 @@
     const entradasConversaoPropostaConfiaveis = new WeakSet();
     const entradasFornecedorPagarConfiaveis = new WeakSet();
     const entradasContaPagarConfiaveis = new WeakSet();
+    const entradasClassificacoesFinanceirasConfiaveis = new WeakSet();
     const entradasPagamentoContaPagarConfiaveis = new WeakSet();
     const entradasEstornoPagamentoContaPagarConfiaveis = new WeakSet();
     const entradasOperacaoAdministrativaContaPagarConfiaveis = new WeakSet();
@@ -5358,6 +5362,664 @@
                 try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); } catch (_erro) { /* encerrada */ }
             }
             travasContaReceber.delete(locacaoRef);
+        }
+    }
+
+    function criarReferenciaTipadaClassificacaoFinanceira(tipoEntidade, id) {
+        const prefixo = tipoEntidade === 'categoria' ? 'categoria-financeira'
+            : tipoEntidade === 'centro' ? 'centro-custo' : '';
+        const tipo = typeof id;
+        if (!prefixo
+            || (tipo === 'string' && (!id || id !== id.trim() || id.length > 200))
+            || (tipo === 'number' && (!Number.isSafeInteger(id) || Object.is(id, -0)))
+            || !['string', 'number'].includes(tipo)) return '';
+        return `${prefixo}:${encodeURIComponent(JSON.stringify([tipo, id]))}`;
+    }
+
+    function emitirEntradaClassificacaoFinanceira(tipoEntidade, acao, id, referencia, codigo, nome,
+        classificacao, vinculoPrimario, vinculoSecundario, situacao, operacaoId, atualizadoEm,
+        dataReferencia, responsavel, persistenciaVersao, persistenciaData, persistenciaUltimaEdicao) {
+        const textos = [tipoEntidade, acao, referencia, codigo, nome, classificacao,
+            vinculoPrimario, vinculoSecundario, situacao, operacaoId, atualizadoEm,
+            dataReferencia, responsavel, persistenciaVersao, persistenciaData];
+        if (!['string', 'number'].includes(typeof id)
+            || textos.some((valor) => typeof valor !== 'string')
+            || typeof persistenciaUltimaEdicao !== 'number') return null;
+        const persistencia = Object.freeze({
+            versao: persistenciaVersao,
+            data: persistenciaData,
+            ultimaEdicao: persistenciaUltimaEdicao
+        });
+        const entrada = {
+            tipoEntidade, acao, id, referencia, codigo, nome, classificacao,
+            vinculoPrimario, vinculoSecundario, situacao, operacaoId, atualizadoEm,
+            dataReferencia, responsavel, persistencia
+        };
+        Object.freeze(entrada);
+        entradasClassificacoesFinanceirasConfiaveis.add(entrada);
+        return entrada;
+    }
+
+    function criarEntradaCategoriaFinanceira(acao, id, referencia, codigo, nome,
+        naturezaPermitida, categoriaPaiReferencia, situacao, operacaoId, atualizadoEm,
+        dataReferencia, responsavel, persistenciaVersao, persistenciaData,
+        persistenciaUltimaEdicao) {
+        return emitirEntradaClassificacaoFinanceira('categoria', acao, id, referencia,
+            codigo, nome, naturezaPermitida, categoriaPaiReferencia, '', situacao,
+            operacaoId, atualizadoEm, dataReferencia, responsavel, persistenciaVersao,
+            persistenciaData, persistenciaUltimaEdicao);
+    }
+
+    function criarEntradaCentroCusto(acao, id, referencia, codigo, nome, tipo,
+        propostaReferencia, locacaoReferencia, situacao, operacaoId, atualizadoEm,
+        dataReferencia, responsavel, persistenciaVersao, persistenciaData,
+        persistenciaUltimaEdicao) {
+        return emitirEntradaClassificacaoFinanceira('centro', acao, id, referencia,
+            codigo, nome, tipo, propostaReferencia, locacaoReferencia, situacao,
+            operacaoId, atualizadoEm, dataReferencia, responsavel, persistenciaVersao,
+            persistenciaData, persistenciaUltimaEdicao);
+    }
+
+    function textoClassificacaoFinanceira(valor, limite, obrigatorio = false) {
+        if (typeof valor !== 'string' || valor !== valor.trim() || valor.length > limite
+            || /[\u0000-\u001f\u007f]/.test(valor)) return null;
+        if (obrigatorio && !valor) return null;
+        return valor;
+    }
+
+    function codigoClassificacaoFinanceiraValido(valor) {
+        return typeof valor === 'string' && valor === valor.trim()
+            && /^[A-Za-z0-9][A-Za-z0-9._-]{0,49}$/.test(valor);
+    }
+
+    function resolverClassificacaoFinanceira(referencia, tipoEntidade, estado) {
+        if (typeof referencia !== 'string' || !referencia) return { estado: 'invalida' };
+        const colecao = tipoEntidade === 'categoria' ? estado?.categoriasFinanceiras
+            : tipoEntidade === 'centro' ? estado?.centrosCusto : null;
+        if (!Array.isArray(colecao)) return { estado: 'invalida' };
+        const chave = tipoEntidade === 'categoria'
+            ? 'categoriaFinanceiraReferencia' : 'centroCustoReferencia';
+        const encontrados = colecao.filter((registro) => registro?.[chave] === referencia);
+        if (encontrados.length !== 1) {
+            return { estado: encontrados.length ? 'duplicada' : 'ausente' };
+        }
+        return { estado: 'encontrada', registro: encontrados[0] };
+    }
+
+    function referenciaEntidadeClassificacaoValida(referencia, prefixo, colecao) {
+        if (referencia === '') return true;
+        if (typeof referencia !== 'string' || !Array.isArray(colecao)) return false;
+        return colecao.filter((registro) => (
+            criarReferenciaTipadaPagar(prefixo, registro?.id) === referencia
+        )).length === 1;
+    }
+
+    function validarRegistroClassificacaoFinanceira(registro, tipoEntidade) {
+        if (!registro || typeof registro !== 'object' || Array.isArray(registro)
+            || !codigoClassificacaoFinanceiraValido(registro.codigo)
+            || textoClassificacaoFinanceira(registro.nome, 200, true) === null
+            || !instanteFinanceiroIntegro(registro.criadoEm)
+            || !instanteFinanceiroIntegro(registro.atualizadoEm)
+            || typeof registro.responsavel !== 'string' || !registro.responsavel
+            || typeof registro.operacaoId !== 'string'
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(registro.operacaoId)
+            || !Array.isArray(registro.historico)) return false;
+        const referencia = criarReferenciaTipadaClassificacaoFinanceira(tipoEntidade, registro.id);
+        const chaveReferencia = tipoEntidade === 'categoria'
+            ? 'categoriaFinanceiraReferencia' : 'centroCustoReferencia';
+        if (!referencia || registro[chaveReferencia] !== referencia) return false;
+        if (tipoEntidade === 'categoria') {
+            return ['receita', 'despesa', 'ambas'].includes(registro.naturezaPermitida)
+                && ['ativa', 'inativa'].includes(registro.situacao)
+                && typeof registro.categoriaPaiReferencia === 'string';
+        }
+        return ['administrativo', 'operacional', 'evento'].includes(registro.tipo)
+            && ['ativo', 'inativo'].includes(registro.situacao)
+            && typeof registro.propostaReferencia === 'string'
+            && typeof registro.locacaoReferencia === 'string';
+    }
+
+    function validarFundacaoClassificacoesFinanceiras(estado) {
+        if (!estado || !Array.isArray(estado.categoriasFinanceiras)
+            || !Array.isArray(estado.centrosCusto) || !Array.isArray(estado.propostas)
+            || !Array.isArray(estado.locacoes) || !Array.isArray(estado.logsAuditoria)) return false;
+        for (const [tipoEntidade, colecao] of [
+            ['categoria', estado.categoriasFinanceiras],
+            ['centro', estado.centrosCusto]
+        ]) {
+            const ids = new Set();
+            const referencias = new Set();
+            const codigos = new Set();
+            for (const registro of colecao) {
+                if (!validarRegistroClassificacaoFinanceira(registro, tipoEntidade)) return false;
+                const idTipado = `${typeof registro.id}:${JSON.stringify(registro.id)}`;
+                const referencia = tipoEntidade === 'categoria'
+                    ? registro.categoriaFinanceiraReferencia : registro.centroCustoReferencia;
+                const codigo = registro.codigo.toLocaleLowerCase('pt-BR');
+                if (ids.has(idTipado) || referencias.has(referencia) || codigos.has(codigo)) return false;
+                ids.add(idTipado);
+                referencias.add(referencia);
+                codigos.add(codigo);
+            }
+        }
+        for (const categoria of estado.categoriasFinanceiras) {
+            if (!categoria.categoriaPaiReferencia) continue;
+            const pai = resolverClassificacaoFinanceira(
+                categoria.categoriaPaiReferencia, 'categoria', estado);
+            if (pai.estado !== 'encontrada'
+                || pai.registro.categoriaFinanceiraReferencia
+                    === categoria.categoriaFinanceiraReferencia) return false;
+            const visitadas = new Set([categoria.categoriaFinanceiraReferencia]);
+            let atual = pai.registro;
+            while (atual?.categoriaPaiReferencia) {
+                if (visitadas.has(atual.categoriaFinanceiraReferencia)) return false;
+                visitadas.add(atual.categoriaFinanceiraReferencia);
+                const proxima = resolverClassificacaoFinanceira(
+                    atual.categoriaPaiReferencia, 'categoria', estado);
+                if (proxima.estado !== 'encontrada') return false;
+                atual = proxima.registro;
+            }
+        }
+        return estado.centrosCusto.every((centro) => (
+            referenciaEntidadeClassificacaoValida(
+                centro.propostaReferencia, 'proposta', estado.propostas)
+            && referenciaEntidadeClassificacaoValida(
+                centro.locacaoReferencia, 'locacao', estado.locacoes)
+        ));
+    }
+
+    function dadosPlanoClassificacaoFinanceira(entrada, registroAtual = null) {
+        const referenciaEsperada = criarReferenciaTipadaClassificacaoFinanceira(
+            entrada.tipoEntidade, entrada.id);
+        const referencia = entrada.acao === 'cadastrar' && entrada.referencia === ''
+            ? referenciaEsperada : entrada.referencia;
+        const base = {
+            tipoEntidade: entrada.tipoEntidade,
+            acao: entrada.acao,
+            id: entrada.id,
+            referencia,
+            codigo: entrada.codigo,
+            nome: entrada.nome,
+            situacao: entrada.situacao,
+            criadoEm: registroAtual?.criadoEm || entrada.atualizadoEm,
+            atualizadoEm: entrada.atualizadoEm,
+            responsavel: entrada.responsavel,
+            operacaoCriacaoId: registroAtual?.operacaoId || entrada.operacaoId
+        };
+        if (entrada.tipoEntidade === 'categoria') {
+            base.naturezaPermitida = entrada.classificacao;
+            base.categoriaPaiReferencia = entrada.vinculoPrimario;
+        } else {
+            base.tipo = entrada.classificacao;
+            base.propostaReferencia = entrada.vinculoPrimario;
+            base.locacaoReferencia = entrada.vinculoSecundario;
+        }
+        return base;
+    }
+
+    function assinaturaPlanoClassificacaoFinanceira(plano) {
+        return `classificacao-financeira-v1:fnv1a64:${
+            fingerprintFnv1a64(JSON.stringify(ordenarChavesCanonicas(plano)))}`;
+    }
+
+    function localizarEvidenciaClassificacaoFinanceira(estado, operacaoId) {
+        const historicos = [];
+        for (const [tipoEntidade, colecao] of [
+            ['categoria', estado?.categoriasFinanceiras],
+            ['centro', estado?.centrosCusto]
+        ]) {
+            (Array.isArray(colecao) ? colecao : []).forEach((registro) => {
+                (Array.isArray(registro?.historico) ? registro.historico : [])
+                    .filter((item) => item?.operacaoId === operacaoId)
+                    .forEach((item) => historicos.push({ tipoEntidade, registro, item }));
+            });
+        }
+        const auditorias = (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((item) => item?.operacaoId === operacaoId
+                && item?.origem === 'classificacoes_financeiras');
+        if (!historicos.length && !auditorias.length) {
+            return { estado: 'nao_executada', completo: false };
+        }
+        if (historicos.length !== 1 || auditorias.length !== 1) {
+            return { estado: 'parcial', completo: false };
+        }
+        const evidenciaHistorico = historicos[0].item.evidenciaOperacao;
+        const evidenciaAuditoria = auditorias[0].evidenciaOperacao;
+        if (!evidenciaHistorico || !evidenciaAuditoria) {
+            return { estado: 'parcial', completo: false };
+        }
+        const jsonHistorico = JSON.stringify(ordenarChavesCanonicas(evidenciaHistorico));
+        const jsonAuditoria = JSON.stringify(ordenarChavesCanonicas(evidenciaAuditoria));
+        if (jsonHistorico !== jsonAuditoria
+            || evidenciaHistorico.operacaoId !== operacaoId
+            || evidenciaHistorico.tipoEntidade !== historicos[0].tipoEntidade) {
+            return { estado: 'parcial', completo: false };
+        }
+        return {
+            estado: 'concluida',
+            completo: true,
+            evidencia: evidenciaHistorico,
+            registro: historicos[0].registro,
+            historico: historicos[0].item,
+            auditoria: auditorias[0]
+        };
+    }
+
+    function evidenciaClassificacaoFinanceiraCorresponde(resultado, plano, entrada,
+        assinaturaPlano) {
+        if (!resultado?.completo) return false;
+        const evidenciaEsperada = ordenarChavesCanonicas({
+            ...plano,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano
+        });
+        const acaoEsperada = `${entrada.tipoEntidade}_financeir${
+            entrada.tipoEntidade === 'categoria' ? 'a' : 'o'}_${entrada.acao}`;
+        const evidenciaJson = JSON.stringify(ordenarChavesCanonicas(resultado.evidencia));
+        const esperadaJson = JSON.stringify(evidenciaEsperada);
+        return evidenciaJson === esperadaJson
+            && resultado.historico?.operacaoId === entrada.operacaoId
+            && resultado.historico?.acao === acaoEsperada
+            && resultado.historico?.data === entrada.atualizadoEm
+            && resultado.historico?.usuario === entrada.responsavel
+            && resultado.historico?.assinaturaPlano === assinaturaPlano
+            && resultado.auditoria?.operacaoId === entrada.operacaoId
+            && resultado.auditoria?.origem === 'classificacoes_financeiras'
+            && resultado.auditoria?.acao === acaoEsperada
+            && resultado.auditoria?.timestamp === entrada.atualizadoEm
+            && resultado.auditoria?.data === entrada.atualizadoEm
+            && resultado.auditoria?.usuario === entrada.responsavel
+            && resultado.auditoria?.assinaturaPlano === assinaturaPlano;
+    }
+
+    function validarPlanoClassificacaoFinanceira(entrada, plano, estado, registroAtual) {
+        if (!['categoria', 'centro'].includes(entrada.tipoEntidade)
+            || !['cadastrar', 'editar', 'inativar', 'reativar'].includes(entrada.acao)
+            || entrada.referencia !== (entrada.acao === 'cadastrar' ? '' : plano.referencia)
+            || !codigoClassificacaoFinanceiraValido(plano.codigo)
+            || textoClassificacaoFinanceira(plano.nome, 200, true) === null
+            || !instanteFinanceiroIntegro(plano.atualizadoEm)
+            || !validarDataLocalContaReceber(entrada.dataReferencia)
+            || textoClassificacaoFinanceira(plano.responsavel, 300, true) === null) return false;
+        if (entrada.tipoEntidade === 'categoria') {
+            if (!['receita', 'despesa', 'ambas'].includes(plano.naturezaPermitida)
+                || !['ativa', 'inativa'].includes(plano.situacao)
+                || typeof plano.categoriaPaiReferencia !== 'string') return false;
+            if (plano.categoriaPaiReferencia) {
+                const pai = resolverClassificacaoFinanceira(
+                    plano.categoriaPaiReferencia, 'categoria', estado);
+                const vinculoAlterado = !registroAtual
+                    || registroAtual.categoriaPaiReferencia !== plano.categoriaPaiReferencia;
+                if (pai.estado !== 'encontrada'
+                    || pai.registro.categoriaFinanceiraReferencia === plano.referencia
+                    || (vinculoAlterado && pai.registro.situacao !== 'ativa')) return false;
+            }
+        } else if (!['administrativo', 'operacional', 'evento'].includes(plano.tipo)
+            || !['ativo', 'inativo'].includes(plano.situacao)
+            || !referenciaEntidadeClassificacaoValida(
+                plano.propostaReferencia, 'proposta', estado.propostas)
+            || !referenciaEntidadeClassificacaoValida(
+                plano.locacaoReferencia, 'locacao', estado.locacoes)) return false;
+        const colecao = entrada.tipoEntidade === 'categoria'
+            ? estado.categoriasFinanceiras : estado.centrosCusto;
+        return !colecao.some((registro) => registro !== registroAtual
+            && registro.codigo.toLocaleLowerCase('pt-BR')
+                === plano.codigo.toLocaleLowerCase('pt-BR'));
+    }
+
+    function aplicarPlanoClassificacaoFinanceira(estado, entrada, plano, assinaturaPlano) {
+        const colecaoChave = entrada.tipoEntidade === 'categoria'
+            ? 'categoriasFinanceiras' : 'centrosCusto';
+        const referenciaChave = entrada.tipoEntidade === 'categoria'
+            ? 'categoriaFinanceiraReferencia' : 'centroCustoReferencia';
+        const resolucao = entrada.acao === 'cadastrar'
+            ? { estado: 'ausente', registro: null }
+            : resolverClassificacaoFinanceira(plano.referencia, entrada.tipoEntidade, estado);
+        if ((entrada.acao === 'cadastrar'
+            && estado[colecaoChave].some((item) => Object.is(item.id, plano.id)))
+            || (entrada.acao !== 'cadastrar' && resolucao.estado !== 'encontrada')) return null;
+        const registroAtual = resolucao.registro;
+        if (!validarPlanoClassificacaoFinanceira(entrada, plano, estado, registroAtual)) return null;
+        if (entrada.acao === 'inativar') {
+            const ativa = entrada.tipoEntidade === 'categoria' ? 'ativa' : 'ativo';
+            const inativa = entrada.tipoEntidade === 'categoria' ? 'inativa' : 'inativo';
+            if (registroAtual?.situacao !== ativa || plano.situacao !== inativa) return null;
+        }
+        if (entrada.acao === 'reativar') {
+            const ativa = entrada.tipoEntidade === 'categoria' ? 'ativa' : 'ativo';
+            const inativa = entrada.tipoEntidade === 'categoria' ? 'inativa' : 'inativo';
+            if (registroAtual?.situacao !== inativa || plano.situacao !== ativa) return null;
+        }
+        if (['inativar', 'reativar'].includes(entrada.acao)) {
+            const camposImutaveisNaSituacao = entrada.tipoEntidade === 'categoria'
+                ? ['codigo', 'nome', 'naturezaPermitida', 'categoriaPaiReferencia']
+                : ['codigo', 'nome', 'tipo', 'propostaReferencia', 'locacaoReferencia'];
+            if (!registroAtual || camposImutaveisNaSituacao.some((campo) => (
+                plano[campo] !== registroAtual[campo]
+            ))) return null;
+        }
+        const evidenciaOperacao = ordenarChavesCanonicas({
+            ...plano,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano
+        });
+        const acaoHistorico = `${entrada.tipoEntidade}_financeir${
+            entrada.tipoEntidade === 'categoria' ? 'a' : 'o'}_${entrada.acao}`;
+        const historico = {
+            id: `historico-${entrada.operacaoId}`,
+            operacaoId: entrada.operacaoId,
+            acao: acaoHistorico,
+            data: entrada.atualizadoEm,
+            usuario: entrada.responsavel,
+            assinaturaPlano,
+            evidenciaOperacao
+        };
+        const registro = {
+            ...(registroAtual || {}),
+            id: plano.id,
+            [referenciaChave]: plano.referencia,
+            codigo: plano.codigo,
+            nome: plano.nome,
+            situacao: plano.situacao,
+            criadoEm: plano.criadoEm,
+            atualizadoEm: plano.atualizadoEm,
+            responsavel: plano.responsavel,
+            operacaoId: plano.operacaoCriacaoId,
+            historico: [...(Array.isArray(registroAtual?.historico)
+                ? registroAtual.historico : []), historico]
+        };
+        if (entrada.tipoEntidade === 'categoria') {
+            registro.naturezaPermitida = plano.naturezaPermitida;
+            registro.categoriaPaiReferencia = plano.categoriaPaiReferencia;
+        } else {
+            registro.tipo = plano.tipo;
+            registro.propostaReferencia = plano.propostaReferencia;
+            registro.locacaoReferencia = plano.locacaoReferencia;
+        }
+        estado[colecaoChave] = registroAtual
+            ? estado[colecaoChave].map((item) => item === registroAtual ? registro : item)
+            : [...estado[colecaoChave], registro];
+        estado.logsAuditoria = [...estado.logsAuditoria, {
+            id: `auditoria-${entrada.operacaoId}`,
+            operacaoId: entrada.operacaoId,
+            tipo: 'financeiro',
+            origem: 'classificacoes_financeiras',
+            acao: acaoHistorico,
+            descricao: `${entrada.tipoEntidade === 'categoria'
+                ? 'Categoria financeira' : 'Centro de custo'} ${entrada.acao}.`,
+            timestamp: entrada.atualizadoEm,
+            data: entrada.atualizadoEm,
+            usuario: entrada.responsavel,
+            assinaturaPlano,
+            evidenciaOperacao
+        }];
+        return { registro, assinaturaPlano, referencia: plano.referencia };
+    }
+
+    function executarOperacaoClassificacaoFinanceiraTransacional(
+        entradaRecebida, dependencias = {}
+    ) {
+        if (!entradaRecebida
+            || !entradasClassificacoesFinanceirasConfiaveis.has(entradaRecebida)) {
+            return resultadoBase('ENTRADA_CLASSIFICACAO_NAO_CONFIAVEL');
+        }
+        const entradaClone = clonarJsonInterno(entradaRecebida);
+        if (!entradaClone.ok) return resultadoBase('ENTRADA_CLASSIFICACAO_INVALIDA');
+        const entrada = entradaClone.valor;
+        const sufixoPermissao = entrada.tipoEntidade === 'categoria'
+            ? 'categoria_financeira' : 'centro_custo';
+        const permissao = entrada.acao === 'cadastrar'
+            ? `cadastrar_${sufixoPermissao}`
+            : ['inativar', 'reativar'].includes(entrada.acao)
+                ? `inativar_${sufixoPermissao}` : `editar_${sufixoPermissao}`;
+        const permissaoConcedida = () => {
+            if (typeof dependencias.validarPermissaoClassificacao !== 'function') return false;
+            try { return dependencias.validarPermissaoClassificacao(permissao) === true; }
+            catch (_erro) { return false; }
+        };
+        if (!permissaoConcedida()) return resultadoBase('PERMISSAO_CLASSIFICACAO_NEGADA');
+        const persistencia = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || !persistencia || typeof persistencia.versao !== 'string'
+            || persistencia.data !== entrada.atualizadoEm
+            || !Number.isSafeInteger(persistencia.ultimaEdicao)
+            || persistencia.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias[nome] !== 'function')
+            || !dependencias.armazenamento) return resultadoBase('ENTRADA_CLASSIFICACAO_INVALIDA');
+        const referencia = criarReferenciaTipadaClassificacaoFinanceira(
+            entrada.tipoEntidade, entrada.id);
+        if (!referencia || (entrada.acao !== 'cadastrar' && entrada.referencia !== referencia)) {
+            return resultadoBase('IDENTIDADE_CLASSIFICACAO_INVALIDA');
+        }
+        const trava = `${entrada.tipoEntidade}|${referencia}`;
+        if (travasClassificacoesFinanceiras.size
+            || travasClassificacoesFinanceiras.has(trava)) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        }
+        travasClassificacoesFinanceiras.add(trava);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !validarFundacaoClassificacoesFinanceiras(memoria.valor)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            let leitura;
+            try {
+                leitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok
+                ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !validarFundacaoClassificacoesFinanceiras(persistido.valor)
+                || memoria.json !== persistido.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const alvoMemoria = entrada.acao === 'cadastrar' ? null
+                : resolverClassificacaoFinanceira(referencia, entrada.tipoEntidade, memoria.valor);
+            const alvoPersistido = entrada.acao === 'cadastrar' ? null
+                : resolverClassificacaoFinanceira(referencia, entrada.tipoEntidade, persistido.valor);
+            if (entrada.acao !== 'cadastrar'
+                && (alvoMemoria.estado !== 'encontrada'
+                    || alvoPersistido.estado !== 'encontrada')) {
+                return resultadoBase('CLASSIFICACAO_NAO_DISPONIVEL');
+            }
+            const plano = dadosPlanoClassificacaoFinanceira(
+                entrada, alvoMemoria?.registro || null);
+            const assinaturaPlano = assinaturaPlanoClassificacaoFinanceira(plano);
+            const evidenciaMemoria = localizarEvidenciaClassificacaoFinanceira(
+                memoria.valor, entrada.operacaoId);
+            const evidenciaPersistida = localizarEvidenciaClassificacaoFinanceira(
+                persistido.valor, entrada.operacaoId);
+            const colisaoAuditoriaGlobal = memoria.valor.logsAuditoria.some((item) => (
+                item?.operacaoId === entrada.operacaoId
+                && item?.origem !== 'classificacoes_financeiras'
+            )) || persistido.valor.logsAuditoria.some((item) => (
+                item?.operacaoId === entrada.operacaoId
+                && item?.origem !== 'classificacoes_financeiras'
+            ));
+            if (colisaoAuditoriaGlobal) {
+                return resultadoBase('OPERACAO_ID_CONFLITANTE');
+            }
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                const evidenciasIguais = evidenciaClassificacaoFinanceiraCorresponde(
+                    evidenciaMemoria, plano, entrada, assinaturaPlano)
+                    && evidenciaClassificacaoFinanceiraCorresponde(
+                        evidenciaPersistida, plano, entrada, assinaturaPlano);
+                return evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoria.json === persistido.json && evidenciasIguais
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', {
+                        ok: true, aplicado: true, idempotente: true,
+                        operacao: { operacaoId: entrada.operacaoId, referencia },
+                        renderizar: true
+                    })
+                    : resultadoBase('OPERACAO_ID_CONFLITANTE');
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada'
+                || evidenciaPersistida.estado !== 'nao_executada') {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (!validarPlanoClassificacaoFinanceira(
+                entrada, plano, memoria.valor, alvoMemoria?.registro || null)) {
+                return resultadoBase('CLASSIFICACAO_INVALIDA');
+            }
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const operacao = aplicarPlanoClassificacaoFinanceira(
+                candidato.valor, entrada, plano, assinaturaPlano);
+            if (!operacao || !validarFundacaoClassificacoesFinanceiras(candidato.valor)
+                || !localizarEvidenciaClassificacaoFinanceira(
+                    candidato.valor, entrada.operacaoId).completo) {
+                return resultadoBase('CANDIDATO_CLASSIFICACAO_INVALIDO');
+            }
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try {
+                preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico),
+                    clonarDescartavel(persistencia));
+            } catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({
+                versao: persistencia.versao,
+                data: persistencia.data,
+                ultimaEdicao: persistencia.ultimaEdicao,
+                ...candidatoCanonico
+            });
+            const externo = preparadoValido.ok
+                ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            if (!operacional.ok) return resultadoBase('CANDIDATO_CLASSIFICACAO_INVALIDO');
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior
+            });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_CLASSIFICACAO_NEGADA');
+            try {
+                dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshot.valor), { ...opcoesArmazenamento });
+            } catch (_erro) {
+                // A releitura autoritativa decide.
+            }
+            let releitura;
+            try {
+                releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok
+                ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true
+                });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok
+                || !validarFundacaoClassificacoesFinanceiras(operacionalRelido.valor)
+                || !localizarEvidenciaClassificacaoFinanceira(
+                    operacionalRelido.valor, entrada.operacaoId).completo) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true
+                });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok
+                || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true
+                });
+            }
+            if (!permissaoConcedida()) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: 'PERMISSAO_CLASSIFICACAO_REVOGADA' }]
+                });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(
+                    clonarDescartavel(operacional.valor), {
+                        jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                        autorizacaoPublicacao: autorizacao,
+                        exigirConfirmacaoInterna: true
+                    });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior,
+                autorizacaoPublicacao: autorizacao
+            }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true
+                && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true
+                });
+            }
+            const avisos = erroPublicacao
+                ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try {
+                sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                    ultimaEdicao: persistencia.ultimaEdicao,
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano
+                }) === true;
+            } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('CLASSIFICACAO_FINANCEIRA_APLICADA', {
+                ok: true,
+                aplicado: true,
+                publicacaoRealizada: true,
+                avisos,
+                renderizar: true,
+                sincronizar,
+                operacao: {
+                    operacaoId: entrada.operacaoId,
+                    referencia,
+                    assinaturaPlano
+                }
+            });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada
+                ? 'CLASSIFICACAO_FINANCEIRA_APLICADA'
+                : 'FALHA_CLASSIFICACAO_FINANCEIRA', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                renderizar: publicacaoRealizada,
+                sincronizar: false
+            });
+        } finally {
+            if (autorizacao) {
+                try {
+                    cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao);
+                } catch (_erro) {
+                    // Autorização encerrada.
+                }
+            }
+            travasClassificacoesFinanceiras.delete(trava);
         }
     }
 
@@ -11209,6 +11871,14 @@
     window.executarRecebimentoLocacaoTransacional = executarRecebimentoLocacaoTransacional;
     window.executarEstornoRecebimentoTransacional = executarEstornoRecebimentoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
+    window.criarReferenciaTipadaClassificacaoFinanceira
+        = criarReferenciaTipadaClassificacaoFinanceira;
+    window.criarEntradaCategoriaFinanceira = criarEntradaCategoriaFinanceira;
+    window.criarEntradaCentroCusto = criarEntradaCentroCusto;
+    window.executarOperacaoClassificacaoFinanceiraTransacional
+        = executarOperacaoClassificacaoFinanceiraTransacional;
+    window.validarFundacaoClassificacoesFinanceiras
+        = validarFundacaoClassificacoesFinanceiras;
     window.criarReferenciaTipadaPagar = criarReferenciaTipadaPagar;
     window.criarEntradaCadastroFornecedorPagar = criarEntradaCadastroFornecedorPagar;
     window.criarEntradaCriacaoContaPagar = criarEntradaCriacaoContaPagar;

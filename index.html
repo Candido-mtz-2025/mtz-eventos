@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.72">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.73">
 </head>
 <body>
 
@@ -270,6 +270,11 @@
                 </button>
                 <button class="tab-menu-item" type="button" role="menuitem" data-menu-item data-tab="config" data-action="irParaConfigGeral">
                     <i class="bi bi-gear"></i><span>Configurações</span>
+                </button>
+                <button class="tab-menu-item" type="button" role="menuitem" data-menu-item
+                    data-tab="classificacoes-financeiras" data-acesso="admin"
+                    data-action="abrirTab" data-arg="classificacoes-financeiras">
+                    <i class="bi bi-diagram-3"></i><span>Classificações Financeiras</span>
                 </button>
             </div>
         </div>
@@ -2553,6 +2558,82 @@
         </div>
   </div> 
         
+            <div id="tab-classificacoes-financeiras" class="tab-content">
+                <section class="card classificacoes-financeiras-painel"
+                    aria-labelledby="classificacoesFinanceirasTitulo">
+                    <div class="section-header">
+                        <div>
+                            <h2 id="classificacoesFinanceirasTitulo">Classificações Financeiras</h2>
+                            <p class="muted-note">Catálogos administrativos independentes dos registros financeiros existentes.</p>
+                        </div>
+                    </div>
+                    <p id="classificacoesFinanceirasPermissao" class="empty-state" hidden>
+                        Você não possui permissão para visualizar estes catálogos.
+                    </p>
+                    <div id="classificacoesFinanceirasConteudo">
+                        <section class="classificacao-financeira-secao"
+                            aria-labelledby="categoriasFinanceirasTitulo">
+                            <div class="section-header">
+                                <h3 id="categoriasFinanceirasTitulo">Categorias financeiras</h3>
+                                <button type="button" id="btnNovaCategoriaFinanceira"
+                                    class="btn btn-primary" data-action="abrirNovaCategoriaFinanceira">
+                                    <i class="bi bi-plus-lg"></i> Nova categoria
+                                </button>
+                            </div>
+                            <div class="cadastros-search-toolbar classificacoes-financeiras-filtros">
+                                <input id="buscaCategoriasFinanceiras" class="search-input" type="search"
+                                    placeholder="Buscar por código ou nome"
+                                    aria-label="Buscar categorias financeiras"
+                                    data-input="renderClassificacoesFinanceiras">
+                                <select id="filtroCategoriasFinanceiras"
+                                    aria-label="Filtrar categorias por situação"
+                                    data-change="renderClassificacoesFinanceiras">
+                                    <option value="todos">Todas</option>
+                                    <option value="ativos">Ativas</option>
+                                    <option value="inativos">Inativas</option>
+                                </select>
+                            </div>
+                            <div class="table-responsive classificacoes-financeiras-tabela">
+                                <table>
+                                    <thead><tr><th>Código</th><th>Nome</th><th>Natureza</th>
+                                        <th>Situação</th><th>Ações</th></tr></thead>
+                                    <tbody id="tblCategoriasFinanceiras"></tbody>
+                                </table>
+                            </div>
+                        </section>
+                        <section class="classificacao-financeira-secao"
+                            aria-labelledby="centrosCustoTitulo">
+                            <div class="section-header">
+                                <h3 id="centrosCustoTitulo">Centros de custo</h3>
+                                <button type="button" id="btnNovoCentroCusto"
+                                    class="btn btn-primary" data-action="abrirNovoCentroCusto">
+                                    <i class="bi bi-plus-lg"></i> Novo centro
+                                </button>
+                            </div>
+                            <div class="cadastros-search-toolbar classificacoes-financeiras-filtros">
+                                <input id="buscaCentrosCusto" class="search-input" type="search"
+                                    placeholder="Buscar por código ou nome"
+                                    aria-label="Buscar centros de custo"
+                                    data-input="renderClassificacoesFinanceiras">
+                                <select id="filtroCentrosCusto" aria-label="Filtrar centros por situação"
+                                    data-change="renderClassificacoesFinanceiras">
+                                    <option value="todos">Todos</option>
+                                    <option value="ativos">Ativos</option>
+                                    <option value="inativos">Inativos</option>
+                                </select>
+                            </div>
+                            <div class="table-responsive classificacoes-financeiras-tabela">
+                                <table>
+                                    <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th>
+                                        <th>Situação</th><th>Ações</th></tr></thead>
+                                    <tbody id="tblCentrosCusto"></tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+                </section>
+            </div>
+
             <div id="tab-config" class="tab-content">
                 <div class="card config-card">
                     <h3>Personalização</h3>
@@ -3110,6 +3191,66 @@
         </div>
     </div>
 
+    <div id="modalClassificacaoFinanceira" class="modal" role="dialog" aria-modal="true"
+        aria-hidden="true" aria-labelledby="classificacaoFinanceiraTitulo"
+        aria-describedby="classificacaoFinanceiraAjuda" tabindex="-1">
+        <div class="modal-content classificacao-financeira-modal">
+            <div class="modal-header">
+                <h3 id="classificacaoFinanceiraTitulo">Classificação financeira</h3>
+                <button type="button" class="btn-close-modal"
+                    data-action="fecharClassificacaoFinanceira" aria-label="Fechar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <p id="classificacaoFinanceiraAjuda" class="muted-note">
+                A identidade é permanente; código e demais dados podem ser atualizados por transação.
+            </p>
+            <form id="formClassificacaoFinanceira" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="classificacaoFinanceiraCodigo">Código</label>
+                        <input id="classificacaoFinanceiraCodigo" type="text" maxlength="50"
+                            autocomplete="off" required aria-describedby="classificacaoFinanceiraErro">
+                    </div>
+                    <div class="form-group">
+                        <label for="classificacaoFinanceiraNome">Nome</label>
+                        <input id="classificacaoFinanceiraNome" type="text" maxlength="200"
+                            autocomplete="off" required aria-describedby="classificacaoFinanceiraErro">
+                    </div>
+                    <div class="form-group">
+                        <label id="classificacaoFinanceiraClassificacaoLabel"
+                            for="classificacaoFinanceiraClassificacao">Classificação</label>
+                        <select id="classificacaoFinanceiraClassificacao" required
+                            aria-describedby="classificacaoFinanceiraErro"></select>
+                    </div>
+                </div>
+                <fieldset class="classificacao-financeira-vinculos">
+                    <legend>Vínculos opcionais</legend>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label id="classificacaoFinanceiraVinculoPrimarioLabel"
+                                for="classificacaoFinanceiraVinculoPrimario">Vínculo</label>
+                            <select id="classificacaoFinanceiraVinculoPrimario"
+                                aria-describedby="classificacaoFinanceiraErro"></select>
+                        </div>
+                        <div id="classificacaoFinanceiraVinculoSecundarioGrupo" class="form-group">
+                            <label for="classificacaoFinanceiraVinculoSecundario">Locação opcional</label>
+                            <select id="classificacaoFinanceiraVinculoSecundario"
+                                aria-describedby="classificacaoFinanceiraErro"></select>
+                        </div>
+                    </div>
+                </fieldset>
+                <p id="classificacaoFinanceiraErro" class="validation-message" role="alert"
+                    aria-live="assertive" hidden></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary"
+                        data-action="fecharClassificacaoFinanceira">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Confirmar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modalContaPagar" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="contaPagarTitulo" aria-describedby="contaPagarDescricaoAjuda" tabindex="-1">
         <div class="modal-content modal-xl contas-pagar-modal">
             <div class="modal-header"><h3 id="contaPagarTitulo">Nova conta a pagar</h3><button type="button" class="btn-close-modal" data-action="fecharCriacaoContaPagar" aria-label="Fechar criação da conta"><i class="bi bi-x-lg"></i></button></div>
@@ -3324,18 +3465,18 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.9"></script>
+    <script src="./assets/js/core/state.js?v=12.10"></script>
     <script src="./assets/js/core/utils.js?v=2.6"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.2"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.8"></script>
-    <script src="./assets/js/core/migrations.js?v=12.19"></script>
+    <script src="./assets/js/core/access.js?v=1.9"></script>
+    <script src="./assets/js/core/migrations.js?v=12.21"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
-    <script src="./assets/js/core/storage.js?v=12.17"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.41"></script>
-    <script src="./assets/js/core/recovery-services.js?v=1.5"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.13"></script>
+    <script src="./assets/js/core/storage.js?v=12.19"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.42"></script>
+    <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.14"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.23"></script>
     <script src="./assets/js/modules/propostas.js?v=4.28"></script>
@@ -3349,7 +3490,7 @@
     <script src="./assets/js/modules/relatorios.js?v=1.8"></script>
     <script src="./assets/js/modules/devolucoes.js?v=3.0"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
-    <script src="./assets/js/modules/backup-tools.js?v=1.7"></script>
+    <script src="./assets/js/modules/backup-tools.js?v=1.9"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.2"></script>
     <script src="./assets/js/modules/transporte.js?v=1.6"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.3"></script>
@@ -3360,8 +3501,9 @@
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
     <script src="./assets/js/render/novas-abas.js?v=3.6"></script>
     <script src="./assets/js/render/contas-pagar.js?v=2.5"></script>
+    <script src="./assets/js/render/classificacoes-financeiras.js?v=1.1"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
-    <script src="./assets/js/core/app.js?v=23.18"></script>
+    <script src="./assets/js/core/app.js?v=23.19"></script>
         
 </body>
 </html>

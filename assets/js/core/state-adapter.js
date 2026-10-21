@@ -124,6 +124,15 @@
         (Array.isArray(estado?.fornecedores) ? estado.fornecedores : []).forEach((fornecedor) => {
             proteger(fornecedor, ['id', 'fornecedorReferencia', 'operacaoId']);
         });
+        (Array.isArray(estado?.categoriasFinanceiras) ? estado.categoriasFinanceiras : [])
+            .forEach((categoria) => {
+                proteger(categoria, ['id', 'categoriaFinanceiraReferencia', 'operacaoId', 'criadoEm']);
+                congelarProfundamente(categoria);
+            });
+        (Array.isArray(estado?.centrosCusto) ? estado.centrosCusto : []).forEach((centro) => {
+            proteger(centro, ['id', 'centroCustoReferencia', 'operacaoId', 'criadoEm']);
+            congelarProfundamente(centro);
+        });
         (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
             proteger(conta, ['id', 'contaId', 'contaPagarReferencia', 'fornecedorId',
                 'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia',
@@ -572,6 +581,17 @@
         };
     }
 
+    function criarDependenciasExecutorClassificacoesFinanceiras(opcoes = {}) {
+        return {
+            ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
+            validarPermissaoClassificacao: (acao) => typeof window.temPermissao === 'function'
+                && window.temPermissao(acao) === true,
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
+                estado, controlador.obterReferencia(), autorizacao
+            )
+        };
+    }
+
     function criarDependenciasExecutorConciliacaoFinanceira(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage, {
@@ -618,6 +638,8 @@
     window.criarDependenciasExecutorEstornoRecebimento = criarDependenciasExecutorEstornoRecebimento;
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
     window.criarDependenciasExecutorContasPagar = criarDependenciasExecutorContasPagar;
+    window.criarDependenciasExecutorClassificacoesFinanceiras
+        = criarDependenciasExecutorClassificacoesFinanceiras;
     window.criarDependenciasExecutorConciliacaoFinanceira = criarDependenciasExecutorConciliacaoFinanceira;
     window.criarDependenciasExecutorConversaoProposta = criarDependenciasExecutorConversaoProposta;
     window.criarDependenciasExecutorTransporte = criarDependenciasExecutorTransporte;
