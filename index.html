@@ -3066,6 +3066,17 @@
                 <label for="contaReceberPrimeiroVencimento">Primeiro vencimento</label>
                 <input type="date" id="contaReceberPrimeiroVencimento">
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="contaReceberCategoriaFinanceira">Categoria financeira</label>
+                    <select id="contaReceberCategoriaFinanceira" required aria-describedby="contaReceberClassificacaoAjuda contaReceberErro"></select>
+                </div>
+                <div class="form-group">
+                    <label for="contaReceberCentroCusto">Centro de custo</label>
+                    <select id="contaReceberCentroCusto" required aria-describedby="contaReceberClassificacaoAjuda contaReceberErro"></select>
+                </div>
+            </div>
+            <p id="contaReceberClassificacaoAjuda" class="muted-note">Selecione cadastros ativos. Categoria e centro de custo são obrigatórios para a nova conta.</p>
             <div id="contaReceberErro" class="validation-message" role="alert" aria-live="assertive" hidden></div>
             <div class="inline-chip-row section-gap">
                 <button type="button" class="btn btn-secondary" data-action="fecharModalContaReceber">Cancelar</button>
@@ -3492,11 +3503,11 @@
     <script src="./assets/js/core/migrations.js?v=12.21"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.19"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.44"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.45"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.16"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.17"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.23"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.24"></script>
     <script src="./assets/js/modules/propostas.js?v=4.28"></script>
     <script src="./assets/js/modules/clientes.js?v=2.2"></script>
     <script src="./assets/js/modules/tipos.js?v=2.1"></script>

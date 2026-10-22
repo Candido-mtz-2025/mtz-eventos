@@ -2628,7 +2628,46 @@ function fecharModalContaReceber() {
     sessaoContaReceber = null;
     const retorno = acionadorModalContaReceber;
     acionadorModalContaReceber = null;
-    retorno?.focus?.();
+    if (retorno?.isConnected) retorno.focus();
+    else document.querySelector('[data-tab="financeiro"]')?.focus();
+}
+
+function definirErroContaReceber(mensagem = '', campo = null) {
+    const erro = document.getElementById('contaReceberErro');
+    if (erro) {
+        erro.textContent = mensagem;
+        erro.hidden = !mensagem;
+    }
+    if (campo && mensagem) {
+        campo.setAttribute('aria-invalid', 'true');
+        campo.focus();
+    }
+}
+
+function preencherClassificacoesContaReceber(locacao, referencia) {
+    const categoria = document.getElementById('contaReceberCategoriaFinanceira');
+    const centro = document.getElementById('contaReceberCentroCusto');
+    const estado = obterEstadoMemoriaAtual();
+    categoria.replaceChildren(new Option('Selecione uma categoria de receita', ''));
+    centro.replaceChildren(new Option('Selecione um centro de custo', ''));
+    if (!validarFundacaoClassificacoesFinanceiras(estado)) return;
+    const ordenar = (a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR')
+        || a.nome.localeCompare(b.nome, 'pt-BR');
+    estado.categoriasFinanceiras.filter((item) => item.situacao === 'ativa'
+        && ['receita', 'ambas'].includes(item.naturezaPermitida)).sort(ordenar)
+        .forEach((item) => categoria.append(new Option(
+            `${item.codigo} · ${item.nome}`, item.categoriaFinanceiraReferencia)));
+    const propostas = [locacao.propostaReferencia,
+        ...[locacao.propostaOrigemId, locacao.origemPropostaId, locacao.propostaId,
+            locacao.origem?.propostaId].filter((id) => id !== undefined && id !== null && id !== '')
+            .map((id) => criarReferenciaTipadaPagar('proposta', id))]
+        .filter((valor) => valor !== undefined && valor !== '');
+    estado.centrosCusto.filter((item) => item.situacao === 'ativo'
+        && (!item.locacaoReferencia || item.locacaoReferencia === referencia)
+        && (!item.propostaReferencia || (propostas.length > 0
+            && propostas.every((valor) => valor === item.propostaReferencia))))
+        .sort(ordenar).forEach((item) => centro.append(new Option(
+            `${item.codigo} · ${item.nome}`, item.centroCustoReferencia)));
 }
 
 function registrarEventosModalContaReceber() {
@@ -2636,6 +2675,13 @@ function registrarEventosModalContaReceber() {
     const modal = document.getElementById('modalContaReceber');
     if (!modal) return;
     eventosModalContaReceberRegistrados = true;
+    modal.addEventListener('change', (evento) => {
+        const campo = evento.target;
+        if (campo.matches('select') && campo.value) {
+            campo.removeAttribute('aria-invalid');
+            if (!modal.querySelector('[aria-invalid="true"]')) definirErroContaReceber();
+        }
+    });
     modal.addEventListener('keydown', (evento) => {
         if (evento.key === 'Escape') {
             evento.preventDefault();
@@ -2643,7 +2689,7 @@ function registrarEventosModalContaReceber() {
             return;
         }
         if (evento.key !== 'Tab') return;
-        const focaveis = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled])'));
+        const focaveis = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled])'));
         if (!focaveis.length) return;
         const primeiro = focaveis[0];
         const ultimo = focaveis[focaveis.length - 1];
@@ -2661,6 +2707,7 @@ function registrarEventosModalContaReceber() {
 }
 
 function abrirContaReceberLocacao(referencia) {
+    if (!validarPermissao('alterar_pagamento', 'Você não possui permissão para criar contas a receber.')) return false;
     const locacao = obterLocacaoPagamentoPorId(referencia);
     if (!locacao) return false;
     const modal = document.getElementById('modalContaReceber');
@@ -2679,11 +2726,9 @@ function abrirContaReceberLocacao(referencia) {
     document.getElementById('contaReceberValorTotal').value = formatarValorPromptFinanceiro(resumo.valorTotal);
     document.getElementById('contaReceberParcelas').value = '1';
     document.getElementById('contaReceberPrimeiroVencimento').value = locacao.dataDevolucaoPrevisao || hoje;
-    const erro = document.getElementById('contaReceberErro');
-    if (erro) {
-        erro.textContent = '';
-        erro.hidden = true;
-    }
+    preencherClassificacoesContaReceber(locacao, referencia);
+    modal.querySelectorAll('[aria-invalid]').forEach((campo) => campo.removeAttribute('aria-invalid'));
+    definirErroContaReceber();
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
     document.getElementById('contaReceberDescricao').focus();
@@ -2692,32 +2737,31 @@ function abrirContaReceberLocacao(referencia) {
 
 function salvarContaReceberLocacao() {
     if (criacaoContaReceberEmAndamento || !sessaoContaReceber) return false;
+    if (!validarPermissao('alterar_pagamento', 'Você não possui permissão para criar contas a receber.')) return false;
     const referencia = document.getElementById('contaReceberLocacaoReferencia')?.value;
     const locacao = obterLocacaoPagamentoPorId(referencia);
     const erro = document.getElementById('contaReceberErro');
     if (!locacao || referencia !== sessaoContaReceber.referencia) return false;
+    const categoria = document.getElementById('contaReceberCategoriaFinanceira');
+    const centro = document.getElementById('contaReceberCentroCusto');
+    if (!categoria.value || !centro.value) {
+        definirErroContaReceber(!categoria.value ? 'Selecione uma categoria financeira de receita.'
+            : 'Selecione um centro de custo compatível com esta locação.', !categoria.value ? categoria : centro);
+        return false;
+    }
     const textoParcelas = document.getElementById('contaReceberParcelas')?.value;
     const quantidadeParcelas = typeof textoParcelas === 'string' && /^[1-9]\d*$/.test(textoParcelas)
         ? Number(textoParcelas) : NaN;
     const instante = new Date();
     const criadoEm = instante.toISOString();
-    const entrada = {
-        locacaoReferencia: referencia,
-        operacaoId: sessaoContaReceber.operacaoId,
-        descricao: document.getElementById('contaReceberDescricao')?.value,
-        valorTotalTexto: document.getElementById('contaReceberValorTotal')?.value,
+    const entrada = criarEntradaCriacaoContaReceber(
+        referencia, categoria.value, centro.value, sessaoContaReceber.operacaoId,
+        document.getElementById('contaReceberDescricao')?.value,
+        document.getElementById('contaReceberValorTotal')?.value,
         quantidadeParcelas,
-        primeiroVencimento: document.getElementById('contaReceberPrimeiroVencimento')?.value,
-        emitidaEm: dataLocalHojeContaReceber(),
-        criadoEm,
-        atualizadoEm: criadoEm,
-        responsavel: obterResponsavelRecebimentoLocacao(),
-        persistencia: {
-            versao: window.SCHEMA_VERSION_V12 || '12.6',
-            data: criadoEm,
-            ultimaEdicao: instante.getTime()
-        }
-    };
+        document.getElementById('contaReceberPrimeiroVencimento')?.value,
+        dataLocalHojeContaReceber(), criadoEm, obterResponsavelRecebimentoLocacao(),
+        window.SCHEMA_VERSION_V12 || '12.6', instante.getTime());
     criacaoContaReceberEmAndamento = true;
     let resultado;
     try {
@@ -2740,6 +2784,8 @@ function salvarContaReceberLocacao() {
         CONTA_RECEBER_ATIVA_EXISTENTE: 'Já existe uma conta a receber ativa para esta locação.',
         VALOR_TOTAL_CONTA_DIVERGENTE: 'O total da locação mudou. Atualize os dados antes de continuar.',
         PARCELAMENTO_INVALIDO: 'Confira a quantidade de parcelas e o valor total.',
+        CLASSIFICACAO_CONTA_RECEBER_INVALIDA: 'Selecione uma categoria ativa de receita e um centro ativo compatível. Atualize os dados se os cadastros mudaram.',
+        PERMISSAO_CONTA_RECEBER_NEGADA: 'Você não possui permissão para criar contas a receber.',
         OPERACAO_REQUER_RECUPERACAO: 'Os dados locais precisam de recuperação antes de criar a conta.'
     };
     const mensagem = mensagens[resultado?.codigo]

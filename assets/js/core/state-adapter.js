@@ -117,6 +117,13 @@
         };
         (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
             proteger(conta, ['id', 'contaReferencia', 'locacaoId', 'locacaoReferencia', 'clienteId', 'clienteReferencia', 'operacaoId']);
+            if (conta.classificacaoLegada === false) {
+                proteger(conta, ['categoriaFinanceiraReferencia', 'categoriaFinanceiraSnapshot',
+                    'centroCustoReferencia', 'centroCustoSnapshot', 'classificacaoLegada']);
+                congelarProfundamente(conta.categoriaFinanceiraSnapshot);
+                congelarProfundamente(conta.centroCustoSnapshot);
+                congelarProfundamente(conta.evidenciaCriacao);
+            }
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
             });
@@ -584,6 +591,8 @@
     function criarDependenciasExecutorContaReceber(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage),
+            validarPermissaoFinanceira: (acao) => typeof window.temPermissao === 'function'
+                && window.temPermissao(acao) === true,
             publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(
                 estado, controlador.obterReferencia(), autorizacao
             )
