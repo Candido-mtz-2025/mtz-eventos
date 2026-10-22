@@ -137,6 +137,17 @@
             proteger(conta, ['id', 'contaId', 'contaPagarReferencia', 'fornecedorId',
                 'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia',
                 'eventoReferencia', 'operacaoId']);
+            if (conta.classificacaoLegada === false) {
+                proteger(conta, ['categoriaFinanceiraReferencia',
+                    'categoriaFinanceiraSnapshot', 'centroCustoReferencia',
+                    'centroCustoSnapshot', 'classificacaoLegada', 'categoria',
+                    'centroCusto', 'provenienciaCodigo', 'origem']);
+                congelarProfundamente(conta.categoriaFinanceiraSnapshot);
+                congelarProfundamente(conta.centroCustoSnapshot);
+            }
+            (Array.isArray(conta.historico) ? conta.historico : [])
+                .filter((item) => item?.acao === 'conta_pagar_reclassificada')
+                .forEach(congelarProfundamente);
             (Array.isArray(conta.parcelas) ? conta.parcelas : []).forEach((parcela) => {
                 proteger(parcela, ['id', 'parcelaId', 'parcelaReferencia', 'numero', 'totalParcelas']);
                 (Array.isArray(parcela.pagamentos) ? parcela.pagamentos : []).forEach((pagamento) => {
@@ -181,6 +192,15 @@
                 'parcelaReferencia', 'locacaoId', 'locacaoReferencia', 'lancamentoReferencia',
                 'conciliacaoOriginalReferencia']);
             congelarProfundamente(registro);
+        });
+        (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((item) => item?.acao === 'reclassificar_conta_pagar')
+            .forEach(congelarProfundamente);
+        (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
+            (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
+                .filter((item) => item?.acao === 'conta_pagar_reclassificada'
+                    && item?.origem === 'contas_pagar')
+                .forEach(congelarProfundamente);
         });
         (Array.isArray(estado?.conciliacoesPagamentosPagar)
             ? estado.conciliacoesPagamentosPagar : []).forEach((registro) => {

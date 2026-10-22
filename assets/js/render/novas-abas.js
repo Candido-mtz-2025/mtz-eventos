@@ -1124,6 +1124,8 @@
         const natureza = document.getElementById('fluxoCaixaNatureza')?.value || 'todos';
         const situacao = document.getElementById('fluxoCaixaSituacao')?.value || 'todos';
         const conciliacao = document.getElementById('fluxoCaixaConciliacao')?.value || 'todos';
+        const categoria = document.getElementById('fluxoCaixaCategoriaFinanceira')?.value || '';
+        const centroCusto = document.getElementById('fluxoCaixaCentroCusto')?.value || '';
         const inicio = document.getElementById('fluxoCaixaInicio')?.value || '';
         const fim = document.getElementById('fluxoCaixaFim')?.value || '';
         return movimentos.filter((item) => {
@@ -1131,6 +1133,11 @@
             if (natureza !== 'todos' && item.natureza !== natureza) return false;
             if (situacao !== 'todos' && item.situacaoFinanceira !== situacao) return false;
             if (conciliacao !== 'todos' && item.situacaoConciliacao !== conciliacao) return false;
+            const legado = item.classificacaoLegada === true;
+            if (categoria && (categoria === 'legado' ? !legado
+                : item.categoriaFinanceiraReferencia !== categoria)) return false;
+            if (centroCusto && (centroCusto === 'legado' ? !legado
+                : item.centroCustoReferencia !== centroCusto)) return false;
             if (inicio && item.data < inicio) return false;
             if (fim && item.data > fim) return false;
             if (!busca) return true;
@@ -1154,6 +1161,34 @@
         select.innerHTML = '<option value="">Todos os clientes e fornecedores</option>' + opcoes.map(([referencia, nome]) => (
             `<option value="${sanitizarTexto(referencia)}">${sanitizarTexto(nome)}</option>`)).join('');
         select.value = opcoes.some(([referencia]) => referencia === anterior) ? anterior : '';
+    }
+
+    function atualizarClassificacoesFluxoCaixa(movimentos) {
+        const preencher = (id, chave, snapshotChave, rotulo) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const anterior = select.value;
+            const opcoes = new Map();
+            movimentos.filter((item) => item.classificacaoLegada === false && item[chave])
+                .forEach((item) => {
+                    const snapshot = item[snapshotChave];
+                    if (snapshot && typeof snapshot.codigo === 'string'
+                        && typeof snapshot.nome === 'string') {
+                        opcoes.set(item[chave], `${snapshot.codigo} · ${snapshot.nome}`);
+                    }
+                });
+            select.replaceChildren(new Option(rotulo, ''),
+                new Option('Classificação legada', 'legado'));
+            [...opcoes.entries()].sort((a, b) => compararTextoDeterministico(a[1], b[1])
+                || compararTextoDeterministico(a[0], b[0]))
+                .forEach(([valor, texto]) => select.append(new Option(texto, valor)));
+            select.value = [...select.options].some((opcao) => opcao.value === anterior)
+                ? anterior : '';
+        };
+        preencher('fluxoCaixaCategoriaFinanceira', 'categoriaFinanceiraReferencia',
+            'categoriaFinanceiraSnapshot', 'Todas as categorias');
+        preencher('fluxoCaixaCentroCusto', 'centroCustoReferencia',
+            'centroCustoSnapshot', 'Todos os centros de custo');
     }
 
     function atualizarIndicadoresFluxoCaixa(movimentos) {
@@ -1266,6 +1301,7 @@
             return false;
         }
         atualizarClientesFluxoCaixa(projecao.movimentos);
+        atualizarClassificacoesFluxoCaixa(projecao.movimentos);
         movimentosFluxoCaixaAtuais = obterMovimentosFluxoCaixaFiltrados(projecao.movimentos);
         if (diagnostico) {
             diagnostico.hidden = !projecao.diagnosticos.length;
@@ -1295,7 +1331,8 @@
     }
 
     function limparFiltrosFluxoCaixa() {
-        ['buscaFluxoCaixa', 'fluxoCaixaCliente', 'fluxoCaixaInicio', 'fluxoCaixaFim']
+        ['buscaFluxoCaixa', 'fluxoCaixaCliente', 'fluxoCaixaInicio', 'fluxoCaixaFim',
+            'fluxoCaixaCategoriaFinanceira', 'fluxoCaixaCentroCusto']
             .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = ''; });
         ['fluxoCaixaNatureza', 'fluxoCaixaSituacao', 'fluxoCaixaConciliacao']
             .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = 'todos'; });

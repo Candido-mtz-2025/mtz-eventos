@@ -45,6 +45,7 @@
     const travasContaReceber = new Set();
     const travasFornecedor = new Set();
     const travasContaPagar = new Set();
+    const travasReclassificacaoContaPagar = new Set();
     const travasClassificacoesFinanceiras = new Set();
     const travasPagamentoContaPagar = new Set();
     const travasEstornoPagamentoContaPagar = new Set();
@@ -55,6 +56,7 @@
     const entradasConversaoPropostaConfiaveis = new WeakSet();
     const entradasFornecedorPagarConfiaveis = new WeakSet();
     const entradasContaPagarConfiaveis = new WeakSet();
+    const entradasReclassificacaoContaPagarConfiaveis = new WeakSet();
     const entradasClassificacoesFinanceirasConfiaveis = new WeakSet();
     const entradasPagamentoContaPagarConfiaveis = new WeakSet();
     const entradasEstornoPagamentoContaPagarConfiaveis = new WeakSet();
@@ -6059,12 +6061,14 @@
     }
 
     function criarEntradaCriacaoContaPagar(contaId, fornecedorReferencia, propostaReferencia,
-        locacaoReferencia, eventoReferencia, categoria, centroCusto, descricao, origem,
+        locacaoReferencia, eventoReferencia, categoriaFinanceiraReferencia,
+        centroCustoReferencia, descricao, provenienciaCodigo,
         originalCentavos, previstoCentavos, quantidadeParcelas, dataEmissao, primeiroVencimento,
         operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel, persistenciaVersao,
         persistenciaData, persistenciaUltimaEdicao) {
         const valoresTexto = [fornecedorReferencia, propostaReferencia, locacaoReferencia,
-            eventoReferencia, categoria, centroCusto, descricao, origem, dataEmissao,
+            eventoReferencia, categoriaFinanceiraReferencia, centroCustoReferencia,
+            descricao, provenienciaCodigo, dataEmissao,
             primeiroVencimento, operacaoId, criadoEm, atualizadoEm, dataReferencia, responsavel,
             persistenciaVersao, persistenciaData];
         if ((contaId !== undefined && !['string', 'number'].includes(typeof contaId))
@@ -6073,7 +6077,8 @@
             || typeof quantidadeParcelas !== 'number' || typeof persistenciaUltimaEdicao !== 'number') return null;
         const entrada = {
             fornecedorReferencia, propostaReferencia, locacaoReferencia, eventoReferencia,
-            categoria, centroCusto, descricao, origem, originalCentavos, previstoCentavos,
+            categoriaFinanceiraReferencia, centroCustoReferencia, descricao,
+            provenienciaCodigo, originalCentavos, previstoCentavos,
             quantidadeParcelas, dataEmissao, primeiroVencimento, operacaoId, criadoEm,
             atualizadoEm, dataReferencia, responsavel,
             persistencia: Object.freeze({
@@ -6085,6 +6090,26 @@
         if (contaId !== undefined) entrada.contaId = contaId;
         Object.freeze(entrada);
         entradasContaPagarConfiaveis.add(entrada);
+        return entrada;
+    }
+
+    function criarEntradaReclassificacaoContaPagar(contaPagarReferencia,
+        categoriaFinanceiraReferencia, centroCustoReferencia, motivo, operacaoId,
+        atualizadoEm, dataReferencia, responsavel, persistenciaVersao,
+        persistenciaData, persistenciaUltimaEdicao) {
+        const textos = [contaPagarReferencia, categoriaFinanceiraReferencia,
+            centroCustoReferencia, motivo, operacaoId, atualizadoEm, dataReferencia,
+            responsavel, persistenciaVersao, persistenciaData];
+        if (textos.some((valor) => typeof valor !== 'string')
+            || typeof persistenciaUltimaEdicao !== 'number') return null;
+        const entrada = {
+            contaPagarReferencia, categoriaFinanceiraReferencia, centroCustoReferencia,
+            motivo, operacaoId, atualizadoEm, dataReferencia, responsavel,
+            persistencia: Object.freeze({ versao: persistenciaVersao,
+                data: persistenciaData, ultimaEdicao: persistenciaUltimaEdicao })
+        };
+        Object.freeze(entrada);
+        entradasReclassificacaoContaPagarConfiaveis.add(entrada);
         return entrada;
     }
 
@@ -7197,6 +7222,86 @@
             : { estado: 'pendente', conciliacao: null };
     }
 
+    function criarSnapshotsClassificacaoContaPagar(estado, categoriaReferencia,
+        centroReferencia, propostaReferencia, locacaoReferencia, exigirAtivos = true) {
+        if (!validarFundacaoClassificacoesFinanceiras(estado)) return null;
+        const categoria = resolverClassificacaoFinanceira(categoriaReferencia, 'categoria', estado);
+        const centro = resolverClassificacaoFinanceira(centroReferencia, 'centro', estado);
+        if (categoria.estado !== 'encontrada' || centro.estado !== 'encontrada'
+            || !validarRegistroClassificacaoFinanceira(categoria.registro, 'categoria')
+            || !validarRegistroClassificacaoFinanceira(centro.registro, 'centro')
+            || !['despesa', 'ambas'].includes(categoria.registro.naturezaPermitida)
+            || (exigirAtivos && (categoria.registro.situacao !== 'ativa'
+                || centro.registro.situacao !== 'ativo'))
+            || (centro.registro.propostaReferencia
+                && centro.registro.propostaReferencia !== propostaReferencia)
+            || (centro.registro.locacaoReferencia
+                && centro.registro.locacaoReferencia !== locacaoReferencia)) return null;
+        return {
+            categoriaFinanceiraSnapshot: {
+                id: categoria.registro.id,
+                categoriaFinanceiraReferencia: categoria.registro.categoriaFinanceiraReferencia,
+                codigo: categoria.registro.codigo,
+                nome: categoria.registro.nome,
+                naturezaPermitida: categoria.registro.naturezaPermitida
+            },
+            centroCustoSnapshot: {
+                id: centro.registro.id,
+                centroCustoReferencia: centro.registro.centroCustoReferencia,
+                codigo: centro.registro.codigo,
+                nome: centro.registro.nome,
+                tipo: centro.registro.tipo,
+                propostaReferencia: centro.registro.propostaReferencia,
+                locacaoReferencia: centro.registro.locacaoReferencia
+            }
+        };
+    }
+
+    function validarClassificacaoContaPagar(conta, estado) {
+        if (conta.classificacaoLegada !== false) {
+            return (conta.classificacaoLegada === undefined || conta.classificacaoLegada === true)
+                && textoPagar(conta.categoria, 200, true) !== null
+                && textoPagar(conta.centroCusto, 200, true) !== null
+                && textoPagar(conta.origem, 100, true) !== null;
+        }
+        if (typeof conta.categoriaFinanceiraReferencia !== 'string'
+            || typeof conta.centroCustoReferencia !== 'string'
+            || textoPagar(conta.provenienciaCodigo, 100, true) === null
+            || conta.origem !== 'conta_pagar') return false;
+        const categoria = resolverClassificacaoFinanceira(
+            conta.categoriaFinanceiraReferencia, 'categoria', estado);
+        const centro = resolverClassificacaoFinanceira(
+            conta.centroCustoReferencia, 'centro', estado);
+        const categoriaSnapshot = conta.categoriaFinanceiraSnapshot;
+        const centroSnapshot = conta.centroCustoSnapshot;
+        const chavesCategoriaSnapshot = categoriaSnapshot && typeof categoriaSnapshot === 'object'
+            ? Object.keys(categoriaSnapshot).sort() : [];
+        const chavesCentroSnapshot = centroSnapshot && typeof centroSnapshot === 'object'
+            ? Object.keys(centroSnapshot).sort() : [];
+        if (categoria.estado !== 'encontrada' || centro.estado !== 'encontrada'
+            || !categoriaSnapshot || !centroSnapshot
+            || JSON.stringify(chavesCategoriaSnapshot) !== JSON.stringify([
+                'categoriaFinanceiraReferencia', 'codigo', 'id', 'naturezaPermitida', 'nome'])
+            || JSON.stringify(chavesCentroSnapshot) !== JSON.stringify([
+                'centroCustoReferencia', 'codigo', 'id', 'locacaoReferencia', 'nome',
+                'propostaReferencia', 'tipo'])
+            || !Object.is(categoriaSnapshot.id, categoria.registro.id)
+            || categoriaSnapshot.categoriaFinanceiraReferencia
+                !== conta.categoriaFinanceiraReferencia
+            || textoPagar(categoriaSnapshot.codigo, 50, true) === null
+            || textoPagar(categoriaSnapshot.nome, 200, true) === null
+            || !['despesa', 'ambas'].includes(categoriaSnapshot.naturezaPermitida)
+            || !Object.is(centroSnapshot.id, centro.registro.id)
+            || centroSnapshot.centroCustoReferencia !== conta.centroCustoReferencia
+            || textoPagar(centroSnapshot.codigo, 50, true) === null
+            || textoPagar(centroSnapshot.nome, 200, true) === null
+            || !['administrativo', 'operacional', 'evento'].includes(centroSnapshot.tipo)
+            || typeof centroSnapshot.propostaReferencia !== 'string'
+            || typeof centroSnapshot.locacaoReferencia !== 'string') return false;
+        return conta.categoria === categoriaSnapshot.nome
+            && conta.centroCusto === centroSnapshot.nome;
+    }
+
     function validarContaPagar(conta, estado, hoje) {
         if (!conta || typeof conta !== 'object' || Array.isArray(conta)
             || conta.contaId !== conta.id
@@ -7211,9 +7316,7 @@
             || !validarDataLocalContaReceber(conta.dataEmissao)
             || !instanteFinanceiroIntegro(conta.criadoEm) || !instanteFinanceiroIntegro(conta.atualizadoEm)
             || textoPagar(conta.descricao, 500, true) === null
-            || textoPagar(conta.categoria, 200, true) === null
-            || textoPagar(conta.centroCusto, 200, true) === null
-            || textoPagar(conta.origem, 100, true) === null
+            || !validarClassificacaoContaPagar(conta, estado)
             || !Array.isArray(conta.parcelas) || conta.parcelas.length !== conta.quantidadeParcelas
             || !Array.isArray(conta.historico)) return false;
         const criadoContaMs = instantePagamentoPagarMs(conta.criadoEm);
@@ -7479,10 +7582,16 @@
             && evidencia.propostaReferencia === (entrada.propostaReferencia ?? '')
             && evidencia.locacaoReferencia === (entrada.locacaoReferencia ?? '')
             && evidencia.eventoReferencia === (entrada.eventoReferencia ?? '')
-            && evidencia.categoria === textoPagar(entrada.categoria, 200, true)
-            && evidencia.centroCusto === textoPagar(entrada.centroCusto, 200, true)
+            && evidencia.categoriaFinanceiraReferencia === entrada.categoriaFinanceiraReferencia
+            && evidencia.centroCustoReferencia === entrada.centroCustoReferencia
+            && JSON.stringify(ordenarChavesCanonicas(evidencia.categoriaFinanceiraSnapshot))
+                === JSON.stringify(ordenarChavesCanonicas(registro.categoriaFinanceiraSnapshot))
+            && JSON.stringify(ordenarChavesCanonicas(evidencia.centroCustoSnapshot))
+                === JSON.stringify(ordenarChavesCanonicas(registro.centroCustoSnapshot))
+            && evidencia.classificacaoLegada === false
+            && evidencia.provenienciaCodigo === textoPagar(entrada.provenienciaCodigo, 100, true)
             && evidencia.descricao === textoPagar(entrada.descricao, 500, true)
-            && evidencia.origem === textoPagar(entrada.origem, 100, true)
+            && evidencia.origem === 'conta_pagar'
             && evidencia.originalCentavos === entrada.originalCentavos
             && evidencia.previstoCentavos === previstoCentavos
             && evidencia.quantidadeParcelas === entrada.quantidadeParcelas
@@ -7589,10 +7698,22 @@
                 }
                 if (entrada.eventoReferencia !== '') return null;
                 vinculos.eventoReferencia = '';
+                const classificacao = criarSnapshotsClassificacaoContaPagar(estado,
+                    entrada.categoriaFinanceiraReferencia, entrada.centroCustoReferencia,
+                    vinculos.propostaReferencia, vinculos.locacaoReferencia, true);
+                if (!classificacao) return null;
                 const base = { contaId, contaPagarReferencia: referencia, fornecedorId: fornecedor.id,
                     fornecedorReferencia: entrada.fornecedorReferencia, ...vinculos,
-                    categoria: textoPagar(entrada.categoria, 200, true), centroCusto: textoPagar(entrada.centroCusto, 200, true),
-                    descricao: textoPagar(entrada.descricao, 500, true), origem: textoPagar(entrada.origem, 100, true),
+                    categoriaFinanceiraReferencia: entrada.categoriaFinanceiraReferencia,
+                    categoriaFinanceiraSnapshot: classificacao.categoriaFinanceiraSnapshot,
+                    centroCustoReferencia: entrada.centroCustoReferencia,
+                    centroCustoSnapshot: classificacao.centroCustoSnapshot,
+                    classificacaoLegada: false,
+                    categoria: classificacao.categoriaFinanceiraSnapshot.nome,
+                    centroCusto: classificacao.centroCustoSnapshot.nome,
+                    descricao: textoPagar(entrada.descricao, 500, true),
+                    provenienciaCodigo: textoPagar(entrada.provenienciaCodigo, 100, true),
+                    origem: 'conta_pagar',
                     operacaoId, previstoCentavos, originalCentavos: entrada.originalCentavos,
                     pagoCentavos: 0, saldoCentavos: entrada.originalCentavos, quantidadeParcelas: entrada.quantidadeParcelas,
                     dataEmissao: entrada.dataEmissao, primeiroVencimento: entrada.primeiroVencimento,
@@ -7745,6 +7866,426 @@
 
     function executarCriacaoContaPagarTransacional(entrada, dependencias) {
         return executarCriacaoFundacaoPagar(entrada, dependencias, 'conta-pagar');
+    }
+
+    function estadoFinalReclassificacaoContaPagar(conta) {
+        if (!conta || typeof conta !== 'object' || Array.isArray(conta)) return null;
+        return ordenarChavesCanonicas({
+            categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+            categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+            centroCustoReferencia: conta.centroCustoReferencia,
+            centroCustoSnapshot: conta.centroCustoSnapshot,
+            classificacaoLegada: conta.classificacaoLegada,
+            categoria: conta.categoria,
+            centroCusto: conta.centroCusto,
+            provenienciaCodigo: conta.provenienciaCodigo,
+            origem: conta.origem,
+            atualizadoEm: conta.atualizadoEm,
+            situacaoAdministrativa: conta.situacaoAdministrativa,
+            originalCentavos: conta.originalCentavos,
+            previstoCentavos: conta.previstoCentavos,
+            pagoCentavos: conta.pagoCentavos,
+            saldoCentavos: conta.saldoCentavos,
+            quantidadeParcelas: conta.quantidadeParcelas,
+            parcelasFingerprint: fingerprintFnv1a64(JSON.stringify(ordenarChavesCanonicas(
+                Array.isArray(conta.parcelas) ? conta.parcelas : [])))
+        });
+    }
+
+    function registroReclassificacaoContaPagarEsperado(evidencia, escopo) {
+        const configuracoes = {
+            conta: {
+                id: `historico-${evidencia.operacaoId}`,
+                acao: 'conta_pagar_reclassificada'
+            },
+            locacao: {
+                id: `historico-locacao-${evidencia.operacaoId}`,
+                acao: 'conta_pagar_reclassificada'
+            },
+            auditoria: {
+                id: `auditoria-${evidencia.operacaoId}`,
+                acao: 'reclassificar_conta_pagar',
+                tipo: 'financeiro',
+                descricao: 'Classificação financeira da conta a pagar atualizada.',
+                timestamp: evidencia.atualizadoEm
+            }
+        };
+        const configuracao = configuracoes[escopo];
+        if (!configuracao) return null;
+        return ordenarChavesCanonicas({
+            id: configuracao.id,
+            operacaoId: evidencia.operacaoId,
+            tipo: configuracao.tipo,
+            origem: 'contas_pagar',
+            acao: configuracao.acao,
+            descricao: configuracao.descricao,
+            contaPagarReferencia: evidencia.contaPagarReferencia,
+            locacaoReferencia: evidencia.locacaoReferencia,
+            data: evidencia.atualizadoEm,
+            timestamp: configuracao.timestamp,
+            usuario: evidencia.responsavel,
+            assinaturaPlano: evidencia.assinaturaPlano,
+            evidenciaOperacao: evidencia
+        });
+    }
+
+    function registroReclassificacaoContaPagarCorresponde(registro, evidencia, escopo) {
+        const esperado = registroReclassificacaoContaPagarEsperado(evidencia, escopo);
+        if (!esperado || !registro || typeof registro !== 'object' || Array.isArray(registro)) {
+            return false;
+        }
+        const normalizar = (valor) => JSON.stringify(ordenarChavesCanonicas(valor));
+        const chavesEsperadas = Object.keys(esperado).filter((chave) => esperado[chave] !== undefined);
+        const chavesRegistro = Object.keys(registro).filter((chave) => registro[chave] !== undefined);
+        return normalizar(chavesRegistro.sort()) === normalizar(chavesEsperadas.sort())
+            && chavesEsperadas.every((chave) => Object.prototype.hasOwnProperty.call(registro, chave)
+                && normalizar(registro[chave]) === normalizar(esperado[chave]));
+    }
+
+    function obterEvidenciaReclassificacaoContaPagar(estado, operacaoId) {
+        const historicos = [];
+        for (const conta of (Array.isArray(estado?.contasPagar) ? estado.contasPagar : [])) {
+            (Array.isArray(conta?.historico) ? conta.historico : [])
+                .filter((item) => item?.operacaoId === operacaoId)
+                .forEach((item) => historicos.push({ conta, item }));
+        }
+        const auditoriasOperacao = (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
+            .filter((item) => item?.operacaoId === operacaoId);
+        const historicosLocacao = (Array.isArray(estado?.locacoes) ? estado.locacoes : [])
+            .flatMap((locacao) => (Array.isArray(locacao?.historicoAlteracoes)
+                ? locacao.historicoAlteracoes : []).filter((item) => item?.operacaoId === operacaoId));
+        if (!historicos.length && !auditoriasOperacao.length && !historicosLocacao.length) {
+            return { estado: 'nao_executada', completo: false };
+        }
+        const auditorias = auditoriasOperacao.filter((item) => (
+            item?.acao === 'reclassificar_conta_pagar'));
+        if (historicos.length !== 1 || auditorias.length !== 1
+            || auditorias.length !== auditoriasOperacao.length
+            || historicos[0].item?.acao !== 'conta_pagar_reclassificada') {
+            return { estado: 'parcial', completo: false };
+        }
+        const evidenciaHistorico = historicos[0].item.evidenciaOperacao;
+        const evidenciaAuditoria = auditorias[0].evidenciaOperacao;
+        if (!evidenciaHistorico || JSON.stringify(ordenarChavesCanonicas(evidenciaHistorico))
+            !== JSON.stringify(ordenarChavesCanonicas(evidenciaAuditoria))
+            || (evidenciaHistorico.locacaoReferencia
+                ? historicosLocacao.length !== 1 : historicosLocacao.length !== 0)
+            || (historicosLocacao.length === 1
+                && JSON.stringify(ordenarChavesCanonicas(historicosLocacao[0].evidenciaOperacao))
+                    !== JSON.stringify(ordenarChavesCanonicas(evidenciaHistorico)))) {
+            return { estado: 'parcial', completo: false };
+        }
+        return { estado: 'concluida', completo: true, conta: historicos[0].conta,
+            historico: historicos[0].item, auditoria: auditorias[0],
+            historicoLocacao: historicosLocacao[0] || null,
+            evidencia: evidenciaHistorico };
+    }
+
+    function evidenciaReclassificacaoCorrespondeEntrada(resultado, entrada) {
+        if (!resultado?.completo) return false;
+        const evidencia = resultado.evidencia;
+        if (!evidencia || typeof evidencia !== 'object'
+            || typeof evidencia.assinaturaPlano !== 'string') return false;
+        const plano = { ...evidencia };
+        delete plano.assinaturaPlano;
+        const assinaturaEsperada = `reclassificacao-conta-pagar-v1:fnv1a64:${fingerprintFnv1a64(
+            JSON.stringify(ordenarChavesCanonicas(plano)))}`;
+        const estadoFinal = estadoFinalReclassificacaoContaPagar(resultado.conta);
+        const estadoFinalEsperado = evidencia.estadoFinalConta;
+        return evidencia.operacaoId === entrada.operacaoId
+            && evidencia.contaPagarReferencia === entrada.contaPagarReferencia
+            && evidencia.categoriaFinanceiraReferencia
+                === entrada.categoriaFinanceiraReferencia
+            && evidencia.centroCustoReferencia === entrada.centroCustoReferencia
+            && evidencia.motivo === textoPagar(entrada.motivo, 1000, true)
+            && evidencia.atualizadoEm === entrada.atualizadoEm
+            && evidencia.responsavel === entrada.responsavel
+            && evidencia.assinaturaPlano === assinaturaEsperada
+            && JSON.stringify(estadoFinal) === JSON.stringify(ordenarChavesCanonicas(
+                estadoFinalEsperado))
+            && registroReclassificacaoContaPagarCorresponde(
+                resultado.historico, evidencia, 'conta')
+            && registroReclassificacaoContaPagarCorresponde(
+                resultado.auditoria, evidencia, 'auditoria')
+            && (evidencia.locacaoReferencia
+                ? registroReclassificacaoContaPagarCorresponde(
+                    resultado.historicoLocacao, evidencia, 'locacao')
+                : resultado.historicoLocacao === null);
+    }
+
+    function executarReclassificacaoContaPagarTransacional(entradaRecebida, dependencias = {}) {
+        if (!entradaRecebida
+            || !entradasReclassificacaoContaPagarConfiaveis.has(entradaRecebida)) {
+            return resultadoBase('ENTRADA_RECLASSIFICACAO_PAGAR_NAO_CONFIAVEL');
+        }
+        const permissaoConcedida = () => {
+            try { return typeof dependencias.validarPermissaoPagar === 'function'
+                && dependencias.validarPermissaoPagar('reclassificar_conta_pagar') === true; }
+            catch (_erro) { return false; }
+        };
+        if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA');
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) {
+            return resultadoBase('ENTRADA_RECLASSIFICACAO_PAGAR_INVALIDA');
+        }
+        const cloneEntrada = clonarJsonInterno(entradaRecebida);
+        if (!cloneEntrada.ok) return resultadoBase('ENTRADA_RECLASSIFICACAO_PAGAR_INVALIDA');
+        const entrada = cloneEntrada.valor;
+        const persistencia = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!textoPagar(entrada.contaPagarReferencia, 500, true)
+            || !textoPagar(entrada.categoriaFinanceiraReferencia, 500, true)
+            || !textoPagar(entrada.centroCustoReferencia, 500, true)
+            || !textoPagar(entrada.motivo, 1000, true)
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || !instanteFinanceiroIntegro(entrada.atualizadoEm)
+            || !validarDataLocalContaReceber(entrada.dataReferencia)
+            || !textoPagar(entrada.responsavel, 300, true)
+            || !persistencia || typeof persistencia !== 'object'
+            || typeof persistencia.versao !== 'string'
+            || persistencia.data !== entrada.atualizadoEm
+            || !Number.isSafeInteger(persistencia.ultimaEdicao)
+            || persistencia.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias[nome] !== 'function')
+            || !dependencias.armazenamento) {
+            return resultadoBase('ENTRADA_RECLASSIFICACAO_PAGAR_INVALIDA');
+        }
+        if (travasFornecedor.size || travasContaPagar.size || travasPagamentoContaPagar.size
+            || travasEstornoPagamentoContaPagar.size || travasOperacaoAdministrativaContaPagar.size
+            || travasConciliacaoPagamentoPagar.size || travasReclassificacaoContaPagar.size) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        }
+        travasReclassificacaoContaPagar.add(entrada.contaPagarReferencia);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !validarFundacaoContasPagar(memoria.valor,
+                entrada.dataReferencia)) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            let leitura;
+            try { leitura = dependencias.lerSnapshotLocalConfirmavel(opcoesArmazenamento); }
+            catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok
+                ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !validarFundacaoContasPagar(persistido.valor,
+                entrada.dataReferencia)) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const evidenciaMemoria = obterEvidenciaReclassificacaoContaPagar(
+                memoria.valor, entrada.operacaoId);
+            const evidenciaPersistida = obterEvidenciaReclassificacaoContaPagar(
+                persistido.valor, entrada.operacaoId);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                return evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoria.json === persistido.json
+                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaMemoria, entrada)
+                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaPersistida, entrada)
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
+                        idempotente: true, operacao: { operacaoId: entrada.operacaoId },
+                        renderizar: true })
+                    : resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                        requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada'
+                || evidenciaPersistida.estado !== 'nao_executada'
+                || memoria.json !== persistido.json) return resultadoBase(
+                'OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contas = candidato.valor.contasPagar.filter((conta) => (
+                conta?.contaPagarReferencia === entrada.contaPagarReferencia));
+            if (contas.length !== 1) return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
+            const conta = contas[0];
+            const eraLegada = conta.classificacaoLegada !== false;
+            const provenienciaAnterior = eraLegada ? conta.origem
+                : conta.provenienciaCodigo;
+            const classificacao = criarSnapshotsClassificacaoContaPagar(candidato.valor,
+                entrada.categoriaFinanceiraReferencia, entrada.centroCustoReferencia,
+                conta.propostaReferencia, conta.locacaoReferencia, true);
+            if (!classificacao || !instantePagamentoPagarPosterior(
+                entrada.atualizadoEm, conta.atualizadoEm)) {
+                return resultadoBase('CLASSIFICACAO_PAGAR_INVALIDA');
+            }
+            const classificacaoAnterior = conta.classificacaoLegada === false ? {
+                categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+                categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+                centroCustoReferencia: conta.centroCustoReferencia,
+                centroCustoSnapshot: conta.centroCustoSnapshot,
+                classificacaoLegada: false,
+                provenienciaCodigo: conta.provenienciaCodigo
+            } : {
+                categoria: conta.categoria,
+                centroCusto: conta.centroCusto,
+                origem: conta.origem,
+                classificacaoLegada: true
+            };
+            const provenienciaFinal = provenienciaAnterior || 'reclassificacao_manual';
+            conta.categoriaFinanceiraReferencia = entrada.categoriaFinanceiraReferencia;
+            conta.categoriaFinanceiraSnapshot = classificacao.categoriaFinanceiraSnapshot;
+            conta.centroCustoReferencia = entrada.centroCustoReferencia;
+            conta.centroCustoSnapshot = classificacao.centroCustoSnapshot;
+            conta.classificacaoLegada = false;
+            conta.categoria = classificacao.categoriaFinanceiraSnapshot.nome;
+            conta.centroCusto = classificacao.centroCustoSnapshot.nome;
+            conta.origem = 'conta_pagar';
+            conta.provenienciaCodigo = provenienciaFinal;
+            const plano = {
+                operacaoId: entrada.operacaoId,
+                contaPagarReferencia: conta.contaPagarReferencia,
+                locacaoReferencia: conta.locacaoReferencia || '',
+                classificacaoAnterior,
+                categoriaFinanceiraReferencia: entrada.categoriaFinanceiraReferencia,
+                categoriaFinanceiraSnapshot: classificacao.categoriaFinanceiraSnapshot,
+                centroCustoReferencia: entrada.centroCustoReferencia,
+                centroCustoSnapshot: classificacao.centroCustoSnapshot,
+                estadoFinalConta: estadoFinalReclassificacaoContaPagar(conta),
+                motivo: textoPagar(entrada.motivo, 1000, true),
+                atualizadoEm: entrada.atualizadoEm,
+                responsavel: entrada.responsavel
+            };
+            const assinaturaPlano = `reclassificacao-conta-pagar-v1:fnv1a64:${fingerprintFnv1a64(
+                JSON.stringify(ordenarChavesCanonicas(plano)))}`;
+            const evidenciaOperacao = ordenarChavesCanonicas({ ...plano, assinaturaPlano });
+            conta.historico.push({ id: `historico-${entrada.operacaoId}`,
+                operacaoId: entrada.operacaoId, acao: 'conta_pagar_reclassificada',
+                origem: 'contas_pagar',
+                contaPagarReferencia: conta.contaPagarReferencia,
+                locacaoReferencia: conta.locacaoReferencia || '',
+                data: entrada.atualizadoEm, usuario: entrada.responsavel,
+                assinaturaPlano, evidenciaOperacao });
+            if (conta.locacaoReferencia) {
+                const locacoes = candidato.valor.locacoes.filter((locacao) => (
+                    criarReferenciaTipadaPagar('locacao', locacao?.id) === conta.locacaoReferencia));
+                if (locacoes.length !== 1) return resultadoBase('LOCACAO_PAGAR_NAO_DISPONIVEL');
+                locacoes[0].historicoAlteracoes = [
+                    ...(Array.isArray(locacoes[0].historicoAlteracoes)
+                        ? locacoes[0].historicoAlteracoes : []),
+                    { id: `historico-locacao-${entrada.operacaoId}`,
+                        operacaoId: entrada.operacaoId, acao: 'conta_pagar_reclassificada',
+                        origem: 'contas_pagar',
+                        contaPagarReferencia: conta.contaPagarReferencia,
+                        locacaoReferencia: conta.locacaoReferencia,
+                        data: entrada.atualizadoEm, usuario: entrada.responsavel,
+                        assinaturaPlano, evidenciaOperacao }
+                ];
+            }
+            candidato.valor.logsAuditoria.push({ id: `auditoria-${entrada.operacaoId}`,
+                operacaoId: entrada.operacaoId, tipo: 'financeiro',
+                origem: 'contas_pagar', acao: 'reclassificar_conta_pagar',
+                descricao: 'Classificação financeira da conta a pagar atualizada.',
+                timestamp: entrada.atualizadoEm, data: entrada.atualizadoEm,
+                usuario: entrada.responsavel, contaPagarReferencia: conta.contaPagarReferencia,
+                locacaoReferencia: conta.locacaoReferencia || '',
+                assinaturaPlano, evidenciaOperacao });
+            if (!validarClassificacaoContaPagar(conta, candidato.valor)) {
+                return resultadoBase('CLASSIFICACAO_RECLASSIFICADA_INVALIDA');
+            }
+            if (!validarContaPagar(conta, candidato.valor, entrada.dataReferencia)) {
+                return resultadoBase('CONTA_RECLASSIFICADA_INVALIDA');
+            }
+            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)) {
+                return resultadoBase('CANDIDATO_PAGAR_INVALIDO');
+            }
+            if (!evidenciaReclassificacaoCorrespondeEntrada(
+                obterEvidenciaReclassificacaoContaPagar(candidato.valor, entrada.operacaoId),
+                entrada)) {
+                return resultadoBase('EVIDENCIAS_RECLASSIFICACAO_INVALIDAS');
+            }
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                clonarDescartavel(candidatoCanonico), clonarDescartavel(persistencia)); }
+            catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({ versao: persistencia.versao,
+                data: persistencia.data, ultimaEdicao: persistencia.ultimaEdicao,
+                ...candidatoCanonico });
+            const externo = preparadoValido.ok
+                ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId, fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_PAGAR_NEGADA');
+            try { dependencias.persistirSnapshotLocalConfirmavel(
+                clonarDescartavel(snapshot.valor), opcoesArmazenamento); }
+            catch (_erro) { /* a releitura confirma o resultado */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel(opcoesArmazenamento); }
+            catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok
+                ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok || !validarFundacaoContasPagar(
+                operacionalRelido.valor, entrada.dataReferencia)
+                || !evidenciaReclassificacaoCorrespondeEntrada(
+                    obterEvidenciaReclassificacaoContaPagar(
+                        operacionalRelido.valor, entrada.operacaoId), entrada)) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok
+                || memoriaAtual.json !== memoria.json) return resultadoBase(
+                'OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (!permissaoConcedida()) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            let erroPublicacao = null;
+            try { dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacional.valor), {
+                jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                autorizacaoPublicacao: autorizacao, exigirConfirmacaoInterna: true }); }
+            catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId, fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior, autorizacaoPublicacao: autorizacao }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const avisos = erroPublicacao
+                ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                ultimaEdicao: persistencia.ultimaEdicao,
+                operacaoId: entrada.operacaoId, assinaturaPlano }) === true; }
+            catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('CONTA_PAGAR_RECLASSIFICADA', { ok: true, aplicado: true,
+                publicacaoRealizada: true, renderizar: true, sincronizar, avisos,
+                operacao: { operacaoId: entrada.operacaoId,
+                    contaPagarReferencia: conta.contaPagarReferencia, assinaturaPlano } });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada ? 'CONTA_PAGAR_RECLASSIFICADA'
+                : 'FALHA_RECLASSIFICACAO_PAGAR', { ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacao) try { cancelarAutorizacaoPublicacaoConfiavel(autorizacao); }
+            catch (_erro) { /* autorização encerrada */ }
+            travasReclassificacaoContaPagar.delete(entrada.contaPagarReferencia);
+        }
     }
 
     function localizarPagamentoContaPagarPorOperacao(estado, operacaoId) {
@@ -9510,6 +10051,13 @@
             lancamentoReferencia: base.lancamentoReferencia || '',
             categoria: base.categoria || '',
             centroCusto: base.centroCusto || '',
+            categoriaFinanceiraReferencia: base.categoriaFinanceiraReferencia || '',
+            categoriaFinanceiraSnapshot: base.categoriaFinanceiraSnapshot || null,
+            centroCustoReferencia: base.centroCustoReferencia || '',
+            centroCustoSnapshot: base.centroCustoSnapshot || null,
+            classificacaoLegada: typeof base.classificacaoLegada === 'boolean'
+                ? base.classificacaoLegada : null,
+            provenienciaCodigo: base.provenienciaCodigo || '',
             situacaoFinanceira: base.situacaoFinanceira,
             situacaoConciliacao: base.situacaoConciliacao || 'nao_aplicavel',
             conciliacaoReferencia: base.conciliacaoReferencia || '',
@@ -9867,6 +10415,12 @@
                             lancamentoReferencia: pagamento.pagamentoReferencia,
                             categoria: conta.categoria,
                             centroCusto: conta.centroCusto,
+                            categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+                            categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+                            centroCustoReferencia: conta.centroCustoReferencia,
+                            centroCustoSnapshot: conta.centroCustoSnapshot,
+                            classificacaoLegada: conta.classificacaoLegada !== false,
+                            provenienciaCodigo: conta.provenienciaCodigo,
                             situacaoFinanceira: item.situacao,
                             situacaoConciliacao: situacaoConciliacaoEfetiva,
                             conciliacaoReferencia: situacaoConciliacao.conciliacao
@@ -9899,6 +10453,12 @@
                             lancamentoReferencia: estorno.estornoPagamentoReferencia,
                             categoria: conta.categoria,
                             centroCusto: conta.centroCusto,
+                            categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+                            categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+                            centroCustoReferencia: conta.centroCustoReferencia,
+                            centroCustoSnapshot: conta.centroCustoSnapshot,
+                            classificacaoLegada: conta.classificacaoLegada !== false,
+                            provenienciaCodigo: conta.provenienciaCodigo,
                             situacaoFinanceira: item.situacao,
                             situacaoConciliacao: 'nao_aplicavel',
                             origem: 'conta_pagar',
@@ -9928,6 +10488,12 @@
                             parcelaReferencia: parcela.parcelaReferencia,
                             categoria: conta.categoria,
                             centroCusto: conta.centroCusto,
+                            categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+                            categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+                            centroCustoReferencia: conta.centroCustoReferencia,
+                            centroCustoSnapshot: conta.centroCustoSnapshot,
+                            classificacaoLegada: conta.classificacaoLegada !== false,
+                            provenienciaCodigo: conta.provenienciaCodigo,
                             situacaoFinanceira: situacaoEfetivaParcelaPagar(parcela, dataReferencia),
                             origem: 'conta_pagar',
                             detalhes: `${conta.descricao} · ${parcela.numero}/${parcela.totalParcelas}`
@@ -11882,6 +12448,8 @@
     window.criarReferenciaTipadaPagar = criarReferenciaTipadaPagar;
     window.criarEntradaCadastroFornecedorPagar = criarEntradaCadastroFornecedorPagar;
     window.criarEntradaCriacaoContaPagar = criarEntradaCriacaoContaPagar;
+    window.criarEntradaReclassificacaoContaPagar
+        = criarEntradaReclassificacaoContaPagar;
     window.criarComprovantePagamentoContaPagar = criarComprovantePagamentoContaPagar;
     window.criarEntradaPagamentoContaPagar = criarEntradaPagamentoContaPagar;
     window.criarEntradaEstornoPagamentoContaPagar = criarEntradaEstornoPagamentoContaPagar;
@@ -11891,6 +12459,8 @@
         = criarEntradaDesconsideracaoConciliacaoPagamentoPagar;
     window.executarCadastroFornecedorTransacional = executarCadastroFornecedorTransacional;
     window.executarCriacaoContaPagarTransacional = executarCriacaoContaPagarTransacional;
+    window.executarReclassificacaoContaPagarTransacional
+        = executarReclassificacaoContaPagarTransacional;
     window.executarPagamentoContaPagarTransacional = executarPagamentoContaPagarTransacional;
     window.executarEstornoPagamentoContaPagarTransacional = executarEstornoPagamentoContaPagarTransacional;
     window.executarOperacaoAdministrativaContaPagarTransacional

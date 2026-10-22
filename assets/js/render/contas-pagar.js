@@ -4,6 +4,7 @@
 
     let sessaoFornecedor = null;
     let sessaoConta = null;
+    let sessaoReclassificacao = null;
     let sessaoPagamento = null;
     let sessaoEstorno = null;
     let sessaoOperacaoAdministrativa = null;
@@ -88,6 +89,46 @@
             .filter((item) => item?.situacao === 'ativa' && contagens.get(item.fornecedorReferencia) === 1)
             .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
                 || a.fornecedorReferencia.localeCompare(b.fornecedorReferencia));
+    }
+
+    function classificacoesFinanceirasAtivas() {
+        const estado = estadoPagar();
+        const unicas = (colecao, chave) => {
+            const contagens = new Map();
+            (Array.isArray(colecao) ? colecao : []).forEach((item) => {
+                const referencia = typeof item?.[chave] === 'string' ? item[chave] : '';
+                if (referencia) contagens.set(referencia, (contagens.get(referencia) || 0) + 1);
+            });
+            return (Array.isArray(colecao) ? colecao : []).filter((item) => (
+                contagens.get(item?.[chave]) === 1));
+        };
+        return {
+            categorias: unicas(estado?.categoriasFinanceiras, 'categoriaFinanceiraReferencia')
+                .filter((item) => item.situacao === 'ativa'
+                    && ['despesa', 'ambas'].includes(item.naturezaPermitida)),
+            centros: unicas(estado?.centrosCusto, 'centroCustoReferencia')
+                .filter((item) => item.situacao === 'ativo')
+        };
+    }
+
+    function preencherSeletoresClassificacao(categoriaId, centroId, valores = {}) {
+        const ativos = classificacoesFinanceirasAtivas();
+        const categoria = document.getElementById(categoriaId);
+        const centro = document.getElementById(centroId);
+        if (categoria) {
+            categoria.replaceChildren(new Option('Selecione...', ''));
+            ativos.categorias.sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR'))
+                .forEach((item) => categoria.append(new Option(
+                    `${item.codigo} · ${item.nome}`, item.categoriaFinanceiraReferencia)));
+            categoria.value = valores.categoria || '';
+        }
+        if (centro) {
+            centro.replaceChildren(new Option('Selecione...', ''));
+            ativos.centros.sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR'))
+                .forEach((item) => centro.append(new Option(
+                    `${item.codigo} · ${item.nome}`, item.centroCustoReferencia)));
+            centro.value = valores.centro || '';
+        }
     }
 
     function definirErroPagar(modalId, mensagem, campo) {
@@ -319,6 +360,7 @@
         select.replaceChildren(new Option('Selecione...', ''));
         fornecedores.forEach((item) => select.append(new Option(item.nome, item.fornecedorReferencia)));
         popularVinculosContaPagar();
+        preencherSeletoresClassificacao('contaPagarCategoria', 'contaPagarCentroCusto');
         document.getElementById('contaPagarEmissao').value = hojeLocalPagar();
         document.getElementById('contaPagarVencimento').value = hojeLocalPagar();
         document.getElementById('contaPagarParcelas').value = '1';
@@ -338,6 +380,7 @@
             && !validarPermissao('criar_conta_pagar', 'Você não possui permissão para criar contas a pagar.')) return false;
         const fornecedor = document.getElementById('contaPagarFornecedor');
         const descricao = document.getElementById('contaPagarDescricao');
+        const categoria = document.getElementById('contaPagarCategoria');
         const centroCusto = document.getElementById('contaPagarCentroCusto');
         const origem = document.getElementById('contaPagarOrigem');
         const valor = document.getElementById('contaPagarValor');
@@ -347,7 +390,7 @@
         const quantidadeTexto = document.getElementById('contaPagarParcelas')?.value || '';
         const quantidadeParcelas = /^\d+$/.test(quantidadeTexto) ? Number(quantidadeTexto) : NaN;
         let campoErro = !fornecedor?.value ? fornecedor : !descricao?.value.trim() ? descricao
-            : !centroCusto?.value.trim() ? centroCusto
+            : !categoria?.value ? categoria : !centroCusto?.value ? centroCusto
                 : !origem?.value.trim() ? origem
             : originalCentavos === null || originalCentavos <= 0 ? valor
                 : previstoCentavos === null ? document.getElementById('contaPagarPrevisto')
@@ -355,8 +398,9 @@
                         || quantidadeParcelas > originalCentavos ? document.getElementById('contaPagarParcelas')
                         : null;
         if (campoErro) {
-            const mensagem = campoErro === centroCusto ? 'Informe o centro de custo.'
-                : campoErro === origem ? 'Informe a origem.'
+            const mensagem = campoErro === categoria ? 'Selecione a categoria financeira.'
+                : campoErro === centroCusto ? 'Selecione o centro de custo.'
+                : campoErro === origem ? 'Informe a proveniência.'
                     : 'Confira os campos obrigatórios e os valores informados.';
             definirErroPagar('modalContaPagar', mensagem, campoErro);
             return false;
@@ -419,15 +463,45 @@
         const busca = normalizarBuscaPagar(document.getElementById('buscaContasPagar')?.value || '');
         const situacao = document.getElementById('filtroContaPagarSituacao')?.value || 'todos';
         const fornecedor = document.getElementById('filtroContaPagarFornecedor');
+        const filtroCategoria = document.getElementById('filtroContaPagarCategoria');
+        const filtroCentro = document.getElementById('filtroContaPagarCentroCusto');
         const atual = fornecedor?.value || '';
         if (fornecedor) {
             fornecedor.replaceChildren(new Option('Todos os fornecedores', ''));
             fornecedoresValidos().forEach((item) => fornecedor.append(new Option(item.nome, item.fornecedorReferencia)));
             fornecedor.value = [...fornecedor.options].some((opcao) => opcao.value === atual) ? atual : '';
         }
+        const preencherFiltroClassificacao = (select, itens, chaveReferencia, rotulo) => {
+            if (!select) return;
+            const valorAtual = select.value;
+            select.replaceChildren(new Option(rotulo, ''),
+                new Option('Classificação legada', 'legado'));
+            itens.slice().sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR'))
+                .forEach((item) => select.append(new Option(`${item.codigo} · ${item.nome}`,
+                    item[chaveReferencia])));
+            select.value = [...select.options].some((opcao) => opcao.value === valorAtual)
+                ? valorAtual : '';
+        };
+        const classificacoes = {
+            categorias: [...new Map(contas.filter((item) => item.conta?.classificacaoLegada === false)
+                .map((item) => [item.conta.categoriaFinanceiraReferencia,
+                    item.conta.categoriaFinanceiraSnapshot])).values()],
+            centros: [...new Map(contas.filter((item) => item.conta?.classificacaoLegada === false)
+                .map((item) => [item.conta.centroCustoReferencia,
+                    item.conta.centroCustoSnapshot])).values()]
+        };
+        preencherFiltroClassificacao(filtroCategoria, classificacoes.categorias,
+            'categoriaFinanceiraReferencia', 'Todas as categorias');
+        preencherFiltroClassificacao(filtroCentro, classificacoes.centros,
+            'centroCustoReferencia', 'Todos os centros de custo');
         const filtradas = contas.filter((item) => {
             if (situacao !== 'todos' && item.situacao !== situacao) return false;
             if (fornecedor?.value && item.conta?.fornecedorReferencia !== fornecedor.value) return false;
+            const legado = item.conta?.classificacaoLegada !== false;
+            if (filtroCategoria?.value && (filtroCategoria.value === 'legado'
+                ? !legado : item.conta?.categoriaFinanceiraReferencia !== filtroCategoria.value)) return false;
+            if (filtroCentro?.value && (filtroCentro.value === 'legado'
+                ? !legado : item.conta?.centroCustoReferencia !== filtroCentro.value)) return false;
             return !busca || normalizarBuscaPagar(`${item.fornecedor?.nome || ''} ${item.conta?.descricao || ''} ${item.conta?.categoria || ''} ${item.referencia}`).includes(busca);
         }).sort((a, b) => (a.proximoVencimento || '9999-99-99').localeCompare(b.proximoVencimento || '9999-99-99')
             || a.referencia.localeCompare(b.referencia));
@@ -440,7 +514,7 @@
         corpo.innerHTML = filtradas.length ? filtradas.map((item) => item.bloqueada
             ? `<tr><td colspan="8"><span class="badge badge-danger">${escaparPagar(item.estado)}</span> Conta bloqueada por identidade ou estrutura inválida.</td></tr>`
             : `<tr><td>${escaparPagar(item.fornecedor?.nome || 'Fornecedor indisponível')}</td>
-                <td>${escaparPagar(item.conta.descricao)}</td><td>${escaparPagar(item.conta.categoria)}</td>
+                <td>${escaparPagar(item.conta.descricao)}</td><td>${escaparPagar(item.conta.categoria)}${item.conta.classificacaoLegada !== false ? ' <span class="badge badge-warning">Classificação legada</span>' : ''}</td>
                 <td>${escaparPagar(item.proximoVencimento || '-')}</td><td>${formatarCentavosPagar(item.totalCentavos)}</td>
                 <td>${formatarCentavosPagar(item.saldoCentavos)}</td><td><span class="badge badge-info">${escaparPagar(item.situacaoAdministrativa)}</span> <span class="badge">${escaparPagar(item.situacaoFinanceira)}</span></td>
                 <td><button type="button" class="btn btn-sm btn-info" data-action="abrirDetalhesContaPagar" data-arg="${escaparPagar(item.referencia)}" aria-label="Ver detalhes da conta"><i class="bi bi-list-check"></i></button></td></tr>`).join('')
@@ -461,11 +535,15 @@
         const contaAtiva = item.conta.situacaoAdministrativa === 'ativa';
         const podeCancelar = typeof temPermissao !== 'function' || temPermissao('cancelar_conta_pagar');
         const podeEncerrar = typeof temPermissao !== 'function' || temPermissao('encerrar_conta_pagar');
+        const podeReclassificar = typeof temPermissao !== 'function'
+            || temPermissao('reclassificar_conta_pagar');
         const argumentoConta = (acao) => escaparPagar(encodeURIComponent(JSON.stringify([
             acao, item.referencia, ''
         ])));
         document.getElementById('detalhesContaPagarAcoes').innerHTML = contaAtiva
-            ? `${podeCancelar && item.conta.saldoCentavos > 0
+            ? `${podeReclassificar
+                ? `<button type="button" class="btn btn-secondary" data-action="abrirReclassificacaoContaPagar" data-arg="${escaparPagar(item.referencia)}">Reclassificar</button>` : ''}
+                ${podeCancelar && item.conta.saldoCentavos > 0
                 ? `<button type="button" class="btn btn-warning" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoConta('cancelar_conta_pagar')}">Cancelar conta</button>` : ''}
                 ${podeEncerrar
                 ? `<button type="button" class="btn btn-secondary" data-action="abrirOperacaoAdministrativaContaPagar" data-arg="${argumentoConta('encerrar_conta_pagar')}">Encerrar conta</button>` : ''}` : '';
@@ -569,6 +647,84 @@
 
     function fecharDetalhesContaPagar() {
         return fecharModalPagar('modalDetalhesContaPagar');
+    }
+
+    function abrirReclassificacaoContaPagar(contaReferencia) {
+        if (sessaoReclassificacao || emProcessamento || typeof contaReferencia !== 'string') return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('reclassificar_conta_pagar',
+                'Você não possui permissão para reclassificar contas a pagar.')) return false;
+        const contas = (estadoPagar()?.contasPagar || []).filter((conta) => (
+            conta?.contaPagarReferencia === contaReferencia));
+        if (contas.length !== 1) return false;
+        const conta = contas[0];
+        sessaoReclassificacao = { contaReferencia,
+            operacaoId: operacaoIdPagar('reclassificar-conta-pagar') };
+        document.getElementById('formReclassificacaoContaPagar')?.reset();
+        preencherSeletoresClassificacao('reclassificacaoContaPagarCategoria',
+            'reclassificacaoContaPagarCentro', {
+                categoria: conta.classificacaoLegada === false
+                    ? conta.categoriaFinanceiraReferencia : '',
+                centro: conta.classificacaoLegada === false ? conta.centroCustoReferencia : ''
+            });
+        registrarModalPagar('modalReclassificacaoContaPagar',
+            fecharReclassificacaoContaPagar, confirmarReclassificacaoContaPagar);
+        const acionador = document.activeElement instanceof HTMLElement
+            ? document.activeElement : null;
+        document.getElementById('modalDetalhesContaPagar')?.classList.remove('active');
+        document.getElementById('modalDetalhesContaPagar')?.setAttribute('aria-hidden', 'true');
+        return abrirModalPagar('modalReclassificacaoContaPagar',
+            'reclassificacaoContaPagarCategoria', acionador, null,
+            'modalDetalhesContaPagar');
+    }
+
+    function fecharReclassificacaoContaPagar() {
+        if (!fecharModalPagar('modalReclassificacaoContaPagar')) return false;
+        sessaoReclassificacao = null;
+        return true;
+    }
+
+    function confirmarReclassificacaoContaPagar() {
+        if (!sessaoReclassificacao || emProcessamento) return false;
+        if (typeof validarPermissao === 'function'
+            && !validarPermissao('reclassificar_conta_pagar',
+                'Você não possui permissão para reclassificar contas a pagar.')) return false;
+        const categoria = document.getElementById('reclassificacaoContaPagarCategoria');
+        const centro = document.getElementById('reclassificacaoContaPagarCentro');
+        const motivo = document.getElementById('reclassificacaoContaPagarMotivo');
+        const campoErro = !categoria?.value ? categoria : !centro?.value ? centro
+            : !motivo?.value.trim() ? motivo : null;
+        if (campoErro) {
+            definirErroPagar('modalReclassificacaoContaPagar',
+                'Selecione categoria e centro de custo e informe o motivo.', campoErro);
+            return false;
+        }
+        const agora = agoraIsoPagar();
+        const metadados = metadadosPagar(agora);
+        const entrada = typeof criarEntradaReclassificacaoContaPagar === 'function'
+            ? criarEntradaReclassificacaoContaPagar(sessaoReclassificacao.contaReferencia,
+                categoria.value, centro.value, motivo.value,
+                sessaoReclassificacao.operacaoId, agora, hojeLocalPagar(), usuarioPagar(),
+                metadados.versao, metadados.data, metadados.ultimaEdicao) : null;
+        if (!entrada || typeof executarReclassificacaoContaPagarTransacional !== 'function'
+            || typeof criarDependenciasExecutorContasPagar !== 'function') return false;
+        emProcessamento = true;
+        try {
+            const resultado = executarReclassificacaoContaPagarTransacional(entrada,
+                criarDependenciasExecutorContasPagar({ armazenamento: localStorage }));
+            executarEfeitosPagar(resultado);
+            if (resultado.ok && ['CONTA_PAGAR_RECLASSIFICADA',
+                'OPERACAO_JA_CONCLUIDA'].includes(resultado.codigo)) {
+                emProcessamento = false;
+                fecharReclassificacaoContaPagar();
+                if (typeof mostrarToast === 'function') mostrarToast('Conta reclassificada.');
+                return true;
+            }
+            definirErroPagar('modalReclassificacaoContaPagar', resultado.requerRecuperacao
+                ? 'A operação exige recuperação explícita antes de continuar.'
+                : 'Não foi possível reclassificar a conta.', categoria);
+            return false;
+        } finally { emProcessamento = false; }
     }
 
     function resolverArgumentoPagamentoPagar(argumento) {
@@ -1170,6 +1326,9 @@
     window.salvarContaPagar = salvarContaPagar;
     window.abrirDetalhesContaPagar = abrirDetalhesContaPagar;
     window.fecharDetalhesContaPagar = fecharDetalhesContaPagar;
+    window.abrirReclassificacaoContaPagar = abrirReclassificacaoContaPagar;
+    window.fecharReclassificacaoContaPagar = fecharReclassificacaoContaPagar;
+    window.confirmarReclassificacaoContaPagar = confirmarReclassificacaoContaPagar;
     window.abrirPagamentoContaPagar = abrirPagamentoContaPagar;
     window.fecharPagamentoContaPagar = fecharPagamentoContaPagar;
     window.confirmarPagamentoContaPagar = confirmarPagamentoContaPagar;

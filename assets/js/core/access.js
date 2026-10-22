@@ -93,6 +93,7 @@ function temPermissao(acao) {
         'editar_fornecedor',
         'visualizar_contas_pagar',
         'criar_conta_pagar',
+        'reclassificar_conta_pagar',
         'visualizar_classificacoes_financeiras',
         'cadastrar_categoria_financeira',
         'editar_categoria_financeira',
