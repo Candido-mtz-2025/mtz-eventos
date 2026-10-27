@@ -10987,6 +10987,7 @@
                     continue;
                 }
                 const movimentosConta = [];
+                const classificacao = classificacaoVigenteReceber(conta);
                 let contaInvalida = false;
                 for (const parcela of conta.parcelas) {
                     for (const lancamento of parcela.lancamentosFinanceiros) {
@@ -11015,6 +11016,7 @@
                             contaReferencia: conta.contaReferencia,
                             parcelaReferencia: parcela.parcelaReferencia,
                             lancamentoReferencia,
+                            ...classificacao,
                             situacaoFinanceira: projecaoConta.situacao,
                             situacaoConciliacao: conciliacao.estado,
                             conciliacaoReferencia: conciliacao.conciliacao?.conciliacaoReferencia || '',
@@ -11050,6 +11052,7 @@
                             evento,
                             contaReferencia: conta.contaReferencia,
                             parcelaReferencia: parcela.parcelaReferencia,
+                            ...classificacao,
                             situacaoFinanceira: situacaoParcela,
                             origem: 'conta_receber',
                             detalhes: `Parcela ${parcela.numero}/${parcela.totalParcelas}`

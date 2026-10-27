@@ -1294,7 +1294,8 @@
             if (natureza !== 'todos' && item.natureza !== natureza) return false;
             if (situacao !== 'todos' && item.situacaoFinanceira !== situacao) return false;
             if (conciliacao !== 'todos' && item.situacaoConciliacao !== conciliacao) return false;
-            const legado = item.classificacaoLegada === true;
+            const legado = item.classificacaoLegada === true
+                && ['conta_receber', 'conta_pagar'].includes(item.origem);
             if (categoria && (categoria === 'legado' ? !legado
                 : item.categoriaFinanceiraReferencia !== categoria)) return false;
             if (centroCusto && (centroCusto === 'legado' ? !legado
@@ -1304,7 +1305,9 @@
             if (!busca) return true;
             return normalizarTextoBusca([
                 item.clienteNome, item.evento, item.locacaoReferencia, item.contaReferencia,
-                item.parcelaReferencia, item.operacaoId, item.detalhes
+                item.parcelaReferencia, item.operacaoId, item.detalhes,
+                item.categoriaFinanceiraSnapshot?.codigo, item.categoriaFinanceiraSnapshot?.nome,
+                item.centroCustoSnapshot?.codigo, item.centroCustoSnapshot?.nome
             ].join(' ')).includes(busca);
         }).sort((a, b) => a.data.localeCompare(b.data)
             || a.natureza.localeCompare(b.natureza)
@@ -1545,12 +1548,19 @@
         const modal = document.getElementById('modalDetalhesFluxoCaixa');
         const conteudo = document.getElementById('detalhesFluxoCaixaConteudo');
         if (!movimento || !modal || !conteudo) return false;
+        const rotuloClassificacao = (snapshot) => snapshot
+            ? `${snapshot.codigo} · ${snapshot.nome}`
+            : movimento.classificacaoLegada === true
+                && ['conta_receber', 'conta_pagar'].includes(movimento.origem)
+                ? 'Classificação legada' : 'Sem classificação';
         const campos = [
             ['Data do movimento', formatarDataCurta(movimento.data)],
             ['Natureza', movimento.natureza], ['Valor', formatarCentavosFluxoCaixa(movimento.valorLiquidoCentavos)],
             ['Cliente', movimento.clienteNome], ['Referência do cliente', movimento.clienteReferencia],
             ['Referência da locação', movimento.locacaoReferencia], ['Conta', movimento.contaReferencia || 'Legado'],
             ['Parcela', movimento.parcelaReferencia || '-'], ['Lançamento', movimento.lancamentoReferencia || '-'],
+            ['Categoria financeira', rotuloClassificacao(movimento.categoriaFinanceiraSnapshot)],
+            ['Centro de custo', rotuloClassificacao(movimento.centroCustoSnapshot)],
             ['Operação', movimento.operacaoId || '-'], ['Responsável', movimento.responsavel || '-'],
             ['Conciliação', movimento.situacaoConciliacao], ['Data bancária', movimento.dataBancaria || '-'],
             ['Auditoria', movimento.auditoriaConfirmada ? 'Evidências confirmadas' : 'Não aplicável'],
