@@ -2079,6 +2079,19 @@
                         </table>
                     </div>
                 </div>
+                <section class="section-gap" id="resultadoLocacaoPainel" aria-labelledby="resultadoLocacaoTitulo" hidden>
+                    <h3 id="resultadoLocacaoTitulo">Resultado financeiro por locação</h3>
+                    <label for="resultadoLocacaoReferencia">Locação</label>
+                    <select id="resultadoLocacaoReferencia" aria-describedby="resultadoLocacaoDiagnostico" data-change="renderResultadoFinanceiroLocacao"><option value="">Selecione uma locação</option></select>
+                    <p id="resultadoLocacaoDiagnostico" class="muted-note" role="status" aria-live="polite"></p>
+                    <div id="resultadoLocacaoIndicadores" class="locacao-kpi-grid fluxo-caixa-kpis" aria-label="Valores das contas vinculadas"></div>
+                    <div class="table-responsive fluxo-caixa-tabela" role="region" aria-label="Contas diretamente vinculadas à locação" tabindex="0">
+                        <table class="table"><caption>Saldos documentais e previsões projetáveis são apresentados separadamente.</caption>
+                            <thead><tr><th scope="col">Natureza</th><th scope="col">Conta</th><th scope="col">Situação</th><th scope="col">Total registrado</th><th scope="col">Recebido / pago líquido</th><th scope="col">Saldo documental</th><th scope="col">Saldo projetável</th></tr></thead>
+                            <tbody id="resultadoLocacaoContas"></tbody>
+                        </table>
+                    </div>
+                </section>
                 <div class="card section-gap" id="contasReceberPainel">
                     <div class="section-toolbar"><div><h3>Contas a receber</h3><p class="muted-note">Parcelas, vencimentos e recebimentos confirmados.</p></div></div>
                     <div class="locacao-kpi-grid" aria-label="Totais das contas a receber">
@@ -3538,7 +3551,7 @@
     <script src="./assets/js/core/migrations.js?v=12.21"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.19"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.51"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.54"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
     <script src="./assets/js/core/state-adapter.js?v=2.18"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
@@ -3563,7 +3576,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=3.11"></script>
+    <script src="./assets/js/render/novas-abas.js?v=3.12"></script>
     <script src="./assets/js/render/contas-pagar.js?v=2.7"></script>
     <script src="./assets/js/render/classificacoes-financeiras.js?v=1.1"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>

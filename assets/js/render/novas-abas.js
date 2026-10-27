@@ -1739,10 +1739,79 @@
         return true;
     }
 
+    function renderResultadoFinanceiroLocacao() {
+        const painel = document.getElementById('resultadoLocacaoPainel');
+        const seletor = document.getElementById('resultadoLocacaoReferencia');
+        const indicadores = document.getElementById('resultadoLocacaoIndicadores');
+        const detalhes = document.getElementById('resultadoLocacaoContas');
+        const diagnostico = document.getElementById('resultadoLocacaoDiagnostico');
+        if (!painel || !seletor || !indicadores || !detalhes || !diagnostico) return;
+        indicadores.replaceChildren();
+        detalhes.replaceChildren();
+        diagnostico.textContent = '';
+        const permitido = typeof temPermissao === 'function'
+            && temPermissao('visualizar_fluxo_caixa') && temPermissao('visualizar_contas_pagar');
+        painel.hidden = !permitido;
+        if (!permitido) {
+            seletor.replaceChildren();
+            return;
+        }
+        const estado = typeof obterEstadoMemoriaAtual === 'function' ? obterEstadoMemoriaAtual() : null;
+        const anterior = seletor.value;
+        seletor.replaceChildren(new Option('Selecione uma locação', ''));
+        const contagens = new Map();
+        for (const locacao of estado?.locacoes || []) {
+            const ref = criarReferenciaTipadaLocacao(locacao.id);
+            if (ref) contagens.set(ref, (contagens.get(ref) || 0) + 1);
+        }
+        const opcoes = (estado?.locacoes || []).flatMap((locacao) => {
+            const referencia = criarReferenciaTipadaLocacao(locacao.id);
+            if (!referencia || contagens.get(referencia) !== 1) return [];
+            const clientes = (estado.locadores || []).filter((c) => typeof c.id === typeof locacao.locadorId
+                && Object.is(c.id, locacao.locadorId));
+            if (clientes.length !== 1) return [];
+            return [{ referencia, nome: `${clientes[0].nome || 'Cliente'} · ${locacao.eventoNome || 'Locação'} · ${referencia}` }];
+        }).sort((a, b) => compararTextoDeterministico(a.nome, b.nome)
+            || compararTextoDeterministico(a.referencia, b.referencia));
+        opcoes.forEach((o) => seletor.append(new Option(o.nome, o.referencia)));
+        seletor.value = opcoes.some((o) => o.referencia === anterior) ? anterior : '';
+        if (!seletor.value) {
+            diagnostico.textContent = anterior ? 'Locação indisponível ou ambígua. Selecione um vínculo válido.'
+                : 'Selecione uma locação para consultar as contas diretamente vinculadas.';
+            return;
+        }
+        const resultado = typeof obterResultadoFinanceiroLocacao === 'function'
+            ? obterResultadoFinanceiroLocacao(estado, seletor.value, dataLocalFinanceiro()) : null;
+        const campos = [
+            ['receitaContratadaCentavos', 'Receita contratada registrada'],
+            ['receitaRecebidaCentavos', 'Receita recebida líquida'],
+            ['saldoReceberDocumentalCentavos', 'Saldo documental a receber'],
+            ['despesasRegistradasCentavos', 'Despesas diretamente vinculadas'],
+            ['despesasPagasCentavos', 'Despesas pagas líquidas'],
+            ['saldoPagarDocumentalCentavos', 'Saldo documental a pagar'],
+            ['resultadoRealizadoCentavos', 'Resultado realizado das contas vinculadas'],
+            ['resultadoProjetadoCentavos', 'Resultado projetado registrado']
+        ];
+        indicadores.innerHTML = campos.map(([chave, nome]) => `<div class="locacao-kpi-card"><small>${nome}</small><strong>${
+            resultado?.ok ? formatarCentavosFluxoCaixa(resultado.indicadores[chave]) : 'Valor indisponível'}</strong></div>`).join('');
+        if (!resultado?.ok) {
+            diagnostico.textContent = `Valor indisponível. A integridade, os vínculos ou a data de referência não puderam ser comprovados (${resultado?.codigo || 'PROJECAO_AUSENTE'}).`;
+            return;
+        }
+        diagnostico.textContent = `Posição em ${formatarDataCurta(resultado.dataReferencia)}. ${resultado.avisos.join(' ')}`;
+        detalhes.innerHTML = [...resultado.contasReceber.map((c) => ({ ...c, natureza: 'Receita' })),
+            ...resultado.contasPagar.map((c) => ({ ...c, natureza: 'Despesa' }))].map((c) => (
+            `<tr><th scope="row">${c.natureza}</th><td>${sanitizarTexto(c.referencia || 'Legado')}<div class="table-cell-sub">${sanitizarTexto(c.descricao)}</div></td><td>${sanitizarTexto(c.situacao)}</td>${
+                [c.totalCentavos, c.realizadoCentavos, c.saldoDocumentalCentavos, c.saldoProjetavelCentavos]
+                    .map((v) => `<td class="fluxo-caixa-valor">${formatarCentavosFluxoCaixa(v)}</td>`).join('')}</tr>`
+        )).join('');
+    }
+
     function renderFinanceiroResumo() {
         const tabela = document.getElementById('tblFinanceiro');
         if (!tabela) return;
         renderContasReceberDetalhadas();
+        renderResultadoFinanceiroLocacao();
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -2060,6 +2129,7 @@
 
     window.renderOrcamentos = renderOrcamentos;
     window.renderFinanceiroResumo = renderFinanceiroResumo;
+    window.renderResultadoFinanceiroLocacao = renderResultadoFinanceiroLocacao;
     window.renderFluxoCaixa = renderFluxoCaixa;
     window.limparFiltrosFluxoCaixa = limparFiltrosFluxoCaixa;
     window.abrirDetalhesFluxoCaixa = abrirDetalhesFluxoCaixa;

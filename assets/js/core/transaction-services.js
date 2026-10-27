@@ -6919,14 +6919,59 @@
                 === JSON.stringify(ordenarChavesCanonicas(esperado[chave])));
     }
 
+    function localizarConteineresEvidenciasPagar(estado, conta, parcela, registro, colecao) {
+        if (!estado || !conta || !parcela || !registro
+            || !Array.isArray(estado.contasPagar) || !Array.isArray(estado.locacoes)
+            || !Array.isArray(estado.logsAuditoria)) return null;
+        const contaResolvida = resolverReferenciaExataPagar(
+            conta.contaPagarReferencia, 'conta-pagar', estado.contasPagar);
+        const parcelaResolvida = resolverReferenciaExataPagar(
+            parcela.parcelaReferencia, 'parcela-pagar', conta.parcelas);
+        if (contaResolvida.estado !== 'encontrada' || contaResolvida.registro !== conta
+            || parcelaResolvida.estado !== 'encontrada' || parcelaResolvida.registro !== parcela) return null;
+        const operacaoId = registro.operacaoId;
+        const primarios = [];
+        const historicosConta = [];
+        const historicosParcela = [];
+        for (const c of estado.contasPagar) {
+            for (const h of c.historico || []) {
+                if (h?.operacaoId === operacaoId) historicosConta.push({ conta: c, registro: h });
+            }
+            for (const p of c.parcelas || []) {
+                for (const h of p.historico || []) {
+                    if (h?.operacaoId === operacaoId) historicosParcela.push({ conta: c, parcela: p, registro: h });
+                }
+                for (const chave of ['pagamentos', 'estornos']) {
+                    for (const r of p[chave] || []) {
+                        if (r?.operacaoId === operacaoId) primarios.push({ conta: c, parcela: p, registro: r, colecao: chave });
+                    }
+                }
+            }
+        }
+        const auditorias = estado.logsAuditoria.filter((h) => h?.operacaoId === operacaoId);
+        const historicosLocacao = estado.locacoes.flatMap((l) => (l.historicoAlteracoes || [])
+            .filter((h) => h?.operacaoId === operacaoId).map((h) => ({ locacao: l, registro: h })));
+        // Conteudo coerente nao substitui a prova de pertencimento ao conteiner autoritativo.
+        if (primarios.length !== 1 || primarios[0].registro !== registro
+            || primarios[0].conta !== conta || primarios[0].parcela !== parcela || primarios[0].colecao !== colecao
+            || historicosConta.length !== 1 || historicosConta[0].conta !== conta
+            || historicosParcela.length !== 1 || historicosParcela[0].conta !== conta
+            || historicosParcela[0].parcela !== parcela || auditorias.length !== 1) return null;
+        if (conta.locacaoReferencia) {
+            const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', estado.locacoes);
+            if (locacao.estado !== 'encontrada' || historicosLocacao.length !== 1
+                || historicosLocacao[0].locacao !== locacao.registro
+                || criarReferenciaTipadaPagar('locacao', locacao.id) !== conta.locacaoReferencia) return null;
+        } else if (historicosLocacao.length) return null;
+        return { historicosParcela: historicosParcela.map((h) => h.registro),
+            historicosConta: historicosConta.map((h) => h.registro), auditorias,
+            historicosLocacao: historicosLocacao.map((h) => h.registro) };
+    }
+
     function validarEvidenciasPagamentoPagar(estado, conta, parcela, pagamento) {
-        const operacaoId = pagamento.operacaoId;
-        const historicosParcela = parcela.historico.filter((item) => item?.operacaoId === operacaoId);
-        const historicosConta = conta.historico.filter((item) => item?.operacaoId === operacaoId);
-        const auditorias = estado.logsAuditoria.filter((item) => item?.operacaoId === operacaoId);
-        const historicosLocacao = conta.locacaoReferencia
-            ? estado.locacoes.flatMap((locacao) => (Array.isArray(locacao?.historicoAlteracoes)
-                ? locacao.historicoAlteracoes : []).filter((item) => item?.operacaoId === operacaoId)) : [];
+        const conteineres = localizarConteineresEvidenciasPagar(estado, conta, parcela, pagamento, 'pagamentos');
+        if (!conteineres) return false;
+        const { historicosParcela, historicosConta, auditorias, historicosLocacao } = conteineres;
         const evidencias = [
             [pagamento, 'pagamento'],
             [historicosParcela.length === 1 ? historicosParcela[0] : null, 'parcela'],
@@ -7070,13 +7115,10 @@
     }
 
     function validarEvidenciasEstornoPagamentoPagar(estado, conta, parcela, estorno, pagamentoOriginal) {
-        const operacaoId = estorno.operacaoId;
-        const historicosParcela = parcela.historico.filter((item) => item?.operacaoId === operacaoId);
-        const historicosConta = conta.historico.filter((item) => item?.operacaoId === operacaoId);
-        const auditorias = estado.logsAuditoria.filter((item) => item?.operacaoId === operacaoId);
-        const historicosLocacao = conta.locacaoReferencia
-            ? estado.locacoes.flatMap((locacao) => (Array.isArray(locacao?.historicoAlteracoes)
-                ? locacao.historicoAlteracoes : []).filter((item) => item?.operacaoId === operacaoId)) : [];
+        const conteineres = localizarConteineresEvidenciasPagar(estado, conta, parcela, estorno, 'estornos');
+        if (!conteineres || !validarPagamentoContaPagar(pagamentoOriginal, conta, parcela)
+            || !validarEvidenciasPagamentoPagar(estado, conta, parcela, pagamentoOriginal)) return false;
+        const { historicosParcela, historicosConta, auditorias, historicosLocacao } = conteineres;
         const evidencias = [
             [estorno, 'estorno'],
             [historicosParcela.length === 1 ? historicosParcela[0] : null, 'parcela'],
@@ -8720,7 +8762,49 @@
         }
     }
 
-    function evidenciaMonetariaContaReceber(registro) {
+    function evidenciaExclusivaPagamentoPagar(estado, registro, escopo) {
+        if (!estado || !['locacao', 'auditoria'].includes(escopo)
+            || registro.tipo !== 'financeiro' || registro.origem !== 'contas_pagar'
+            || ['contaReferencia', 'lancamentoOriginalReferencia', 'valorAplicadoCentavos',
+                'valorLancamentoCentavos'].some((campo) => Object.prototype.hasOwnProperty.call(registro, campo)))
+            return false;
+        const alvo = resolverReferenciaExataPagar(registro.contaPagarReferencia, 'conta-pagar', estado.contasPagar);
+        if (alvo.estado !== 'encontrada' || alvo.registro.contaPagarReferencia !== registro.contaPagarReferencia)
+            return false;
+        const conta = alvo.registro;
+        if (escopo === 'locacao') {
+            const vinculo = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', estado.locacoes);
+            if (vinculo.estado !== 'encontrada'
+                || !Array.isArray(vinculo.registro.historicoAlteracoes)
+                || !vinculo.registro.historicoAlteracoes.includes(registro)) return false;
+        }
+        const parcelaAlvo = resolverReferenciaExataPagar(registro.parcelaReferencia, 'parcela-pagar', conta.parcelas);
+        if (parcelaAlvo.estado !== 'encontrada'
+            || parcelaAlvo.registro.parcelaReferencia !== registro.parcelaReferencia) return false;
+        const parcela = parcelaAlvo.registro;
+        const pagamentos = (parcela.pagamentos || []).filter((p) => p.operacaoId === registro.operacaoId);
+        const estornos = (parcela.estornos || []).filter((e) => e.operacaoId === registro.operacaoId);
+        if (pagamentos.length === 1 && !estornos.length) {
+            const pagamento = pagamentos[0];
+            return validarPagamentoContaPagar(pagamento, conta, parcela)
+                && validarEvidenciasPagamentoPagar(estado, conta, parcela, pagamento)
+                && registroEvidenciaPagamentoPagarCorresponde(registro, pagamento, escopo);
+        }
+        if (estornos.length !== 1 || pagamentos.length) return false;
+        const estorno = estornos[0];
+        const originais = (parcela.pagamentos || []).filter((p) => (
+            p.pagamentoReferencia === estorno.pagamentoOriginalReferencia));
+        return originais.length === 1
+            && validarPagamentoContaPagar(originais[0], conta, parcela)
+            && validarEvidenciasPagamentoPagar(estado, conta, parcela, originais[0])
+            && validarEvidenciasEstornoPagamentoPagar(estado, conta, parcela, estorno, originais[0])
+            && registroEvidenciaEstornoPagarCorresponde(registro, estorno, escopo);
+    }
+
+    function evidenciaMonetariaContaReceber(registro, estado, escopo) {
+        // Campos monetarios compartilhados nao definem o dominio: excluir apenas prova pagar completa.
+        if (registro && typeof registro === 'object'
+            && evidenciaExclusivaPagamentoPagar(estado, registro, escopo)) return false;
         return registro && typeof registro === 'object' && (
             ['recebimento_aplicado', 'estorno_aplicado', 'financeiro_recebimento',
                 'financeiro_estorno', 'recebimento', 'estorno_recebimento'].includes(registro.acao)
@@ -8734,10 +8818,10 @@
         const operacoes = new Set(lancamentos.map((l) => l.operacaoId));
         const referenciasParcelas = new Set(conta.parcelas.map((p) => p.parcelaReferencia));
         const registros = [
-            ...conta.historico.filter(evidenciaMonetariaContaReceber),
+            ...conta.historico.filter((h) => evidenciaMonetariaContaReceber(h)),
             ...(locacao.financeiro?.lancamentosRecebimentos || []),
-            ...(locacao.historicoAlteracoes || []).filter(evidenciaMonetariaContaReceber),
-            ...estado.logsAuditoria.filter((h) => evidenciaMonetariaContaReceber(h)
+            ...(locacao.historicoAlteracoes || []).filter((h) => evidenciaMonetariaContaReceber(h, estado, 'locacao')),
+            ...estado.logsAuditoria.filter((h) => evidenciaMonetariaContaReceber(h, estado, 'auditoria')
                 && (h.contaReferencia === conta.contaReferencia
                     || referenciasParcelas.has(h.parcelaReferencia)
                     || h.locacaoReferencia === conta.locacaoReferencia
@@ -8782,10 +8866,14 @@
     }
 
     function validarVinculosMonetariosReclassificacaoReceber(estado) {
-        const registros = [...estado.logsAuditoria,
-            ...estado.contasReceber.flatMap((c) => c.historico),
-            ...estado.locacoes.flatMap((l) => [...(l.historicoAlteracoes || []),
-                ...(l.financeiro?.lancamentosRecebimentos || [])])].filter(evidenciaMonetariaContaReceber);
+        const registros = [
+            ...estado.logsAuditoria.filter((h) => evidenciaMonetariaContaReceber(h, estado, 'auditoria')),
+            ...estado.contasReceber.flatMap((c) => c.historico).filter((h) => evidenciaMonetariaContaReceber(h)),
+            ...estado.locacoes.flatMap((l) => (l.historicoAlteracoes || [])
+                .filter((h) => evidenciaMonetariaContaReceber(h, estado, 'locacao'))),
+            ...estado.locacoes.flatMap((l) => l.financeiro?.lancamentosRecebimentos || [])
+                .filter((h) => evidenciaMonetariaContaReceber(h))
+        ];
         return registros.every((h) => {
             // Historico legado sem vinculo a conta nao e associado por inferencia.
             if (h.contaReferencia === undefined || h.contaReferencia === '') return true;
@@ -11300,6 +11388,132 @@
         };
     }
 
+    function obterResultadoFinanceiroLocacao(estadoExterno, locacaoReferencia, dataReferencia) {
+        const indisponivel = (codigo) => ({ ok: false, codigo, indicadores: null,
+            contasReceber: [], contasPagar: [], avisos: [] });
+        try {
+            return projetarResultadoFinanceiroLocacao(estadoExterno, locacaoReferencia, dataReferencia, indisponivel);
+        } catch (_erro) {
+            return indisponivel('RESULTADO_ESTADO_INVALIDO');
+        }
+    }
+
+    function projetarResultadoFinanceiroLocacao(estadoExterno, locacaoReferencia, dataReferencia, indisponivel) {
+        if (typeof locacaoReferencia !== 'string' || !validarDataLocalContaReceber(dataReferencia))
+            return indisponivel('RESULTADO_ENTRADA_INVALIDA');
+        if (!validarValorExternoPersistivelSeguro(estadoExterno)) return indisponivel('RESULTADO_ESTADO_INVALIDO');
+        const clone = clonarJsonInterno(estadoExterno);
+        if (!clone.ok) return indisponivel('RESULTADO_ESTADO_INVALIDO');
+        const estado = clone.valor;
+        if (!['locacoes', 'locadores', 'propostas', 'contasReceber', 'contasPagar',
+            'fornecedores', 'logsAuditoria', 'conciliacoesFinanceiras'].every((chave) => Array.isArray(estado?.[chave])))
+            return indisponivel('RESULTADO_ESTADO_INCOMPLETO');
+        const alvo = resolverReferenciaExataPagar(locacaoReferencia, 'locacao', estado.locacoes);
+        if (alvo.estado !== 'encontrada'
+            || criarReferenciaTipadaLocacaoTransacional(alvo.id) !== locacaoReferencia)
+            return indisponivel('RESULTADO_LOCACAO_AUSENTE_OU_AMBIGUA');
+        const locacao = alvo.registro;
+        const cliente = resolverIdentidadeExataContaReceber(locacao.locadorId, estado.locadores);
+        if (cliente.estado !== 'encontrado') return indisponivel('RESULTADO_CLIENTE_INVALIDO');
+        if (!validarFundacaoReclassificacaoReceber(estado, dataReferencia))
+            return indisponivel('RESULTADO_RECEBIMENTOS_SEM_COMPROVACAO');
+        const receita = obterProjecaoFinanceiraContaReceber(alvo.id, estado.contasReceber, dataReferencia);
+        if (!['encontrado', 'ausente'].includes(receita.estado))
+            return indisponivel('RESULTADO_CONTA_RECEBER_INVALIDA');
+        const conta = receita.encontrada ? receita.conta : null;
+        const legado = conta ? null : obterProjecaoFinanceiraLegadaLocacao(locacao);
+        if (!conta && !legado.encontrada) return indisponivel('RESULTADO_LEGADO_NAO_COMPROVADO');
+
+        const pagar = obterProjecaoContasPagar(estado, dataReferencia);
+        if (!pagar.ok) return indisponivel('RESULTADO_CONTAS_PAGAR_INDISPONIVEIS');
+        const vinculadas = estado.contasPagar.filter((c) => c.locacaoReferencia === locacaoReferencia);
+        const despesas = [];
+        for (const c of vinculadas) {
+            const correspondentes = pagar.contas.filter((p) => p.referencia === c.contaPagarReferencia);
+            if (correspondentes.length !== 1 || correspondentes[0].bloqueada)
+                return indisponivel('RESULTADO_DESPESA_VINCULADA_INVALIDA');
+            // Um segundo vínculo não pode contradizer a origem autoritativa da locação.
+            if (c.propostaReferencia) {
+                const referencias = [];
+                if (locacao.propostaReferencia) referencias.push(locacao.propostaReferencia);
+                for (const id of [locacao.propostaOrigemId, locacao.origemPropostaId,
+                    locacao.propostaId, locacao.origem?.propostaId]) {
+                    if (id !== undefined && id !== null && id !== '')
+                        referencias.push(criarReferenciaTipadaPagar('proposta', id));
+                }
+                if (!referencias.length || referencias.some((ref) => ref !== c.propostaReferencia))
+                    return indisponivel('RESULTADO_VINCULOS_CONTRADITORIOS');
+            }
+            despesas.push(correspondentes[0]);
+        }
+        const fluxo = obterProjecaoFluxoCaixaFinanceiro(estado, dataReferencia);
+        if (!fluxo.ok) return indisponivel('RESULTADO_FLUXO_INDISPONIVEL');
+        const referenciasContas = new Set([conta?.contaReferencia,
+            ...vinculadas.map((c) => c.contaPagarReferencia)].filter(Boolean));
+        if (fluxo.diagnosticos.some((d) => d.referencia === locacaoReferencia
+            || referenciasContas.has(d.referencia))) return indisponivel('RESULTADO_EVIDENCIAS_INCONSISTENTES');
+        const movimentos = fluxo.movimentos.filter((m) => m.locacaoReferencia === locacaoReferencia);
+        if (movimentos.some((m) => m.natureza !== 'previsto' && m.data > dataReferencia)
+            || [conta, ...vinculadas].filter(Boolean).some((c) => c.dataEmissao > dataReferencia
+                || converterInstanteEmDataLocalFinanceira(c.atualizadoEm) > dataReferencia))
+            return indisponivel('RESULTADO_ESTADO_POSTERIOR_A_REFERENCIA');
+        const somar = (valores) => somarCentavosFluxoCaixa(valores);
+        const movimentoReceita = (m) => ['conta_receber', 'legado'].includes(m.origem);
+        const recebidos = somar(movimentos.filter((m) => movimentoReceita(m)
+            && m.natureza !== 'previsto').map((m) => m.valorLiquidoCentavos));
+        const pagos = somar(movimentos.filter((m) => m.origem === 'conta_pagar'
+            && m.natureza !== 'previsto').map((m) => -m.valorLiquidoCentavos));
+        const previstosReceber = somar(movimentos.filter((m) => movimentoReceita(m)
+            && m.natureza === 'previsto').map((m) => m.valorLiquidoCentavos));
+        const previstosPagar = somar(movimentos.filter((m) => m.origem === 'conta_pagar'
+            && m.natureza === 'previsto').map((m) => -m.valorLiquidoCentavos));
+        const contratado = conta ? conta.valorTotalCentavos : legado.valorTotalCentavos;
+        const saldoReceber = conta ? conta.saldoCentavos : legado.saldoCentavos;
+        const recebidoDocumental = conta ? conta.valorRecebidoCentavos : legado.valorRecebidoCentavos;
+        const registrado = somar(despesas.map((d) => d.totalCentavos));
+        const saldoPagar = somar(despesas.map((d) => d.saldoCentavos));
+        const pagoDocumental = somar(despesas.map((d) => d.pagoCentavos));
+        if (![recebidos, pagos, previstosReceber, previstosPagar, registrado, saldoPagar, pagoDocumental]
+            .every((s) => s.ok)) return indisponivel('RESULTADO_OVERFLOW');
+        if (recebidos.centavos !== recebidoDocumental || pagos.centavos !== pagoDocumental.centavos)
+            return indisponivel('RESULTADO_REALIZADOS_DIVERGENTES');
+        const avisos = ['Custos registrados nas contas vinculadas; outras despesas podem não estar incluídas.'];
+        if (!conta) avisos.push('Receita legada comprovada, sem associação automática aos catálogos.');
+        const semVinculo = estado.contasPagar.filter((c) => !c.locacaoReferencia).length;
+        if (semVinculo) avisos.push('Existem despesas sem vínculo direto com locação; não foram atribuídas a este resultado.');
+        if (!despesas.length) avisos.push('Nenhuma despesa diretamente vinculada. Isso não comprova custo zero.');
+        const inativa = conta && ['cancelada', 'encerrada'].includes(receita.situacao);
+        const saldoProjetavelReceber = conta ? somar(conta.parcelas.filter((p) => !inativa
+            && calcularSituacaoEfetivaParcelaContaReceber(p, dataReferencia) !== 'cancelada').map((p) => p.saldoCentavos))
+            : { ok: true, centavos: saldoReceber };
+        const previsaoCompleta = saldoProjetavelReceber.ok
+            && saldoProjetavelReceber.centavos === previstosReceber.centavos;
+        if (!previsaoCompleta) avisos.push('Previsão de receita incompleta: saldo sem vencimento projetável.');
+        const realizado = despesas.length ? somar([recebidos.centavos, -pagos.centavos]) : null;
+        const projetado = despesas.length && previsaoCompleta && realizado?.ok
+            ? somar([realizado.centavos, previstosReceber.centavos, -previstosPagar.centavos]) : null;
+        if ((realizado && !realizado.ok) || (projetado && !projetado.ok)) return indisponivel('RESULTADO_OVERFLOW');
+        const detalhe = (referencia, descricao, total, recebidoPago, saldo, previsto, situacao) => ({
+            referencia, descricao, totalCentavos: total, realizadoCentavos: recebidoPago,
+            saldoDocumentalCentavos: saldo, saldoProjetavelCentavos: previsto, situacao
+        });
+        return { ok: true, codigo: 'RESULTADO_CONTAS_VINCULADAS', locacaoReferencia, dataReferencia,
+            cobertura: 'somente_contas_vinculadas', avisos,
+            indicadores: { receitaContratadaCentavos: contratado, receitaRecebidaCentavos: recebidos.centavos,
+                saldoReceberDocumentalCentavos: saldoReceber,
+                despesasRegistradasCentavos: despesas.length ? registrado.centavos : null,
+                despesasPagasCentavos: despesas.length ? pagos.centavos : null,
+                saldoPagarDocumentalCentavos: despesas.length ? saldoPagar.centavos : null,
+                resultadoRealizadoCentavos: realizado?.centavos ?? null,
+                resultadoProjetadoCentavos: projetado?.centavos ?? null },
+            contasReceber: [detalhe(conta?.contaReferencia || '', conta?.descricao || 'Receita legada comprovada',
+                contratado, recebidos.centavos, saldoReceber, previstosReceber.centavos,
+                conta ? receita.situacao : legado.statusPagamento)],
+            contasPagar: despesas.map((d) => detalhe(d.referencia, d.conta.descricao, d.totalCentavos,
+                d.pagoCentavos, d.saldoCentavos, d.saldoProjetadoCentavos, d.situacao))
+                .sort((a, b) => a.referencia.localeCompare(b.referencia)) };
+    }
+
     function resolverAlvoConciliacaoFinanceira(estado, entrada, dataReferencia) {
         const contas = estado.contasReceber.filter((conta) => conta?.contaReferencia === entrada.contaReferencia);
         if (contas.length !== 1) return { ok: false, codigo: contas.length ? 'CONTA_RECEBER_DUPLICADA' : 'CONTA_RECEBER_NAO_ENCONTRADA' };
@@ -13233,6 +13447,7 @@
     window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;
     window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
+    window.obterResultadoFinanceiroLocacao = obterResultadoFinanceiroLocacao;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;
     window.criarEntradaConversaoPropostaConfiavel = criarEntradaConversaoPropostaConfiavel;
