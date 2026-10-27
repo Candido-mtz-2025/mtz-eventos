@@ -1432,6 +1432,94 @@
         }).join('');
     }
 
+    function agruparClassificacoesFluxoCaixa(movimentos, dimensao) {
+        const falha = () => ({ ok: false, grupos: [], totais: null });
+        if (!Array.isArray(movimentos) || !['centroCusto', 'categoriaFinanceira'].includes(dimensao)) return falha();
+        const grupos = new Map();
+        const vistos = new Set();
+        const totais = [0n, 0n, 0n, 0n];
+        for (const item of movimentos) {
+            const valor = item.valorLiquidoCentavos;
+            if (!Number.isSafeInteger(valor) || valor === 0
+                || typeof item.referencia !== 'string' || !item.referencia) return falha();
+            const identidade = JSON.stringify([item.natureza, item.referencia]);
+            if (vistos.has(identidade)) return falha();
+            vistos.add(identidade);
+            let coluna;
+            // Estornos pertencem ao lado original, mesmo quando invertem o sentido do caixa.
+            if (item.origem === 'conta_receber' && item.tipo === 'parcela'
+                && item.natureza === 'previsto' && valor > 0) coluna = 0;
+            else if (['conta_receber', 'legado'].includes(item.origem) && item.tipo === 'recebimento'
+                && item.natureza === 'entrada' && valor > 0) coluna = 1;
+            else if (item.origem === 'conta_receber' && item.tipo === 'estorno'
+                && item.natureza === 'saida' && valor < 0) coluna = 1;
+            else if (item.origem === 'legado' && item.tipo === 'saldo_legado'
+                && item.natureza === 'previsto' && valor > 0) coluna = 0;
+            else if (item.origem === 'conta_pagar' && item.tipo === 'parcela_conta_pagar'
+                && item.natureza === 'previsto' && valor < 0) coluna = 2;
+            else if (item.origem === 'conta_pagar' && item.tipo === 'pagamento_conta_pagar'
+                && item.natureza === 'saida' && valor < 0) coluna = 3;
+            else if (item.origem === 'conta_pagar' && item.tipo === 'estorno_pagamento_conta_pagar'
+                && item.natureza === 'saida' && valor > 0) coluna = 3;
+            else return falha();
+
+            const referencia = item[`${dimensao}Referencia`];
+            const snapshot = item[`${dimensao}Snapshot`];
+            const classificada = item.classificacaoLegada === false;
+            if (classificada && (typeof referencia !== 'string' || !referencia
+                || !snapshot || typeof snapshot.codigo !== 'string' || !snapshot.codigo
+                || typeof snapshot.nome !== 'string' || !snapshot.nome)) return falha();
+            const legada = item.classificacaoLegada === true
+                && ['conta_receber', 'conta_pagar'].includes(item.origem);
+            const chave = classificada ? `referencia:${referencia}` : legada ? 'legado' : 'sem-classificacao';
+            if (!grupos.has(chave)) grupos.set(chave, {
+                chave, referencia: classificada ? referencia : '',
+                rotulos: new Set(), valores: [0n, 0n, 0n, 0n]
+            });
+            const grupo = grupos.get(chave);
+            grupo.rotulos.add(classificada ? JSON.stringify([snapshot.codigo, snapshot.nome])
+                : JSON.stringify(['', legada ? 'Classificação legada' : 'Sem classificação']));
+            const contribuicao = BigInt(valor) * (coluna >= 2 ? -1n : 1n);
+            grupo.valores[coluna] += contribuicao;
+            totais[coluna] += contribuicao;
+        }
+        const limite = BigInt(Number.MAX_SAFE_INTEGER);
+        const seguros = (valores) => valores.every((valor) => valor >= -limite && valor <= limite);
+        // Só converter após somar exatamente: o resultado independe da ordem dos estornos.
+        if (!seguros(totais) || [...grupos.values()].some((grupo) => !seguros(grupo.valores))) return falha();
+        const linhas = [...grupos.values()].map((grupo) => ({
+            chave: grupo.chave, referencia: grupo.referencia,
+            rotulos: [...grupo.rotulos].sort().map((rotulo) => JSON.parse(rotulo)),
+            valores: grupo.valores.map(Number)
+        })).sort((a, b) => compararTextoDeterministico(JSON.stringify(a.rotulos), JSON.stringify(b.rotulos))
+            || compararTextoDeterministico(a.chave, b.chave));
+        return { ok: true, grupos: linhas, totais: totais.map(Number) };
+    }
+
+    function renderRelatorioClassificacoesFluxoCaixa(movimentos, disponivel = true) {
+        const tabela = document.getElementById('tblRelatorioClassificacoesFluxo');
+        const rodape = document.getElementById('totaisRelatorioClassificacoesFluxo');
+        const status = document.getElementById('statusRelatorioClassificacoesFluxo');
+        if (!tabela || !rodape || !status) return;
+        const dimensao = document.querySelector('input[name="agrupamentoClassificacoesFluxo"]:checked')?.value || 'centroCusto';
+        const relatorio = disponivel ? agruparClassificacoesFluxoCaixa(movimentos, dimensao) : { ok: false };
+        rodape.replaceChildren();
+        status.hidden = relatorio.ok;
+        status.textContent = relatorio.ok ? '' : 'Valor indisponível. Não foi possível reconciliar o relatório completo.';
+        if (!relatorio.ok) {
+            tabela.innerHTML = '<tr><td colspan="5">Valor indisponível</td></tr>';
+            return;
+        }
+        const celulas = (valores) => valores.map((valor) => `<td class="fluxo-caixa-valor">${formatarCentavosFluxoCaixa(valor)}</td>`).join('');
+        tabela.innerHTML = relatorio.grupos.map((grupo) => {
+            const rotulos = grupo.rotulos.map(([codigo, nome]) => sanitizarTexto(codigo ? `${codigo} · ${nome}` : nome));
+            const divergencia = rotulos.length > 1 ? '<div class="table-cell-sub">Nomes históricos distintos</div>' : '';
+            const referencia = grupo.referencia ? `<div class="table-cell-sub">${sanitizarTexto(grupo.referencia)}</div>` : '';
+            return `<tr><th scope="row">${rotulos.join('<br>')}${divergencia}${referencia}</th>${celulas(grupo.valores)}</tr>`;
+        }).join('') || '<tr><td colspan="5">Nenhum movimento encontrado.</td></tr>';
+        rodape.innerHTML = `<tr><th scope="row">Total filtrado</th>${celulas(relatorio.totais)}</tr>`;
+    }
+
     function renderFluxoCaixa() {
         const tabela = document.getElementById('tblFluxoCaixa');
         if (!tabela) return false;
@@ -1445,6 +1533,7 @@
         if (conteudo) conteudo.hidden = !permitido;
         if (!permitido) {
             movimentosFluxoCaixaAtuais = [];
+            renderRelatorioClassificacoesFluxoCaixa([], false);
             return false;
         }
         const estado = typeof obterEstadoMemoriaAtual === 'function' ? obterEstadoMemoriaAtual() : null;
@@ -1462,6 +1551,7 @@
             atualizarIndicadoresFluxoCaixa([]);
             renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', [], false);
             renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', [], true);
+            renderRelatorioClassificacoesFluxoCaixa([], false);
             return false;
         }
         atualizarClientesFluxoCaixa(projecao.movimentos);
@@ -1473,6 +1563,7 @@
                 ? `${projecao.diagnosticos.length} registro(s) foram excluídos por inconsistência ou ausência de evidência autoritativa.` : '';
         }
         atualizarIndicadoresFluxoCaixa(movimentosFluxoCaixaAtuais);
+        renderRelatorioClassificacoesFluxoCaixa(movimentosFluxoCaixaAtuais);
         renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', movimentosFluxoCaixaAtuais, false);
         renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', movimentosFluxoCaixaAtuais, true);
         tabela.innerHTML = movimentosFluxoCaixaAtuais.length ? movimentosFluxoCaixaAtuais.map((item) => {
