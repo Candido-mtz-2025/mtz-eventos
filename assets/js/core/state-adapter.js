@@ -117,6 +117,9 @@
         };
         (Array.isArray(estado?.contasReceber) ? estado.contasReceber : []).forEach((conta) => {
             proteger(conta, ['id', 'contaReferencia', 'locacaoId', 'locacaoReferencia', 'clienteId', 'clienteReferencia', 'operacaoId']);
+            proteger(conta, ['reclassificacoesFinanceiras', 'provenienciaCodigo', 'evidenciaCriacao']);
+            congelarProfundamente(conta.reclassificacoesFinanceiras);
+            congelarProfundamente(conta.evidenciaCriacao);
             if (conta.classificacaoLegada === false) {
                 proteger(conta, ['categoriaFinanceiraReferencia', 'categoriaFinanceiraSnapshot',
                     'centroCustoReferencia', 'centroCustoSnapshot', 'classificacaoLegada']);
@@ -201,13 +204,14 @@
             congelarProfundamente(registro);
         });
         (Array.isArray(estado?.logsAuditoria) ? estado.logsAuditoria : [])
-            .filter((item) => item?.acao === 'reclassificar_conta_pagar')
-            .forEach(congelarProfundamente);
+            .filter((item) => ['reclassificar_conta_pagar', 'reclassificar_conta_receber'].includes(item?.acao))
+            .forEach((item) => congelarProfundamente(item));
         (Array.isArray(estado?.locacoes) ? estado.locacoes : []).forEach((locacao) => {
             (Array.isArray(locacao?.historicoAlteracoes) ? locacao.historicoAlteracoes : [])
-                .filter((item) => item?.acao === 'conta_pagar_reclassificada'
-                    && item?.origem === 'contas_pagar')
-                .forEach(congelarProfundamente);
+                .filter((item) => (item?.acao === 'conta_pagar_reclassificada'
+                    && item?.origem === 'contas_pagar') || (item?.acao === 'conta_receber_reclassificada'
+                    && item?.origem === 'contas_receber'))
+                .forEach((item) => congelarProfundamente(item));
         });
         (Array.isArray(estado?.conciliacoesPagamentosPagar)
             ? estado.conciliacoesPagamentosPagar : []).forEach((registro) => {

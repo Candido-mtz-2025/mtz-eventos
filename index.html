@@ -3089,6 +3089,8 @@
         <div class="modal-content modal-xl">
             <div class="modal-header"><h3 id="detalhesContaTitulo">Detalhes da conta</h3><button type="button" class="btn-close-modal" data-action="fecharDetalhesContaReceber" aria-label="Fechar detalhes"><i class="bi bi-x-lg"></i></button></div>
             <div id="detalhesContaResumo" class="muted-note"></div>
+            <p id="detalhesContaClassificacao" class="muted-note"></p>
+            <button id="reclassificarContaReceberAcao" type="button" class="btn btn-secondary" data-action="abrirReclassificacaoContaReceber" hidden><i class="bi bi-tags" aria-hidden="true"></i> Reclassificar</button>
             <div id="detalhesContaParcelas" class="table-responsive"></div>
             <div id="detalhesContaLancamentos" class="section-gap"></div>
             <form id="formRecebimentoParcela" class="recebimento-parcela-form" hidden novalidate>
@@ -3107,6 +3109,20 @@
             </form>
             <details><summary>Histórico e auditoria</summary><div id="detalhesContaHistorico"></div></details>
             <div class="inline-chip-row section-gap"><button type="button" class="btn btn-secondary" data-action="fecharDetalhesContaReceber">Fechar</button></div>
+        </div>
+    </div>
+
+    <div id="modalReclassificacaoContaReceber" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="reclassificarReceberTitulo" aria-describedby="reclassificarReceberDescricao" tabindex="-1">
+        <div class="modal-content modal-pagamento-locacao">
+            <div class="modal-header"><h3 id="reclassificarReceberTitulo">Reclassificar conta a receber</h3><button type="button" class="btn-close-modal" data-action="fecharReclassificacaoContaReceber" aria-label="Fechar reclassificação"><i class="bi bi-x-lg"></i></button></div>
+            <p id="reclassificarReceberDescricao" class="muted-note">A alteração preserva os valores e os lançamentos da conta.</p>
+            <form novalidate>
+                <div class="form-group"><label for="reclassificarReceberCategoria">Categoria Financeira</label><select id="reclassificarReceberCategoria" required aria-describedby="reclassificarReceberErro"></select></div>
+                <div class="form-group"><label for="reclassificarReceberCentro">Centro de Custo</label><select id="reclassificarReceberCentro" required aria-describedby="reclassificarReceberErro"></select></div>
+                <div class="form-group"><label for="reclassificarReceberMotivo">Motivo</label><textarea id="reclassificarReceberMotivo" required maxlength="1000" rows="3" aria-describedby="reclassificarReceberErro"></textarea></div>
+                <div id="reclassificarReceberErro" class="validation-message" role="alert" hidden></div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-action="fecharReclassificacaoContaReceber">Cancelar</button><button type="submit" class="btn btn-primary">Confirmar reclassificação</button></div>
+            </form>
         </div>
     </div>
 
@@ -3499,13 +3515,13 @@
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.2"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.10"></script>
+    <script src="./assets/js/core/access.js?v=1.11"></script>
     <script src="./assets/js/core/migrations.js?v=12.21"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.19"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.45"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.50"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.17"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.18"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
     <script src="./assets/js/modules/locacoes.js?v=13.24"></script>
     <script src="./assets/js/modules/propostas.js?v=4.28"></script>
@@ -3528,7 +3544,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=3.8"></script>
+    <script src="./assets/js/render/novas-abas.js?v=3.9"></script>
     <script src="./assets/js/render/contas-pagar.js?v=2.7"></script>
     <script src="./assets/js/render/classificacoes-financeiras.js?v=1.1"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>

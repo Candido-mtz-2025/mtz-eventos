@@ -13,6 +13,9 @@
     let filtroAgendaAtual = 'todos';
     let acionadorDetalhesContaReceber = null;
     let eventosDetalhesContaReceberRegistrados = false;
+    let sessaoReclassificacaoReceber = null;
+    let reclassificacaoReceberEmProcessamento = false;
+    let eventosReclassificacaoReceberRegistrados = false;
     let sessaoEstornoRecebimento = null;
     let acionadorEstornoRecebimento = null;
     let eventosEstornoRecebimentoRegistrados = false;
@@ -698,6 +701,16 @@
         const hoje = dataLocalFinanceiro();
         document.getElementById('detalhesContaTitulo').textContent = `Conta ${String(conta.id)}`;
         document.getElementById('detalhesContaResumo').textContent = `${conta.descricao} · ${formatarCentavosMonetarios(conta.valorTotalCentavos) || 'Valor indisponível'} · ${situacaoEfetivaConta(conta, hoje)}`;
+        const classificacao = document.getElementById('detalhesContaClassificacao');
+        if (classificacao) classificacao.textContent = conta.classificacaoLegada === false
+            ? `${conta.categoriaFinanceiraSnapshot.codigo} · ${conta.categoriaFinanceiraSnapshot.nome} / ${conta.centroCustoSnapshot.codigo} · ${conta.centroCustoSnapshot.nome}`
+            : 'Classificação legada';
+        const reclassificar = document.getElementById('reclassificarContaReceberAcao');
+        if (reclassificar) {
+            reclassificar.hidden = !temPermissao('reclassificar_conta_receber')
+                || ['cancelada', 'encerrada'].includes(conta.situacao);
+            reclassificar.dataset.arg = conta.contaReferencia;
+        }
         document.getElementById('detalhesContaParcelas').innerHTML = `<table class="table"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Original</th><th>Recebido</th><th>Saldo</th><th>Situação</th><th>Ação</th></tr></thead><tbody>${conta.parcelas.map((p) => {
             const situacao = calcularSituacaoEfetivaParcelaContaReceber(p, hoje);
             return `<tr><td>${p.numero}/${p.totalParcelas}</td><td>${formatarDataCurta(p.vencimento)}</td><td>${formatarCentavosMonetarios(p.valorOriginalCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.valorRecebidoCentavos) || 'Valor indisponível'}</td><td>${formatarCentavosMonetarios(p.saldoCentavos) || 'Valor indisponível'}</td><td>${situacao}</td><td>${p.saldoCentavos>0&&!['cancelada'].includes(situacao)?`<button class="btn btn-sm btn-success" data-action="registrarRecebimentoParcelaConta" data-arg="${sanitizarTexto(conta.contaReferencia)}|${sanitizarTexto(p.parcelaReferencia)}">Receber</button>`:'-'}</td></tr>`;
@@ -707,7 +720,8 @@
         document.getElementById('detalhesContaHistorico').innerHTML = historico.map((h) => {
             const vinculo = h.tipo === 'estorno' && h.lancamentoOriginalReferencia
                 ? ` · vinculado a ${sanitizarTexto(h.lancamentoOriginalReferencia)}` : '';
-            const motivo = h.tipo === 'estorno' && h.motivo ? ` · ${sanitizarTexto(h.motivo)}` : '';
+            const motivoTexto = h.motivo || h.evidenciaOperacao?.motivo;
+            const motivo = motivoTexto ? ` · ${sanitizarTexto(motivoTexto)}` : '';
             return `<p><strong>${sanitizarTexto(h.acao || h.tipo || 'recebimento')}</strong> · ${sanitizarTexto(h.data || '')} · ${sanitizarTexto(h.usuario || h.responsavel || '')}${vinculo}${motivo}</p>`;
         }).join('') || '<p>Sem movimentações.</p>';
         acionadorDetalhesContaReceber = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -725,6 +739,153 @@
         const acionador = acionadorDetalhesContaReceber;
         acionadorDetalhesContaReceber = null;
         if (acionador?.isConnected) acionador.focus({ preventScroll: true });
+        return true;
+    }
+
+    function erroReclassificacaoReceber(mensagem = '', id = '') {
+        const erro = document.getElementById('reclassificarReceberErro');
+        erro.textContent = mensagem;
+        erro.hidden = !mensagem;
+        ['reclassificarReceberCategoria', 'reclassificarReceberCentro', 'reclassificarReceberMotivo']
+            .forEach((chave) => {
+                const campo = document.getElementById(chave);
+                campo.setAttribute('aria-invalid', mensagem && chave === id ? 'true' : 'false');
+            });
+        if (id) document.getElementById(id)?.focus();
+    }
+
+    function fecharReclassificacaoContaReceber() {
+        if (reclassificacaoReceberEmProcessamento || !sessaoReclassificacaoReceber) return false;
+        const acionador = sessaoReclassificacaoReceber.acionador;
+        const modal = document.getElementById('modalReclassificacaoContaReceber');
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+        const detalhes = document.getElementById('modalDetalhesContaReceber');
+        detalhes.inert = false;
+        detalhes.removeAttribute('aria-hidden');
+        detalhes.setAttribute('aria-hidden', detalhes.classList.contains('active') ? 'false' : 'true');
+        sessaoReclassificacaoReceber = null;
+        const fallback = document.getElementById('reclassificarContaReceberAcao');
+        const alvo = acionador?.isConnected && !acionador.hidden ? acionador
+            : fallback?.isConnected && !fallback.hidden ? fallback
+                : detalhes.classList.contains('active') ? detalhes.querySelector('button')
+                    : document.querySelector('[data-action="abrirDetalhesContaReceber"]');
+        alvo?.focus({ preventScroll: true });
+        return true;
+    }
+
+    function abrirReclassificacaoContaReceber(referencia) {
+        if (!temPermissao('reclassificar_conta_receber') || sessaoReclassificacaoReceber) return false;
+        const conta = obterContaPorReferenciaUnica(referencia);
+        if (!conta || ['cancelada', 'encerrada'].includes(conta.situacao)) return false;
+        const estado = obterEstadoMemoriaAtual();
+        if (!validarFundacaoClassificacoesFinanceiras(estado)) return false;
+        const locacoesExatas = estado.locacoes.filter((l) =>
+            criarReferenciaTipadaEntidade('locacao', l.id) === conta.locacaoReferencia);
+        if (locacoesExatas.length !== 1) return false;
+        const locacao = locacoesExatas[0];
+        const modal = document.getElementById('modalReclassificacaoContaReceber');
+        const categoria = document.getElementById('reclassificarReceberCategoria');
+        const centro = document.getElementById('reclassificarReceberCentro');
+        categoria.replaceChildren(new Option('Selecione uma categoria de receita', ''));
+        centro.replaceChildren(new Option('Selecione um centro de custo', ''));
+        const ordenar = (a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR')
+            || a.nome.localeCompare(b.nome, 'pt-BR');
+        estado.categoriasFinanceiras.filter((c) => c.situacao === 'ativa'
+            && ['receita', 'ambas'].includes(c.naturezaPermitida)).sort(ordenar)
+            .forEach((c) => categoria.append(new Option(`${c.codigo} · ${c.nome}`, c.categoriaFinanceiraReferencia)));
+        const propostas = [locacao.propostaReferencia,
+            ...[locacao.propostaOrigemId, locacao.origemPropostaId, locacao.propostaId, locacao.origem?.propostaId]
+                .filter((id) => id !== undefined && id !== null && id !== '')
+                .map((id) => criarReferenciaTipadaPagar('proposta', id))]
+            .filter((valor) => valor !== undefined && valor !== '');
+        estado.centrosCusto.filter((c) => c.situacao === 'ativo'
+            && (!c.locacaoReferencia || c.locacaoReferencia === conta.locacaoReferencia)
+            && (!c.propostaReferencia || (propostas.length > 0
+                && propostas.every((p) => p === c.propostaReferencia))))
+            .sort(ordenar).forEach((c) => centro.append(new Option(`${c.codigo} · ${c.nome}`, c.centroCustoReferencia)));
+        categoria.value = conta.categoriaFinanceiraReferencia || '';
+        centro.value = conta.centroCustoReferencia || '';
+        document.getElementById('reclassificarReceberMotivo').value = '';
+        erroReclassificacaoReceber();
+        sessaoReclassificacaoReceber = { referencia, acionador: document.activeElement,
+            operacaoId: gerarOperacaoIdRecebimentoLocacao(), entrada: null };
+        if (!eventosReclassificacaoReceberRegistrados) {
+            eventosReclassificacaoReceberRegistrados = true;
+            modal.addEventListener('click', (e) => { if (e.target === modal) fecharReclassificacaoContaReceber(); });
+            modal.querySelector('form').addEventListener('submit', (e) => {
+                e.preventDefault(); confirmarReclassificacaoContaReceber();
+            });
+            modal.addEventListener('input', () => {
+                if (!sessaoReclassificacaoReceber || sessaoReclassificacaoReceber.recuperacao) return;
+                sessaoReclassificacaoReceber.entrada = null;
+                erroReclassificacaoReceber();
+            });
+            modal.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault(); e.stopPropagation(); fecharReclassificacaoContaReceber(); return;
+                }
+                if (e.key !== 'Tab') return;
+                const focaveis = [...modal.querySelectorAll('button:not([disabled]), select:not([disabled]), textarea:not([disabled])')]
+                    .filter((el) => el.getClientRects().length);
+                const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+                if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+                else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+            });
+        }
+        document.getElementById('modalDetalhesContaReceber').inert = true;
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        categoria.focus({ preventScroll: true });
+        return true;
+    }
+
+    function confirmarReclassificacaoContaReceber() {
+        const sessao = sessaoReclassificacaoReceber;
+        if (!sessao || reclassificacaoReceberEmProcessamento || sessao.recuperacao) return false;
+        if (!temPermissao('reclassificar_conta_receber')) {
+            erroReclassificacaoReceber('Você não possui permissão para reclassificar esta conta.');
+            return false;
+        }
+        const categoria = document.getElementById('reclassificarReceberCategoria');
+        const centro = document.getElementById('reclassificarReceberCentro');
+        const motivo = document.getElementById('reclassificarReceberMotivo');
+        for (const [campo, mensagem] of [[categoria, 'Selecione uma categoria financeira de receita.'],
+            [centro, 'Selecione um centro de custo compatível.'], [motivo, 'Informe o motivo da reclassificação.']]) {
+            if (!campo.value || (campo === motivo && !campo.value.trim())) {
+                erroReclassificacaoReceber(mensagem, campo.id); return false;
+            }
+        }
+        if (!sessao.entrada) {
+            const agora = new Date();
+            sessao.entrada = criarEntradaReclassificacaoContaReceber(sessao.referencia,
+                categoria.value, centro.value, motivo.value, sessao.operacaoId, agora.toISOString(),
+                dataLocalFinanceiro(), obterResponsavelRecebimentoLocacao(),
+                window.SCHEMA_VERSION_V12 || '12.6', agora.getTime());
+        }
+        reclassificacaoReceberEmProcessamento = true;
+        let resultado;
+        try { resultado = executarReclassificacaoContaReceberTransacional(sessao.entrada,
+            criarDependenciasExecutorContaReceber({ armazenamento: localStorage })); }
+        catch (_erro) { resultado = { ok: false, requerRecuperacao: true }; }
+        finally { reclassificacaoReceberEmProcessamento = false; }
+        if (!resultado.ok) {
+            sessao.recuperacao = resultado.requerRecuperacao === true;
+            erroReclassificacaoReceber(sessao.recuperacao
+                ? 'A operação exige recuperação. Não repita antes de reconciliar o armazenamento.'
+                : 'Não foi possível reclassificar. Confira as seleções e a permissão.');
+            return false;
+        }
+        fecharReclassificacaoContaReceber();
+        if (resultado.efeitos?.renderizar) {
+            const acionador = acionadorDetalhesContaReceber;
+            renderFinanceiroResumo();
+            abrirDetalhesContaReceber(sessao.referencia);
+            acionadorDetalhesContaReceber = acionador;
+            document.getElementById('reclassificarContaReceberAcao')?.focus({ preventScroll: true });
+        }
+        if (resultado.efeitos?.sincronizar && typeof sincronizar === 'function') sincronizar('salvar');
+        mostrarToast('Classificação da conta a receber atualizada.');
         return true;
     }
 
@@ -1806,6 +1967,9 @@
     window.imprimirFluxoCaixa = imprimirFluxoCaixa;
     window.renderContasReceberDetalhadas = renderContasReceberDetalhadas;
     window.abrirDetalhesContaReceber = abrirDetalhesContaReceber;
+    window.abrirReclassificacaoContaReceber = abrirReclassificacaoContaReceber;
+    window.fecharReclassificacaoContaReceber = fecharReclassificacaoContaReceber;
+    window.confirmarReclassificacaoContaReceber = confirmarReclassificacaoContaReceber;
     window.fecharDetalhesContaReceber = fecharDetalhesContaReceber;
     window.registrarRecebimentoParcelaConta = registrarRecebimentoParcelaConta;
     window.confirmarRecebimentoParcelaConta = confirmarRecebimentoParcelaConta;

@@ -43,6 +43,8 @@
     const travasRecebimentoLocacao = new Set();
     const travasEstornoRecebimento = new Set();
     const travasContaReceber = new Set();
+    const travasReclassificacaoContaReceber = new Set();
+    const entradasReclassificacaoContaReceberConfiaveis = new WeakSet();
     const travasFornecedor = new Set();
     const travasContaPagar = new Set();
     const travasReclassificacaoContaPagar = new Set();
@@ -195,6 +197,10 @@
         if (!clonagem.ok || !clonagem.valor || typeof clonagem.valor !== 'object'
             || Array.isArray(clonagem.valor)) return clonagem;
         CHAVES_METADADOS_PERSISTENCIA.forEach((chave) => delete clonagem.valor[chave]);
+        // Toda publicacao da raiz deve comprovar tambem as contas que a operacao nao altera.
+        if (!validarFundacaoReclassificacaoReceber(clonagem.valor)) {
+            return { ok: false, codigo: 'OPERACAO_REQUER_RECUPERACAO', valor: null, json: '' };
+        }
         const jsonEstrutural = JSON.stringify(clonagem.valor);
         const canonico = ordenarChavesCanonicas(clonagem.valor);
         const json = JSON.stringify(canonico);
@@ -206,6 +212,25 @@
             jsonEstrutural,
             fingerprint: fingerprintFnv1a64(json)
         };
+    }
+
+    function raizPersistidaOperacionalEquivalente(esperado, dependencias, opcoes) {
+        if (!esperado.ok) return false;
+        try {
+            const leitura = validarRetornoLeituraSnapshotFinanceiro(
+                dependencias.lerSnapshotLocalConfirmavel({ ...opcoes }));
+            if (!leitura.ok) return false;
+            const persistido = prepararEstadoOperacionalInterno(leitura.snapshot);
+            return persistido.ok && persistido.json === esperado.json;
+        } catch (_erro) { return false; }
+    }
+
+    function raizMemoriaOperacionalPreservada(raizAnterior, esperado, dependencias) {
+        const atual = typeof dependencias.obterEstadoMemoriaAtual === 'function'
+            ? dependencias.obterEstadoMemoriaAtual() : dependencias.estadoAtual;
+        if (atual !== raizAnterior || !esperado.ok) return false;
+        const memoria = prepararEstadoOperacionalInterno(atual);
+        return memoria.ok && memoria.json === esperado.json;
     }
 
     function prototipoNativoPersistivel(prototipo, nomeEsperado) {
@@ -797,7 +822,10 @@
         }
         if (!valor || typeof valor !== 'object') return valor;
         return Object.keys(valor).sort().reduce((resultado, chave) => {
-            resultado[chave] = ordenarChavesCanonicas(valor[chave], [...caminho, chave]);
+            Object.defineProperty(resultado, chave, {
+                value: ordenarChavesCanonicas(valor[chave], [...caminho, chave]),
+                enumerable: true, writable: true, configurable: true
+            });
             return resultado;
         }, {});
     }
@@ -828,7 +856,10 @@
         if (!valor || typeof valor !== 'object') return valor;
         return Object.keys(valor).sort().reduce((resultado, chave) => {
             if (caminho.length === 0 && CHAVES_METADADOS_PERSISTENCIA.has(chave)) return resultado;
-            resultado[chave] = canonicalizarFingerprintRecuperacao(valor[chave], [...caminho, chave]);
+            Object.defineProperty(resultado, chave, {
+                value: canonicalizarFingerprintRecuperacao(valor[chave], [...caminho, chave]),
+                enumerable: true, writable: true, configurable: true
+            });
             return resultado;
         }, {});
     }
@@ -1193,6 +1224,7 @@
             'criarSnapshotReservaLocacao',
             'prepararSnapshotPersistivelCompleto',
             'persistirSnapshotLocalConfirmavel',
+            'lerSnapshotLocalConfirmavel',
             'publicarEstadoConfirmado',
             'atualizarMetadadoSincronizacao'
         ];
@@ -1240,6 +1272,10 @@
         }
 
         const estado = dependencias.estadoAtual;
+        const memoriaInicial = prepararEstadoOperacionalInterno(estado);
+        if (!memoriaInicial.ok) {
+            return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+        }
         const localizacao = localizarLocacaoUnica(estado.locacoes, entrada.locacaoId);
         if (localizacao.quantidade !== 1) {
             return resultadoBase(localizacao.quantidade === 0
@@ -1253,9 +1289,20 @@
         }
 
         travasPorLocacao.add(locacaoIdRef);
+        let escritaTentada = false;
         try {
+            const opcoesPersistencia = { armazenamento: dependencias.armazenamento,
+                ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {}) };
+            if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estado, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const conclusaoPersistida = verificarConclusaoPersistidaObsoleta(entrada, dependencias);
             if (conclusaoPersistida?.estado === 'concluida' && conclusaoPersistida?.valido === true) {
+                if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                    || !raizMemoriaOperacionalPreservada(estado, memoriaInicial, dependencias)) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
                 return resultadoBase('OPERACAO_JA_CONCLUIDA', {
                     ok: true,
                     aplicado: true,
@@ -1276,6 +1323,10 @@
             }
             const idempotencia = verificarIdempotencia(entrada, estado, localizacao.locacao, dependencias);
             if (idempotencia?.estado === 'concluida' && idempotencia?.valido === true) {
+                if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                    || !raizMemoriaOperacionalPreservada(estado, memoriaInicial, dependencias)) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
                 return resultadoBase('OPERACAO_JA_CONCLUIDA', {
                     ok: true,
                     aplicado: true,
@@ -1414,10 +1465,15 @@
             if (!snapshotPreparado?.ok) {
                 return resultadoBase(snapshotPreparado?.codigo || 'FALHA_PREPARACAO_SNAPSHOT');
             }
-            const opcoesPersistencia = { armazenamento: dependencias.armazenamento };
-            if (Object.prototype.hasOwnProperty.call(metadadosPersistencia, 'chave')) {
-                opcoesPersistencia.chave = metadadosPersistencia.chave;
+            const operacionalPreparado = prepararEstadoOperacionalInterno(snapshotPreparado.snapshot);
+            if (!operacionalPreparado.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
+            if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estado, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            escritaTentada = true;
             const persistencia = dependencias.persistirSnapshotLocalConfirmavel(
                 snapshotPreparado.snapshot,
                 opcoesPersistencia
@@ -1433,10 +1489,14 @@
                 dependencias.clonarJsonPersistivelEstrito,
                 snapshotPreparado.snapshot
             );
-            if (!estadoConfirmado.ok) {
+            if (!estadoConfirmado.ok || !prepararEstadoOperacionalInterno(estadoConfirmado.valor).ok) {
                 return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', {
                     requerRecuperacao: true
                 });
+            }
+            if (!raizPersistidaOperacionalEquivalente(operacionalPreparado, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estado, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
             try {
                 const publicado = dependencias.publicarEstadoConfirmado(estadoConfirmado.valor, estado);
@@ -1491,6 +1551,7 @@
             });
         } catch (erro) {
             return resultadoBase('FALHA_TRANSACIONAL_NAO_TRATADA', {
+                requerRecuperacao: escritaTentada,
                 bloqueios: [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
             });
         } finally {
@@ -1845,10 +1906,19 @@
             return resultadoBase('LOCACAO_BLOQUEADA_POR_OPERACAO');
         }
         travasPorLocacao.add(locacaoRef);
+        let escritaTentada = false;
+        let autorizacaoPublicacao = null;
         try {
             const estadoAtivo = dependencias.estadoAtual || dependencias.obterEstadoMemoriaAtual?.();
             const snapshotAutoritativo = clonarJsonInterno(estadoAtivo);
             if (!snapshotAutoritativo.ok) return resultadoBase(snapshotAutoritativo.codigo);
+            const memoriaInicial = prepararEstadoOperacionalInterno(snapshotAutoritativo.valor);
+            const opcoesPersistencia = { armazenamento: dependencias.armazenamento,
+                ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {}) };
+            if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estadoAtivo, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const estado = snapshotAutoritativo.valor;
             const localizacao = localizarLocacaoUnica(estado?.locacoes, entrada.locacaoId);
             if (localizacao.quantidade !== 1) {
@@ -1856,6 +1926,10 @@
             }
             const evidenciasMemoria = evidenciasDevolucaoLocacao(estado, entrada, assinatura.assinatura);
             if (evidenciasMemoria.completo) {
+                if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                    || !raizMemoriaOperacionalPreservada(estadoAtivo, memoriaInicial, dependencias)) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
                 return resultadoBase('OPERACAO_JA_CONCLUIDA', {
                     ok: true, aplicado: true, idempotente: true,
                     operacao: { locacaoId: entrada.locacaoId, operacaoId: entrada.operacaoId, assinaturaPlano: assinatura.assinatura }
@@ -1864,27 +1938,6 @@
             if (evidenciasMemoria.estado !== 'nao_executada') {
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
-            const leituraPersistidaExterna = dependencias.lerSnapshotLocalConfirmavel({
-                armazenamento: dependencias.armazenamento,
-                ...(entrada.persistencia?.chave ? { chave: entrada.persistencia.chave } : {})
-            });
-            const leituraPersistidaInterna = clonarJsonInterno(leituraPersistidaExterna);
-            const leituraPersistida = leituraPersistidaInterna.ok ? leituraPersistidaInterna.valor : null;
-            if (leituraPersistida?.ok) {
-                const persistidoIsolado = clonarJsonInterno(leituraPersistida.snapshot);
-                if (!persistidoIsolado.ok) {
-                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-                }
-                const evidenciasPersistidas = evidenciasDevolucaoLocacao(
-                    persistidoIsolado.valor, entrada, assinatura.assinatura
-                );
-                if (evidenciasPersistidas.estado !== 'nao_executada') {
-                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-                }
-            } else if (leituraPersistida?.codigo !== 'SNAPSHOT_PERSISTIDO_AUSENTE') {
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            }
-
             const locacaoControle = clonarDescartavel(localizacao.locacao);
             if (!locacaoControle) return resultadoBase('LOCACAO_NAO_SERIALIZAVEL');
             const controleExterno = dependencias.normalizarControleEdicaoLocacao(locacaoControle);
@@ -1957,6 +2010,11 @@
             }
             const snapshotParaPersistencia = clonarDescartavel(snapshotEsperado.valor);
             if (!snapshotParaPersistencia) return resultadoBase('SNAPSHOT_PREPARADO_INVALIDO');
+            if (!raizPersistidaOperacionalEquivalente(memoriaInicial, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estadoAtivo, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            escritaTentada = true;
             const persistenciaExterna = dependencias.persistirSnapshotLocalConfirmavel(
                 snapshotParaPersistencia,
                 {
@@ -2001,7 +2059,6 @@
                 return resultadoBase('ESTADO_PERSISTIDO_MEMORIA_NAO_PUBLICADA', { requerRecuperacao: true });
             }
             const fingerprintPublicacaoEsperado = fingerprintFnv1a64(publicacaoEsperada.jsonEstrutural);
-            let autorizacaoPublicacao = null;
             try {
                 autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({
                     operacaoId: entrada.operacaoId,
@@ -2016,6 +2073,10 @@
                     requerRecuperacao: true,
                     publicacaoRealizada: false
                 });
+            }
+            if (!raizPersistidaOperacionalEquivalente(publicacaoEsperada, dependencias, opcoesPersistencia)
+                || !raizMemoriaOperacionalPreservada(estadoAtivo, memoriaInicial, dependencias)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
             let erroPublicacao = null;
             try {
@@ -2096,9 +2157,14 @@
             });
         } catch (erro) {
             return resultadoBase('FALHA_TRANSACIONAL_NAO_TRATADA', {
+                requerRecuperacao: escritaTentada,
                 bloqueios: [{ codigo: 'EXCECAO_CONTROLADA', mensagem: String(erro?.message || erro) }]
             });
         } finally {
+            if (autorizacaoPublicacao) {
+                try { cancelarAutorizacaoPublicacaoConfiavel?.(autorizacaoPublicacao); }
+                catch (_erro) { /* O token pertence somente a esta operacao. */ }
+            }
             travasPorLocacao.delete(locacaoRef);
         }
     }
@@ -2435,6 +2501,9 @@
             }
             const raiz = dependencias.obterEstadoMemoriaAtual();
             const estado = operacionalPeca(raiz);
+            if (!prepararEstadoOperacionalInterno(estado).ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const jsonInicial = jsonCanonicoPeca(estado);
             const destinacao = entrada.modo === 'destinacao';
             operacao = destinacao
@@ -2502,6 +2571,9 @@
             const preparado = prepararSnapshotPecaInterno(copiarDadosPeca(candidato), copiarDadosPeca(entrada.persistencia));
             if (!preparado.ok) return resultadoBase(preparado.codigo);
             const esperado = copiarDadosPeca(preparado.snapshot);
+            if (!prepararEstadoOperacionalInterno(esperado).ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const jsonEsperado = jsonCanonicoPeca(esperado);
             if (jsonCanonicoPeca(operacionalPeca(esperado)) !== jsonCanonicoPeca(candidato)) return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
             if (dependencias.obterEstadoMemoriaAtual() !== raiz || jsonCanonicoPeca(operacionalPeca(raiz)) !== jsonInicial) return resultadoBase('REVISAO_DIVERGENTE');
@@ -2517,6 +2589,9 @@
                 return resultadoBase(naoGravado ? 'FALHA_PERSISTENCIA' : 'PERSISTENCIA_CONFIRMADA_DIVERGENTE', { requerRecuperacao: !naoGravado });
             }
             const confirmado = operacionalPeca(releitura.snapshot);
+            if (!prepararEstadoOperacionalInterno(confirmado).ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
             const ultimaRaiz = dependencias.obterEstadoMemoriaAtual();
             if (ultimaRaiz !== raiz || jsonCanonicoPeca(operacionalPeca(raiz)) !== jsonInicial) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             const jsonPublicacao = JSON.stringify(confirmado);
@@ -2727,7 +2802,8 @@
         try {
             const raizAnterior = dependencias.obterEstadoMemoriaAtual();
             const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-            if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+            if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+                requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
             const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
             if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) {
                 opcoesArmazenamento.chave = persistenciaEntrada.chave;
@@ -3017,7 +3093,8 @@
         try {
             const raizAnterior = dependencias.obterEstadoMemoriaAtual();
             const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-            if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+            if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+                requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
 
             // A releitura decide idempotencia e divergencia antes de qualquer candidato ou escrita.
             const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
@@ -3460,7 +3537,8 @@
             || !Array.isArray(conta.parcelas) || conta.parcelas.length !== conta.quantidadeParcelas) {
             return { valida: false, codigo: 'CONTA_RECEBER_INVALIDA' };
         }
-        if (!validarClassificacaoContaReceber(conta)) {
+        if (!validarClassificacaoContaReceber(conta)
+            || !validarCadeiaClassificacaoReceberLocal(conta)) {
             return { valida: false, codigo: 'CLASSIFICACAO_CONTA_RECEBER_INVALIDA' };
         }
         const ids = new Set();
@@ -3503,12 +3581,13 @@
             !== JSON.stringify(criarEvidenciaCriacaoContaReceber(conta))) {
             return { valida: false, codigo: 'EVIDENCIA_CRIACAO_CONTA_DIVERGENTE' };
         }
-        if (conta.classificacaoLegada === false) {
-            const assinaturaEsperada = assinaturaContaReceber({ ...conta,
+        const contaCriacao = contaComClassificacaoOriginal(conta);
+        if (contaCriacao.classificacaoLegada === false) {
+            const assinaturaEsperada = assinaturaContaReceber({ ...contaCriacao,
                 emitidaEm: conta.dataEmissao,
                 primeiroVencimento: conta.parcelas.find((parcela) => parcela.numero === 1).vencimento
             }, conta.locacaoId, conta.locacaoReferencia, conta.clienteReferencia,
-            conta.valorTotalCentavos, camposClassificacaoContaReceber(conta));
+            conta.valorTotalCentavos, camposClassificacaoContaReceber(contaCriacao));
             if (conta.assinaturaPlano !== assinaturaEsperada) {
                 return { valida: false, codigo: 'ASSINATURA_CLASSIFICACAO_RECEBER_DIVERGENTE' };
             }
@@ -3733,7 +3812,9 @@
 
         const raizAnterior = dependencias.obterEstadoMemoriaAtual();
         const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+            requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
+        });
         const resolucao = resolverReferenciaTipadaLocacaoTransacional(entrada.locacaoReferencia, memoriaInicial.valor.locacoes);
         if (resolucao.estado !== 'encontrado') {
             const codigo = resolucao.estado === 'duplicado' ? 'LOCACAO_ID_DUPLICADO'
@@ -3744,7 +3825,8 @@
         const locacaoReferencia = criarReferenciaTipadaLocacaoTransacional(locacaoId);
         const locacaoRef = referenciaEstrita(locacaoId);
         if (!locacaoRef || !locacaoReferencia) return resultadoBase('REFERENCIA_LOCACAO_INVALIDA');
-        if (travasRecebimentoLocacao.has(locacaoRef)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        if (travasReclassificacaoContaReceber.size || travasRecebimentoLocacao.has(locacaoRef))
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
 
         travasRecebimentoLocacao.add(locacaoRef);
         let autorizacaoPublicacao = null;
@@ -4758,7 +4840,9 @@
 
         const raizAnterior = dependencias.obterEstadoMemoriaAtual();
         const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+            requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
+        });
         const dataReferencia = atualizadoEm.slice(0, 10);
         if (!validarDataLocalContaReceber(dataReferencia)) return resultadoBase('DATA_ESTORNO_INVALIDA');
         const alvoInicial = resolverAlvoEstornoRecebimento(memoriaInicial.valor, entrada, dataReferencia);
@@ -4766,7 +4850,8 @@
             requerRecuperacao: alvoInicial.requerRecuperacao === true
         });
         const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}`;
-        if (travasEstornoRecebimento.has(trava)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        if (travasReclassificacaoContaReceber.size || travasEstornoRecebimento.has(trava))
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
         travasEstornoRecebimento.add(trava);
         let autorizacaoPublicacao = null;
         let persistenciaConfirmada = false;
@@ -5065,6 +5150,163 @@
         return entrada;
     }
 
+    function criarEntradaReclassificacaoContaReceber(contaReferencia,
+        categoriaFinanceiraReferencia, centroCustoReferencia, motivo, operacaoId,
+        atualizadoEm, dataReferencia, responsavel, versao, ultimaEdicao) {
+        if ([contaReferencia, categoriaFinanceiraReferencia, centroCustoReferencia,
+            motivo, operacaoId, atualizadoEm, dataReferencia, responsavel, versao]
+            .some((valor) => typeof valor !== 'string')
+            || !Number.isSafeInteger(ultimaEdicao) || ultimaEdicao < 0) return null;
+        const entrada = Object.freeze({ contaReferencia, categoriaFinanceiraReferencia,
+            centroCustoReferencia, motivo, operacaoId, atualizadoEm, dataReferencia,
+            responsavel, persistencia: Object.freeze({ versao, data: atualizadoEm, ultimaEdicao }) });
+        entradasReclassificacaoContaReceberConfiaveis.add(entrada);
+        return entrada;
+    }
+
+    function classificacaoVigenteReceber(conta) {
+        return conta.classificacaoLegada === false ? camposClassificacaoContaReceber(conta)
+            : { classificacaoLegada: true };
+    }
+
+    function contaComClassificacaoOriginal(conta) {
+        if (!Array.isArray(conta.reclassificacoesFinanceiras)
+            || !conta.reclassificacoesFinanceiras.length) return conta;
+        const original = { ...conta };
+        ['classificacaoLegada', 'categoriaFinanceiraReferencia', 'categoriaFinanceiraSnapshot',
+            'centroCustoReferencia', 'centroCustoSnapshot'].forEach((chave) => delete original[chave]);
+        const prova = conta.evidenciaCriacao;
+        if (prova?.classificacaoLegada === false) Object.assign(original,
+            camposClassificacaoContaReceber(prova));
+        return original;
+    }
+
+    function canonicoIgualReceber(a, b) {
+        return JSON.stringify(ordenarChavesCanonicas(a)) === JSON.stringify(ordenarChavesCanonicas(b));
+    }
+
+    function assinaturaReclassificacaoReceber(plano) {
+        return `reclassificacao-conta-receber-v1:fnv1a64:${fingerprintFnv1a64(
+            JSON.stringify(ordenarChavesCanonicas(plano)))}`;
+    }
+
+    function instanteUltimaAtualizacaoContaReceber(conta) {
+        if (!instanteFinanceiroIntegro(conta.criadoEm) || !Array.isArray(conta.parcelas)) return null;
+        let ultimo = conta.criadoEm;
+        const eventos = [...(conta.reclassificacoesFinanceiras || []).map((e) => e.atualizadoEm),
+            ...conta.parcelas.flatMap((p) => (p.lancamentosFinanceiros || []).map((l) => l.data))];
+        // Conciliacoes qualificam lancamentos, mas nao alteram atualizadoEm da conta.
+        for (const data of eventos) {
+            if (!instanteFinanceiroIntegro(data) || data <= conta.criadoEm) return null;
+            if (data > ultimo) ultimo = data;
+        }
+        return ultimo;
+    }
+
+    function validarCadeiaClassificacaoReceberLocal(conta) {
+        if (!conta || typeof conta !== 'object' || Array.isArray(conta)) return false;
+        if (conta.reclassificacoesFinanceiras === undefined)
+            return conta.atualizadoEm === instanteUltimaAtualizacaoContaReceber(conta);
+        if (!Array.isArray(conta.reclassificacoesFinanceiras)
+            || !conta.reclassificacoesFinanceiras.length) return false;
+        let anterior = classificacaoVigenteReceber(contaComClassificacaoOriginal(conta));
+        let assinaturaAnterior = conta.assinaturaPlano;
+        let dataAnterior = conta.criadoEm;
+        const ids = new Set();
+        for (const evidencia of conta.reclassificacoesFinanceiras) {
+            if (!evidencia || typeof evidencia !== 'object' || Array.isArray(evidencia)) return false;
+            const { assinaturaPlano, ...plano } = evidencia;
+            if (!plano.posterior || typeof plano.posterior !== 'object' || Array.isArray(plano.posterior)) return false;
+            const chaves = ['versao', 'operacaoId', 'contaReferencia', 'locacaoReferencia',
+                'clienteReferencia', 'anterior', 'posterior', 'assinaturaAnterior', 'motivo',
+                'atualizadoEm', 'responsavel', 'origem', 'provenienciaCodigo'];
+            if (!canonicoIgualReceber(Object.keys(plano).sort(), chaves.sort())
+                || plano.versao !== 1 || plano.origem !== 'contas_receber'
+                || plano.provenienciaCodigo !== 'reclassificacao_manual'
+                || typeof plano.operacaoId !== 'string'
+                || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(plano.operacaoId)
+                || ids.has(plano.operacaoId) || plano.operacaoId === conta.operacaoId
+                || plano.contaReferencia !== conta.contaReferencia
+                || plano.locacaoReferencia !== conta.locacaoReferencia
+                || plano.clienteReferencia !== conta.clienteReferencia
+                || typeof plano.motivo !== 'string' || !plano.motivo.trim() || plano.motivo.length > 1000
+                || typeof plano.responsavel !== 'string' || !plano.responsavel.trim()
+                || plano.responsavel.length > 300
+                || !instanteFinanceiroIntegro(plano.atualizadoEm)
+                || !instantePagamentoPagarPosterior(plano.atualizadoEm, dataAnterior)
+                || plano.assinaturaAnterior !== assinaturaAnterior
+                || !canonicoIgualReceber(plano.anterior, anterior)
+                || !validarClassificacaoContaReceber({ ...conta, ...plano.posterior })
+                || !canonicoIgualReceber(Object.keys(plano.posterior).sort(),
+                    Object.keys(camposClassificacaoContaReceber(plano.posterior)).sort())
+                || assinaturaPlano !== assinaturaReclassificacaoReceber(plano)) return false;
+            ids.add(plano.operacaoId);
+            anterior = plano.posterior;
+            assinaturaAnterior = assinaturaPlano;
+            dataAnterior = plano.atualizadoEm;
+        }
+        return canonicoIgualReceber(classificacaoVigenteReceber(conta), anterior)
+            && conta.provenienciaCodigo === 'reclassificacao_manual'
+            && instanteFinanceiroIntegro(conta.atualizadoEm)
+            && conta.atualizadoEm === instanteUltimaAtualizacaoContaReceber(conta);
+    }
+
+    function registroReclassificacaoReceber(evidencia, escopo) {
+        const auditoria = escopo === 'auditoria';
+        return { id: `${auditoria ? 'auditoria' : escopo === 'locacao' ? 'historico-locacao' : 'historico'}-${evidencia.operacaoId}`,
+            operacaoId: evidencia.operacaoId,
+            acao: auditoria ? 'reclassificar_conta_receber' : 'conta_receber_reclassificada',
+            origem: 'contas_receber', contaReferencia: evidencia.contaReferencia,
+            locacaoReferencia: evidencia.locacaoReferencia, clienteReferencia: evidencia.clienteReferencia,
+            data: evidencia.atualizadoEm, usuario: evidencia.responsavel,
+            assinaturaPlano: evidencia.assinaturaPlano, evidenciaOperacao: evidencia,
+            ...(auditoria ? { tipo: 'financeiro', timestamp: evidencia.atualizadoEm,
+                descricao: 'Classificacao financeira da conta a receber atualizada.' } : {}) };
+    }
+
+    function validarCadeiasClassificacaoReceber(estado) {
+        try { return validarCadeiasClassificacaoReceberInterno(estado); }
+        catch (_erro) { return false; }
+    }
+
+    function validarCadeiasClassificacaoReceberInterno(estado) {
+        const contas = Array.isArray(estado.contasReceber) ? estado.contasReceber : [];
+        const auditorias = Array.isArray(estado.logsAuditoria) ? estado.logsAuditoria : [];
+        const locacoes = Array.isArray(estado.locacoes) ? estado.locacoes : [];
+        const operacoes = new Map();
+        for (const conta of contas) {
+            if (!validarCadeiaClassificacaoReceberLocal(conta)) return false;
+            for (const evidencia of conta.reclassificacoesFinanceiras || []) {
+                if (operacoes.has(evidencia.operacaoId)
+                    || contas.filter((c) => c.contaReferencia === conta.contaReferencia).length !== 1
+                    || !verificarEvidenciasContaReceber(estado, conta.operacaoId,
+                        conta.locacaoId, conta.locacaoReferencia, conta.assinaturaPlano).completo) return false;
+                const vinculadas = locacoes.filter((l) => (
+                    criarReferenciaTipadaLocacaoTransacional(l.id) === conta.locacaoReferencia));
+                if (vinculadas.length !== 1
+                    || typeof vinculadas[0].locadorId !== typeof conta.clienteId
+                    || !Object.is(vinculadas[0].locadorId, conta.clienteId)) return false;
+                const contaRegistros = contas.flatMap((c) => c.historico || [])
+                    .filter((h) => h.operacaoId === evidencia.operacaoId);
+                const locacaoRegistros = locacoes.flatMap((l) => l.historicoAlteracoes || [])
+                    .filter((h) => h.operacaoId === evidencia.operacaoId);
+                const auditRegistros = auditorias.filter((h) => h.operacaoId === evidencia.operacaoId);
+                if (contaRegistros.length !== 1 || locacaoRegistros.length !== 1 || auditRegistros.length !== 1
+                    || !conta.historico.includes(contaRegistros[0])
+                    || !(vinculadas[0].historicoAlteracoes || []).includes(locacaoRegistros[0])
+                    || !canonicoIgualReceber(contaRegistros[0], registroReclassificacaoReceber(evidencia, 'conta'))
+                    || !canonicoIgualReceber(locacaoRegistros[0], registroReclassificacaoReceber(evidencia, 'locacao'))
+                    || !canonicoIgualReceber(auditRegistros[0], registroReclassificacaoReceber(evidencia, 'auditoria')))
+                    return false;
+                operacoes.set(evidencia.operacaoId, evidencia);
+            }
+        }
+        const registros = [...auditorias, ...contas.flatMap((c) => c.historico || []),
+            ...locacoes.flatMap((l) => l.historicoAlteracoes || [])];
+        return registros.every((h) => !['conta_receber_reclassificada', 'reclassificar_conta_receber']
+            .includes(h.acao) || operacoes.has(h.operacaoId));
+    }
+
     function camposClassificacaoContaReceber(conta) {
         return {
             classificacaoLegada: false,
@@ -5179,6 +5421,7 @@
     }
 
     function criarEvidenciaCriacaoContaReceber(conta) {
+        conta = contaComClassificacaoOriginal(conta);
         return ordenarChavesCanonicas({
             operacaoId: conta.operacaoId,
             assinaturaPlano: conta.assinaturaPlano,
@@ -5290,7 +5533,9 @@
         if (!valoresParcelas) return resultadoBase('PARCELAMENTO_INVALIDO');
         const raizAnterior = dependencias.obterEstadoMemoriaAtual();
         const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+            requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
+        });
         const resolucaoLocacao = resolverReferenciaTipadaLocacaoTransacional(
             entrada.locacaoReferencia, memoriaInicial.valor.locacoes);
         if (resolucaoLocacao.estado !== 'encontrado') return resultadoBase(
@@ -5302,7 +5547,8 @@
         const cliente = resolverIdentidadeExataContaReceber(resolucaoLocacao.locacao.locadorId, memoriaInicial.valor.locadores);
         if (!locacaoRef || cliente.estado !== 'encontrado') return resultadoBase(
             cliente.estado === 'duplicado' ? 'CLIENTE_ID_DUPLICADO' : 'CLIENTE_NAO_RECONCILIADO');
-        if (travasContaReceber.size) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        if (travasReclassificacaoContaReceber.size || travasContaReceber.size)
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
 
         travasContaReceber.add(locacaoRef);
         let autorizacaoPublicacao = null;
@@ -5339,7 +5585,7 @@
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
             const classificacao = contasOperacao.length === 1
-                ? camposClassificacaoContaReceber(contasOperacao[0])
+                ? camposClassificacaoContaReceber(contaComClassificacaoOriginal(contasOperacao[0]))
                 : criarClassificacaoContaReceber(memoriaInicial.valor, entrada, resolucaoLocacao.locacao);
             const assinatura = assinaturaContaReceber(entrada, locacaoId, locacaoReferencia,
                 cliente.referencia, total.centavos, classificacao);
@@ -5472,6 +5718,8 @@
                 return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
             }
             const operacionalEsperado = prepararEstadoOperacionalInterno(snapshotAutoritativo.valor);
+            if (!operacionalEsperado.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
             const jsonPublicacaoEsperado = operacionalEsperado.jsonEstrutural;
             const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
             autorizacaoPublicacao = prepararAutorizacaoPublicacaoConfiavel?.({ operacaoId,
@@ -8472,6 +8720,322 @@
         }
     }
 
+    function evidenciaMonetariaContaReceber(registro) {
+        return registro && typeof registro === 'object' && (
+            ['recebimento_aplicado', 'estorno_aplicado', 'financeiro_recebimento',
+                'financeiro_estorno', 'recebimento', 'estorno_recebimento'].includes(registro.acao)
+            || ['recebimento', 'estorno'].includes(registro.tipo)
+            || ['valorAplicadoCentavos', 'valorLancamentoCentavos', 'valorEstornoCentavos',
+                'lancamentoOriginalReferencia'].some((campo) => Object.prototype.hasOwnProperty.call(registro, campo)));
+    }
+
+    function reconciliarSaldoReclassificacaoReceber(estado, conta, locacao, dataReferencia) {
+        const lancamentos = conta.parcelas.flatMap((p) => p.lancamentosFinanceiros);
+        const operacoes = new Set(lancamentos.map((l) => l.operacaoId));
+        const referenciasParcelas = new Set(conta.parcelas.map((p) => p.parcelaReferencia));
+        const registros = [
+            ...conta.historico.filter(evidenciaMonetariaContaReceber),
+            ...(locacao.financeiro?.lancamentosRecebimentos || []),
+            ...(locacao.historicoAlteracoes || []).filter(evidenciaMonetariaContaReceber),
+            ...estado.logsAuditoria.filter((h) => evidenciaMonetariaContaReceber(h)
+                && (h.contaReferencia === conta.contaReferencia
+                    || referenciasParcelas.has(h.parcelaReferencia)
+                    || h.locacaoReferencia === conta.locacaoReferencia
+                    || (typeof h.locacaoId === typeof locacao.id && Object.is(h.locacaoId, locacao.id))))
+        ];
+        if (registros.some((h) => !h || typeof h.operacaoId !== 'string' || !operacoes.has(h.operacaoId)))
+            return false;
+        const acoesConciliacao = ['conciliacao_financeira', 'desconsideracao_conciliacao',
+            'conciliar_lancamento'];
+        const evidenciasConciliacao = [...conta.historico,
+            ...(locacao.historicoAlteracoes || []),
+            ...estado.logsAuditoria.filter((h) => h.contaReferencia === conta.contaReferencia)]
+            .filter((h) => acoesConciliacao.includes(h.acao));
+        const conciliacoes = estado.conciliacoesFinanceiras.filter((c) => c.contaReferencia === conta.contaReferencia);
+        const operacoesConciliacao = new Set(conciliacoes.map((c) => c.operacaoId));
+        if (evidenciasConciliacao.some((h) => !operacoesConciliacao.has(h.operacaoId))
+            || conciliacoes.some((c) => !verificarEvidenciasConciliacaoFinanceira(
+                estado, c.operacaoId, c.assinaturaPlano).completo)) return false;
+        // A lista vazia nao prova saldo recebido: cada parcela deve estar integralmente em aberto.
+        if (!lancamentos.length) {
+            if (conta.parcelas.some((p) => p.valorRecebidoCentavos !== 0
+                || p.saldoCentavos !== p.valorOriginalCentavos)
+                || (conta.valorRecebidoCentavos !== undefined && conta.valorRecebidoCentavos !== 0)
+                || (conta.saldoCentavos !== undefined && conta.saldoCentavos !== conta.valorTotalCentavos))
+                return false;
+            const legado = obterProjecaoFinanceiraLegadaLocacao(locacao);
+            if (!legado.encontrada || legado.valorTotalCentavos !== conta.valorTotalCentavos
+                || legado.valorRecebidoCentavos !== 0 || legado.saldoCentavos !== conta.valorTotalCentavos)
+                return false;
+        } else if (!reconstruirCadeiaFinanceiraConta(estado, conta, locacao, dataReferencia).ok) return false;
+        // As evidencias financeiras completas ja reconciliadas determinam tambem os instantes.
+        for (const parcela of conta.parcelas) {
+            let ultimo = parcela.criadoEm;
+            if (!instanteFinanceiroIntegro(ultimo)) return false;
+            for (const lancamento of parcela.lancamentosFinanceiros) {
+                if (!instanteFinanceiroIntegro(lancamento.data) || lancamento.data <= parcela.criadoEm) return false;
+                if (lancamento.data > ultimo) ultimo = lancamento.data;
+            }
+            if (parcela.atualizadoEm !== ultimo) return false;
+        }
+        return conta.atualizadoEm === instanteUltimaAtualizacaoContaReceber(conta);
+    }
+
+    function validarVinculosMonetariosReclassificacaoReceber(estado) {
+        const registros = [...estado.logsAuditoria,
+            ...estado.contasReceber.flatMap((c) => c.historico),
+            ...estado.locacoes.flatMap((l) => [...(l.historicoAlteracoes || []),
+                ...(l.financeiro?.lancamentosRecebimentos || [])])].filter(evidenciaMonetariaContaReceber);
+        return registros.every((h) => {
+            // Historico legado sem vinculo a conta nao e associado por inferencia.
+            if (h.contaReferencia === undefined || h.contaReferencia === '') return true;
+            const contas = estado.contasReceber.filter((c) => c.contaReferencia === h.contaReferencia);
+            return contas.length === 1 && typeof h.operacaoId === 'string'
+                && contas[0].parcelas.some((p) => p.lancamentosFinanceiros
+                    .some((l) => l.operacaoId === h.operacaoId));
+        });
+    }
+
+    function validarFundacaoReclassificacaoReceber(estado, dataReferencia) {
+        try { return validarFundacaoReclassificacaoReceberInterno(estado, dataReferencia); }
+        catch (_erro) { return false; }
+    }
+
+    function validarFundacaoReclassificacaoReceberInterno(estado, dataReferencia) {
+        if (!validarCadeiasClassificacaoReceber(estado)
+            || !Array.isArray(estado.contasReceber) || !Array.isArray(estado.locacoes)
+            || !Array.isArray(estado.locadores) || !Array.isArray(estado.logsAuditoria)
+            || !Array.isArray(estado.conciliacoesFinanceiras)) return false;
+        const refs = new Set();
+        for (const conta of estado.contasReceber) {
+            // A integridade independe do vencimento efetivo; sem data da operacao, use a emissao.
+            const dataValidacao = dataReferencia === undefined ? conta.dataEmissao : dataReferencia;
+            if (!validarContaReceberEstrutural(conta, dataValidacao).valida
+                || refs.has(conta.contaReferencia)) return false;
+            const vinculadas = estado.locacoes.filter((l) =>
+                criarReferenciaTipadaLocacaoTransacional(l.id) === conta.locacaoReferencia);
+            const clientes = estado.locadores.filter((c) =>
+                typeof c.id === typeof conta.clienteId && Object.is(c.id, conta.clienteId));
+            if (vinculadas.length !== 1 || clientes.length !== 1
+                || typeof vinculadas[0].locadorId !== typeof conta.clienteId
+                || !Object.is(vinculadas[0].locadorId, conta.clienteId)
+                || !verificarEvidenciasContaReceber(estado, conta.operacaoId,
+                    conta.locacaoId, conta.locacaoReferencia, conta.assinaturaPlano).completo
+                || !reconciliarSaldoReclassificacaoReceber(estado, conta, vinculadas[0], dataValidacao))
+                return false;
+            refs.add(conta.contaReferencia);
+        }
+        return validarVinculosMonetariosReclassificacaoReceber(estado)
+            && validarColecaoConciliacoesFinanceiras(estado).ok;
+    }
+
+    function executarReclassificacaoContaReceberTransacional(entradaRecebida, dependencias = {}) {
+        if (!entradaRecebida || !entradasReclassificacaoContaReceberConfiaveis.has(entradaRecebida))
+            return resultadoBase('ENTRADA_RECLASSIFICACAO_RECEBER_NAO_CONFIAVEL');
+        const entrada = entradaRecebida;
+        const persistencia = entrada.persistencia;
+        const permissaoConcedida = () => {
+            try { return typeof dependencias.validarPermissaoFinanceira === 'function'
+                && dependencias.validarPermissaoFinanceira('reclassificar_conta_receber') === true; }
+            catch (_erro) { return false; }
+        };
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!entrada.contaReferencia || !entrada.categoriaFinanceiraReferencia || !entrada.centroCustoReferencia
+            || !entrada.motivo.trim() || entrada.motivo.length > 1000
+            || !entrada.responsavel.trim() || entrada.responsavel.length > 300
+            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || !instanteFinanceiroIntegro(entrada.atualizadoEm)
+            || !validarDataLocalContaReceber(entrada.dataReferencia)
+            || !persistencia.versao || !dependencias.armazenamento
+            || obrigatorias.some((nome) => typeof dependencias[nome] !== 'function'))
+            return resultadoBase('ENTRADA_RECLASSIFICACAO_RECEBER_INVALIDA');
+        if (travasReclassificacaoContaReceber.size || travasRecebimentoLocacao.size
+            || travasEstornoRecebimento.size || travasContaReceber.size || travasConciliacaoFinanceira.size)
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        travasReclassificacaoContaReceber.add(entrada.contaReferencia);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let persistenciaTentada = false;
+        let publicacaoRealizada = false;
+        try {
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_FINANCEIRA_NEGADA');
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !validarFundacaoReclassificacaoReceber(memoria.valor, entrada.dataReferencia))
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            let leitura;
+            try { leitura = dependencias.lerSnapshotLocalConfirmavel(opcoesArmazenamento); }
+            catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !validarFundacaoReclassificacaoReceber(persistido.valor, entrada.dataReferencia)
+                || memoria.json !== persistido.json)
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const existentes = memoria.valor.contasReceber.flatMap((c) => c.reclassificacoesFinanceiras || [])
+                .filter((e) => e.operacaoId === entrada.operacaoId);
+            if (existentes.length) {
+                const e = existentes[0];
+                const igual = existentes.length === 1 && e.contaReferencia === entrada.contaReferencia
+                    && e.posterior.categoriaFinanceiraReferencia === entrada.categoriaFinanceiraReferencia
+                    && e.posterior.centroCustoReferencia === entrada.centroCustoReferencia
+                    && e.motivo === entrada.motivo && e.atualizadoEm === entrada.atualizadoEm
+                    && e.responsavel === entrada.responsavel;
+                return igual ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
+                    idempotente: true, operacao: { operacaoId: entrada.operacaoId } })
+                    : resultadoBase('OPERACAO_ID_CONFLITANTE');
+            }
+            if (memoria.valor.logsAuditoria.some((h) => h.operacaoId === entrada.operacaoId)
+                || memoria.valor.contasReceber.some((c) => c.operacaoId === entrada.operacaoId
+                    || c.historico.some((h) => h.operacaoId === entrada.operacaoId))
+                || memoria.valor.locacoes.some((l) => (l.historicoAlteracoes || [])
+                    .some((h) => h.operacaoId === entrada.operacaoId)))
+                return resultadoBase('OPERACAO_ID_CONFLITANTE');
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contas = candidato.valor.contasReceber.filter((c) => c.contaReferencia === entrada.contaReferencia);
+            if (contas.length !== 1) return resultadoBase('CONTA_RECEBER_NAO_DISPONIVEL');
+            const conta = contas[0];
+            if (['cancelada', 'encerrada'].includes(conta.situacao))
+                return resultadoBase('CONTA_RECEBER_INATIVA');
+            if (candidato.valor.contasReceber.filter((c) =>
+                c.locacaoReferencia === conta.locacaoReferencia).length !== 1)
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const locacoes = candidato.valor.locacoes.filter((l) =>
+                criarReferenciaTipadaLocacaoTransacional(l.id) === conta.locacaoReferencia);
+            const clientes = candidato.valor.locadores.filter((c) =>
+                typeof c.id === typeof conta.clienteId && Object.is(c.id, conta.clienteId));
+            if (locacoes.length !== 1 || clientes.length !== 1
+                || typeof locacoes[0].locadorId !== typeof conta.clienteId
+                || !Object.is(locacoes[0].locadorId, conta.clienteId)
+                || !verificarEvidenciasContaReceber(candidato.valor, conta.operacaoId,
+                    conta.locacaoId, conta.locacaoReferencia, conta.assinaturaPlano).completo)
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (!reconciliarSaldoReclassificacaoReceber(candidato.valor, conta, locacoes[0], entrada.dataReferencia))
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const posterior = criarClassificacaoContaReceber(candidato.valor,
+                { ...entrada, locacaoReferencia: conta.locacaoReferencia }, locacoes[0]);
+            const datas = [conta.criadoEm, conta.atualizadoEm,
+                ...conta.historico.map((h) => h.data),
+                ...conta.parcelas.flatMap((p) => p.lancamentosFinanceiros.map((l) => l.data))];
+            if (!posterior || datas.some((data) => !instanteFinanceiroIntegro(data)
+                || !instantePagamentoPagarPosterior(entrada.atualizadoEm, data)))
+                return resultadoBase('CLASSIFICACAO_RECEBER_INVALIDA');
+            const cadeia = conta.reclassificacoesFinanceiras || [];
+            const plano = { versao: 1, operacaoId: entrada.operacaoId,
+                contaReferencia: conta.contaReferencia, locacaoReferencia: conta.locacaoReferencia,
+                clienteReferencia: conta.clienteReferencia,
+                anterior: classificacaoVigenteReceber(conta), posterior,
+                assinaturaAnterior: cadeia.length ? cadeia[cadeia.length - 1].assinaturaPlano : conta.assinaturaPlano,
+                motivo: entrada.motivo, atualizadoEm: entrada.atualizadoEm, responsavel: entrada.responsavel,
+                origem: 'contas_receber', provenienciaCodigo: 'reclassificacao_manual' };
+            const assinaturaPlano = assinaturaReclassificacaoReceber(plano);
+            const evidencia = ordenarChavesCanonicas({ ...plano, assinaturaPlano });
+            Object.assign(conta, posterior, { provenienciaCodigo: 'reclassificacao_manual',
+                atualizadoEm: entrada.atualizadoEm, reclassificacoesFinanceiras: [...cadeia, evidencia] });
+            conta.historico.push(registroReclassificacaoReceber(evidencia, 'conta'));
+            locacoes[0].historicoAlteracoes = [...(locacoes[0].historicoAlteracoes || []),
+                registroReclassificacaoReceber(evidencia, 'locacao')];
+            candidato.valor.logsAuditoria.push(registroReclassificacaoReceber(evidencia, 'auditoria'));
+            if (!validarFundacaoReclassificacaoReceber(candidato.valor, entrada.dataReferencia))
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                clonarDescartavel(candidatoCanonico), clonarDescartavel(persistencia)); }
+            catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({ versao: persistencia.versao,
+                data: persistencia.data, ultimaEdicao: persistencia.ultimaEdicao,
+                ...candidatoCanonico });
+            const externo = preparadoValido.ok
+                ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            if (!operacional.ok) return resultadoBase('CANDIDATO_RECEBER_INVALIDO');
+            const memoriaAntesPersistir = prepararEstadoOperacionalInterno(dependencias.obterEstadoMemoriaAtual());
+            if (dependencias.obterEstadoMemoriaAtual() !== raizAnterior || !memoriaAntesPersistir.ok
+                || memoriaAntesPersistir.json !== memoria.json)
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId, fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_FINANCEIRA_NEGADA');
+            persistenciaTentada = true;
+            try { dependencias.persistirSnapshotLocalConfirmavel(
+                clonarDescartavel(snapshot.valor), opcoesArmazenamento); }
+            catch (_erro) { /* a releitura confirma o resultado */ }
+            let releitura;
+            try { releitura = dependencias.lerSnapshotLocalConfirmavel(opcoesArmazenamento); }
+            catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok
+                ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok || !validarFundacaoReclassificacaoReceber(operacionalRelido.valor, entrada.dataReferencia)) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok
+                || memoriaAtual.json !== memoria.json) return resultadoBase(
+                'OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (!permissaoConcedida()) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            let erroPublicacao = null;
+            try { dependencias.publicarSnapshotAutorizado(clonarDescartavel(operacional.valor), {
+                jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                autorizacaoPublicacao: autorizacao, exigirConfirmacaoInterna: true }); }
+            catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId, fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior, autorizacaoPublicacao: autorizacao }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao.confirmada === true && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const avisos = erroPublicacao
+                ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try { sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                ultimaEdicao: persistencia.ultimaEdicao,
+                operacaoId: entrada.operacaoId, assinaturaPlano }) === true; }
+            catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('CONTA_RECEBER_RECLASSIFICADA', { ok: true, aplicado: true,
+                publicacaoRealizada: true, renderizar: true, sincronizar, avisos,
+                operacao: { operacaoId: entrada.operacaoId,
+                    contaReferencia: conta.contaReferencia, assinaturaPlano } });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada ? 'CONTA_RECEBER_RECLASSIFICADA'
+                : 'FALHA_RECLASSIFICACAO_RECEBER', { ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada, publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && (persistenciaConfirmada || persistenciaTentada),
+                renderizar: publicacaoRealizada, sincronizar: false });
+        } finally {
+            if (autorizacao) try { cancelarAutorizacaoPublicacaoConfiavel(autorizacao); }
+            catch (_erro) { /* autorização encerrada */ }
+            travasReclassificacaoContaReceber.delete(entrada.contaReferencia);
+        }
+    }
+
+
     function localizarPagamentoContaPagarPorOperacao(estado, operacaoId) {
         const pagamentos = [];
         const historicosParcelas = [];
@@ -10862,7 +11426,8 @@
 
         const raizAnterior = dependencias.obterEstadoMemoriaAtual();
         const memoria = prepararEstadoOperacionalInterno(raizAnterior);
-        if (!memoria.ok) return resultadoBase(memoria.codigo);
+        if (!memoria.ok) return resultadoBase(memoria.codigo, {
+            requerRecuperacao: memoria.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
         const dataReferencia = entrada.registradoEm.slice(0, 10);
         const alvo = resolverAlvoConciliacaoFinanceira(memoria.valor, entrada, dataReferencia);
         if (!alvo.ok) return resultadoBase(alvo.codigo, { requerRecuperacao: alvo.requerRecuperacao === true });
@@ -10906,7 +11471,8 @@
                 ? 'CRONOLOGIA_CONCILIACAO_INVALIDA' : 'CRONOLOGIA_DESCONSIDERACAO_INVALIDA');
         }
         const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}|${entrada.lancamentoReferencia}`;
-        if (travasConciliacaoFinanceira.has(trava)) return resultadoBase('OPERACAO_EM_EXECUCAO');
+        if (travasReclassificacaoContaReceber.size || travasConciliacaoFinanceira.has(trava))
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
         travasConciliacaoFinanceira.add(trava);
         let autorizacao = null;
         let persistenciaConfirmada = false;
@@ -11965,7 +12531,8 @@
 
             const raizAnterior = dependencias.obterEstadoMemoriaAtual?.();
             const memoria = prepararEstadoOperacionalInterno(raizAnterior);
-            if (!memoria.ok) return resultadoBase(memoria.codigo);
+            if (!memoria.ok) return resultadoBase(memoria.codigo, {
+                requerRecuperacao: memoria.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
             const opcoesStorage = { armazenamento: dependencias.armazenamento,
                 chave: typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup' };
             const leitura = validarRetornoLeituraSnapshotFinanceiro(
@@ -12395,7 +12962,8 @@
 
             const raizAnterior = dependencias.obterEstadoMemoriaAtual?.();
             const memoria = prepararEstadoOperacionalInterno(raizAnterior);
-            if (!memoria.ok) return resultadoBase(memoria.codigo);
+            if (!memoria.ok) return resultadoBase(memoria.codigo, {
+                requerRecuperacao: memoria.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
             const opcoesStorage = { armazenamento: dependencias.armazenamento,
                 chave: typeof STORAGE_KEY === 'string' ? STORAGE_KEY : 'mtzBackup' };
             const leituraExterna = dependencias.lerSnapshotLocalConfirmavel?.({ ...opcoesStorage });
@@ -12622,6 +13190,8 @@
     window.executarEstornoRecebimentoTransacional = executarEstornoRecebimentoTransacional;
     window.executarCriacaoContaReceberTransacional = executarCriacaoContaReceberTransacional;
     window.criarEntradaCriacaoContaReceber = criarEntradaCriacaoContaReceber;
+    window.criarEntradaReclassificacaoContaReceber = criarEntradaReclassificacaoContaReceber;
+    window.executarReclassificacaoContaReceberTransacional = executarReclassificacaoContaReceberTransacional;
     window.criarReferenciaTipadaClassificacaoFinanceira
         = criarReferenciaTipadaClassificacaoFinanceira;
     window.criarEntradaCategoriaFinanceira = criarEntradaCategoriaFinanceira;
