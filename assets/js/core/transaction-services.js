@@ -11388,6 +11388,43 @@
         };
     }
 
+    function obterProjecaoConsolidadoFinanceiro(estadoExterno, dataReferencia) {
+        const falha = (codigo) => ({ ok: false, codigo, movimentos: [], diagnosticos: [],
+            cobertura: { completa: false, motivos: [{ codigo, referencia: '' }] } });
+        try {
+            if (!validarDataLocalContaReceber(dataReferencia)
+                || !validarValorExternoPersistivelSeguro(estadoExterno)) return falha('CONSOLIDADO_ENTRADA_INVALIDA');
+            const clone = clonarJsonInterno(estadoExterno);
+            if (!clone.ok) return falha('CONSOLIDADO_ESTADO_INVALIDO');
+            const estado = clone.valor;
+            const projecao = obterProjecaoFluxoCaixaFinanceiro(estado, dataReferencia);
+            const motivos = [...projecao.diagnosticos];
+            if (!projecao.ok) motivos.push({ codigo: projecao.codigo, referencia: '' });
+            if (!validarFundacaoReclassificacaoReceber(estado, dataReferencia))
+                motivos.push({ codigo: 'CONTAS_RECEBER_INTEGRIDADE_NAO_COMPROVADA', referencia: '' });
+            const pagar = obterProjecaoContasPagar(estado, dataReferencia);
+            if (!pagar.ok) motivos.push({ codigo: pagar.codigo, referencia: '' });
+            for (const item of pagar.contas || []) {
+                if (item.bloqueada) motivos.push({ codigo: 'CONTA_PAGAR_BLOQUEADA', referencia: item.referencia });
+            }
+            // Legados sem vencimento nao geram movimento residual nem diagnostico no fluxo original.
+            for (const locacao of estado.locacoes || []) {
+                const conta = obterProjecaoFinanceiraContaReceber(locacao.id, estado.contasReceber, dataReferencia);
+                if (conta.estado !== 'ausente') continue;
+                const legado = obterProjecaoFinanceiraLegadaLocacao(locacao);
+                if (legado.encontrada && legado.saldoCentavos > 0 && !validarDataLocalContaReceber(legado.vencimento))
+                    motivos.push({ codigo: 'LEGADO_SALDO_SEM_VENCIMENTO',
+                        referencia: criarReferenciaTipadaLocacaoTransacional(locacao.id) });
+            }
+            motivos.sort((a, b) => a.codigo.localeCompare(b.codigo)
+                || (a.referencia || '').localeCompare(b.referencia || ''));
+            return { ...projecao, dataReferencia,
+                cobertura: { completa: projecao.ok && motivos.length === 0, motivos } };
+        } catch (_erro) {
+            return falha('CONSOLIDADO_ESTADO_INVALIDO');
+        }
+    }
+
     function obterResultadoFinanceiroLocacao(estadoExterno, locacaoReferencia, dataReferencia) {
         const indisponivel = (codigo) => ({ ok: false, codigo, indicadores: null,
             contasReceber: [], contasPagar: [], avisos: [] });
@@ -13447,6 +13484,7 @@
     window.criarReferenciaConciliacaoFinanceira = criarReferenciaConciliacaoFinanceira;
     window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
+    window.obterProjecaoConsolidadoFinanceiro = obterProjecaoConsolidadoFinanceiro;
     window.obterResultadoFinanceiroLocacao = obterResultadoFinanceiroLocacao;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;

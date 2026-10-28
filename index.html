@@ -2156,6 +2156,7 @@
                             <select id="fluxoCaixaConciliacao" aria-label="Filtrar por conciliação" data-change="renderFluxoCaixa"><option value="todos">Todas as conciliações</option><option value="pendente">Pendente</option><option value="conciliado">Conciliado</option><option value="divergente">Divergente</option><option value="nao_aplicavel">Não aplicável</option></select>
                             <select id="fluxoCaixaCategoriaFinanceira" aria-label="Filtrar por categoria financeira" data-change="renderFluxoCaixa"><option value="">Todas as categorias</option><option value="legado">Classificação legada</option></select>
                             <select id="fluxoCaixaCentroCusto" aria-label="Filtrar por centro de custo" data-change="renderFluxoCaixa"><option value="">Todos os centros de custo</option><option value="legado">Classificação legada</option></select>
+                            <select id="fluxoCaixaLocacao" aria-label="Filtrar por locação" data-change="renderFluxoCaixa"><option value="">Todas as locações</option><option value="sem-locacao">Sem locação vinculada</option></select>
                             <label class="fluxo-caixa-data"><span>De</span><input id="fluxoCaixaInicio" type="date" data-change="renderFluxoCaixa"></label>
                             <label class="fluxo-caixa-data"><span>Até</span><input id="fluxoCaixaFim" type="date" data-change="renderFluxoCaixa"></label>
                             <button type="button" class="btn btn-secondary btn-sm" data-action="limparFiltrosFluxoCaixa"><i class="bi bi-eraser"></i> Limpar</button>
@@ -2164,13 +2165,17 @@
                         <div id="fluxoCaixaDiagnostico" class="validation-message" role="status" aria-live="polite" hidden></div>
                         <section>
                             <div class="section-toolbar">
-                                <h4 id="relatorioClassificacoesFluxoTitulo">Relatório por classificação</h4>
+                                <h4 id="relatorioClassificacoesFluxoTitulo">Consolidado financeiro da seleção</h4>
                                 <fieldset class="inline-chip-row" style="border:0;padding:0;min-width:0">
                                     <legend>Agrupar por</legend>
                                     <label><input type="radio" name="agrupamentoClassificacoesFluxo" value="centroCusto" data-change="renderFluxoCaixa" style="width:auto;min-width:0;min-height:0;padding:0" checked> Centro de custo</label>
                                     <label><input type="radio" name="agrupamentoClassificacoesFluxo" value="categoriaFinanceira" data-change="renderFluxoCaixa" style="width:auto;min-width:0;min-height:0;padding:0"> Categoria financeira</label>
+                                    <label><input type="radio" name="agrupamentoClassificacoesFluxo" value="locacao" data-change="renderFluxoCaixa" style="width:auto;min-width:0;min-height:0;padding:0"> Locação</label>
                                 </fieldset>
                             </div>
+                            <p class="muted-note">Movimentos registrados e previsões residuais atuais, não DRE ou reconstrução histórica dos saldos. Filtros podem selecionar somente parte dos estornos.</p>
+                            <p id="consolidadoFluxoFiltros" class="muted-note" aria-live="polite"></p>
+                            <div id="consolidadoFluxoIndicadores" class="locacao-kpi-grid fluxo-caixa-kpis" aria-label="Consolidado dos movimentos selecionados"></div>
                             <div id="statusRelatorioClassificacoesFluxo" class="validation-message" role="status" hidden></div>
                             <div class="table-responsive fluxo-caixa-tabela" role="region" aria-labelledby="relatorioClassificacoesFluxoTitulo" tabindex="0">
                                 <table class="table">
@@ -2178,6 +2183,15 @@
                                     <thead><tr><th scope="col">Classificação</th><th scope="col">Receitas previstas</th><th scope="col">Receitas recebidas líquidas</th><th scope="col">Despesas previstas</th><th scope="col">Despesas pagas líquidas</th></tr></thead>
                                     <tbody id="tblRelatorioClassificacoesFluxo"></tbody>
                                     <tfoot id="totaisRelatorioClassificacoesFluxo"></tfoot>
+                                </table>
+                            </div>
+                        </section>
+                        <section aria-labelledby="consolidadoFluxoMensalTitulo">
+                            <h4 id="consolidadoFluxoMensalTitulo">Evolução mensal da seleção</h4>
+                            <div class="table-responsive fluxo-caixa-tabela" role="region" aria-labelledby="consolidadoFluxoMensalTitulo" tabindex="0">
+                                <table class="table"><caption>Mês do movimento realizado ou vencimento residual previsto.</caption>
+                                    <thead><tr><th scope="col">Mês</th><th scope="col">Receitas previstas</th><th scope="col">Recebidas líquidas</th><th scope="col">Despesas previstas</th><th scope="col">Pagas líquidas</th><th scope="col">Realizado da seleção</th><th scope="col">Projetado líquido residual</th></tr></thead>
+                                    <tbody id="consolidadoFluxoMensal"></tbody>
                                 </table>
                             </div>
                         </section>
@@ -3551,7 +3565,7 @@
     <script src="./assets/js/core/migrations.js?v=12.21"></script>
     <script src="./assets/js/core/domain-services.js?v=12.13"></script>
     <script src="./assets/js/core/storage.js?v=12.19"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.54"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.55"></script>
     <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
     <script src="./assets/js/core/state-adapter.js?v=2.18"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
@@ -3576,7 +3590,7 @@
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
     <script src="./assets/js/render/devolucoes.js?v=2.10"></script>
-    <script src="./assets/js/render/novas-abas.js?v=3.12"></script>
+    <script src="./assets/js/render/novas-abas.js?v=3.13"></script>
     <script src="./assets/js/render/contas-pagar.js?v=2.7"></script>
     <script src="./assets/js/render/classificacoes-financeiras.js?v=1.1"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>

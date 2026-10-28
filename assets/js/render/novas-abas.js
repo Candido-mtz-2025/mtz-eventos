@@ -1287,10 +1287,13 @@
         const conciliacao = document.getElementById('fluxoCaixaConciliacao')?.value || 'todos';
         const categoria = document.getElementById('fluxoCaixaCategoriaFinanceira')?.value || '';
         const centroCusto = document.getElementById('fluxoCaixaCentroCusto')?.value || '';
+        const locacao = document.getElementById('fluxoCaixaLocacao')?.value || '';
         const inicio = document.getElementById('fluxoCaixaInicio')?.value || '';
         const fim = document.getElementById('fluxoCaixaFim')?.value || '';
         return movimentos.filter((item) => {
             if (cliente && item.clienteReferencia !== cliente) return false;
+            if (locacao && (locacao === 'sem-locacao' ? !!item.locacaoReferencia
+                : item.locacaoReferencia !== locacao)) return false;
             if (natureza !== 'todos' && item.natureza !== natureza) return false;
             if (situacao !== 'todos' && item.situacaoFinanceira !== situacao) return false;
             if (conciliacao !== 'todos' && item.situacaoConciliacao !== conciliacao) return false;
@@ -1355,7 +1358,24 @@
             'centroCustoSnapshot', 'Todos os centros de custo');
     }
 
-    function atualizarIndicadoresFluxoCaixa(movimentos) {
+    function atualizarLocacoesFluxoCaixa(movimentos) {
+        const select = document.getElementById('fluxoCaixaLocacao');
+        if (!select) return;
+        const anterior = select.value;
+        const nomes = new Map();
+        for (const item of movimentos) {
+            if (!item.locacaoReferencia) continue;
+            if (!nomes.has(item.locacaoReferencia)) nomes.set(item.locacaoReferencia, new Set());
+            nomes.get(item.locacaoReferencia).add(item.evento || 'Locação');
+        }
+        select.replaceChildren(new Option('Todas as locações', ''), new Option('Sem locação vinculada', 'sem-locacao'));
+        [...nomes.entries()].sort((a, b) => compararTextoDeterministico(a[0], b[0]))
+            .forEach(([referencia, rotulos]) => select.append(new Option(
+                `${[...rotulos].sort().join(' / ')} · ${referencia}`, referencia)));
+        select.value = [...select.options].some((o) => o.value === anterior) ? anterior : '';
+    }
+
+    function atualizarIndicadoresFluxoCaixa(movimentos, disponivel = true) {
         const entradas = somarMovimentosFluxoCaixa(movimentos
             .filter((item) => item.natureza === 'entrada'), (item) => item.valorCentavos);
         const estornos = somarMovimentosFluxoCaixa(movimentos
@@ -1375,7 +1395,7 @@
         ];
         mapa.forEach(([id, soma]) => {
             const elemento = document.getElementById(id);
-            if (elemento) elemento.textContent = soma.ok
+            if (elemento) elemento.textContent = disponivel && soma.ok
                 ? formatarCentavosFluxoCaixa(soma.centavos) : 'Valor indisponível';
         });
         const pendentes = movimentos.filter((item) => item.natureza !== 'previsto'
@@ -1383,7 +1403,7 @@
         const divergentes = movimentos.filter((item) => item.natureza !== 'previsto'
             && item.situacaoConciliacao === 'divergente').length;
         const elementoPendencias = document.getElementById('fluxoKpiPendencias');
-        if (elementoPendencias) elementoPendencias.textContent = `${pendentes} / ${divergentes}`;
+        if (elementoPendencias) elementoPendencias.textContent = disponivel ? `${pendentes} / ${divergentes}` : 'Valor indisponível';
     }
 
     function agruparMovimentosFluxoCaixa(movimentos, mensal) {
@@ -1406,9 +1426,13 @@
         });
     }
 
-    function renderSerieFluxoCaixa(id, movimentos, mensal) {
+    function renderSerieFluxoCaixa(id, movimentos, mensal, disponivel = true) {
         const destino = document.getElementById(id);
         if (!destino) return;
+        if (!disponivel) {
+            destino.textContent = 'Valor indisponível. Cobertura financeira não comprovada.';
+            return;
+        }
         const grupos = agruparMovimentosFluxoCaixa(movimentos, mensal);
         const maximo = grupos.reduce((maior, grupo) => grupo.ok
             ? Math.max(maior, Math.abs(grupo.entrada), Math.abs(grupo.saida), Math.abs(grupo.previsto)) : maior, 0);
@@ -1434,7 +1458,7 @@
 
     function agruparClassificacoesFluxoCaixa(movimentos, dimensao) {
         const falha = () => ({ ok: false, grupos: [], totais: null });
-        if (!Array.isArray(movimentos) || !['centroCusto', 'categoriaFinanceira'].includes(dimensao)) return falha();
+        if (!Array.isArray(movimentos) || !['centroCusto', 'categoriaFinanceira', 'locacao'].includes(dimensao)) return falha();
         const grupos = new Map();
         const vistos = new Set();
         const totais = [0n, 0n, 0n, 0n];
@@ -1463,22 +1487,27 @@
                 && item.natureza === 'saida' && valor > 0) coluna = 3;
             else return falha();
 
+            const porLocacao = dimensao === 'locacao';
             const referencia = item[`${dimensao}Referencia`];
-            const snapshot = item[`${dimensao}Snapshot`];
-            const classificada = item.classificacaoLegada === false;
+            if (porLocacao && (typeof referencia !== 'string'
+                || (referencia && (typeof criarReferenciaTipadaLocacao !== 'function'
+                    || criarReferenciaTipadaLocacao(item.locacaoId) !== referencia)))) return falha();
+            const snapshot = porLocacao ? { codigo: '', nome: item.evento || 'Locação' } : item[`${dimensao}Snapshot`];
+            const classificada = porLocacao ? !!referencia : item.classificacaoLegada === false;
             if (classificada && (typeof referencia !== 'string' || !referencia
-                || !snapshot || typeof snapshot.codigo !== 'string' || !snapshot.codigo
+                || !snapshot || typeof snapshot.codigo !== 'string' || (!porLocacao && !snapshot.codigo)
                 || typeof snapshot.nome !== 'string' || !snapshot.nome)) return falha();
             const legada = item.classificacaoLegada === true
                 && ['conta_receber', 'conta_pagar'].includes(item.origem);
-            const chave = classificada ? `referencia:${referencia}` : legada ? 'legado' : 'sem-classificacao';
+            const chave = classificada ? `referencia:${referencia}` : porLocacao ? 'sem-locacao'
+                : legada ? 'legado' : 'sem-classificacao';
             if (!grupos.has(chave)) grupos.set(chave, {
                 chave, referencia: classificada ? referencia : '',
                 rotulos: new Set(), valores: [0n, 0n, 0n, 0n]
             });
             const grupo = grupos.get(chave);
             grupo.rotulos.add(classificada ? JSON.stringify([snapshot.codigo, snapshot.nome])
-                : JSON.stringify(['', legada ? 'Classificação legada' : 'Sem classificação']));
+                : JSON.stringify(['', porLocacao ? 'Sem locação vinculada' : legada ? 'Classificação legada' : 'Sem classificação']));
             const contribuicao = BigInt(valor) * (coluna >= 2 ? -1n : 1n);
             grupo.valores[coluna] += contribuicao;
             totais[coluna] += contribuicao;
@@ -1520,6 +1549,87 @@
         rodape.innerHTML = `<tr><th scope="row">Total filtrado</th>${celulas(relatorio.totais)}</tr>`;
     }
 
+    function obterConsolidadoFluxoCaixa(movimentos, dimensao, inicio = '', fim = '') {
+        const falha = (codigo) => ({ ok: false, codigo, agrupamento: null, indicadores: null, meses: [] });
+        const agrupamento = agruparClassificacoesFluxoCaixa(movimentos, dimensao);
+        if (!agrupamento.ok) return falha('CONSOLIDADO_VALORES_INDISPONIVEIS');
+        const seisValores = (quatro) => {
+            const valores = [...quatro.map(BigInt), BigInt(quatro[1]) - BigInt(quatro[3]),
+                BigInt(quatro[0]) - BigInt(quatro[2])];
+            const limite = BigInt(Number.MAX_SAFE_INTEGER);
+            return valores.every((v) => v >= -limite && v <= limite) ? valores.map(Number) : null;
+        };
+        const indicadores = seisValores(agrupamento.totais);
+        if (!indicadores) return falha('CONSOLIDADO_OVERFLOW');
+        const indiceMes = (data) => {
+            if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return null;
+            const [ano, mes, dia] = data.split('-').map(Number);
+            const bissexto = ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0);
+            const dias = [31, bissexto ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            return ano >= 1 && mes >= 1 && mes <= 12 && dia >= 1 && dia <= dias[mes - 1]
+                ? ano * 12 + mes - 1 : null;
+        };
+        if ((inicio && indiceMes(inicio) === null) || (fim && indiceMes(fim) === null)
+            || (inicio && fim && inicio > fim)) return falha('CONSOLIDADO_PERIODO_INVALIDO');
+        const porMes = new Map();
+        for (const item of movimentos) {
+            const indice = indiceMes(item.data);
+            if (indice === null || item.competencia !== item.data.slice(0, 7)) return falha('CONSOLIDADO_DATA_INVALIDA');
+            if ((inicio && item.data < inicio) || (fim && item.data > fim)) return falha('CONSOLIDADO_SELECAO_DIVERGENTE');
+            if (!porMes.has(indice)) porMes.set(indice, []);
+            porMes.get(indice).push(item);
+        }
+        const observados = [...porMes.keys()].sort((a, b) => a - b);
+        const primeiro = inicio ? indiceMes(inicio) : observados[0];
+        const ultimo = fim ? indiceMes(fim) : observados[observados.length - 1];
+        const meses = [];
+        if (primeiro !== undefined && ultimo !== undefined) {
+            if (ultimo - primeiro >= 1200) return falha('CONSOLIDADO_PERIODO_EXTENSO');
+            for (let indice = primeiro; indice <= ultimo; indice++) {
+                const soma = agruparClassificacoesFluxoCaixa(porMes.get(indice) || [], dimensao);
+                const valores = soma.ok ? seisValores(soma.totais) : null;
+                if (!valores) return falha('CONSOLIDADO_OVERFLOW_MENSAL');
+                const mes = `${Math.floor(indice / 12).toString().padStart(4, '0')}-${(indice % 12 + 1).toString().padStart(2, '0')}`;
+                meses.push({ mes, indicadores: valores });
+            }
+        }
+        return { ok: true, agrupamento, indicadores, meses };
+    }
+
+    function renderConsolidadoFluxoCaixa(movimentos, disponivel) {
+        const dimensao = document.querySelector('input[name="agrupamentoClassificacoesFluxo"]:checked')?.value || 'centroCusto';
+        const inicio = document.getElementById('fluxoCaixaInicio')?.value || '';
+        const fim = document.getElementById('fluxoCaixaFim')?.value || '';
+        const resumo = disponivel ? obterConsolidadoFluxoCaixa(movimentos, dimensao, inicio, fim)
+            : { ok: false, codigo: 'CONSOLIDADO_COBERTURA_NAO_COMPROVADA' };
+        const indicadores = document.getElementById('consolidadoFluxoIndicadores');
+        const mensal = document.getElementById('consolidadoFluxoMensal');
+        const filtros = document.getElementById('consolidadoFluxoFiltros');
+        const nomes = ['Receitas previstas residuais', 'Receitas recebidas líquidas',
+            'Despesas previstas residuais', 'Despesas pagas líquidas',
+            'Resultado realizado da seleção', 'Projetado líquido residual da seleção'];
+        if (indicadores) indicadores.innerHTML = nomes.map((nome, i) => (
+            `<div class="locacao-kpi-card"><small>${nome}</small><strong>${resumo.ok
+                ? formatarCentavosFluxoCaixa(resumo.indicadores[i]) : 'Valor indisponível'}</strong></div>`)).join('');
+        if (mensal) mensal.innerHTML = !resumo.ok ? '<tr><td colspan="7">Valor indisponível</td></tr>'
+            : resumo.meses.map((m) => `<tr><th scope="row">${m.mes}</th>${m.indicadores.map((v) => (
+                `<td class="fluxo-caixa-valor">${formatarCentavosFluxoCaixa(v)}</td>`)).join('')}</tr>`).join('')
+                || '<tr><td colspan="7">Sem movimentos no período.</td></tr>';
+        if (filtros) {
+            const ativos = [];
+            for (const id of ['fluxoCaixaCliente', 'fluxoCaixaLocacao', 'fluxoCaixaNatureza', 'fluxoCaixaSituacao',
+                'fluxoCaixaConciliacao', 'fluxoCaixaCategoriaFinanceira', 'fluxoCaixaCentroCusto']) {
+                const campo = document.getElementById(id);
+                if (campo?.value && campo.value !== 'todos') ativos.push(campo.selectedOptions[0]?.textContent || campo.value);
+            }
+            const busca = document.getElementById('buscaFluxoCaixa')?.value || '';
+            if (busca) ativos.push(`Busca: ${busca}`);
+            filtros.textContent = `Período: ${inicio || 'sem limite inicial'} a ${fim || 'sem limite final'}. `
+                + `Filtros: ${ativos.length ? ativos.join(' · ') : 'nenhum'}. ${movimentos.length} movimento(s) válido(s) na seleção.`;
+        }
+        return resumo;
+    }
+
     function renderFluxoCaixa() {
         const tabela = document.getElementById('tblFluxoCaixa');
         if (!tabela) return false;
@@ -1534,11 +1644,13 @@
         if (!permitido) {
             movimentosFluxoCaixaAtuais = [];
             renderRelatorioClassificacoesFluxoCaixa([], false);
+            renderConsolidadoFluxoCaixa([], false);
+            document.getElementById('fluxoCaixaLocacao')?.replaceChildren();
             return false;
         }
         const estado = typeof obterEstadoMemoriaAtual === 'function' ? obterEstadoMemoriaAtual() : null;
-        const projecao = typeof obterProjecaoFluxoCaixaFinanceiro === 'function'
-            ? obterProjecaoFluxoCaixaFinanceiro(estado, dataLocalFinanceiro())
+        const projecao = typeof obterProjecaoConsolidadoFinanceiro === 'function'
+            ? obterProjecaoConsolidadoFinanceiro(estado, dataLocalFinanceiro())
             : { ok: false, codigo: 'PROJECAO_FLUXO_CAIXA_AUSENTE', movimentos: [], diagnosticos: [] };
         const diagnostico = document.getElementById('fluxoCaixaDiagnostico');
         if (!projecao.ok) {
@@ -1548,24 +1660,32 @@
                 diagnostico.hidden = false;
                 diagnostico.textContent = `Projeção bloqueada: ${projecao.codigo}.`;
             }
-            atualizarIndicadoresFluxoCaixa([]);
-            renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', [], false);
-            renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', [], true);
+            atualizarIndicadoresFluxoCaixa([], false);
+            renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', [], false, false);
+            renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', [], true, false);
             renderRelatorioClassificacoesFluxoCaixa([], false);
+            renderConsolidadoFluxoCaixa([], false);
             return false;
         }
         atualizarClientesFluxoCaixa(projecao.movimentos);
         atualizarClassificacoesFluxoCaixa(projecao.movimentos);
+        atualizarLocacoesFluxoCaixa(projecao.movimentos);
         movimentosFluxoCaixaAtuais = obterMovimentosFluxoCaixaFiltrados(projecao.movimentos);
+        const completa = projecao.cobertura?.completa === true;
+        const resumo = renderConsolidadoFluxoCaixa(movimentosFluxoCaixaAtuais, completa);
+        const disponivel = completa && resumo.ok;
         if (diagnostico) {
-            diagnostico.hidden = !projecao.diagnosticos.length;
-            diagnostico.textContent = projecao.diagnosticos.length
-                ? `${projecao.diagnosticos.length} registro(s) foram excluídos por inconsistência ou ausência de evidência autoritativa.` : '';
+            diagnostico.hidden = false;
+            diagnostico.textContent = !completa
+                ? `Cobertura parcial da base: não é possível garantir completude da seleção. A tabela mostra apenas movimentos válidos. Consolidados indisponíveis. Motivos: ${(projecao.cobertura?.motivos || projecao.diagnosticos).map((d) => d.codigo).join(' · ')}.`
+                : !resumo.ok ? `Valor indisponível: ${resumo.codigo}. A evolução mensal admite até 1.200 meses.`
+                    : 'Cobertura da base validada. Valores limitados aos movimentos registrados e à seleção filtrada; não representam todos os custos da empresa.';
         }
-        atualizarIndicadoresFluxoCaixa(movimentosFluxoCaixaAtuais);
-        renderRelatorioClassificacoesFluxoCaixa(movimentosFluxoCaixaAtuais);
-        renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', movimentosFluxoCaixaAtuais, false);
-        renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', movimentosFluxoCaixaAtuais, true);
+        atualizarIndicadoresFluxoCaixa(movimentosFluxoCaixaAtuais, disponivel);
+        if (disponivel) renderRelatorioClassificacoesFluxoCaixa(movimentosFluxoCaixaAtuais);
+        else renderRelatorioClassificacoesFluxoCaixa([], false);
+        renderSerieFluxoCaixa('fluxoCaixaGraficoDiario', movimentosFluxoCaixaAtuais, false, disponivel);
+        renderSerieFluxoCaixa('fluxoCaixaGraficoMensal', movimentosFluxoCaixaAtuais, true, disponivel);
         tabela.innerHTML = movimentosFluxoCaixaAtuais.length ? movimentosFluxoCaixaAtuais.map((item) => {
             const argumento = encodeURIComponent(JSON.stringify([item.natureza, item.referencia]));
             const valor = item.valorLiquidoCentavos;
@@ -1587,7 +1707,7 @@
 
     function limparFiltrosFluxoCaixa() {
         ['buscaFluxoCaixa', 'fluxoCaixaCliente', 'fluxoCaixaInicio', 'fluxoCaixaFim',
-            'fluxoCaixaCategoriaFinanceira', 'fluxoCaixaCentroCusto']
+            'fluxoCaixaCategoriaFinanceira', 'fluxoCaixaCentroCusto', 'fluxoCaixaLocacao']
             .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = ''; });
         ['fluxoCaixaNatureza', 'fluxoCaixaSituacao', 'fluxoCaixaConciliacao']
             .forEach((id) => { const campo = document.getElementById(id); if (campo) campo.value = 'todos'; });
