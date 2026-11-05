@@ -9657,7 +9657,7 @@
     }
 
     function prepararHtmlPdfPropostaCliente(proposta) {
-        const propostaCliente = normalizarProposta({
+        const propostaCliente = prepararPropostaApresentacaoGerencial({
             ...proposta,
             financeiro: {
                 ...(proposta?.financeiro || {}),
@@ -9723,7 +9723,7 @@
             return;
         }
 
-        const propostaPdf = normalizarProposta({
+        const propostaPdf = prepararPropostaApresentacaoGerencial({
             ...proposta,
             financeiro: {
                 ...(proposta?.financeiro || {}),
