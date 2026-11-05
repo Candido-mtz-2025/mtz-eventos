@@ -53,19 +53,19 @@ function montarEnderecoCompletoCliente(dados = {}) {
         .join(' | ');
 }
 
-function obterDadosClienteFormulario(prefixo) {
-    const nome = valorCampoCliente(`${prefixo}Nome`);
-    const documento = valorCampoCliente(`${prefixo}Doc`);
-    const telefone = valorCampoCliente(`${prefixo}Tel`);
-    const email = valorCampoCliente(`${prefixo}Email`);
-    const cep = valorCampoCliente(`${prefixo}Cep`);
-    const ruaEndereco = valorCampoCliente(`${prefixo}End`);
-    const numero = valorCampoCliente(`${prefixo}Numero`);
-    const complemento = valorCampoCliente(`${prefixo}Complemento`);
-    const bairro = valorCampoCliente(`${prefixo}Bairro`);
-    const cidade = valorCampoCliente(`${prefixo}Cidade`);
-    const uf = valorCampoCliente(`${prefixo}Uf`).toUpperCase().slice(0, 2);
-    const responsavelPedido = valorCampoCliente(`${prefixo}Responsavel`);
+function montarDadosClienteCampos(campos) {
+    const nome = limparTextoCliente(campos.nome);
+    const documento = limparTextoCliente(campos.documento);
+    const telefone = limparTextoCliente(campos.telefone);
+    const email = limparTextoCliente(campos.email);
+    const cep = limparTextoCliente(campos.cep);
+    const ruaEndereco = limparTextoCliente(campos.ruaEndereco);
+    const numero = limparTextoCliente(campos.numero);
+    const complemento = limparTextoCliente(campos.complemento);
+    const bairro = limparTextoCliente(campos.bairro);
+    const cidade = limparTextoCliente(campos.cidade);
+    const uf = limparTextoCliente(campos.uf).toUpperCase().slice(0, 2);
+    const responsavelPedido = limparTextoCliente(campos.responsavelPedido);
     const enderecoCompleto = montarEnderecoCompletoCliente({
         rua: ruaEndereco,
         numero,
@@ -75,8 +75,8 @@ function obterDadosClienteFormulario(prefixo) {
         uf,
         cep
     });
-    const usarMesmoEnderecoCliente = checkboxClienteMarcado(`${prefixo}FiscalUsarEndereco`);
-    const enderecoFiscalDigitado = valorCampoCliente(`${prefixo}FiscalEndereco`);
+    const usarMesmoEnderecoCliente = campos.usarMesmoEnderecoCliente === true;
+    const enderecoFiscalDigitado = limparTextoCliente(campos.fiscalEndereco);
 
     return {
         nome,
@@ -94,15 +94,28 @@ function obterDadosClienteFormulario(prefixo) {
         uf,
         responsavelPedido,
         dadosFiscais: {
-            razaoSocial: valorCampoCliente(`${prefixo}FiscalRazaoSocial`),
-            cpfCnpj: valorCampoCliente(`${prefixo}FiscalCpfCnpj`) || documento,
-            inscricaoEstadual: valorCampoCliente(`${prefixo}FiscalIE`),
-            inscricaoMunicipal: valorCampoCliente(`${prefixo}FiscalIM`),
-            emailFiscal: valorCampoCliente(`${prefixo}FiscalEmail`) || email,
+            razaoSocial: limparTextoCliente(campos.fiscalRazaoSocial),
+            cpfCnpj: limparTextoCliente(campos.fiscalCpfCnpj) || documento,
+            inscricaoEstadual: limparTextoCliente(campos.fiscalIE),
+            inscricaoMunicipal: limparTextoCliente(campos.fiscalIM),
+            emailFiscal: limparTextoCliente(campos.fiscalEmail) || email,
             enderecoFiscal: usarMesmoEnderecoCliente ? (enderecoCompleto || ruaEndereco) : enderecoFiscalDigitado,
             usarMesmoEnderecoCliente
         }
     };
+}
+
+function obterDadosClienteFormulario(prefixo) {
+    const campos = {};
+    for (const [campo, sufixo] of Object.entries({ nome: 'Nome', documento: 'Doc', telefone: 'Tel',
+        email: 'Email', cep: 'Cep', ruaEndereco: 'End', numero: 'Numero', complemento: 'Complemento',
+        bairro: 'Bairro', cidade: 'Cidade', uf: 'Uf', responsavelPedido: 'Responsavel',
+        fiscalRazaoSocial: 'FiscalRazaoSocial', fiscalCpfCnpj: 'FiscalCpfCnpj', fiscalIE: 'FiscalIE',
+        fiscalIM: 'FiscalIM', fiscalEmail: 'FiscalEmail', fiscalEndereco: 'FiscalEndereco' })) {
+        campos[campo] = valorCampoCliente(`${prefixo}${sufixo}`);
+    }
+    campos.usarMesmoEnderecoCliente = checkboxClienteMarcado(`${prefixo}FiscalUsarEndereco`);
+    return montarDadosClienteCampos(campos);
 }
 
 function preencherFormularioCliente(prefixo, cliente = {}) {
@@ -150,13 +163,13 @@ function limparFormularioCliente(prefixo) {
     if (usarEnderecoEl) usarEnderecoEl.checked = true;
 }
 
-function encontrarLocadorDuplicado(dados, idIgnorar = null) {
+function encontrarLocadorDuplicado(dados, idIgnorar = null, lista = locadores) {
     const nome = normalizarTextoCliente(dados?.nome);
     const email = normalizarEmailCliente(dados?.email);
     const telefone = normalizarTelefoneCliente(dados?.telefone);
     const documento = normalizarDocumentoCliente(dados?.documento);
 
-    return locadores.find((locador) => {
+    return lista.find((locador) => {
         if (idIgnorar != null && idsEntidadeExatos(locador.id, idIgnorar)) return false;
 
         const mesmoNome = normalizarTextoCliente(locador.nome) === nome;

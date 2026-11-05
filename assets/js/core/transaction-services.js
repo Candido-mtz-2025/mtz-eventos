@@ -1,5 +1,8 @@
 (() => {
     'use strict';
+    const dominioEncargos = typeof window.__obterDominioEncargosTransacional === 'function'
+        ? window.__obterDominioEncargosTransacional() : null;
+    if (dominioEncargos) delete window.__obterDominioEncargosTransacional;
 
     const CAMPOS_OPERACIONAIS_AUTORIZADOS = Object.freeze([
         'items',
@@ -49,6 +52,7 @@
     const travasContaPagar = new Set();
     const travasReclassificacaoContaPagar = new Set();
     const travasClassificacoesFinanceiras = new Set();
+    const travasEncargosFinanceiros = new Set();
     const travasPagamentoContaPagar = new Set();
     const travasEstornoPagamentoContaPagar = new Set();
     const travasOperacaoAdministrativaContaPagar = new Set();
@@ -190,6 +194,11 @@
     }
 
     function prepararEstadoOperacionalInterno(snapshot) {
+        return prepararEstadoFinanceiroPuroInterno(snapshot,
+            texto => typeof EncargosFinanceiros === 'undefined' || EncargosFinanceiros.validarTexto(texto));
+    }
+
+    function prepararEstadoFinanceiroPuroInterno(snapshot, validarEncargosTexto = null) {
         if (!validarValorExternoPersistivelSeguro(snapshot)) {
             return { ok: false, codigo: 'ESTADO_NAO_CONFIAVEL', valor: null, json: '' };
         }
@@ -197,11 +206,15 @@
         if (!clonagem.ok || !clonagem.valor || typeof clonagem.valor !== 'object'
             || Array.isArray(clonagem.valor)) return clonagem;
         CHAVES_METADADOS_PERSISTENCIA.forEach((chave) => delete clonagem.valor[chave]);
+        if (!Object.hasOwn(clonagem.valor, 'encargosFinanceiros')) clonagem.valor.encargosFinanceiros = [];
         // Toda publicacao da raiz deve comprovar tambem as contas que a operacao nao altera.
         if (!validarFundacaoReclassificacaoReceber(clonagem.valor)) {
             return { ok: false, codigo: 'OPERACAO_REQUER_RECUPERACAO', valor: null, json: '' };
         }
         const jsonEstrutural = JSON.stringify(clonagem.valor);
+        if (validarEncargosTexto && !validarEncargosTexto(jsonEstrutural)) {
+            return { ok: false, codigo: 'ENCARGOS_REQUEREM_RECUPERACAO', valor: null, json: '' };
+        }
         const canonico = ordenarChavesCanonicas(clonagem.valor);
         const json = JSON.stringify(canonico);
         return {
@@ -415,6 +428,17 @@
         });
     }
 
+    function criarPeriodoSnapshotReservaInterno(locacao) {
+        const inicio = normalizarDataSnapshotReserva(locacao?.datasMontagem?.inicio || locacao?.dataAluguel || '');
+        const fim = normalizarDataSnapshotReserva(
+            locacao?.datasDesmontagem?.fim || locacao?.datasDesmontagem?.inicio
+            || locacao?.dataDevolucaoPrevisao || ''
+        );
+        const inicioMs = inicio ? Date.parse(`${inicio}T00:00:00Z`) : null;
+        const fimMs = fim ? Date.parse(`${fim}T00:00:00Z`) : null;
+        return { inicio, fim, completo: Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs >= inicioMs };
+    }
+
     function criarSnapshotReservaInterno(locacao, opcoes) {
         const agrupados = new Map();
         atribuirItemIdsSnapshot(locacao?.id, locacao?.items).forEach(({ item, itemId }) => {
@@ -438,25 +462,91 @@
             atual.itemIds.push(itemId);
             agrupados.set(chave, atual);
         });
-        const inicio = normalizarDataSnapshotReserva(locacao?.datasMontagem?.inicio || locacao?.dataAluguel || '');
-        const fim = normalizarDataSnapshotReserva(
-            locacao?.datasDesmontagem?.fim || locacao?.datasDesmontagem?.inicio
-            || locacao?.dataDevolucaoPrevisao || ''
-        );
-        const inicioMs = inicio ? Date.parse(`${inicio}T00:00:00Z`) : null;
-        const fimMs = fim ? Date.parse(`${fim}T00:00:00Z`) : null;
         return {
             versao: 1,
             origem: String(opcoes.origem),
             capturadoEm: String(opcoes.capturadoEm),
             statusReserva: String(opcoes.statusReserva ?? ''),
-            periodo: {
-                inicio,
-                fim,
-                completo: Number.isFinite(inicioMs) && Number.isFinite(fimMs) && fimMs >= inicioMs
-            },
+            periodo: criarPeriodoSnapshotReservaInterno(locacao),
             itens: Array.from(agrupados.values())
         };
+    }
+
+    function criarReferenciaOperacionalV2Interna(tipo, id) {
+        const valido = (typeof id === 'number' && Number.isSafeInteger(id) && !Object.is(id, -0))
+            || (typeof id === 'string' && id.length > 0 && id.length <= 16384 && id.trim() === id
+                && !/[\u0000-\u001f]/.test(id));
+        if (!valido) throw new Error('IDENTIDADE_OPERACIONAL_INVALIDA');
+        return `${tipo}:${encodeURIComponent(JSON.stringify([typeof id, id]))}`;
+    }
+
+    function criarSnapshotReservaTipadoV2Interno(estado, locacao) {
+        const referencia = criarReferenciaOperacionalV2Interna;
+        const locacaoReferencia = referencia('locacao', locacao.id);
+        const anterior = locacao.estoqueReserva?.snapshot?.versao === 2 ? locacao.estoqueReserva.snapshot : {};
+        const grupos = new Map(), itensUsados = new Set(), itensTerceirizadosSemPeca = [];
+        if (!Array.isArray(locacao.items) || !Array.isArray(estado.pecas) || !Array.isArray(estado.propostas)) {
+            throw new Error('BASE_OPERACIONAL_INVALIDA');
+        }
+        const somar = (a, b) => {
+            if (!Number.isSafeInteger(a) || a < 0 || !Number.isSafeInteger(b) || b < 0
+                || !Number.isSafeInteger(a + b)) throw new Error('QUANTIDADE_OPERACIONAL_INVALIDA');
+            return a + b;
+        };
+        for (const item of locacao.items) {
+            if (typeof item.itemId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,159}$/.test(item.itemId)
+                || itensUsados.has(item.itemId)) throw new Error('ITEM_OPERACIONAL_INVALIDO');
+            itensUsados.add(item.itemId);
+            for (const campo of ['quantidade', 'quantidadePropria', 'quantidadeTerceirizada', 'devolvidos', 'avariadosEstoqueProprio']) {
+                if (campo === 'quantidade' || Object.hasOwn(item, campo)) somar(0, item[campo]);
+            }
+            const propria = quantidadePropriaSnapshot(item);
+            const retornados = somar(item.devolvidos ?? 0, item.avariadosEstoqueProprio ?? 0);
+            if (propria > item.quantidade || retornados > propria) throw new Error('COMPOSICAO_OPERACIONAL_INVALIDA');
+            if (Object.hasOwn(item, 'quantidadeTerceirizada') && somar(propria, item.quantidadeTerceirizada) !== item.quantidade) {
+                throw new Error('COMPOSICAO_OPERACIONAL_INVALIDA');
+            }
+            const itemReferencia = `item-estoque-v2:${encodeURIComponent(JSON.stringify([[typeof locacao.id, locacao.id], item.itemId]))}`;
+            if ((item.pecaId === '' || item.pecaId == null) && item.origemCusto === 'terceirizado'
+                && item.quantidade > 0 && item.quantidadePropria === 0 && item.quantidadeTerceirizada === item.quantidade) {
+                const linha = clonarJsonInterno(item);
+                if (!linha.ok) throw new Error('ITEM_OPERACIONAL_INVALIDO');
+                itensTerceirizadosSemPeca.push({ itemId: item.itemId, itemReferencia, linha: linha.valor });
+                continue;
+            }
+            const pecaReferencia = referencia('peca', item.pecaId);
+            if (estado.pecas.filter(p => referencia('peca', p.id) === pecaReferencia).length !== 1) {
+                throw new Error('PECA_OPERACIONAL_AUSENTE_OU_DUPLICADA');
+            }
+            const grupoAnterior = Array.isArray(anterior.itens)
+                ? anterior.itens.find(g => g.pecaReferencia === pecaReferencia) : null;
+            const grupo = grupos.get(pecaReferencia) || { ...(grupoAnterior || {}), pecaId: item.pecaId,
+                pecaReferencia, quantidadePropria: 0, quantidadePendente: 0, itens: [] };
+            grupo.quantidadePropria = somar(grupo.quantidadePropria, propria);
+            grupo.quantidadePendente = somar(grupo.quantidadePendente, propria - retornados);
+            const itemAnterior = Array.isArray(grupoAnterior?.itens)
+                ? grupoAnterior.itens.find(i => i.itemId === item.itemId && i.itemReferencia === itemReferencia) : null;
+            grupo.itens.push({ ...(itemAnterior || {}), itemId: item.itemId, itemReferencia });
+            grupos.set(pecaReferencia, grupo);
+        }
+        const temId = Object.hasOwn(locacao, 'propostaId') && locacao.propostaId !== null && locacao.propostaId !== '';
+        const temReferencia = Object.hasOwn(locacao, 'propostaReferencia') && locacao.propostaReferencia !== null && locacao.propostaReferencia !== '';
+        let propostaReferencia = null;
+        if (temId || temReferencia) {
+            propostaReferencia = temReferencia ? locacao.propostaReferencia : referencia('proposta', locacao.propostaId);
+            const propostas = estado.propostas.filter(p => referencia('proposta', p.id) === propostaReferencia);
+            if (propostas.length !== 1 || temId && referencia('proposta', locacao.propostaId) !== propostaReferencia) {
+                throw new Error('VINCULO_PROPOSTA_OPERACIONAL_INVALIDO');
+            }
+        }
+        const periodo = criarPeriodoSnapshotReservaInterno(locacao);
+        if (!periodo.completo) throw new Error('PERIODO_OPERACIONAL_INCOMPLETO');
+        const snapshot = { ...anterior, versao: 2, locacaoId: locacao.id, locacaoReferencia,
+            reservaReferencia: referencia('reserva', locacaoReferencia), propostaReferencia,
+            periodo: { ...(anterior.periodo || {}), ...periodo }, itens: Array.from(grupos.values()) };
+        if (itensTerceirizadosSemPeca.length) snapshot.itensTerceirizadosSemPeca = itensTerceirizadosSemPeca;
+        else delete snapshot.itensTerceirizadosSemPeca;
+        return snapshot;
     }
 
     function localizarLocacaoUnica(locacoes, locacaoId) {
@@ -635,7 +725,7 @@
         return resultado;
     }
 
-    function somarDeltasIndividuais(plano) {
+    function somarDeltasIndividuais(plano, versao = 1) {
         const reservar = new Map();
         const liberar = new Map();
         const itensReserva = [];
@@ -651,18 +741,20 @@
                 return;
             }
             if (quantidadeReservar > 0) {
-                const pecaId = textoObrigatorio(item?.pecaIdPretendido, 200);
-                if (!pecaId) invalido = true;
+                const pecaId = versao === 2 ? item?.pecaIdPretendido : textoObrigatorio(item?.pecaIdPretendido, 200);
+                const chave = versao === 2 ? referenciaEstrita(pecaId) : pecaId;
+                if (!chave) invalido = true;
                 else {
-                    reservar.set(pecaId, (reservar.get(pecaId) || 0) + quantidadeReservar);
+                    reservar.set(chave, (reservar.get(chave) || 0) + quantidadeReservar);
                     itensReserva.push({ item, itemId, pecaId, quantidade: quantidadeReservar });
                 }
             }
             if (quantidadeLiberar > 0) {
-                const pecaId = textoObrigatorio(item?.pecaIdAtual, 200);
-                if (!pecaId) invalido = true;
+                const pecaId = versao === 2 ? item?.pecaIdAtual : textoObrigatorio(item?.pecaIdAtual, 200);
+                const chave = versao === 2 ? referenciaEstrita(pecaId) : pecaId;
+                if (!chave) invalido = true;
                 else {
-                    liberar.set(pecaId, (liberar.get(pecaId) || 0) + quantidadeLiberar);
+                    liberar.set(chave, (liberar.get(chave) || 0) + quantidadeLiberar);
                     itensLiberacao.push({ item, itemId, pecaId, quantidade: quantidadeLiberar });
                 }
             }
@@ -670,11 +762,11 @@
         return { reservar, liberar, itensReserva, itensLiberacao, invalido };
     }
 
-    function agruparAjustesPlano(lista) {
+    function agruparAjustesPlano(lista, versao = 1) {
         const mapa = new Map();
         let invalido = false;
         (Array.isArray(lista) ? lista : []).forEach((ajuste) => {
-            const pecaId = textoObrigatorio(ajuste?.pecaId, 200);
+            const pecaId = versao === 2 ? referenciaEstrita(ajuste?.pecaId) : textoObrigatorio(ajuste?.pecaId, 200);
             const quantidade = inteiroSeguroNaoNegativo(ajuste?.quantidade);
             if (!pecaId || quantidade === null || quantidade <= 0 || mapa.has(pecaId)) {
                 invalido = true;
@@ -690,10 +782,10 @@
         return Array.from(a.entries()).every(([chave, valor]) => b.get(chave) === valor);
     }
 
-    function reconciliarDeltas(plano) {
-        const individuais = somarDeltasIndividuais(plano);
-        const agrupadoReserva = agruparAjustesPlano(plano?.ajustes?.reservar);
-        const agrupadoLiberacao = agruparAjustesPlano(plano?.ajustes?.liberar);
+    function reconciliarDeltas(plano, versao = 1) {
+        const individuais = somarDeltasIndividuais(plano, versao);
+        const agrupadoReserva = agruparAjustesPlano(plano?.ajustes?.reservar, versao);
+        const agrupadoLiberacao = agruparAjustesPlano(plano?.ajustes?.liberar, versao);
         const valido = !individuais.invalido
             && !agrupadoReserva.invalido
             && !agrupadoLiberacao.invalido
@@ -702,7 +794,10 @@
         return { valido, ...individuais };
     }
 
-    function chaveMovimentacao(operacaoId, locacaoId, subtipo, itemId, pecaId) {
+    function chaveMovimentacao(operacaoId, locacaoId, subtipo, itemId, pecaId, versao = 1) {
+        if (versao === 2) return `ajuste-reserva-v2:${encodeURIComponent(JSON.stringify([
+            operacaoId, [typeof locacaoId, locacaoId], subtipo, itemId, [typeof pecaId, pecaId]
+        ]))}`;
         return [
             'ajuste-reserva-locacao-v1',
             operacaoId,
@@ -713,14 +808,15 @@
         ].join('|');
     }
 
-    function criarMovimentacoes(reconciliacao, metadados) {
+    function criarMovimentacoes(reconciliacao, metadados, versao = 1) {
         const criar = (registro, subtipo) => {
             const chave = chaveMovimentacao(
                 metadados.operacaoId,
                 metadados.locacaoId,
                 subtipo,
                 registro.itemId,
-                registro.pecaId
+                registro.pecaId,
+                versao
             );
             const pendenteAtual = inteiroSeguroNaoNegativo(registro.item?.quantidades?.pendenteAtual) ?? 0;
             const saldoPosterior = subtipo === 'reserva_ajuste'
@@ -1042,7 +1138,8 @@
     }
 
     function construirCandidato(estado, locacaoAtual, indiceLocacao, dadosEditados, plano,
-        reconciliacao, registroOperacao, checkpoint, entrada, dependencias) {
+        reconciliacao, registroOperacao, checkpoint, entrada, dependencias, versao = 1) {
+        if (versao !== 1 && versao !== 2) return { ok: false, codigo: 'VERSAO_AJUSTE_INVALIDA' };
         const clonagem = resultadoClonagem(dependencias.clonarJsonPersistivelEstrito, estado);
         if (!clonagem.ok) return clonagem;
         const candidato = clonagem.valor;
@@ -1065,7 +1162,7 @@
             periodoAnterior: plano?.periodo?.atual,
             periodoNovo: plano?.periodo?.pretendido
         };
-        const movimentacoes = criarMovimentacoes(reconciliacao, metadados);
+        const movimentacoes = criarMovimentacoes(reconciliacao, metadados, versao);
         const chavesExistentes = new Set((Array.isArray(candidato.movimentacoesEstoque)
             ? candidato.movimentacoesEstoque : []).map((item) => item?.chaveIdempotencia).filter(Boolean));
         if (movimentacoes.some((item) => chavesExistentes.has(item.chaveIdempotencia))) {
@@ -1113,7 +1210,8 @@
 
         const reservaAtual = locacaoCandidata.estoqueReserva && typeof locacaoCandidata.estoqueReserva === 'object'
             ? locacaoCandidata.estoqueReserva : {};
-        const snapshot = dependencias.criarSnapshotReservaLocacao(locacaoCandidata, {
+        const snapshot = versao === 2 ? criarSnapshotReservaTipadoV2Interno(candidato, locacaoCandidata)
+            : dependencias.criarSnapshotReservaLocacao(locacaoCandidata, {
             origem: 'ajuste_transacional',
             capturadoEm: entrada.atualizadoEm,
             statusReserva: reservaAtual.status
@@ -1126,6 +1224,9 @@
                 ...movimentacaoIds
             ]))
         };
+        if (versao === 2 && locacaoAtual.estoqueReserva?.snapshot?.versao === 1) {
+            locacaoCandidata.estoqueReserva.snapshotLegadoPreservado = clonarDescartavel(locacaoAtual.estoqueReserva.snapshot);
+        }
 
         const auditoriaId = [
             'auditoria-ajuste-reserva-locacao-v1',
@@ -1150,7 +1251,98 @@
             ...(Array.isArray(candidato.logsAuditoria) ? candidato.logsAuditoria : []),
             auditoria
         ];
+        if (versao === 2) {
+            const alvos = Array.from(new Set([...locacaoAtual.items, ...locacaoCandidata.items].map(i => i.pecaId)));
+            candidato.pecas = dependencias.recalcularDisponibilidadeEstado(candidato, entrada.atualizadoEm, alvos);
+        }
         return { ok: true, codigo: 'SUCESSO', candidato, locacaoCandidata, movimentacoes, historico };
+    }
+
+    function construirCandidatoReservaInicialInterno(estado, indice, plano, metadados, dependencias) {
+        const copia = clonarJsonInterno(estado);
+        if (!copia.ok) return copia;
+        const candidato = copia.valor, locacao = candidato.locacoes[indice];
+        const referencia = criarReferenciaOperacionalV2Interna('locacao', locacao.id);
+        const comando = { tipo: 'reserva_inicial', locacaoReferencia: referencia };
+        const assinaturaPlano = `reserva-estoque-v2:fnv1a64:${fingerprintFnv1a64(JSON.stringify(
+            ordenarChavesCanonicas({ locacaoAnterior: locacao, comando, metadados })
+        ))}`;
+        const timestamp = metadados.timestamp, usuario = metadados.atorReferencia;
+        const saldos = new Map(Array.from(plano.consultasPorPeca, ([id, consulta]) => [id, consulta.disponivel]));
+        const movimentos = plano.reservas.map(reserva => {
+            const saldoAntes = saldos.get(reserva.pecaId), saldoDepois = saldoAntes - reserva.quantidade;
+            if (!Number.isSafeInteger(saldoDepois) || saldoDepois < 0) throw new Error('DISPONIBILIDADE_INSUFICIENTE');
+            saldos.set(reserva.pecaId, saldoDepois);
+            return dependencias.construirRegistroMovimentacaoEstoque({
+                id: reserva.chaveIdempotencia, movimentacaoId: reserva.chaveIdempotencia,
+                chaveIdempotencia: reserva.chaveIdempotencia, pecaId: reserva.pecaId,
+                pecaNome: reserva.peca.nome, tipoMovimentacao: 'reserva', quantidade: reserva.quantidade,
+                locacaoId: locacao.id, locacaoReferencia: referencia, itemId: reserva.item.itemId,
+                locacaoRef: `#${String(locacao.id).slice(-4)}`, usuario, dataHora: timestamp,
+                observacao: `Reserva expl\u00edcita do item ${reserva.descricao}.`, saldoAntes, saldoDepois,
+                origemEvento: 'reserva_explicita_locacao', statusProcessamento: 'confirmado',
+                operacaoId: metadados.operacaoId, assinaturaPlano
+            }, { tipado: true, id: reserva.chaveIdempotencia, usuario, dataHora: timestamp });
+        });
+        const existentes = new Set(candidato.movimentacoesEstoque.map(m => m.chaveIdempotencia));
+        if (movimentos.some(m => existentes.has(m.chaveIdempotencia))) return { ok: false, codigo: 'MOVIMENTO_RESERVA_DUPLICADO' };
+        // A ordem unshift do legado e preservada, sem truncar provas antigas.
+        candidato.movimentacoesEstoque = [...movimentos.slice().reverse(), ...candidato.movimentacoesEstoque];
+        locacao.estoqueReserva = {
+            ...dependencias.normalizarEstoqueReservaComRegistrosLocacao(locacao, candidato.devolucoes),
+            status: 'reservado', origem: 'reserva_explicita', reservadoEm: timestamp, reservadoPor: usuario,
+            movimentacaoIds: movimentos.map(m => m.id)
+        };
+        locacao.estoqueReserva.snapshot = criarSnapshotReservaTipadoV2Interno(candidato, locacao);
+        const historico = dependencias.criarRegistroHistoricoLocacaoDominio(locacao, {
+            acao: 'reserva_estoque', descricao: `Estoque reservado para ${plano.reservas.length} item(ns) pr\u00f3prio(s).`,
+            origem: 'locacoes', usuario
+        }, { id: Date.parse(timestamp), timestamp, usuario });
+        Object.assign(historico, { locacaoId: locacao.id, locacaoReferencia: referencia,
+            operacaoId: metadados.operacaoId, assinaturaPlano, comandoOperacionalV2: comando });
+        locacao.historicoAlteracoes = [...(locacao.historicoAlteracoes || []), historico];
+        candidato.logsAuditoria = [...candidato.logsAuditoria, {
+            id: `auditoria-reserva-${metadados.operacaoId}`, data: timestamp, timestamp,
+            origem: 'reserva_inicial_v2', acao: 'reserva_estoque', tipo: 'reserva', usuario,
+            locacaoId: locacao.id, locacaoReferencia: referencia, operacaoId: metadados.operacaoId,
+            assinaturaPlano, movimentacaoIds: movimentos.map(m => m.id)
+        }];
+        candidato.pecas = dependencias.recalcularDisponibilidadeEstado(candidato, timestamp);
+        return { ok: true, codigo: 'CANDIDATO_RESERVA_INICIAL', candidato };
+    }
+
+    function construirCandidatoCancelamentoLocacaoInterno(estado, indice, metadados, dependencias) {
+        const clonagem = clonarJsonInterno(estado);
+        if (!clonagem.ok) return clonagem;
+        const candidato = clonagem.valor, locacao = candidato.locacoes[indice];
+        const calculo = dependencias.calcularAtualizacaoStatusLocacaoDominio(locacao, 'cancelado');
+        if (!calculo.houveMudanca) return { ok: false, codigo: 'LOCACAO_JA_CANCELADA_SEM_OPERACAO_COMPROVADA' };
+        const referencia = criarReferenciaOperacionalV2Interna('locacao', locacao.id);
+        const comando = { tipo: 'cancelamento_locacao', locacaoReferencia: referencia };
+        const assinaturaPlano = `cancelamento-locacao-v2:fnv1a64:${fingerprintFnv1a64(JSON.stringify(
+            ordenarChavesCanonicas({ locacaoAnterior: locacao, comando, metadados })
+        ))}`;
+        const timestamp = metadados.timestamp, usuario = metadados.atorReferencia;
+        const clientes = candidato.locadores.filter(c => typeof c.id === typeof locacao.locadorId && Object.is(c.id, locacao.locadorId));
+        if (clientes.length > 1) return { ok: false, codigo: 'CLIENTE_LOCACAO_DUPLICADO' };
+        const nome = typeof clientes[0]?.nome === 'string' ? clientes[0].nome : 'Cliente';
+        locacao.status = calculo.status;
+        locacao.statusFluxo = calculo.statusFluxo;
+        locacao.historicoAlteracoes = [...(locacao.historicoAlteracoes || []), {
+            id: Date.parse(timestamp), data: timestamp, acao: 'cancelamento', descricao: 'Locacao cancelada.',
+            origem: 'locacoes', status: locacao.status, statusFluxo: locacao.statusFluxo, usuario,
+            locacaoId: locacao.id, locacaoReferencia: referencia, operacaoId: metadados.operacaoId,
+            assinaturaPlano, comandoOperacionalV2: comando
+        }];
+        candidato.logsAuditoria = [{
+            id: Date.parse(timestamp), timestamp, data: timestamp, tipo: 'locacao', acao: 'cancelar',
+            descricao: `Loca\u00e7\u00e3o cancelada: ${nome}.`, usuario,
+            dados: { locacaoId: locacao.id, locacaoReferencia: referencia },
+            locacaoId: locacao.id, operacaoId: metadados.operacaoId, assinaturaPlano,
+            origem: 'cancelamento_locacao_v2'
+        }, ...candidato.logsAuditoria];
+        candidato.pecas = dependencias.recalcularDisponibilidadeEstado(candidato, timestamp);
+        return { ok: true, codigo: 'CANDIDATO_CANCELAMENTO_LOCACAO', candidato };
     }
 
     function validarCandidato(estadoOriginal, construcao, plano, entrada, dependencias) {
@@ -1660,7 +1852,11 @@
     }
 
     function construirCandidatoDevolucao(estado, localizacao, entrada, assinatura, dadosAssinados,
-        registroOperacao, checkpoint, dependencias) {
+        registroOperacao, checkpoint, dependencias, versaoSnapshot = 1) {
+        if (versaoSnapshot !== 1 && versaoSnapshot !== 2) return { ok: false, codigo: 'VERSAO_SNAPSHOT_RESERVA_INVALIDA' };
+        if (versaoSnapshot === 1 && localizacao.locacao.estoqueReserva?.snapshot?.versao === 2) {
+            return { ok: false, codigo: 'SNAPSHOT_V2_EXIGE_CONSTRUTOR_COMPATIVEL' };
+        }
         const clonagem = clonarJsonInterno(estado);
         if (!clonagem.ok) return clonagem;
         const candidato = clonagem.valor;
@@ -1783,7 +1979,7 @@
         locacao.historicoAlteracoes = [
             ...(Array.isArray(locacao.historicoAlteracoes) ? locacao.historicoAlteracoes : []),
             historicoAlteracao
-        ].slice(-240);
+        ];
         const historico = {
             ...registroOperacao.registroHistorico,
             acao: 'devolucao_locacao',
@@ -1820,27 +2016,40 @@
             capturadoEm: entrada.atualizadoEm,
             statusReserva: locacao.estoqueReserva?.status
         };
-        const snapshotReservaInterno = criarSnapshotReservaInterno(locacao, opcoesSnapshot);
-        let snapshotReservaExterno;
-        try {
-            snapshotReservaExterno = dependencias.criarSnapshotReservaLocacao(
-                locacaoDescartavel,
-                clonarDescartavel(opcoesSnapshot)
-            );
-            if (!validarValorExternoPersistivel(snapshotReservaExterno)) {
+        let snapshotReservaInterno;
+        if (versaoSnapshot === 2) {
+            try {
+                snapshotReservaInterno = criarSnapshotReservaTipadoV2Interno(candidato, locacao);
+                const snapshotOriginal = localizacao.locacao.estoqueReserva?.snapshot;
+                if (snapshotOriginal?.versao === 1) {
+                    locacao.estoqueReserva.snapshotLegadoPreservado = clonarDescartavel(snapshotOriginal);
+                }
+            } catch (_erro) {
+                return { ok: false, codigo: 'SNAPSHOT_RESERVA_V2_INVALIDO' };
+            }
+        } else {
+            snapshotReservaInterno = criarSnapshotReservaInterno(locacao, opcoesSnapshot);
+            let snapshotReservaExterno;
+            try {
+                snapshotReservaExterno = dependencias.criarSnapshotReservaLocacao(
+                    locacaoDescartavel,
+                    clonarDescartavel(opcoesSnapshot)
+                );
+                if (!validarValorExternoPersistivel(snapshotReservaExterno)) {
+                    return { ok: false, codigo: 'SNAPSHOT_RESERVA_EXTERNO_NAO_CONFIAVEL' };
+                }
+            } catch (_erro) {
                 return { ok: false, codigo: 'SNAPSHOT_RESERVA_EXTERNO_NAO_CONFIAVEL' };
             }
-        } catch (_erro) {
-            return { ok: false, codigo: 'SNAPSHOT_RESERVA_EXTERNO_NAO_CONFIAVEL' };
-        }
-        const snapshotReserva = clonarJsonInterno(snapshotReservaExterno);
-        if (!snapshotReserva.ok || !validarSnapshotReservaExterno(snapshotReserva.valor)) {
-            return { ok: false, codigo: 'SNAPSHOT_RESERVA_INVALIDO' };
-        }
-        const externoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReserva.valor));
-        const internoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReservaInterno));
-        if (externoCanonico !== internoCanonico) {
-            return { ok: false, codigo: 'SNAPSHOT_RESERVA_DIVERGENTE' };
+            const snapshotReserva = clonarJsonInterno(snapshotReservaExterno);
+            if (!snapshotReserva.ok || !validarSnapshotReservaExterno(snapshotReserva.valor)) {
+                return { ok: false, codigo: 'SNAPSHOT_RESERVA_INVALIDO' };
+            }
+            const externoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReserva.valor));
+            const internoCanonico = JSON.stringify(ordenarChavesCanonicas(snapshotReservaInterno));
+            if (externoCanonico !== internoCanonico) {
+                return { ok: false, codigo: 'SNAPSHOT_RESERVA_DIVERGENTE' };
+            }
         }
         if (locacao.estoqueReserva && typeof locacao.estoqueReserva === 'object') {
             locacao.estoqueReserva.snapshot = snapshotReservaInterno;
@@ -1878,6 +2087,20 @@
             quantidadeMovimentacoes: movimentacoes.length
         };
         candidato.logsAuditoria = [...(Array.isArray(candidato.logsAuditoria) ? candidato.logsAuditoria : []), auditoria];
+        if (versaoSnapshot === 2) {
+            try {
+                const alvos = Array.from(new Set(itensDevolucao.map(item => item.pecaId)));
+                const recalculadas = dependencias.recalcularDisponibilidadeEstado(candidato, entrada.atualizadoEm, alvos);
+                const clonadas = clonarJsonInterno(recalculadas);
+                if (!clonadas.ok || !Array.isArray(clonadas.valor) || clonadas.valor.length !== candidato.pecas.length
+                    || clonadas.valor.some((peca, indice) => referenciaEstrita(peca.id) !== referenciaEstrita(candidato.pecas[indice].id))) {
+                    return { ok: false, codigo: 'RECALCULO_ESTOQUE_V2_INVALIDO' };
+                }
+                candidato.pecas = clonadas.valor;
+            } catch (_erro) {
+                return { ok: false, codigo: 'RECALCULO_ESTOQUE_V2_INVALIDO' };
+            }
+        }
         return { ok: true, codigo: 'SUCESSO', candidato, locacaoCandidata: locacao, historico, devolucao, movimentacoes };
     }
 
@@ -3777,44 +4000,203 @@
             : { estado: 'parcial', completo: false };
     }
 
-    function executarRecebimentoLocacaoTransacional(entradaRecebida = {}, dependencias = {}) {
-        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
-        const entradaClonada = clonarJsonInterno(entradaRecebida);
-        if (!entradaClonada.ok) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
-        const entrada = entradaClonada.valor;
+    // Composicao pura para ensaios. Entrada e estado sao internos, originados de
+    // JSON validado; este preparador nao e uma porta publica nem confirma commit.
+    function planejarOperacaoMonetariaAutoritativaInterna(operacao, estado, entrada) {
+        // A integracao do dominio 7A nao faz parte deste preparador inativo.
+        const memoria = prepararEstadoFinanceiroPuroInterno(estado,
+            texto => JSON.parse(texto).encargosFinanceiros.length === 0);
+        if (!memoria.ok) return resultadoBase(memoria.codigo, { requerRecuperacao: true });
+        const recuperar = () => resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+        const concluir = (construcao, idempotente = false) => {
+            if (idempotente) return { planejado: true, idempotente: true, candidato: memoria.valor };
+            return construcao.planejado === true
+                ? { planejado: true, idempotente: false, candidato: construcao.valores.candidato.valor }
+                : construcao;
+        };
         const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
-        const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
-        const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
-        let valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(
-            entrada.valorRecebidoTexto, { permitirZero: false });
-        const recebimentoParcela = Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia');
-        const valorLancamentoParcela = recebimentoParcela
-            ? normalizarTextoMonetarioCentavos(entrada.valorLancamentoTexto, { permitirZero: false })
-            : null;
-        const persistenciaEntrada = entrada.persistencia;
-        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
-            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
-            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
-        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
-            || !atualizadoEm || !atualizadoPor
-            || (recebimentoParcela
+        const persistencia = entrada.persistencia;
+        if (operacao === 'receber' || operacao === 'estornar_recebimento') {
+            const memoriaInicial = memoria;
+            const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
+            const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
+            const persistenciaEntrada = persistencia;
+            if (operacao === 'receber') {
+                let valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(entrada.valorRecebidoTexto, { permitirZero: false });
+                const recebimentoParcela = Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia');
+                const valorLancamentoParcela = recebimentoParcela
+                    ? normalizarTextoMonetarioCentavos(entrada.valorLancamentoTexto, { permitirZero: false }) : null;
+                if (entradaRecebimentoFinanceiroInvalidaInterna({ operacaoId, atualizadoEm, atualizadoPor,
+                    recebimentoParcela, entrada, valorLancamentoParcela, valorRecebidoNormalizado, persistenciaEntrada }))
+                    return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+                const resolvida = resolverContextoRecebimentoFinanceiroInterno({ entrada, memoriaInicial });
+                if (resolvida.preparado !== true) return resolvida;
+                const calculada = prepararCalculosRecebimentoFinanceiroInterno({ ...resolvida.valores,
+                    recebimentoParcela, valorRecebidoNormalizado, atualizadoEm, memoriaInicial, entrada, valorLancamentoParcela });
+                if (calculada.preparado !== true) return calculada;
+                const contexto = { memoriaInicial, entrada, operacaoId, atualizadoEm, atualizadoPor,
+                    recebimentoParcela, ...resolvida.valores, ...calculada.valores };
+                const evidencia = verificarEvidenciasRecebimento(memoria.valor, entrada, contexto.locacaoId,
+                    contexto.locacaoReferencia, contexto.assinatura, contexto.contaReferencia);
+                if (evidencia.completo) return concluir(null, true);
+                if (evidencia.estado !== 'nao_executada') return recuperar();
+                const limite = validarAvancoRecebimentoFinanceiroInterno(contexto);
+                if (limite.preparado !== true) return limite;
+                return concluir(construirCandidatoRecebimentoFinanceiroInterno(contexto));
+            }
+            const motivo = typeof entrada.motivo === 'string' ? entrada.motivo : '';
+            const valor = normalizarTextoMonetarioCentavos(entrada.valorEstornoTexto, { permitirZero: false });
+            if (entradaEstornoRecebimentoFinanceiroInvalidaInterna({ operacaoId, atualizadoEm,
+                atualizadoPor, valor, motivo, persistenciaEntrada })) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
+            const resolvida = resolverContextoEstornoRecebimentoFinanceiroInterno({ atualizadoEm, memoriaInicial, entrada });
+            if (resolvida.preparado !== true) return resolvida;
+            const assinatura = assinaturaEstornoRecebimento(entrada, resolvida.valores.alvoInicial, valor.centavos);
+            const evidencia = verificarEvidenciasEstornoRecebimento(memoria.valor, entrada, assinatura);
+            if (evidencia.completo) return concluir(null, true);
+            if (evidencia.estado !== 'nao_executada') return recuperar();
+            const contexto = { memoriaInicial, entrada, ...resolvida.valores, valor,
+                operacaoId, motivo, atualizadoEm, atualizadoPor, assinatura };
+            const limite = validarLimiteEstornoRecebimentoFinanceiroInterno(contexto);
+            if (limite.preparado !== true) return limite;
+            return concluir(construirCandidatoEstornoRecebimentoFinanceiroInterno(contexto));
+        }
+        if (operacao === 'pagar' || operacao === 'estornar_pagamento') {
+            const estorno = operacao === 'estornar_pagamento';
+            const valor = normalizarTextoMonetarioCentavos(estorno ? entrada.valorEstornoTexto : entrada.valorPagoTexto,
+                { permitirZero: false });
+            const invalida = estorno ? entradaEstornoPagamentoFinanceiroInvalidaInterna
+                : entradaPagamentoFinanceiroInvalidaInterna;
+            if (invalida({ valor, entrada, persistencia })) return resultadoBase(estorno
+                ? 'ENTRADA_ESTORNO_PAGAR_INVALIDA' : 'ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
+            if (!validarFundacaoContasPagar(memoria.valor, entrada.dataReferencia)) return recuperar();
+            const evidencia = estorno ? localizarEstornoPagamentoContaPagarPorOperacao(memoria.valor, operacaoId)
+                : localizarPagamentoContaPagarPorOperacao(memoria.valor, operacaoId);
+            if (evidencia.completo) {
+                const corresponde = estorno ? estornoPagamentoContaPagarCorrespondeEntrada : pagamentoContaPagarCorrespondeEntrada;
+                return corresponde(evidencia, entrada, valor.centavos) ? concluir(null, true) : recuperar();
+            }
+            if (evidencia.estado !== 'nao_executada') return recuperar();
+            return concluir((estorno ? construirCandidatoEstornoPagamentoFinanceiroInterno
+                : construirCandidatoPagamentoFinanceiroInterno)({ memoria, entrada, valor }));
+        }
+        const pagar = ['conciliar_pagamento', 'desconciliar_pagamento'].includes(operacao);
+        const receber = ['conciliar_recebimento', 'desconciliar_recebimento'].includes(operacao);
+        if (!pagar && !receber) return resultadoBase('COMANDO_MONETARIO_INDISPONIVEL');
+        const tipo = operacao.startsWith('desconciliar') ? 'desconsideracao' : 'conciliacao';
+        if (pagar) {
+            const valorBancario = tipo === 'conciliacao'
+                ? normalizarTextoMonetarioCentavos(entrada.valorBancarioTexto, { permitirZero: false }) : null;
+            if (entradaConciliacaoPagarFinanceiroInvalidaInterna({ entrada, persistencia }))
+                return resultadoBase('ENTRADA_CONCILIACAO_PAGAR_INVALIDA');
+            const campos = validarCamposConciliacaoPagarFinanceiroInterno({ tipo, entrada, valorBancario });
+            if (campos.preparado !== true) return campos;
+            if (!validarFundacaoContasPagar(memoria.valor, entrada.dataReferencia)) return recuperar();
+            const contexto = { memoria, entrada, tipo, valorBancario };
+            const resolvida = resolverContextoConciliacaoPagarFinanceiroInterno(contexto);
+            if (resolvida.preparado !== true) return resolvida;
+            const evidencia = localizarConciliacaoPagamentoPagarPorOperacao(memoria.valor, operacaoId);
+            if (evidencia.completo) return evidencia.registro.assinaturaPlano === resolvida.valores.registroEsperado.assinaturaPlano
+                ? concluir(null, true) : recuperar();
+            if (evidencia.estado !== 'nao_executada') return recuperar();
+            const permitida = validarContextoConciliacaoPagarFinanceiroInterno({ ...contexto,
+                ...resolvida.valores, persistido: memoria });
+            if (permitida.preparado !== true) return permitida;
+            return concluir(construirCandidatoConciliacaoPagarFinanceiroInterno(contexto));
+        }
+        if (entradaConciliacaoReceberFinanceiroInvalidaInterna({ entrada, persistencia }))
+            return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+        const campos = prepararCamposConciliacaoReceberFinanceiroInterno({ tipo, entrada });
+        if (campos.preparado !== true) return campos;
+        const contexto = { memoria, entrada, tipo, ...campos.valores };
+        const resolvida = prepararContextoConciliacaoReceberFinanceiroInterno(contexto);
+        if (resolvida.preparado !== true) return resolvida;
+        Object.assign(contexto, resolvida.valores);
+        contexto.assinatura = assinaturaConciliacaoFinanceira(entrada, contexto.alvo,
+            contexto.valorBancario?.centavos || 0, tipo);
+        const evidencia = verificarEvidenciasConciliacaoFinanceira(memoria.valor, operacaoId, contexto.assinatura);
+        if (evidencia.completo) return concluir(null, true);
+        if (evidencia.estado !== 'nao_executada') return recuperar();
+        return concluir(construirCandidatoConciliacaoReceberFinanceiroInterno(contexto));
+    }
+
+    function validarCamposConciliacaoPagarFinanceiroInterno({ tipo, entrada, valorBancario }) {
+        if (tipo === 'conciliacao') {
+            const diferencaValida = valorBancario?.ok === true;
+            if (!diferencaValida || !['conciliada', 'divergente'].includes(entrada.situacao)
+                || !validarDataLocalContaReceber(entrada.dataBancaria)
+                || !['pix', 'transferencia', 'boleto', 'cartao', 'dinheiro', 'outro']
+                    .includes(entrada.meioPagamento)
+                || textoPagar(entrada.contaFinanceira, 200, true) === null
+                || textoPagar(entrada.identificadorBancario, 300, true) === null
+                || textoPagar(entrada.observacao, 1000) === null
+                || !comprovanteConciliacaoValido(entrada.comprovante)) {
+                return resultadoBase('ENTRADA_CONCILIACAO_PAGAR_INVALIDA');
+            }
+        } else if (!decodificarReferenciaTipadaPagar(
+            entrada.conciliacaoOriginalReferencia, 'conciliacao-pagamento-pagar')
+            || textoPagar(entrada.motivo, 1000, true) === null) {
+            return resultadoBase('ENTRADA_DESCONSIDERACAO_PAGAR_INVALIDA');
+        }
+        return { preparado: true, valores: {  } };
+    }
+
+    function prepararCamposConciliacaoReceberFinanceiroInterno({ tipo, entrada }) {
+        let valorBancario = null;
+        if (tipo === 'conciliacao') {
+            valorBancario = normalizarTextoMonetarioCentavos(entrada.valorBancarioTexto, { permitirZero: false });
+            const meios = ['pix', 'transferencia', 'boleto', 'cartao', 'dinheiro', 'outro'];
+            if (!valorBancario.ok || !['conciliado', 'divergente'].includes(entrada.situacao)
+                || !validarDataLocalContaReceber(entrada.dataBancaria)
+                || entrada.dataBancaria > entrada.registradoEm.slice(0, 10)
+                || !meios.includes(entrada.meioPagamento)
+                || !textoFinanceiroIntegro(entrada.contaFinanceira, 1, 200)
+                || !textoFinanceiroIntegro(entrada.identificadorBancario, 1, 300)
+                || typeof entrada.observacao !== 'string' || entrada.observacao !== entrada.observacao.trim()
+                || entrada.observacao.length > 1000 || !comprovanteConciliacaoValido(entrada.comprovante)) {
+                return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
+            }
+        } else if (!textoFinanceiroIntegro(entrada.conciliacaoOriginalReferencia, 1, 500)
+            || !textoFinanceiroIntegro(entrada.motivo, 5, 500)) {
+            return resultadoBase('ENTRADA_DESCONSIDERACAO_INVALIDA');
+        }
+        return { preparado: true, valores: { valorBancario } };
+    }
+
+    function entradaRecebimentoFinanceiroInvalidaInterna(contextoInterno) {
+        const { operacaoId, atualizadoEm, atualizadoPor, recebimentoParcela, entrada, valorLancamentoParcela, valorRecebidoNormalizado, persistenciaEntrada } = contextoInterno;
+        return (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)) || (!atualizadoEm) || (!atualizadoPor) || (recebimentoParcela
                 ? (typeof entrada.parcelaReferencia !== 'string' || !entrada.parcelaReferencia
                     || !valorLancamentoParcela.ok)
-                : !valorRecebidoNormalizado.ok)
-            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
-            || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao.trim()
-            || persistenciaEntrada.data !== atualizadoEm
-            || !Number.isSafeInteger(persistenciaEntrada.ultimaEdicao) || persistenciaEntrada.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
-            || !dependencias?.armazenamento) {
-            return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
-        }
+                : !valorRecebidoNormalizado.ok) || (!persistenciaEntrada) || (typeof persistenciaEntrada !== 'object') || (typeof persistenciaEntrada.versao !== 'string') || (!persistenciaEntrada.versao.trim()) || (persistenciaEntrada.data !== atualizadoEm) || (!Number.isSafeInteger(persistenciaEntrada.ultimaEdicao)) || (persistenciaEntrada.ultimaEdicao < 0);
+    }
 
-        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
-        const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
-        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
-            requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
-        });
+    function entradaEstornoRecebimentoFinanceiroInvalidaInterna(contextoInterno) {
+        const { operacaoId, atualizadoEm, atualizadoPor, valor, motivo, persistenciaEntrada } = contextoInterno;
+        return (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)) || (!atualizadoEm) || (!atualizadoPor) || (!valor.ok) || (motivo !== motivo.trim()) || (motivo.length < 5) || (motivo.length > 500) || (!persistenciaEntrada) || (typeof persistenciaEntrada !== 'object') || (typeof persistenciaEntrada.versao !== 'string') || (!persistenciaEntrada.versao.trim()) || (persistenciaEntrada.data !== atualizadoEm) || (!Number.isSafeInteger(persistenciaEntrada.ultimaEdicao)) || (persistenciaEntrada.ultimaEdicao < 0);
+    }
+
+    function entradaPagamentoFinanceiroInvalidaInterna(contextoInterno) {
+        const { valor, entrada, persistencia } = contextoInterno;
+        return (!valor.ok) || (!decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')) || (!decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')) || (!validarDataLocalContaReceber(entrada.dataPagamento)) || (!validarDataLocalContaReceber(entrada.dataReferencia)) || (!instanteFinanceiroIntegro(entrada.criadoEm)) || (textoPagar(entrada.formaPagamento, 100, true) === null) || (textoPagar(entrada.descricao, 1000) === null) || (textoPagar(entrada.responsavel, 300, true) === null) || (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)) || (!comprovanteConciliacaoValido(entrada.comprovante)) || (!persistencia) || (typeof persistencia !== 'object') || (typeof persistencia.versao !== 'string') || (persistencia.data !== entrada.criadoEm) || (!Number.isSafeInteger(persistencia.ultimaEdicao)) || (persistencia.ultimaEdicao < 0);
+    }
+
+    function entradaEstornoPagamentoFinanceiroInvalidaInterna(contextoInterno) {
+        const { valor, entrada, persistencia } = contextoInterno;
+        return (!valor.ok) || (!decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')) || (!decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')) || (!decodificarReferenciaTipadaPagar(entrada.pagamentoOriginalReferencia, 'pagamento-pagar')) || (!validarDataLocalContaReceber(entrada.dataEstorno)) || (!validarDataLocalContaReceber(entrada.dataReferencia)) || (!instanteFinanceiroIntegro(entrada.criadoEm)) || (textoPagar(entrada.motivo, 1000, true) === null) || (textoPagar(entrada.responsavel, 300, true) === null) || (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)) || (!comprovanteConciliacaoValido(entrada.comprovante)) || (!persistencia) || (typeof persistencia !== 'object') || (typeof persistencia.versao !== 'string') || (persistencia.data !== entrada.criadoEm) || (!Number.isSafeInteger(persistencia.ultimaEdicao)) || (persistencia.ultimaEdicao < 0);
+    }
+
+    function entradaConciliacaoReceberFinanceiroInvalidaInterna(contextoInterno) {
+        const { entrada, persistencia } = contextoInterno;
+        return (!entrada) || (typeof entrada.operacaoId !== 'string') || (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)) || (typeof entrada.contaReferencia !== 'string') || (typeof entrada.parcelaReferencia !== 'string') || (typeof entrada.lancamentoReferencia !== 'string') || (!instanteFinanceiroIntegro(entrada.registradoEm)) || (!textoFinanceiroIntegro(entrada.responsavel, 1, 300)) || (!persistencia) || (typeof persistencia !== 'object') || (typeof persistencia.versao !== 'string') || (typeof persistencia.data !== 'string') || (!Number.isSafeInteger(persistencia.ultimaEdicao)) || (persistencia.ultimaEdicao < 0);
+    }
+
+    function entradaConciliacaoPagarFinanceiroInvalidaInterna(contextoInterno) {
+        const { entrada, persistencia } = contextoInterno;
+        return (!decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')) || (!decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')) || (!decodificarReferenciaTipadaPagar(entrada.pagamentoReferencia, 'pagamento-pagar')) || (!instanteFinanceiroIntegro(entrada.registradoEm)) || (!validarDataLocalContaReceber(entrada.dataReferencia)) || (textoPagar(entrada.responsavel, 300, true) === null) || (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)) || (!persistencia) || (typeof persistencia !== 'object') || (typeof persistencia.versao !== 'string') || (persistencia.data !== entrada.registradoEm) || (!Number.isSafeInteger(persistencia.ultimaEdicao)) || (persistencia.ultimaEdicao < 0);
+    }
+
+    function resolverContextoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { entrada, memoriaInicial } = contextoInterno;
         const resolucao = resolverReferenciaTipadaLocacaoTransacional(entrada.locacaoReferencia, memoriaInicial.valor.locacoes);
         if (resolucao.estado !== 'encontrado') {
             const codigo = resolucao.estado === 'duplicado' ? 'LOCACAO_ID_DUPLICADO'
@@ -3825,15 +4207,12 @@
         const locacaoReferencia = criarReferenciaTipadaLocacaoTransacional(locacaoId);
         const locacaoRef = referenciaEstrita(locacaoId);
         if (!locacaoRef || !locacaoReferencia) return resultadoBase('REFERENCIA_LOCACAO_INVALIDA');
-        if (travasReclassificacaoContaReceber.size || travasRecebimentoLocacao.has(locacaoRef))
-            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        return { preparado: true, valores: { resolucao, locacaoId, locacaoReferencia, locacaoRef } };
+    }
 
-        travasRecebimentoLocacao.add(locacaoRef);
-        let autorizacaoPublicacao = null;
-        let persistenciaConfirmada = false;
-        let publicacaoRealizada = false;
-        try {
-            const financeiroAtual = resolucao.locacao.financeiro && typeof resolucao.locacao.financeiro === 'object'
+    function prepararCalculosRecebimentoFinanceiroInterno(contextoInterno) {
+        let { resolucao, recebimentoParcela, valorRecebidoNormalizado, atualizadoEm, locacaoId, memoriaInicial, entrada, valorLancamentoParcela, locacaoReferencia } = contextoInterno;
+        const financeiroAtual = resolucao.locacao.financeiro && typeof resolucao.locacao.financeiro === 'object'
                 ? resolucao.locacao.financeiro : {};
             const totalNormalizado = normalizarValorMonetarioLegadoCentavos(
                 financeiroAtual.valorTotal ?? resolucao.locacao.valorTotalCalculado, { permitirZero: false });
@@ -3904,35 +4283,146 @@
             const assinatura = assinaturaRecebimentoLocacao(entrada, locacaoId,
                 locacaoReferencia, valorRecebidoAssinaturaCentavos, contaReferencia,
                 recebimentoParcela ? valorLancamentoParcela.centavos : 0);
-            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
-            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
-            let leituraInicial;
-            try { leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leituraInicial = null; }
-            const leituraInicialValidada = validarRetornoLeituraSnapshotFinanceiro(leituraInicial);
-            if (!leituraInicialValidada.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const persistidoInicial = prepararEstadoOperacionalInterno(leituraInicialValidada.snapshot);
-            if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const evidenciaMemoria = verificarEvidenciasRecebimento(memoriaInicial.valor, entrada,
-                locacaoId, locacaoReferencia, assinatura, contaReferencia);
-            const evidenciaPersistida = verificarEvidenciasRecebimento(persistidoInicial.valor, entrada,
-                locacaoId, locacaoReferencia, assinatura, contaReferencia);
-            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
-                if (evidenciaMemoria.completo && evidenciaPersistida.completo && memoriaInicial.json === persistidoInicial.json) {
-                    return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
-                        operacao: { locacaoId, locacaoReferencia, operacaoId, assinaturaPlano: assinatura }, renderizar: true });
+        return { preparado: true, valores: { totalNormalizado, recebidoAnteriorCentavos, dataReferencia, contaReferencia, parcelaRecebimentoBloqueada, valorTotal, valorRecebido, assinatura, valorRecebidoNormalizado } };
+    }
+
+    function resolverContextoEstornoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { atualizadoEm, memoriaInicial, entrada } = contextoInterno;
+        const dataReferencia = atualizadoEm.slice(0, 10);
+        if (!validarDataLocalContaReceber(dataReferencia)) return resultadoBase('DATA_ESTORNO_INVALIDA');
+        const alvoInicial = resolverAlvoEstornoRecebimento(memoriaInicial.valor, entrada, dataReferencia);
+        if (!alvoInicial.ok) return resultadoBase(alvoInicial.codigo, {
+            requerRecuperacao: alvoInicial.requerRecuperacao === true
+        });
+        return { preparado: true, valores: { dataReferencia, alvoInicial } };
+    }
+
+    function prepararContextoConciliacaoReceberFinanceiroInterno(contextoInterno) {
+        const { entrada, memoria, tipo, valorBancario } = contextoInterno;
+        const dataReferencia = entrada.registradoEm.slice(0, 10);
+        const alvo = resolverAlvoConciliacaoFinanceira(memoria.valor, entrada, dataReferencia);
+        if (!alvo.ok) return resultadoBase(alvo.codigo, { requerRecuperacao: alvo.requerRecuperacao === true });
+        const colecao = validarColecaoConciliacoesFinanceiras(memoria.valor);
+        if (!colecao.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+        let original = null;
+        if (tipo === 'conciliacao') {
+            const efetiva = obterSituacaoConciliacaoLancamento(memoria.valor, entrada.contaReferencia,
+                entrada.parcelaReferencia, entrada.lancamentoReferencia);
+            if (efetiva.estado !== 'pendente'
+                && (efetiva.estado === 'invalido' || efetiva.conciliacao?.operacaoId !== entrada.operacaoId)) {
+                return resultadoBase(efetiva.estado === 'invalido'
+                    ? 'OPERACAO_REQUER_RECUPERACAO' : 'LANCAMENTO_JA_CONCILIADO', {
+                    requerRecuperacao: efetiva.estado === 'invalido'
+                });
+            }
+            const diferenca = valorBancario.centavos - alvo.valorEsperadoCentavos;
+            if (!Number.isSafeInteger(diferenca)
+                || (entrada.situacao === 'conciliado' && diferenca !== 0)
+                || (entrada.situacao === 'divergente'
+                    && (diferenca === 0 || !textoFinanceiroIntegro(entrada.motivoDivergencia, 5, 500)))) {
+                return resultadoBase('CONCILIACAO_VALORES_DIVERGENTES');
+            }
+        } else {
+            const originais = memoria.valor.conciliacoesFinanceiras.filter((registro) => (
+                registro?.tipo === 'conciliacao' && registro.conciliacaoReferencia === entrada.conciliacaoOriginalReferencia));
+            if (originais.length !== 1 || originais[0].contaReferencia !== entrada.contaReferencia
+                || originais[0].parcelaReferencia !== entrada.parcelaReferencia
+                || originais[0].lancamentoReferencia !== entrada.lancamentoReferencia
+                || (colecao.inversas.has(entrada.conciliacaoOriginalReferencia)
+                    && !memoria.valor.conciliacoesFinanceiras.some((registro) => registro.tipo === 'desconsideracao'
+                        && registro.conciliacaoOriginalReferencia === entrada.conciliacaoOriginalReferencia
+                        && registro.operacaoId === entrada.operacaoId))) {
+                return resultadoBase(originais.length > 1 ? 'CONCILIACAO_DUPLICADA' : 'CONCILIACAO_NAO_DESCONSIDERAVEL');
+            }
+            original = originais[0];
+        }
+        const instanteAnterior = tipo === 'conciliacao' ? alvo.lancamento.data : original.registradoEm;
+        if (!instanteFinanceiroIntegro(instanteAnterior) || entrada.registradoEm <= instanteAnterior) {
+            return resultadoBase(tipo === 'conciliacao'
+                ? 'CRONOLOGIA_CONCILIACAO_INVALIDA' : 'CRONOLOGIA_DESCONSIDERACAO_INVALIDA');
+        }
+        return { preparado: true, valores: { dataReferencia, alvo, original } };
+    }
+
+    function resolverContextoConciliacaoPagarFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, tipo, valorBancario } = contextoInterno;
+        const alvoInicial = resolverAlvoConciliacaoPagamentoPagar(memoria.valor, entrada);
+            if (!alvoInicial.ok) return resultadoBase(alvoInicial.codigo, {
+                requerRecuperacao: alvoInicial.requerRecuperacao === true });
+            const registroEsperado = construirRegistroConciliacaoPagamentoPagar(
+                entrada, alvoInicial, tipo, valorBancario?.centavos || 0);
+        return { preparado: true, valores: { alvoInicial, registroEsperado } };
+    }
+
+    function validarContextoConciliacaoPagarFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, persistido, tipo, alvoInicial, valorBancario } = contextoInterno;
+        if (operacaoIdContasPagarEmUso(memoria.valor, entrada.operacaoId)
+                || operacaoIdContasPagarEmUso(persistido.valor, entrada.operacaoId)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (tipo === 'conciliacao') {
+                if (alvoInicial.conta.situacaoAdministrativa !== 'ativa') {
+                    return resultadoBase('CONTA_PAGAR_BLOQUEADA');
                 }
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                if (alvoInicial.disponivelCentavos <= 0) {
+                    return resultadoBase('PAGAMENTO_TOTALMENTE_ESTORNADO');
+                }
+                const situacaoAtual = obterSituacaoConciliacaoPagamentoPagar(memoria.valor,
+                    entrada.contaPagarReferencia, entrada.parcelaReferencia,
+                    entrada.pagamentoReferencia);
+                if (situacaoAtual.estado !== 'pendente'
+                    && situacaoAtual.estado !== 'desconsiderada') {
+                    return resultadoBase('PAGAMENTO_JA_CONCILIADO');
+                }
+                const diferenca = valorBancario.centavos - alvoInicial.pagamento.valorPagoCentavos;
+                if (!Number.isSafeInteger(diferenca)
+                    || (entrada.situacao === 'conciliada' && diferenca !== 0)
+                    || (entrada.situacao === 'divergente'
+                        && (diferenca === 0
+                            || textoPagar(entrada.motivoDivergencia, 500, true) === null))) {
+                    return resultadoBase('CONCILIACAO_PAGAR_VALORES_DIVERGENTES');
+                }
+                if (entrada.dataBancaria < alvoInicial.pagamento.dataPagamento
+                    || entrada.dataBancaria > entrada.registradoEm.slice(0, 10)) {
+                    return resultadoBase('CRONOLOGIA_CONCILIACAO_PAGAR_INVALIDA');
+                }
+            } else {
+                const originais = memoria.valor.conciliacoesPagamentosPagar.filter((registro) => (
+                    registro.tipo === 'conciliacao'
+                    && registro.conciliacaoPagamentoPagarReferencia
+                        === entrada.conciliacaoOriginalReferencia));
+                const atual = obterSituacaoConciliacaoPagamentoPagar(memoria.valor,
+                    entrada.contaPagarReferencia, entrada.parcelaReferencia,
+                    entrada.pagamentoReferencia);
+                if (originais.length !== 1 || atual.conciliacao !== originais[0]) {
+                    return resultadoBase('CONCILIACAO_PAGAR_NAO_DESCONSIDERAVEL');
+                }
+                if (!instantePagamentoPagarPosterior(
+                    entrada.registradoEm, originais[0].registradoEm)) {
+                    return resultadoBase('CRONOLOGIA_DESCONSIDERACAO_PAGAR_INVALIDA');
+                }
             }
-            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
-                || memoriaInicial.json !== persistidoInicial.json) {
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            }
-            if (parcelaRecebimentoBloqueada) return resultadoBase('VALOR_RECEBIMENTO_FORA_DO_LIMITE');
+        return { preparado: true, valores: {  } };
+    }
+
+    function validarAvancoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { parcelaRecebimentoBloqueada, valorRecebidoNormalizado, recebidoAnteriorCentavos } = contextoInterno;
+        if (parcelaRecebimentoBloqueada) return resultadoBase('VALOR_RECEBIMENTO_FORA_DO_LIMITE');
             if (valorRecebidoNormalizado.centavos <= recebidoAnteriorCentavos) {
                 return resultadoBase('VALOR_RECEBIMENTO_SEM_AVANCO');
             }
+        return { preparado: true, valores: {  } };
+    }
 
-            const candidato = clonarJsonInterno(memoriaInicial.valor);
+    function validarLimiteEstornoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { valor, alvoInicial } = contextoInterno;
+        if (valor.centavos > alvoInicial.valorDisponivelCentavos) return resultadoBase('VALOR_ESTORNO_FORA_DO_LIMITE');
+        return { preparado: true, valores: {  } };
+    }
+
+    function construirCandidatoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { memoriaInicial, entrada, valorRecebidoNormalizado, recebidoAnteriorCentavos, totalNormalizado, operacaoId, locacaoId, locacaoReferencia, contaReferencia, recebimentoParcela, assinatura, atualizadoEm, atualizadoPor, valorRecebido, valorTotal, dataReferencia } = contextoInterno;
+        const candidato = clonarJsonInterno(memoriaInicial.valor);
             if (!candidato.ok) return resultadoBase(candidato.codigo);
             const alvo = resolverReferenciaTipadaLocacaoTransacional(entrada.locacaoReferencia, candidato.valor.locacoes);
             if (alvo.estado !== 'encontrado') return resultadoBase('LOCACAO_NAO_RECONCILIADA');
@@ -4055,7 +4545,466 @@
                     bloqueios: [{ codigo: cadeiaCandidata.codigo || 'CADEIA_FINANCEIRA_CANDIDATA_DIVERGENTE' }]
                 });
             }
+        return { planejado: true, valores: { candidato, deltaCentavos, novoRestanteCentavos, delta, novoRestante } };
+    }
 
+    function construirCandidatoEstornoRecebimentoFinanceiroInterno(contextoInterno) {
+        const { memoriaInicial, entrada, dataReferencia, alvoInicial, valor, operacaoId, motivo, atualizadoEm, atualizadoPor, assinatura } = contextoInterno;
+        const candidato = clonarJsonInterno(memoriaInicial.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvo = resolverAlvoEstornoRecebimento(candidato.valor, entrada, dataReferencia);
+            if (!alvo.ok || alvo.valorDisponivelCentavos !== alvoInicial.valorDisponivelCentavos) {
+                return resultadoBase('ALVO_ESTORNO_NAO_RECONCILIADO');
+            }
+            const novoRecebidoParcela = alvo.parcela.valorRecebidoCentavos - valor.centavos;
+            const novoSaldoParcela = alvo.parcela.valorOriginalCentavos - novoRecebidoParcela;
+            const novoRecebidoConta = alvo.conta.valorRecebidoCentavos - valor.centavos;
+            const novoSaldoConta = alvo.conta.valorTotalCentavos - novoRecebidoConta;
+            if (![novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta].every(Number.isSafeInteger)
+                || Math.min(novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta) < 0) {
+                return resultadoBase('VALORES_ESTORNO_NAO_RECONCILIADOS');
+            }
+            const locacaoTotal = normalizarValorMonetarioLegadoCentavos(
+                alvo.locacao.financeiro?.valorTotal ?? alvo.locacao.valorTotalCalculado, { permitirZero: false });
+            if (!locacaoTotal.ok || locacaoTotal.centavos !== alvo.conta.valorTotalCentavos) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const novoRecebidoPersistivel = converterCentavosParaNumeroPersistivel(novoRecebidoConta);
+            const novoSaldoPersistivel = converterCentavosParaNumeroPersistivel(novoSaldoConta);
+            if (!novoRecebidoPersistivel.ok || !novoSaldoPersistivel.ok) return resultadoBase('VALOR_MONETARIO_NAO_PERSISTIVEL');
+            const idLancamentoParcela = `estorno-parcela-${operacaoId}`;
+            const idLancamentoLocacao = `estorno-locacao-${operacaoId}`;
+            const baseEstorno = { tipo: 'estorno', operacaoId, contaReferencia: alvo.conta.contaReferencia,
+                parcelaReferencia: alvo.parcela.parcelaReferencia, locacaoId: alvo.locacao.id,
+                locacaoReferencia: alvo.conta.locacaoReferencia, lancamentoOriginalReferencia: alvo.originalReferencia,
+                valorEstornoCentavos: valor.centavos, motivo, data: atualizadoEm,
+                responsavel: atualizadoPor, assinaturaPlano: assinatura };
+            alvo.parcela.valorRecebidoCentavos = novoRecebidoParcela;
+            alvo.parcela.saldoCentavos = novoSaldoParcela;
+            alvo.parcela.atualizadoEm = atualizadoEm;
+            alvo.parcela.situacao = calcularSituacaoEfetivaParcelaContaReceber(alvo.parcela, dataReferencia);
+            alvo.parcela.lancamentosFinanceiros = [...alvo.parcela.lancamentosFinanceiros, {
+                ...baseEstorno, id: idLancamentoParcela,
+                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoParcela),
+                valorRecebidoAnteriorCentavos: novoRecebidoParcela + valor.centavos,
+                valorRecebidoNovoCentavos: novoRecebidoParcela,
+                saldoAnteriorCentavos: novoSaldoParcela - valor.centavos,
+                saldoNovoCentavos: novoSaldoParcela
+            }];
+            alvo.conta.valorRecebidoCentavos = novoRecebidoConta;
+            alvo.conta.saldoCentavos = novoSaldoConta;
+            alvo.conta.atualizadoEm = atualizadoEm;
+            const contaValidada = validarContaReceberEstrutural(alvo.conta, dataReferencia);
+            if (!contaValidada.valida || contaValidada.recebidoCentavos !== novoRecebidoConta
+                || contaValidada.saldoCentavos !== novoSaldoConta) return resultadoBase('CONTA_RECEBER_NAO_RECONCILIADA');
+            alvo.conta.situacao = contaValidada.situacao;
+            alvo.conta.historico = [...alvo.conta.historico, {
+                ...baseEstorno, id: `historico-conta-estorno-${operacaoId}`, acao: 'estorno_aplicado',
+                valorRecebidoCentavos: novoRecebidoConta, saldoCentavos: novoSaldoConta, usuario: atualizadoPor
+            }];
+            const statusPagamento = novoSaldoConta === 0 ? 'pago' : novoRecebidoConta > 0 ? 'parcial' : 'pendente';
+            alvo.locacao.financeiro = { ...alvo.locacao.financeiro,
+                sinal: novoRecebidoPersistivel.valor, valorRestante: novoSaldoPersistivel.valor, statusPagamento,
+                lancamentosRecebimentos: [...(Array.isArray(alvo.locacao.financeiro?.lancamentosRecebimentos)
+                    ? alvo.locacao.financeiro.lancamentosRecebimentos : []), {
+                    ...baseEstorno, id: idLancamentoLocacao,
+                    lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoLocacao),
+                    valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
+                }] };
+            alvo.locacao.pago = statusPagamento === 'pago';
+            alvo.locacao.historicoAlteracoes = [...(Array.isArray(alvo.locacao.historicoAlteracoes)
+                ? alvo.locacao.historicoAlteracoes : []), {
+                ...baseEstorno, id: `historico-estorno-${operacaoId}`, acao: 'financeiro_estorno',
+                origem: 'financeiro', usuario: atualizadoPor,
+                descricao: `Estorno de ${formatarCentavosParaHistorico(valor.centavos)} registrado.`,
+                valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
+            }];
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria, {
+                ...baseEstorno, id: `auditoria-estorno-${operacaoId}`, timestamp: atualizadoEm,
+                acao: 'estorno_recebimento', descricao: 'Estorno de recebimento registrado.',
+                usuario: atualizadoPor, valorRecebidoCentavos: novoRecebidoConta,
+                valorRestanteCentavos: novoSaldoConta
+            }];
+            if (!verificarEvidenciasEstornoRecebimento(candidato.valor, entrada, assinatura).completo) {
+                return resultadoBase('EVIDENCIAS_ESTORNO_INCOMPLETAS');
+            }
+            const cadeiaCandidata = validarCadeiaFinanceiraOperacao(
+                candidato.valor, alvo.conta.contaReferencia, alvo.conta.locacaoReferencia, dataReferencia);
+            if (!cadeiaCandidata.ok) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: cadeiaCandidata.codigo || 'CADEIA_FINANCEIRA_CANDIDATA_DIVERGENTE' }]
+                });
+            }
+        return { planejado: true, valores: { candidato, alvo } };
+    }
+
+    function construirCandidatoPagamentoFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, valor } = contextoInterno;
+        const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contaResolvida = resolverReferenciaExataPagar(entrada.contaPagarReferencia, 'conta-pagar', candidato.valor.contasPagar);
+            if (contaResolvida.estado !== 'encontrada') return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
+            const conta = contaResolvida.registro;
+            if (conta.situacaoAdministrativa !== 'ativa') return resultadoBase('CONTA_PAGAR_BLOQUEADA');
+            const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === entrada.parcelaReferencia);
+            if (parcelas.length !== 1) return resultadoBase('PARCELA_PAGAR_NAO_DISPONIVEL');
+            const parcela = parcelas[0];
+            if ((parcela.situacaoAdministrativa || 'ativa') !== 'ativa') {
+                return resultadoBase('PARCELA_PAGAR_BLOQUEADA');
+            }
+            const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', candidato.valor.fornecedores);
+            if (fornecedor.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            if (valor.centavos > parcela.saldoCentavos) return resultadoBase('PAGAMENTO_ACIMA_DO_SALDO');
+            const ultimoPagamento = parcela.pagamentos[parcela.pagamentos.length - 1] || null;
+            const limitesCronologicos = [ultimoPagamento?.criadoEm, parcela.atualizadoEm,
+                conta.atualizadoEm].filter(Boolean).sort();
+            const limiteCronologico = limitesCronologicos[limitesCronologicos.length - 1]
+                || parcela.criadoEm;
+            if (entrada.criadoEm <= limiteCronologico
+                || entrada.dataPagamento < converterInstanteEmDataLocalFinanceira(parcela.criadoEm)) {
+                return resultadoBase('CRONOLOGIA_PAGAMENTO_INVALIDA');
+            }
+            const pagamentoId = `pagamento-${entrada.operacaoId}`;
+            const pagamentoReferencia = criarReferenciaTipadaPagar('pagamento-pagar', pagamentoId);
+            const parcelaSituacaoAnterior = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            const parcelaSituacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
+                pagoCentavos: parcela.pagoCentavos + valor.centavos,
+                saldoCentavos: parcela.saldoCentavos - valor.centavos }, entrada.dataReferencia);
+            const base = ordenarChavesCanonicas({
+                tipo: 'financeiro', acao: 'pagamento_conta_pagar', origem: 'contas_pagar',
+                pagamentoId, pagamentoReferencia, operacaoId: entrada.operacaoId,
+                contaPagarReferencia: conta.contaPagarReferencia,
+                parcelaReferencia: parcela.parcelaReferencia,
+                fornecedorReferencia: conta.fornecedorReferencia,
+                propostaReferencia: conta.propostaReferencia,
+                locacaoReferencia: conta.locacaoReferencia,
+                valorPagoCentavos: valor.centavos,
+                dataPagamento: entrada.dataPagamento,
+                dataReferencia: entrada.dataReferencia,
+                formaPagamento: textoPagar(entrada.formaPagamento, 100, true),
+                descricao: textoPagar(entrada.descricao, 1000) ?? '',
+                responsavel: entrada.responsavel, usuario: entrada.responsavel,
+                data: entrada.criadoEm, timestamp: entrada.criadoEm, criadoEm: entrada.criadoEm,
+                parcelaPagoAnteriorCentavos: parcela.pagoCentavos,
+                parcelaPagoPosteriorCentavos: parcela.pagoCentavos + valor.centavos,
+                parcelaSaldoAnteriorCentavos: parcela.saldoCentavos,
+                parcelaSaldoPosteriorCentavos: parcela.saldoCentavos - valor.centavos,
+                parcelaSituacaoAnterior,
+                parcelaSituacaoPosterior,
+                contaPagoAnteriorCentavos: conta.pagoCentavos,
+                contaPagoPosteriorCentavos: conta.pagoCentavos + valor.centavos,
+                contaSaldoAnteriorCentavos: conta.saldoCentavos,
+                contaSaldoPosteriorCentavos: conta.saldoCentavos - valor.centavos,
+                contaSituacaoAnterior: conta.situacaoAdministrativa,
+                contaSituacaoPosterior: conta.situacaoAdministrativa,
+                comprovante: entrada.comprovante ?? null
+            });
+            const assinaturaPlano = assinaturaPagamentoContaPagar(base);
+            const evidenciaPagamento = ordenarChavesCanonicas({ ...base, assinaturaPlano });
+            const pagamento = { ...base, id: pagamentoId, assinaturaPlano, evidenciaPagamento };
+            Object.assign(pagamento, criarRegistroEvidenciaPagamentoPagar(pagamento, 'pagamento'));
+            parcela.pagamentos = [...parcela.pagamentos, pagamento];
+            parcela.pagoCentavos += valor.centavos;
+            parcela.saldoCentavos -= valor.centavos;
+            parcela.situacao = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            parcela.atualizadoEm = entrada.criadoEm;
+            const historicoParcela = criarRegistroEvidenciaPagamentoPagar(pagamento, 'parcela');
+            parcela.historico = [...parcela.historico, historicoParcela];
+            conta.pagoCentavos += valor.centavos;
+            conta.saldoCentavos -= valor.centavos;
+            conta.atualizadoEm = entrada.criadoEm;
+            conta.historico = [...conta.historico,
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'conta')];
+            if (conta.locacaoReferencia) {
+                const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
+                if (locacao.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                locacao.registro.historicoAlteracoes = [...(Array.isArray(locacao.registro.historicoAlteracoes)
+                    ? locacao.registro.historicoAlteracoes : []),
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'locacao')];
+            }
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                criarRegistroEvidenciaPagamentoPagar(pagamento, 'auditoria')];
+            const evidenciaCandidata = localizarPagamentoContaPagarPorOperacao(candidato.valor, entrada.operacaoId);
+            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
+                || !evidenciaCandidata.completo) return resultadoBase('CANDIDATO_PAGAMENTO_PAGAR_INVALIDO');
+        return { planejado: true, valores: { candidato, pagamentoId, pagamentoReferencia, assinaturaPlano } };
+    }
+
+    function construirCandidatoEstornoPagamentoFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, valor } = contextoInterno;
+        const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const contaResolvida = resolverReferenciaExataPagar(
+                entrada.contaPagarReferencia, 'conta-pagar', candidato.valor.contasPagar);
+            if (contaResolvida.estado !== 'encontrada') return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
+            const conta = contaResolvida.registro;
+            if (conta.situacaoAdministrativa !== 'ativa') return resultadoBase('CONTA_PAGAR_BLOQUEADA');
+            const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === entrada.parcelaReferencia);
+            if (parcelas.length !== 1) return resultadoBase('PARCELA_PAGAR_NAO_DISPONIVEL');
+            const parcela = parcelas[0];
+            if ((parcela.situacaoAdministrativa || 'ativa') !== 'ativa') {
+                return resultadoBase('PARCELA_PAGAR_BLOQUEADA');
+            }
+            const pagamentos = parcela.pagamentos.filter((item) => (
+                item?.pagamentoReferencia === entrada.pagamentoOriginalReferencia));
+            if (pagamentos.length !== 1) return resultadoBase('PAGAMENTO_ORIGINAL_NAO_DISPONIVEL');
+            const pagamentoOriginal = pagamentos[0];
+            const estornosAnteriores = (Array.isArray(parcela.estornos) ? parcela.estornos : [])
+                .filter((item) => item?.pagamentoOriginalReferencia === pagamentoOriginal.pagamentoReferencia);
+            let totalEstornado = 0n;
+            for (const item of estornosAnteriores) totalEstornado += BigInt(item.valorEstornoCentavos);
+            const disponivel = BigInt(pagamentoOriginal.valorPagoCentavos) - totalEstornado;
+            if (disponivel <= 0n) return resultadoBase('PAGAMENTO_TOTALMENTE_ESTORNADO');
+            if (BigInt(valor.centavos) > disponivel) return resultadoBase('ESTORNO_ACIMA_DO_DISPONIVEL');
+            const operacoesParcela = [
+                ...parcela.pagamentos,
+                ...(Array.isArray(parcela.estornos) ? parcela.estornos : [])
+            ].sort((a, b) => Date.parse(a.criadoEm) - Date.parse(b.criadoEm));
+            const ultimoLancamento = operacoesParcela[operacoesParcela.length - 1] || null;
+            const limitesCronologicos = [ultimoLancamento?.criadoEm, parcela.atualizadoEm,
+                conta.atualizadoEm].filter(Boolean).sort();
+            const limiteCronologico = limitesCronologicos[limitesCronologicos.length - 1]
+                || parcela.criadoEm;
+            if (!instantePagamentoPagarPosterior(entrada.criadoEm, pagamentoOriginal.criadoEm)
+                || !instantePagamentoPagarPosterior(entrada.criadoEm, limiteCronologico)
+                || entrada.dataEstorno < pagamentoOriginal.dataPagamento) {
+                return resultadoBase('CRONOLOGIA_ESTORNO_PAGAR_INVALIDA');
+            }
+            const estornoPagamentoId = `estorno-pagamento-${entrada.operacaoId}`;
+            const estornoPagamentoReferencia = criarReferenciaTipadaPagar(
+                'estorno-pagamento-pagar', estornoPagamentoId);
+            const parcelaSituacaoAnterior = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            const parcelaSituacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
+                pagoCentavos: parcela.pagoCentavos - valor.centavos,
+                saldoCentavos: parcela.saldoCentavos + valor.centavos }, entrada.dataReferencia);
+            const base = ordenarChavesCanonicas({
+                tipo: 'financeiro', acao: 'estorno_pagamento_conta_pagar', origem: 'contas_pagar',
+                estornoPagamentoId, estornoPagamentoReferencia,
+                pagamentoOriginalReferencia: pagamentoOriginal.pagamentoReferencia,
+                operacaoId: entrada.operacaoId,
+                contaPagarReferencia: conta.contaPagarReferencia,
+                parcelaReferencia: parcela.parcelaReferencia,
+                fornecedorReferencia: conta.fornecedorReferencia,
+                propostaReferencia: conta.propostaReferencia,
+                locacaoReferencia: conta.locacaoReferencia,
+                valorEstornoCentavos: valor.centavos,
+                dataEstorno: entrada.dataEstorno,
+                dataReferencia: entrada.dataReferencia,
+                motivo: textoPagar(entrada.motivo, 1000, true),
+                responsavel: entrada.responsavel, usuario: entrada.responsavel,
+                data: entrada.criadoEm, timestamp: entrada.criadoEm, criadoEm: entrada.criadoEm,
+                parcelaPagoAnteriorCentavos: parcela.pagoCentavos,
+                parcelaPagoPosteriorCentavos: parcela.pagoCentavos - valor.centavos,
+                parcelaSaldoAnteriorCentavos: parcela.saldoCentavos,
+                parcelaSaldoPosteriorCentavos: parcela.saldoCentavos + valor.centavos,
+                parcelaSituacaoAnterior, parcelaSituacaoPosterior,
+                contaPagoAnteriorCentavos: conta.pagoCentavos,
+                contaPagoPosteriorCentavos: conta.pagoCentavos - valor.centavos,
+                contaSaldoAnteriorCentavos: conta.saldoCentavos,
+                contaSaldoPosteriorCentavos: conta.saldoCentavos + valor.centavos,
+                contaSituacaoAnterior: conta.situacaoAdministrativa,
+                contaSituacaoPosterior: conta.situacaoAdministrativa,
+                comprovante: entrada.comprovante ?? null
+            });
+            const assinaturaPlano = assinaturaEstornoPagamentoContaPagar(base);
+            const evidenciaEstorno = ordenarChavesCanonicas({ ...base, assinaturaPlano });
+            const estorno = { ...base, id: estornoPagamentoId, assinaturaPlano, evidenciaEstorno };
+            Object.assign(estorno, criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'estorno'));
+            parcela.estornos = [...(Array.isArray(parcela.estornos) ? parcela.estornos : []), estorno];
+            parcela.pagoCentavos -= valor.centavos;
+            parcela.saldoCentavos += valor.centavos;
+            parcela.situacao = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
+            parcela.atualizadoEm = entrada.criadoEm;
+            parcela.historico = [...parcela.historico,
+                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'parcela')];
+            conta.pagoCentavos -= valor.centavos;
+            conta.saldoCentavos += valor.centavos;
+            conta.atualizadoEm = entrada.criadoEm;
+            conta.historico = [...conta.historico,
+                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'conta')];
+            if (conta.locacaoReferencia) {
+                const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
+                if (locacao.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                locacao.registro.historicoAlteracoes = [...(Array.isArray(locacao.registro.historicoAlteracoes)
+                    ? locacao.registro.historicoAlteracoes : []),
+                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'locacao')];
+            }
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'auditoria')];
+            const evidenciaCandidata = localizarEstornoPagamentoContaPagarPorOperacao(
+                candidato.valor, entrada.operacaoId);
+            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
+                || !evidenciaCandidata.completo) return resultadoBase('CANDIDATO_ESTORNO_PAGAR_INVALIDO');
+        return { planejado: true, valores: { candidato, estornoPagamentoId, estornoPagamentoReferencia, assinaturaPlano } };
+    }
+
+    function construirCandidatoConciliacaoPagarFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, tipo, valorBancario } = contextoInterno;
+        const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvo = resolverAlvoConciliacaoPagamentoPagar(candidato.valor, entrada);
+            if (!alvo.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                requerRecuperacao: true });
+            const registro = construirRegistroConciliacaoPagamentoPagar(
+                entrada, alvo, tipo, valorBancario?.centavos || 0);
+            if (!validarRegistroConciliacaoPagamentoPagar(registro)) {
+                return resultadoBase('REGISTRO_CONCILIACAO_PAGAR_INVALIDO');
+            }
+            candidato.valor.conciliacoesPagamentosPagar = [
+                ...candidato.valor.conciliacoesPagamentosPagar, registro];
+            alvo.pagamento.conciliacoes = [...(Array.isArray(alvo.pagamento.conciliacoes)
+                ? alvo.pagamento.conciliacoes : []),
+            criarEvidenciaConciliacaoPagamentoPagar(registro, 'pagamento')];
+            alvo.conta.historico = [...alvo.conta.historico,
+                criarEvidenciaConciliacaoPagamentoPagar(registro, 'conta')];
+            if (alvo.conta.locacaoReferencia) {
+                const locacao = resolverReferenciaExataPagar(
+                    alvo.conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
+                if (locacao.estado !== 'encontrada') {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+                locacao.registro.historicoAlteracoes = [
+                    ...(Array.isArray(locacao.registro.historicoAlteracoes)
+                        ? locacao.registro.historicoAlteracoes : []),
+                    criarEvidenciaConciliacaoPagamentoPagar(registro, 'locacao')];
+            }
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                criarEvidenciaConciliacaoPagamentoPagar(registro, 'auditoria')];
+            const evidenciaCandidata = localizarConciliacaoPagamentoPagarPorOperacao(
+                candidato.valor, entrada.operacaoId);
+            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
+                || !evidenciaCandidata.completo) {
+                return resultadoBase('CANDIDATO_CONCILIACAO_PAGAR_INVALIDO');
+            }
+        return { planejado: true, valores: { candidato, registro } };
+    }
+
+    function construirCandidatoConciliacaoReceberFinanceiroInterno(contextoInterno) {
+        const { memoria, entrada, dataReferencia, tipo, assinatura, valorBancario, original } = contextoInterno;
+        const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const alvoCandidato = resolverAlvoConciliacaoFinanceira(candidato.valor, entrada, dataReferencia);
+            if (!alvoCandidato.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const id = `${tipo}-${entrada.operacaoId}`;
+            const registro = { id, conciliacaoReferencia: criarReferenciaConciliacaoFinanceira(id), tipo,
+                operacaoId: entrada.operacaoId, assinaturaPlano: assinatura,
+                contaReferencia: alvoCandidato.conta.contaReferencia,
+                parcelaReferencia: alvoCandidato.parcela.parcelaReferencia,
+                locacaoId: alvoCandidato.locacao.id, locacaoReferencia: alvoCandidato.conta.locacaoReferencia,
+                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(alvoCandidato.lancamento.id),
+                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel };
+            if (tipo === 'conciliacao') Object.assign(registro, { situacao: entrada.situacao,
+                natureza: alvoCandidato.natureza, valorEsperadoCentavos: alvoCandidato.valorEsperadoCentavos,
+                valorBancarioCentavos: valorBancario.centavos,
+                diferencaCentavos: valorBancario.centavos - alvoCandidato.valorEsperadoCentavos,
+                dataBancaria: entrada.dataBancaria, meioPagamento: entrada.meioPagamento,
+                contaFinanceira: entrada.contaFinanceira, identificadorBancario: entrada.identificadorBancario,
+                motivoDivergencia: entrada.situacao === 'divergente' ? entrada.motivoDivergencia : '',
+                observacao: entrada.observacao, comprovante: entrada.comprovante || null });
+            else Object.assign(registro, { conciliacaoOriginalReferencia: original.conciliacaoReferencia, motivo: entrada.motivo });
+            if (!validarRegistroConciliacaoFinanceira(registro)) return resultadoBase('REGISTRO_CONCILIACAO_INVALIDO');
+            candidato.valor.conciliacoesFinanceiras = [...candidato.valor.conciliacoesFinanceiras, registro];
+            const baseEvidencia = { id: `historico-${id}`, tipo, operacaoId: entrada.operacaoId,
+                assinaturaPlano: assinatura, contaReferencia: registro.contaReferencia,
+                parcelaReferencia: registro.parcelaReferencia, locacaoId: registro.locacaoId,
+                locacaoReferencia: registro.locacaoReferencia, lancamentoReferencia: registro.lancamentoReferencia,
+                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel,
+                data: entrada.registradoEm, usuario: entrada.responsavel };
+            if (tipo === 'conciliacao') Object.assign(baseEvidencia, { situacao: registro.situacao,
+                natureza: registro.natureza, valorEsperadoCentavos: registro.valorEsperadoCentavos,
+                valorBancarioCentavos: registro.valorBancarioCentavos,
+                diferencaCentavos: registro.diferencaCentavos, dataBancaria: registro.dataBancaria,
+                meioPagamento: registro.meioPagamento, contaFinanceira: registro.contaFinanceira,
+                identificadorBancario: registro.identificadorBancario,
+                motivoDivergencia: registro.motivoDivergencia });
+            if (tipo === 'desconsideracao') Object.assign(baseEvidencia, {
+                conciliacaoOriginalReferencia: registro.conciliacaoOriginalReferencia, motivo: registro.motivo });
+            alvoCandidato.conta.historico = [...alvoCandidato.conta.historico,
+                { ...baseEvidencia, acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
+            alvoCandidato.locacao.historicoAlteracoes = [...(alvoCandidato.locacao.historicoAlteracoes || []),
+                { ...baseEvidencia, id: `historico-locacao-${id}`, origem: 'financeiro',
+                    acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
+            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
+                { ...baseEvidencia, id: `auditoria-${id}`, timestamp: entrada.registradoEm,
+                    acao: tipo === 'conciliacao' ? 'conciliar_lancamento' : 'desconsiderar_conciliacao' }];
+            if (!validarColecaoConciliacoesFinanceiras(candidato.valor).ok
+                || !verificarEvidenciasConciliacaoFinanceira(candidato.valor, entrada.operacaoId, assinatura).completo) {
+                return resultadoBase('CANDIDATO_CONCILIACAO_INVALIDO');
+            }
+        return { planejado: true, valores: { candidato, registro } };
+    }
+
+    function executarRecebimentoLocacaoTransacional(entradaRecebida = {}, dependencias = {}) {
+        if (!validarValorExternoPersistivelSeguro(entradaRecebida)) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        const entradaClonada = clonarJsonInterno(entradaRecebida);
+        if (!entradaClonada.ok) return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        const entrada = entradaClonada.valor;
+        const operacaoId = typeof entrada.operacaoId === 'string' ? entrada.operacaoId : '';
+        const atualizadoEm = textoObrigatorio(entrada.atualizadoEm, 100);
+        const atualizadoPor = textoObrigatorio(entrada.atualizadoPor, 300);
+        let valorRecebidoNormalizado = normalizarTextoMonetarioCentavos(
+            entrada.valorRecebidoTexto, { permitirZero: false });
+        const recebimentoParcela = Object.prototype.hasOwnProperty.call(entrada, 'parcelaReferencia');
+        const valorLancamentoParcela = recebimentoParcela
+            ? normalizarTextoMonetarioCentavos(entrada.valorLancamentoTexto, { permitirZero: false })
+            : null;
+        const persistenciaEntrada = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (entradaRecebimentoFinanceiroInvalidaInterna({ operacaoId, atualizadoEm, atualizadoPor, recebimentoParcela, entrada, valorLancamentoParcela, valorRecebidoNormalizado, persistenciaEntrada }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias?.armazenamento)) {
+            return resultadoBase('ENTRADA_RECEBIMENTO_INVALIDA');
+        }
+
+        const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+        const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
+        if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
+            requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
+        });
+        const contextoResolverContextoRecebimentoFinanceiroInterno = resolverContextoRecebimentoFinanceiroInterno({ entrada, memoriaInicial });
+            if (contextoResolverContextoRecebimentoFinanceiroInterno.preparado !== true) return contextoResolverContextoRecebimentoFinanceiroInterno;
+            const { resolucao, locacaoId, locacaoReferencia, locacaoRef } = contextoResolverContextoRecebimentoFinanceiroInterno.valores;
+            if (travasReclassificacaoContaReceber.size || travasRecebimentoLocacao.has(locacaoRef))
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+
+        travasRecebimentoLocacao.add(locacaoRef);
+        let autorizacaoPublicacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const contextoPrepararCalculosRecebimentoFinanceiroInterno = prepararCalculosRecebimentoFinanceiroInterno({ resolucao, recebimentoParcela, valorRecebidoNormalizado, atualizadoEm, locacaoId, memoriaInicial, entrada, valorLancamentoParcela, locacaoReferencia });
+            if (contextoPrepararCalculosRecebimentoFinanceiroInterno.preparado !== true) return contextoPrepararCalculosRecebimentoFinanceiroInterno;
+            const { totalNormalizado, recebidoAnteriorCentavos, dataReferencia, contaReferencia, parcelaRecebimentoBloqueada, valorTotal, valorRecebido, assinatura } = contextoPrepararCalculosRecebimentoFinanceiroInterno.valores;
+            valorRecebidoNormalizado = contextoPrepararCalculosRecebimentoFinanceiroInterno.valores.valorRecebidoNormalizado;
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            if (Object.prototype.hasOwnProperty.call(persistenciaEntrada, 'chave')) opcoesArmazenamento.chave = persistenciaEntrada.chave;
+            let leituraInicial;
+            try { leituraInicial = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento }); } catch (_erro) { leituraInicial = null; }
+            const leituraInicialValidada = validarRetornoLeituraSnapshotFinanceiro(leituraInicial);
+            if (!leituraInicialValidada.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const persistidoInicial = prepararEstadoOperacionalInterno(leituraInicialValidada.snapshot);
+            if (!persistidoInicial.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            const evidenciaMemoria = verificarEvidenciasRecebimento(memoriaInicial.valor, entrada,
+                locacaoId, locacaoReferencia, assinatura, contaReferencia);
+            const evidenciaPersistida = verificarEvidenciasRecebimento(persistidoInicial.valor, entrada,
+                locacaoId, locacaoReferencia, assinatura, contaReferencia);
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                if (evidenciaMemoria.completo && evidenciaPersistida.completo && memoriaInicial.json === persistidoInicial.json) {
+                    return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true, idempotente: true,
+                        operacao: { locacaoId, locacaoReferencia, operacaoId, assinaturaPlano: assinatura }, renderizar: true });
+                }
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
+                || memoriaInicial.json !== persistidoInicial.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const contextoValidarAvancoRecebimentoFinanceiroInterno = validarAvancoRecebimentoFinanceiroInterno({ parcelaRecebimentoBloqueada, valorRecebidoNormalizado, recebidoAnteriorCentavos });
+            if (contextoValidarAvancoRecebimentoFinanceiroInterno.preparado !== true) return contextoValidarAvancoRecebimentoFinanceiroInterno;
+            const planejamentoCandidato = construirCandidatoRecebimentoFinanceiroInterno({ memoriaInicial, entrada, valorRecebidoNormalizado, recebidoAnteriorCentavos, totalNormalizado, operacaoId, locacaoId, locacaoReferencia, contaReferencia, recebimentoParcela, assinatura, atualizadoEm, atualizadoPor, valorRecebido, valorTotal, dataReferencia });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, deltaCentavos, novoRestanteCentavos, delta, novoRestante } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparadoExterno;
             try {
@@ -4828,28 +5777,17 @@
         const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
             'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
             'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
-        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(operacaoId)
-            || !atualizadoEm || !atualizadoPor || !valor.ok
-            || motivo !== motivo.trim() || motivo.length < 5 || motivo.length > 500
-            || !persistenciaEntrada || typeof persistenciaEntrada !== 'object'
-            || typeof persistenciaEntrada.versao !== 'string' || !persistenciaEntrada.versao.trim()
-            || persistenciaEntrada.data !== atualizadoEm
-            || !Number.isSafeInteger(persistenciaEntrada.ultimaEdicao) || persistenciaEntrada.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
-            || !dependencias?.armazenamento) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
+        if (entradaEstornoRecebimentoFinanceiroInvalidaInterna({ operacaoId, atualizadoEm, atualizadoPor, valor, motivo, persistenciaEntrada }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias?.armazenamento)) return resultadoBase('ENTRADA_ESTORNO_INVALIDA');
 
         const raizAnterior = dependencias.obterEstadoMemoriaAtual();
         const memoriaInicial = prepararEstadoOperacionalInterno(raizAnterior);
         if (!memoriaInicial.ok) return resultadoBase(memoriaInicial.codigo, {
             requerRecuperacao: memoriaInicial.codigo === 'OPERACAO_REQUER_RECUPERACAO'
         });
-        const dataReferencia = atualizadoEm.slice(0, 10);
-        if (!validarDataLocalContaReceber(dataReferencia)) return resultadoBase('DATA_ESTORNO_INVALIDA');
-        const alvoInicial = resolverAlvoEstornoRecebimento(memoriaInicial.valor, entrada, dataReferencia);
-        if (!alvoInicial.ok) return resultadoBase(alvoInicial.codigo, {
-            requerRecuperacao: alvoInicial.requerRecuperacao === true
-        });
-        const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}`;
+        const contextoResolverContextoEstornoRecebimentoFinanceiroInterno = resolverContextoEstornoRecebimentoFinanceiroInterno({ atualizadoEm, memoriaInicial, entrada });
+            if (contextoResolverContextoEstornoRecebimentoFinanceiroInterno.preparado !== true) return contextoResolverContextoEstornoRecebimentoFinanceiroInterno;
+            const { dataReferencia, alvoInicial } = contextoResolverContextoEstornoRecebimentoFinanceiroInterno.valores;
+            const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}`;
         if (travasReclassificacaoContaReceber.size || travasEstornoRecebimento.has(trava))
             return resultadoBase('OPERACAO_EM_EXECUCAO');
         travasEstornoRecebimento.add(trava);
@@ -4883,95 +5821,11 @@
                 || memoriaInicial.json !== persistidoInicial.json) {
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
-            if (valor.centavos > alvoInicial.valorDisponivelCentavos) return resultadoBase('VALOR_ESTORNO_FORA_DO_LIMITE');
-
-            const candidato = clonarJsonInterno(memoriaInicial.valor);
-            if (!candidato.ok) return resultadoBase(candidato.codigo);
-            const alvo = resolverAlvoEstornoRecebimento(candidato.valor, entrada, dataReferencia);
-            if (!alvo.ok || alvo.valorDisponivelCentavos !== alvoInicial.valorDisponivelCentavos) {
-                return resultadoBase('ALVO_ESTORNO_NAO_RECONCILIADO');
-            }
-            const novoRecebidoParcela = alvo.parcela.valorRecebidoCentavos - valor.centavos;
-            const novoSaldoParcela = alvo.parcela.valorOriginalCentavos - novoRecebidoParcela;
-            const novoRecebidoConta = alvo.conta.valorRecebidoCentavos - valor.centavos;
-            const novoSaldoConta = alvo.conta.valorTotalCentavos - novoRecebidoConta;
-            if (![novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta].every(Number.isSafeInteger)
-                || Math.min(novoRecebidoParcela, novoSaldoParcela, novoRecebidoConta, novoSaldoConta) < 0) {
-                return resultadoBase('VALORES_ESTORNO_NAO_RECONCILIADOS');
-            }
-            const locacaoTotal = normalizarValorMonetarioLegadoCentavos(
-                alvo.locacao.financeiro?.valorTotal ?? alvo.locacao.valorTotalCalculado, { permitirZero: false });
-            if (!locacaoTotal.ok || locacaoTotal.centavos !== alvo.conta.valorTotalCentavos) {
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            }
-            const novoRecebidoPersistivel = converterCentavosParaNumeroPersistivel(novoRecebidoConta);
-            const novoSaldoPersistivel = converterCentavosParaNumeroPersistivel(novoSaldoConta);
-            if (!novoRecebidoPersistivel.ok || !novoSaldoPersistivel.ok) return resultadoBase('VALOR_MONETARIO_NAO_PERSISTIVEL');
-            const idLancamentoParcela = `estorno-parcela-${operacaoId}`;
-            const idLancamentoLocacao = `estorno-locacao-${operacaoId}`;
-            const baseEstorno = { tipo: 'estorno', operacaoId, contaReferencia: alvo.conta.contaReferencia,
-                parcelaReferencia: alvo.parcela.parcelaReferencia, locacaoId: alvo.locacao.id,
-                locacaoReferencia: alvo.conta.locacaoReferencia, lancamentoOriginalReferencia: alvo.originalReferencia,
-                valorEstornoCentavos: valor.centavos, motivo, data: atualizadoEm,
-                responsavel: atualizadoPor, assinaturaPlano: assinatura };
-            alvo.parcela.valorRecebidoCentavos = novoRecebidoParcela;
-            alvo.parcela.saldoCentavos = novoSaldoParcela;
-            alvo.parcela.atualizadoEm = atualizadoEm;
-            alvo.parcela.situacao = calcularSituacaoEfetivaParcelaContaReceber(alvo.parcela, dataReferencia);
-            alvo.parcela.lancamentosFinanceiros = [...alvo.parcela.lancamentosFinanceiros, {
-                ...baseEstorno, id: idLancamentoParcela,
-                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoParcela),
-                valorRecebidoAnteriorCentavos: novoRecebidoParcela + valor.centavos,
-                valorRecebidoNovoCentavos: novoRecebidoParcela,
-                saldoAnteriorCentavos: novoSaldoParcela - valor.centavos,
-                saldoNovoCentavos: novoSaldoParcela
-            }];
-            alvo.conta.valorRecebidoCentavos = novoRecebidoConta;
-            alvo.conta.saldoCentavos = novoSaldoConta;
-            alvo.conta.atualizadoEm = atualizadoEm;
-            const contaValidada = validarContaReceberEstrutural(alvo.conta, dataReferencia);
-            if (!contaValidada.valida || contaValidada.recebidoCentavos !== novoRecebidoConta
-                || contaValidada.saldoCentavos !== novoSaldoConta) return resultadoBase('CONTA_RECEBER_NAO_RECONCILIADA');
-            alvo.conta.situacao = contaValidada.situacao;
-            alvo.conta.historico = [...alvo.conta.historico, {
-                ...baseEstorno, id: `historico-conta-estorno-${operacaoId}`, acao: 'estorno_aplicado',
-                valorRecebidoCentavos: novoRecebidoConta, saldoCentavos: novoSaldoConta, usuario: atualizadoPor
-            }];
-            const statusPagamento = novoSaldoConta === 0 ? 'pago' : novoRecebidoConta > 0 ? 'parcial' : 'pendente';
-            alvo.locacao.financeiro = { ...alvo.locacao.financeiro,
-                sinal: novoRecebidoPersistivel.valor, valorRestante: novoSaldoPersistivel.valor, statusPagamento,
-                lancamentosRecebimentos: [...(Array.isArray(alvo.locacao.financeiro?.lancamentosRecebimentos)
-                    ? alvo.locacao.financeiro.lancamentosRecebimentos : []), {
-                    ...baseEstorno, id: idLancamentoLocacao,
-                    lancamentoReferencia: criarReferenciaLancamentoFinanceiro(idLancamentoLocacao),
-                    valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
-                }] };
-            alvo.locacao.pago = statusPagamento === 'pago';
-            alvo.locacao.historicoAlteracoes = [...(Array.isArray(alvo.locacao.historicoAlteracoes)
-                ? alvo.locacao.historicoAlteracoes : []), {
-                ...baseEstorno, id: `historico-estorno-${operacaoId}`, acao: 'financeiro_estorno',
-                origem: 'financeiro', usuario: atualizadoPor,
-                descricao: `Estorno de ${formatarCentavosParaHistorico(valor.centavos)} registrado.`,
-                valorRecebidoCentavos: novoRecebidoConta, valorRestanteCentavos: novoSaldoConta
-            }];
-            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria, {
-                ...baseEstorno, id: `auditoria-estorno-${operacaoId}`, timestamp: atualizadoEm,
-                acao: 'estorno_recebimento', descricao: 'Estorno de recebimento registrado.',
-                usuario: atualizadoPor, valorRecebidoCentavos: novoRecebidoConta,
-                valorRestanteCentavos: novoSaldoConta
-            }];
-            if (!verificarEvidenciasEstornoRecebimento(candidato.valor, entrada, assinatura).completo) {
-                return resultadoBase('EVIDENCIAS_ESTORNO_INCOMPLETAS');
-            }
-            const cadeiaCandidata = validarCadeiaFinanceiraOperacao(
-                candidato.valor, alvo.conta.contaReferencia, alvo.conta.locacaoReferencia, dataReferencia);
-            if (!cadeiaCandidata.ok) {
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
-                    requerRecuperacao: true,
-                    bloqueios: [{ codigo: cadeiaCandidata.codigo || 'CADEIA_FINANCEIRA_CANDIDATA_DIVERGENTE' }]
-                });
-            }
-
+            const contextoValidarLimiteEstornoRecebimentoFinanceiroInterno = validarLimiteEstornoRecebimentoFinanceiroInterno({ valor, alvoInicial });
+            if (contextoValidarLimiteEstornoRecebimentoFinanceiroInterno.preparado !== true) return contextoValidarLimiteEstornoRecebimentoFinanceiroInterno;
+            const planejamentoCandidato = construirCandidatoEstornoRecebimentoFinanceiroInterno({ memoriaInicial, entrada, dataReferencia, alvoInicial, valor, operacaoId, motivo, atualizadoEm, atualizadoPor, assinatura });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, alvo } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparadoExterno;
             try {
@@ -6457,6 +7311,286 @@
         }
     }
 
+    function executarEncargoFinanceiroTransacional(
+        entradaRecebida, dependencias = {}
+    ) {
+        if (!dominioEncargos || !entradaRecebida
+            || !dominioEncargos.aceita(entradaRecebida)) {
+            return resultadoBase('ENTRADA_ENCARGO_NAO_CONFIAVEL');
+        }
+        const entradaClone = clonarJsonInterno(entradaRecebida);
+        if (!entradaClone.ok) return resultadoBase('ENTRADA_ENCARGO_INVALIDA');
+        const entrada = entradaClone.valor;
+        const fundacaoValida = estado => dominioEncargos.validarTexto(JSON.stringify(estado))
+            && validarFundacaoClassificacoesFinanceiras(estado)
+            && validarFundacaoContasPagar(estado, entrada.dataReferencia);
+        if (['aprovar', 'rejeitar'].includes(entrada.acao) && !dominioEncargos.politicaSeguranca.aprovacaoVerificavel) {
+            return resultadoBase('APROVACAO_SEGURA_INDISPONIVEL', {
+                bloqueios: [{ codigo: 'IDENTIDADE_E_AUTORIZACAO_NAO_VERIFICAVEIS' }]
+            });
+        }
+        const permissao = dominioEncargos.permissao(entrada.acao);
+        const permissaoConcedida = () => {
+            if (typeof dependencias.validarPermissaoEncargo !== 'function') return false;
+            try { return dependencias.validarPermissaoEncargo(permissao) === true
+                && dependencias.obterIdentidadeEncargos?.() === entrada.responsavel; }
+            catch (_erro) { return false; }
+        };
+        if (!permissaoConcedida()) return resultadoBase('PERMISSAO_ENCARGO_NEGADA');
+        const persistencia = entrada.persistencia;
+        const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
+            'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
+            'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
+        if (!/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
+            || !persistencia || typeof persistencia.versao !== 'string'
+            || persistencia.data !== entrada.atualizadoEm
+            || !Number.isSafeInteger(persistencia.ultimaEdicao)
+            || persistencia.ultimaEdicao < 0
+            || obrigatorias.some((nome) => typeof dependencias[nome] !== 'function')
+            || !dependencias.armazenamento) return resultadoBase('ENTRADA_ENCARGO_INVALIDA');
+        const referencia = dominioEncargos.referencia(entrada.id);
+        if (!referencia || (entrada.acao !== 'cadastrar' && entrada.referencia !== referencia)) {
+            return resultadoBase('IDENTIDADE_ENCARGO_INVALIDA');
+        }
+        const trava = referencia;
+        if (travasEncargosFinanceiros.size
+            || travasEncargosFinanceiros.has(trava)) {
+            return resultadoBase('OPERACAO_EM_EXECUCAO');
+        }
+        travasEncargosFinanceiros.add(trava);
+        let autorizacao = null;
+        let persistenciaConfirmada = false;
+        let publicacaoRealizada = false;
+        try {
+            const raizAnterior = dependencias.obterEstadoMemoriaAtual();
+            const memoria = prepararEstadoOperacionalInterno(raizAnterior);
+            if (!memoria.ok || !fundacaoValida(memoria.valor)) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const opcoesArmazenamento = { armazenamento: dependencias.armazenamento };
+            let leitura;
+            try {
+                leitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) { leitura = null; }
+            const leituraValida = validarRetornoLeituraSnapshotFinanceiro(leitura);
+            const persistido = leituraValida.ok
+                ? prepararEstadoOperacionalInterno(leituraValida.snapshot) : { ok: false };
+            if (!persistido.ok || !fundacaoValida(persistido.valor)
+                || memoria.json !== persistido.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const baseAindaAutoritativa = () => raizMemoriaOperacionalPreservada(raizAnterior, memoria, dependencias)
+                && raizPersistidaOperacionalEquivalente(memoria, dependencias, opcoesArmazenamento)
+                && raizMemoriaOperacionalPreservada(raizAnterior, memoria, dependencias);
+            const alvoMemoria = entrada.acao === 'cadastrar' ? null
+                : dominioEncargos.resolver(referencia, memoria.valor);
+            const alvoPersistido = entrada.acao === 'cadastrar' ? null
+                : dominioEncargos.resolver(referencia, persistido.valor);
+            if (entrada.acao !== 'cadastrar'
+                && (alvoMemoria.estado !== 'encontrada'
+                    || alvoPersistido.estado !== 'encontrada')) {
+                return resultadoBase('ENCARGO_NAO_DISPONIVEL');
+            }
+            const plano = dominioEncargos.plano(entrada);
+            const assinaturaPlano = dominioEncargos.assinatura(plano);
+            const evidenciaMemoria = dominioEncargos.evidencia(
+                memoria.valor, entrada.operacaoId);
+            const evidenciaPersistida = dominioEncargos.evidencia(
+                persistido.valor, entrada.operacaoId);
+            const colisaoAuditoriaGlobal = memoria.valor.logsAuditoria.some((item) => (
+                item?.operacaoId === entrada.operacaoId
+                && item?.origem !== 'encargos_financeiros'
+            )) || persistido.valor.logsAuditoria.some((item) => (
+                item?.operacaoId === entrada.operacaoId
+                && item?.origem !== 'encargos_financeiros'
+            ));
+            if (colisaoAuditoriaGlobal) {
+                return resultadoBase('OPERACAO_ID_CONFLITANTE');
+            }
+            if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
+                const evidenciasIguais = dominioEncargos.corresponde(
+                    evidenciaMemoria, plano, entrada, assinaturaPlano)
+                    && dominioEncargos.corresponde(
+                        evidenciaPersistida, plano, entrada, assinaturaPlano);
+                if (!baseAindaAutoritativa()) {
+                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+                }
+                return evidenciaMemoria.completo && evidenciaPersistida.completo
+                    && memoria.json === persistido.json && evidenciasIguais
+                    ? resultadoBase('OPERACAO_JA_CONCLUIDA', {
+                        ok: true, aplicado: true, idempotente: true,
+                        operacao: { operacaoId: entrada.operacaoId, referencia },
+                        renderizar: true
+                    })
+                    : resultadoBase('OPERACAO_ID_CONFLITANTE');
+            }
+            if (evidenciaMemoria.estado !== 'nao_executada'
+                || evidenciaPersistida.estado !== 'nao_executada') {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            const candidato = clonarJsonInterno(memoria.valor);
+            if (!candidato.ok) return resultadoBase(candidato.codigo);
+            const operacao = dominioEncargos.aplicar(
+                candidato.valor, entrada, plano, assinaturaPlano);
+            if (!operacao || !fundacaoValida(candidato.valor)
+                || !dominioEncargos.evidencia(
+                    candidato.valor, entrada.operacaoId).completo) {
+                return resultadoBase('CANDIDATO_ENCARGO_INVALIDO');
+            }
+            const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
+            let preparado;
+            try {
+                preparado = dependencias.prepararSnapshotPersistivelCompleto(
+                    clonarDescartavel(candidatoCanonico),
+                    clonarDescartavel(persistencia));
+            } catch (_erro) { preparado = null; }
+            const preparadoValido = validarRetornoPreparacaoSnapshotFinanceiro(preparado);
+            const snapshot = clonarJsonInterno({
+                versao: persistencia.versao,
+                data: persistencia.data,
+                ultimaEdicao: persistencia.ultimaEdicao,
+                ...candidatoCanonico
+            });
+            const externo = preparadoValido.ok
+                ? clonarJsonInterno(preparadoValido.snapshot) : { ok: false };
+            if (!snapshot.ok || !externo.ok
+                || JSON.stringify(ordenarChavesCanonicas(snapshot.valor))
+                    !== JSON.stringify(ordenarChavesCanonicas(externo.valor))) {
+                return resultadoBase('SNAPSHOT_PREPARADO_DIVERGENTE');
+            }
+            const operacional = prepararEstadoOperacionalInterno(snapshot.valor);
+            if (!operacional.ok) return resultadoBase('CANDIDATO_ENCARGO_INVALIDO');
+            const jsonPublicacaoEsperado = operacional.jsonEstrutural;
+            const fingerprintPublicacaoEsperado = fingerprintFnv1a64(jsonPublicacaoEsperado);
+            if (!permissaoConcedida()) return resultadoBase('PERMISSAO_ENCARGO_NEGADA');
+            if (!baseAindaAutoritativa()) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
+            }
+            // Uma releitura nao fecha a corrida entre abas. Sem exclusao efetiva, nao escrever.
+            if (!dominioEncargos.politicaSeguranca.persistenciaExclusiva) {
+                return resultadoBase('PERSISTENCIA_ENCARGOS_INDISPONIVEL', {
+                    bloqueios: [{ codigo: 'ESCRITORES_SEM_EXCLUSAO_COMPARTILHADA' }]
+                });
+            }
+            autorizacao = prepararAutorizacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior
+            });
+            if (!autorizacao) return resultadoBase('PUBLICACAO_TRANSACIONAL_OCUPADA');
+            try {
+                dependencias.persistirSnapshotLocalConfirmavel(
+                    clonarDescartavel(snapshot.valor), { ...opcoesArmazenamento });
+            } catch (_erro) {
+                // A releitura autoritativa decide.
+            }
+            let releitura;
+            try {
+                releitura = dependencias.lerSnapshotLocalConfirmavel({ ...opcoesArmazenamento });
+            } catch (_erro) { releitura = null; }
+            const releituraValida = validarRetornoLeituraSnapshotFinanceiro(releitura);
+            const relido = releituraValida.ok
+                ? clonarJsonInterno(releituraValida.snapshot) : { ok: false };
+            if (!relido.ok || JSON.stringify(ordenarChavesCanonicas(relido.valor))
+                !== JSON.stringify(ordenarChavesCanonicas(snapshot.valor))) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true
+                });
+            }
+            const operacionalRelido = prepararEstadoOperacionalInterno(relido.valor);
+            if (!operacionalRelido.ok
+                || !fundacaoValida(operacionalRelido.valor)
+                || !dominioEncargos.evidencia(
+                    operacionalRelido.valor, entrada.operacaoId).completo) {
+                return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
+                    requerRecuperacao: true
+                });
+            }
+            persistenciaConfirmada = true;
+            const raizAtual = dependencias.obterEstadoMemoriaAtual();
+            const memoriaAtual = prepararEstadoOperacionalInterno(raizAtual);
+            if (raizAtual !== raizAnterior || !memoriaAtual.ok
+                || memoriaAtual.json !== memoria.json) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true
+                });
+            }
+            if (!permissaoConcedida()) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true,
+                    bloqueios: [{ codigo: 'PERMISSAO_ENCARGO_REVOGADA' }]
+                });
+            }
+            let erroPublicacao = null;
+            try {
+                dependencias.publicarSnapshotAutorizado(
+                    clonarDescartavel(operacional.valor), {
+                        jsonOperacionalEsperado: jsonPublicacaoEsperado,
+                        autorizacaoPublicacao: autorizacao,
+                        exigirConfirmacaoInterna: true
+                    });
+            } catch (erro) { erroPublicacao = erro; }
+            const confirmacao = consultarConfirmacaoPublicacaoConfiavel?.({
+                operacaoId: entrada.operacaoId,
+                fingerprintPublicacaoEsperado,
+                estadoAnterior: raizAnterior,
+                autorizacaoPublicacao: autorizacao
+            }) || null;
+            autorizacao = null;
+            publicacaoRealizada = confirmacao?.confirmada === true
+                && confirmacao.trocas === 1;
+            if (!publicacaoRealizada) {
+                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
+                    requerRecuperacao: true
+                });
+            }
+            const avisos = erroPublicacao
+                ? [{ codigo: 'PUBLICACAO_CONFIRMADA_APOS_EXCECAO' }] : [];
+            let sincronizar = false;
+            try {
+                sincronizar = dependencias.atualizarMetadadoSincronizacao({
+                    ultimaEdicao: persistencia.ultimaEdicao,
+                    operacaoId: entrada.operacaoId,
+                    assinaturaPlano
+                }) === true;
+            } catch (_erro) { sincronizar = false; }
+            if (!sincronizar) avisos.push({ codigo: 'METADADO_SYNC_PENDENTE' });
+            return resultadoBase('ENCARGO_FINANCEIRO_APLICADO', {
+                ok: true,
+                aplicado: true,
+                publicacaoRealizada: true,
+                avisos,
+                renderizar: true,
+                sincronizar,
+                operacao: {
+                    operacaoId: entrada.operacaoId,
+                    referencia,
+                    assinaturaPlano
+                }
+            });
+        } catch (_erro) {
+            return resultadoBase(publicacaoRealizada
+                ? 'ENCARGO_FINANCEIRO_APLICADO'
+                : 'FALHA_ENCARGO_FINANCEIRA', {
+                ok: publicacaoRealizada,
+                aplicado: publicacaoRealizada,
+                publicacaoRealizada,
+                requerRecuperacao: !publicacaoRealizada && persistenciaConfirmada,
+                renderizar: publicacaoRealizada,
+                sincronizar: false
+            });
+        } finally {
+            if (autorizacao) {
+                try {
+                    cancelarAutorizacaoPublicacaoConfiavel?.(autorizacao);
+                } catch (_erro) {
+                    // Autorização encerrada.
+                }
+            }
+            travasEncargosFinanceiros.delete(trava);
+        }
+    }
+
     function criarReferenciaTipadaPagar(prefixo, id) {
         if (!['fornecedor', 'conta-pagar', 'parcela-pagar', 'pagamento-pagar',
             'estorno-pagamento-pagar', 'operacao-administrativa-pagar',
@@ -7231,6 +8365,27 @@
             && Number.isSafeInteger(estado.saldoCentavos) && estado.saldoCentavos >= 0;
     }
 
+    function bloqueioTransicaoAdministrativaPagar(conta, parcelasAlvo, acao, novoVencimento, dataReferencia) {
+        if (conta.situacaoAdministrativa !== 'ativa') return 'CONTA_PAGAR_BLOQUEADA';
+        if (parcelasAlvo.some(p => (p.situacaoAdministrativa || 'ativa') !== 'ativa')) return 'PARCELA_PAGAR_BLOQUEADA';
+        const parcela = parcelasAlvo.length === 1 ? parcelasAlvo[0] : null;
+        if (acao === 'alterar_vencimento_conta_pagar') {
+            if (!parcela || !validarDataLocalContaReceber(novoVencimento) || novoVencimento < dataReferencia) {
+                return 'ENTRADA_OPERACAO_ADMINISTRATIVA_PAGAR_INVALIDA';
+            }
+            if (parcela.saldoCentavos === 0) return 'PARCELA_PAGA_NAO_ALTERAVEL';
+            if (parcela.vencimento === novoVencimento) return 'VENCIMENTO_SEM_ALTERACAO';
+        }
+        if (acao === 'cancelar_parcela_conta_pagar') {
+            if (!parcela || parcela.saldoCentavos <= 0) return 'PARCELA_SEM_SALDO_PARA_CANCELAR';
+            const outrasAbertas = conta.parcelas.filter(p => p !== parcela
+                && (p.situacaoAdministrativa || 'ativa') === 'ativa' && p.saldoCentavos > 0);
+            if (!outrasAbertas.length && conta.saldoCentavos > 0) return 'CANCELAMENTO_PARCIAL_CONTRADITORIO';
+        }
+        if (acao === 'cancelar_conta_pagar' && conta.saldoCentavos === 0) return 'CONTA_SEM_SALDO_PARA_CANCELAR';
+        return '';
+    }
+
     function validarOperacaoAdministrativaPagar(operacao, conta) {
         const contrato = ACOES_ADMINISTRATIVAS_CONTA_PAGAR[operacao?.acao];
         if (!contrato || !operacao || typeof operacao !== 'object' || Array.isArray(operacao)
@@ -7270,6 +8425,10 @@
         const refsPosteriores = operacao.parcelasEstadoPosterior.map((item) => item.parcelaReferencia);
         if (JSON.stringify(refsAnteriores) !== JSON.stringify(operacao.parcelasReferencias)
             || JSON.stringify(refsPosteriores) !== JSON.stringify(operacao.parcelasReferencias)) return false;
+        if (operacao.escopo === 'conta' && JSON.stringify(operacao.parcelasReferencias)
+            !== JSON.stringify(conta.parcelas.map(p => p.parcelaReferencia))) return false;
+        if (operacao.acao !== 'alterar_vencimento_conta_pagar' && operacao.parcelasEstadoAnterior.some((p, i) => (
+            p.vencimento !== operacao.parcelasEstadoPosterior[i].vencimento))) return false;
         if (operacao.acao === 'alterar_vencimento_conta_pagar') {
             if (operacao.parcelasReferencias.length !== 1
                 || operacao.parcelaReferencia !== operacao.parcelasReferencias[0]
@@ -7341,6 +8500,7 @@
         const contaResolvida = resolverReferenciaExataPagar(
             operacao.contaPagarReferencia, 'conta-pagar', estado.contasPagar);
         if (contaResolvida.estado !== 'encontrada'
+            || !(contaResolvida.registro.operacoesAdministrativas || []).includes(operacao)
             || !validarOperacaoAdministrativaPagar(operacao, contaResolvida.registro)
             || !registroEvidenciaOperacaoAdministrativaPagarCorresponde(
                 operacao, operacao, 'conta')
@@ -7351,24 +8511,44 @@
         }
         const parcelasValidas = operacao.parcelasReferencias.every((referencia, indice) => {
             const encontrados = parcelas.filter((item) => item?.parcelaReferencia === referencia);
+            const containers = contaResolvida.registro.parcelas.filter(p => p.parcelaReferencia === referencia);
             return encontrados.length === 1
+                && containers.length === 1
+                && (containers[0].operacoesAdministrativas || []).includes(encontrados[0])
                 && registroEvidenciaOperacaoAdministrativaPagarCorresponde(
                     encontrados[0], operacao, 'parcela', indice);
         });
         const completo = parcelasValidas
+            && contaResolvida.registro.historico.includes(historicosContas[0])
             && registroEvidenciaOperacaoAdministrativaPagarCorresponde(
                 historicosContas[0], operacao, 'historico_conta')
             && registroEvidenciaOperacaoAdministrativaPagarCorresponde(
                 auditorias[0], operacao, 'auditoria')
-            && (!operacao.locacaoReferencia || registroEvidenciaOperacaoAdministrativaPagarCorresponde(
-                historicosLocacoes[0], operacao, 'historico_locacao'));
+            && (!operacao.locacaoReferencia || (estado.locacoes.filter(l => (
+                Array.isArray(l.historicoAlteracoes) && l.historicoAlteracoes.includes(historicosLocacoes[0])
+                && criarReferenciaTipadaPagar('locacao', l.id) === operacao.locacaoReferencia)).length === 1
+                && registroEvidenciaOperacaoAdministrativaPagarCorresponde(
+                    historicosLocacoes[0], operacao, 'historico_locacao')));
         return { estado: completo ? 'concluida' : 'parcial', completo,
             item: operacao, conta: contaResolvida.registro };
     }
 
-    function validarOperacoesAdministrativasContaPagar(estado, conta) {
+    function reconstruirEstadosAdministrativosContaPagar(estado, conta, limite = null) {
+        if (limite !== null && !instanteFinanceiroIntegro(limite)) return false;
+        if (Object.prototype.hasOwnProperty.call(conta, 'operacoesAdministrativas')
+            && !Array.isArray(conta.operacoesAdministrativas)) return false;
         const operacoes = Array.isArray(conta.operacoesAdministrativas)
             ? conta.operacoesAdministrativas : [];
+        if (operacoes.some(o => !o || typeof o !== 'object' || Array.isArray(o))) return false;
+        const ids = new Set(operacoes.map(o => o.operacaoId));
+        const eAdministrativa = r => !!r && ((typeof r.acao === 'string' && Object.prototype.hasOwnProperty.call(
+            ACOES_ADMINISTRATIVAS_CONTA_PAGAR, r.acao)) || !!r.evidenciaAdministrativa);
+        const testemunhos = [...conta.historico.filter(eAdministrativa),
+            ...conta.parcelas.flatMap(p => p.operacoesAdministrativas || []),
+            ...estado.logsAuditoria.filter(r => eAdministrativa(r) && r.contaPagarReferencia === conta.contaPagarReferencia),
+            ...estado.locacoes.flatMap(l => (Array.isArray(l.historicoAlteracoes) ? l.historicoAlteracoes : []).filter(r => (
+                eAdministrativa(r) && r.contaPagarReferencia === conta.contaPagarReferencia)))];
+        if (ids.size !== operacoes.length || testemunhos.some(r => !r || !ids.has(r.operacaoId))) return false;
         if (!operacoes.every((operacao) => validarOperacaoAdministrativaPagar(operacao, conta)
             && localizarOperacaoAdministrativaPagarPorOperacao(
                 estado, operacao.operacaoId).completo)) return false;
@@ -7382,9 +8562,17 @@
                 vencimento: estadoAnterior?.vencimento || parcela.vencimento,
                 pagoCentavos: 0,
                 saldoCentavos: parcela.originalCentavos,
-                atualizadoEm: parcela.criadoEm
+                atualizadoEm: parcela.criadoEm,
+                situacaoFinanceira: situacaoEfetivaParcelaPagar({ ...parcela,
+                    vencimento: estadoAnterior?.vencimento || parcela.vencimento,
+                    pagoCentavos: 0, saldoCentavos: parcela.originalCentavos },
+                converterInstanteEmDataLocalFinanceira(parcela.criadoEm))
             }];
         }));
+        if (Array.isArray(conta.evidenciaCriacao?.parcelas) && conta.parcelas.some(p => {
+            const originais = conta.evidenciaCriacao.parcelas.filter(o => o.parcelaReferencia === p.parcelaReferencia);
+            return originais.length !== 1 || originais[0].vencimento !== parcelasEstado.get(p.parcelaReferencia).vencimento;
+        })) return false;
         const eventos = [];
         conta.parcelas.forEach((parcela) => {
             parcela.pagamentos.forEach((registro) => eventos.push({ natureza: 'pagamento', registro }));
@@ -7399,6 +8587,7 @@
         let atualizadoConta = conta.criadoEm;
         for (const evento of eventos) {
             const registro = evento.registro;
+            if (limite !== null && registro.criadoEm >= limite) break;
             if (!instantePagamentoPagarPosterior(registro.criadoEm, atualizadoConta)) return false;
             if (evento.natureza !== 'administrativa') {
                 const estadoParcela = parcelasEstado.get(registro.parcelaReferencia);
@@ -7415,7 +8604,15 @@
                 estadoParcela.pagoCentavos += delta;
                 estadoParcela.saldoCentavos -= delta;
                 estadoParcela.atualizadoEm = registro.criadoEm;
+                estadoParcela.situacaoFinanceira = registro.parcelaSituacaoPosterior;
             } else {
+                const parcelasAtuais = conta.parcelas.map(p => ({
+                    ...parcelasEstado.get(p.parcelaReferencia), parcelaReferencia: p.parcelaReferencia
+                }));
+                const alvos = registro.parcelasReferencias.map(ref => parcelasAtuais.find(p => p.parcelaReferencia === ref));
+                if (alvos.some(p => !p) || bloqueioTransicaoAdministrativaPagar({
+                    situacaoAdministrativa: situacaoConta, saldoCentavos: saldoConta, parcelas: parcelasAtuais
+                }, alvos, registro.acao, registro.vencimentoNovo, registro.dataReferencia)) return false;
                 if (registro.situacaoContaAnterior !== situacaoConta
                     || registro.contaPagoAnteriorCentavos !== pagoConta
                     || registro.contaPagoPosteriorCentavos !== pagoConta
@@ -7444,11 +8641,19 @@
                     estadoParcela.situacaoAdministrativa = posterior.situacaoAdministrativa;
                     estadoParcela.vencimento = posterior.vencimento;
                     estadoParcela.atualizadoEm = registro.criadoEm;
+                    estadoParcela.situacaoFinanceira = posterior.situacaoFinanceira;
                 }
                 situacaoConta = registro.situacaoContaPosterior;
             }
             atualizadoConta = registro.criadoEm;
         }
+        return { parcelasEstado, situacaoConta, pagoConta, saldoConta, atualizadoConta };
+    }
+
+    function validarOperacoesAdministrativasContaPagar(estado, conta) {
+        const reconstruido = reconstruirEstadosAdministrativosContaPagar(estado, conta);
+        if (!reconstruido) return false;
+        const { parcelasEstado, situacaoConta, pagoConta, saldoConta, atualizadoConta } = reconstruido;
         if (situacaoConta !== conta.situacaoAdministrativa
             || pagoConta !== conta.pagoCentavos || saldoConta !== conta.saldoCentavos
             || atualizadoConta !== conta.atualizadoEm) return false;
@@ -8455,7 +9660,7 @@
             evidencia: evidenciaHistorico };
     }
 
-    function evidenciaReclassificacaoCorrespondeEntrada(resultado, entrada) {
+    function evidenciaReclassificacaoCorrespondeEstadoPagarInterno(resultado, entrada) {
         if (!resultado?.completo) return false;
         const evidencia = resultado.evidencia;
         if (!evidencia || typeof evidencia !== 'object'
@@ -8485,6 +9690,190 @@
                 ? registroReclassificacaoContaPagarCorresponde(
                     resultado.historicoLocacao, evidencia, 'locacao')
                 : resultado.historicoLocacao === null);
+    }
+
+    function classificacaoHistoricaContaPagarInterna(conta) {
+        return conta.classificacaoLegada === false ? {
+            categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
+            categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
+            centroCustoReferencia: conta.centroCustoReferencia,
+            centroCustoSnapshot: conta.centroCustoSnapshot,
+            classificacaoLegada: false, provenienciaCodigo: conta.provenienciaCodigo
+        } : { categoria: conta.categoria, centroCusto: conta.centroCusto,
+            origem: conta.origem, classificacaoLegada: true };
+    }
+
+    function catalogosNoInstanteReclassificacaoPagarInterno(estado, instante) {
+        const copia = clonarJsonInterno(estado);
+        if (!copia.ok) return null;
+        for (const [chave, tipo, ref] of [['categoriasFinanceiras', 'categoria', 'categoriaFinanceiraReferencia'],
+            ['centrosCusto', 'centro', 'centroCustoReferencia']]) {
+            const registros = [];
+            for (const registro of estado[chave]) {
+                if (registro.criadoEm > instante) continue;
+                if (!Array.isArray(registro.historico) || !registro.historico.length) return null;
+                let ultimo = null;
+                let anterior = '';
+                for (const h of registro.historico) {
+                    const prova = localizarEvidenciaClassificacaoFinanceira(estado, h.operacaoId);
+                    if (!prova.completo || prova.registro !== registro || prova.historico !== h) return null;
+                    const { operacaoId, assinaturaPlano, ...plano } = prova.evidencia;
+                    if (plano.tipoEntidade !== tipo || !Object.is(plano.id, registro.id)
+                        || plano.referencia !== registro[ref] || !instanteFinanceiroIntegro(plano.atualizadoEm)
+                        || plano.atualizadoEm <= anterior || plano.criadoEm !== registro.criadoEm
+                        || plano.operacaoCriacaoId !== registro.operacaoId
+                        || (!anterior && plano.acao !== 'cadastrar')
+                        || assinaturaPlanoClassificacaoFinanceira(plano) !== assinaturaPlano
+                        || !evidenciaClassificacaoFinanceiraCorresponde(prova, plano,
+                            { ...plano, operacaoId }, assinaturaPlano)) return null;
+                    anterior = plano.atualizadoEm;
+                    if (plano.atualizadoEm <= instante) ultimo = plano;
+                }
+                if (!ultimo) return null;
+                const antigo = clonarJsonInterno(registro);
+                if (!antigo.ok) return null;
+                const campos = ['codigo', 'nome', 'situacao', 'criadoEm', 'atualizadoEm', 'responsavel',
+                    ...(tipo === 'categoria' ? ['naturezaPermitida', 'categoriaPaiReferencia']
+                        : ['tipo', 'propostaReferencia', 'locacaoReferencia'])];
+                for (const k of campos) antigo.valor[k] = ultimo[k];
+                antigo.valor.historico = antigo.valor.historico.filter(h => h.data <= instante);
+                registros.push(antigo.valor);
+            }
+            copia.valor[chave] = registros;
+        }
+        return copia.valor;
+    }
+
+    // Somente copias JSON internas. As evidencias monetarias sao reconciliadas
+    // pelas regras existentes antes de reconstruir qualquer prefixo historico.
+    function reconciliarHistoricoReclassificacoesPagar(estado, hoje) {
+        const falha = () => ({ ok: false, codigo: 'OPERACAO_REQUER_RECUPERACAO' });
+        try {
+        const igual = (a, b) => JSON.stringify(ordenarChavesCanonicas(a))
+            === JSON.stringify(ordenarChavesCanonicas(b));
+        const campos = ['categoriaFinanceiraReferencia', 'categoriaFinanceiraSnapshot',
+            'centroCustoReferencia', 'centroCustoSnapshot', 'classificacaoLegada',
+            'provenienciaCodigo', 'categoria', 'centroCusto', 'origem'];
+        const historicos = [];
+        const ids = new Set();
+        if (!Array.isArray(estado?.contasPagar) || !Array.isArray(estado.logsAuditoria)
+            || !Array.isArray(estado.locacoes)) return falha();
+        for (const conta of estado.contasPagar) {
+            if (!Array.isArray(conta.historico)) return falha();
+            const cadeia = conta.historico.filter(h => h?.acao === 'conta_pagar_reclassificada');
+            if (!cadeia.length) continue;
+            if (!validarContaPagar(conta, estado, hoje)) return falha();
+            const eventosConta = conta.parcelas.flatMap(p => [...p.pagamentos, ...(p.estornos || [])]);
+            const instanteConta = [conta.criadoEm, ...eventosConta.map(r => r.criadoEm),
+                ...(conta.operacoesAdministrativas || []).map(o => o.criadoEm)].sort().pop();
+            if (conta.atualizadoEm !== instanteConta || conta.parcelas.some(p => p.atualizadoEm !== [
+                p.criadoEm, ...p.pagamentos.map(r => r.criadoEm), ...(p.estornos || []).map(r => r.criadoEm),
+                ...(conta.operacoesAdministrativas || []).filter(o => o.parcelasReferencias.includes(p.parcelaReferencia))
+                    .map(o => o.criadoEm)
+            ].sort().pop())) return falha();
+            const criacao = obterEvidenciaCriacaoPagar(estado, conta.operacaoId, 'conta-pagar');
+            if (!criacao.completo || criacao.registro !== conta) return falha();
+            const { assinaturaPlano, ...origem } = conta.evidenciaCriacao;
+            if (assinaturaCriacaoPagar('conta-pagar', origem) !== assinaturaPlano
+                || assinaturaPlano !== conta.assinaturaPlano
+                || !Object.is(origem.contaId, conta.id)
+                || origem.contaPagarReferencia !== conta.contaPagarReferencia) return falha();
+            if (['fornecedorId', 'fornecedorReferencia', 'locacaoReferencia', 'propostaReferencia',
+                'originalCentavos', 'previstoCentavos', 'quantidadeParcelas', 'dataEmissao', 'criadoEm'].some(k => !igual(origem[k], conta[k]))
+                || !Array.isArray(origem.parcelas) || origem.parcelas.length !== conta.parcelas.length
+                || origem.parcelas.some((p, i) => ['parcelaId', 'parcelaReferencia', 'numero', 'originalCentavos']
+                    .some(k => !igual(p[k], conta.parcelas[i][k])))) return falha();
+            const inicial = clonarJsonInterno(conta);
+            const origemInterna = clonarJsonInterno(origem);
+            if (!inicial.ok || !origemInterna.ok) return falha();
+            for (const k of campos) {
+                if (Object.prototype.hasOwnProperty.call(origem, k)) inicial.valor[k] = origemInterna.valor[k];
+                else delete inicial.valor[k];
+            }
+            let classificacao = inicial.valor;
+            let ultimoInstante = conta.criadoEm;
+            for (const h of cadeia) {
+                const e = h.evidenciaOperacao;
+                if (!e || ids.has(e.operacaoId) || !instanteFinanceiroIntegro(e.atualizadoEm)
+                    || !instantePagamentoPagarPosterior(e.atualizadoEm, ultimoInstante)
+                    || e.contaPagarReferencia !== conta.contaPagarReferencia
+                    || e.locacaoReferencia !== (conta.locacaoReferencia || '')
+                    || !igual(e.classificacaoAnterior, classificacaoHistoricaContaPagarInterna(classificacao))) return falha();
+                const prova = obterEvidenciaReclassificacaoContaPagar(estado, e.operacaoId);
+                if (!prova.completo || prova.conta !== conta || prova.historico !== h) return falha();
+                const catalogos = catalogosNoInstanteReclassificacaoPagarInterno(estado, e.atualizadoEm);
+                const snapshots = catalogos && criarSnapshotsClassificacaoContaPagar(catalogos,
+                    e.categoriaFinanceiraReferencia, e.centroCustoReferencia,
+                    conta.propostaReferencia, conta.locacaoReferencia, true);
+                if (!snapshots || !igual(snapshots.categoriaFinanceiraSnapshot, e.categoriaFinanceiraSnapshot)
+                    || !igual(snapshots.centroCustoSnapshot, e.centroCustoSnapshot)) return falha();
+                const containers = estado.locacoes.filter(l => (l.historicoAlteracoes || [])
+                    .some(r => r?.operacaoId === e.operacaoId));
+                if (e.locacaoReferencia ? containers.length !== 1
+                    || criarReferenciaTipadaPagar('locacao', containers[0].id) !== e.locacaoReferencia
+                    : containers.length !== 0) return falha();
+                const copia = clonarJsonInterno(conta);
+                const evidenciaInterna = clonarJsonInterno(e);
+                if (!copia.ok || !evidenciaInterna.ok) return falha();
+                const snapshot = evidenciaInterna.valor;
+                const anterior = copia.valor;
+                const prefixo = reconstruirEstadosAdministrativosContaPagar(estado, conta, e.atualizadoEm);
+                if (!prefixo) return falha();
+                for (const p of anterior.parcelas) {
+                    const restaurado = prefixo.parcelasEstado.get(p.parcelaReferencia);
+                    if (!restaurado) return falha();
+                    p.pagamentos = p.pagamentos.filter(r => r.criadoEm < e.atualizadoEm);
+                    if (Array.isArray(p.estornos)) p.estornos = p.estornos.filter(r => r.criadoEm < e.atualizadoEm);
+                    if (Array.isArray(p.operacoesAdministrativas)) p.operacoesAdministrativas = p.operacoesAdministrativas
+                        .filter(r => r.criadoEm < e.atualizadoEm);
+                    p.historico = p.historico.filter(r => r.data < e.atualizadoEm);
+                    Object.assign(p, {
+                        situacaoAdministrativa: restaurado.situacaoAdministrativa, vencimento: restaurado.vencimento,
+                        pagoCentavos: restaurado.pagoCentavos, saldoCentavos: restaurado.saldoCentavos,
+                        atualizadoEm: restaurado.atualizadoEm, situacao: restaurado.situacaoFinanceira
+                    });
+                }
+                if (Array.isArray(anterior.operacoesAdministrativas)) anterior.operacoesAdministrativas = anterior.operacoesAdministrativas
+                    .filter(r => r.criadoEm < e.atualizadoEm);
+                anterior.historico = anterior.historico.filter(r => r.data < e.atualizadoEm);
+                anterior.situacaoAdministrativa = prefixo.situacaoConta;
+                anterior.pagoCentavos = prefixo.pagoConta;
+                anterior.saldoCentavos = prefixo.saldoConta;
+                anterior.atualizadoEm = prefixo.atualizadoConta;
+                const proveniencia = classificacao.classificacaoLegada === false
+                    ? classificacao.provenienciaCodigo : classificacao.origem;
+                Object.assign(anterior, {
+                    categoriaFinanceiraReferencia: e.categoriaFinanceiraReferencia,
+                    categoriaFinanceiraSnapshot: snapshot.categoriaFinanceiraSnapshot,
+                    centroCustoReferencia: e.centroCustoReferencia, centroCustoSnapshot: snapshot.centroCustoSnapshot,
+                    classificacaoLegada: false, provenienciaCodigo: proveniencia || 'reclassificacao_manual',
+                    categoria: e.categoriaFinanceiraSnapshot?.nome, centroCusto: e.centroCustoSnapshot?.nome,
+                    origem: 'conta_pagar'
+                });
+                if (!validarClassificacaoContaPagar(anterior, estado)
+                    || !evidenciaReclassificacaoCorrespondeEstadoPagarInterno({ ...prova, conta: anterior }, {
+                        ...e, dataReferencia: hoje
+                    })) return falha();
+                historicos.push({ operacaoId: e.operacaoId, conta: anterior });
+                classificacao = anterior;
+                ultimoInstante = e.atualizadoEm;
+                ids.add(e.operacaoId);
+            }
+            if (campos.some(k => !igual(classificacao[k], conta[k]))) return falha();
+        }
+        const traces = [...estado.logsAuditoria.filter(h => h?.acao === 'reclassificar_conta_pagar'),
+            ...estado.locacoes.flatMap(l => (l.historicoAlteracoes || [])
+                .filter(h => h?.acao === 'conta_pagar_reclassificada'))];
+        if (traces.some(h => !ids.has(h.operacaoId))) return falha();
+        return { ok: true, historicos };
+        } catch (_erro) { return falha(); }
+    }
+
+    function evidenciaReclassificacaoCorrespondeEntrada(resultado, entrada, estado) {
+        const cadeia = reconciliarHistoricoReclassificacoesPagar(estado, entrada.dataReferencia);
+        const correspondencias = cadeia.ok ? cadeia.historicos.filter(h => h.operacaoId === entrada.operacaoId) : [];
+        return correspondencias.length === 1 && evidenciaReclassificacaoCorrespondeEstadoPagarInterno(
+            { ...resultado, conta: correspondencias[0].conta }, entrada);
     }
 
     function executarReclassificacaoContaPagarTransacional(entradaRecebida, dependencias = {}) {
@@ -8557,8 +9946,8 @@
             if (evidenciaMemoria.completo || evidenciaPersistida.completo) {
                 return evidenciaMemoria.completo && evidenciaPersistida.completo
                     && memoria.json === persistido.json
-                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaMemoria, entrada)
-                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaPersistida, entrada)
+                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaMemoria, entrada, memoria.valor)
+                    && evidenciaReclassificacaoCorrespondeEntrada(evidenciaPersistida, entrada, persistido.valor)
                     ? resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, aplicado: true,
                         idempotente: true, operacao: { operacaoId: entrada.operacaoId },
                         renderizar: true })
@@ -8585,19 +9974,7 @@
                 entrada.atualizadoEm, conta.atualizadoEm)) {
                 return resultadoBase('CLASSIFICACAO_PAGAR_INVALIDA');
             }
-            const classificacaoAnterior = conta.classificacaoLegada === false ? {
-                categoriaFinanceiraReferencia: conta.categoriaFinanceiraReferencia,
-                categoriaFinanceiraSnapshot: conta.categoriaFinanceiraSnapshot,
-                centroCustoReferencia: conta.centroCustoReferencia,
-                centroCustoSnapshot: conta.centroCustoSnapshot,
-                classificacaoLegada: false,
-                provenienciaCodigo: conta.provenienciaCodigo
-            } : {
-                categoria: conta.categoria,
-                centroCusto: conta.centroCusto,
-                origem: conta.origem,
-                classificacaoLegada: true
-            };
+            const classificacaoAnterior = classificacaoHistoricaContaPagarInterna(conta);
             const provenienciaFinal = provenienciaAnterior || 'reclassificacao_manual';
             conta.categoriaFinanceiraReferencia = entrada.categoriaFinanceiraReferencia;
             conta.categoriaFinanceiraSnapshot = classificacao.categoriaFinanceiraSnapshot;
@@ -8667,7 +10044,7 @@
             }
             if (!evidenciaReclassificacaoCorrespondeEntrada(
                 obterEvidenciaReclassificacaoContaPagar(candidato.valor, entrada.operacaoId),
-                entrada)) {
+                entrada, candidato.valor)) {
                 return resultadoBase('EVIDENCIAS_RECLASSIFICACAO_INVALIDAS');
             }
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
@@ -8713,7 +10090,7 @@
                 operacionalRelido.valor, entrada.dataReferencia)
                 || !evidenciaReclassificacaoCorrespondeEntrada(
                     obterEvidenciaReclassificacaoContaPagar(
-                        operacionalRelido.valor, entrada.operacaoId), entrada)) {
+                        operacionalRelido.valor, entrada.operacaoId), entrada, operacionalRelido.valor)) {
                 return resultadoBase('PERSISTENCIA_CONFIRMADA_DIVERGENTE', {
                     requerRecuperacao: true });
             }
@@ -9196,21 +10573,7 @@
         const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
             'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
             'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
-        if (!valor.ok || !decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')
-            || !decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')
-            || !validarDataLocalContaReceber(entrada.dataPagamento)
-            || !validarDataLocalContaReceber(entrada.dataReferencia)
-            || !instanteFinanceiroIntegro(entrada.criadoEm)
-            || textoPagar(entrada.formaPagamento, 100, true) === null
-            || textoPagar(entrada.descricao, 1000) === null
-            || textoPagar(entrada.responsavel, 300, true) === null
-            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
-            || !comprovanteConciliacaoValido(entrada.comprovante)
-            || !persistencia || typeof persistencia !== 'object'
-            || typeof persistencia.versao !== 'string' || persistencia.data !== entrada.criadoEm
-            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
-            || !dependencias.armazenamento) return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
+        if (entradaPagamentoFinanceiroInvalidaInterna({ valor, entrada, persistencia }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias.armazenamento)) return resultadoBase('ENTRADA_PAGAMENTO_PAGAR_INVALIDA');
         const trava = `${entrada.contaPagarReferencia}|${entrada.parcelaReferencia}`;
         if (travasFornecedor.size || travasContaPagar.size || travasPagamentoContaPagar.size
             || travasEstornoPagamentoContaPagar.size || travasOperacaoAdministrativaContaPagar.size
@@ -9250,93 +10613,9 @@
             }
             if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
                 || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const candidato = clonarJsonInterno(memoria.valor);
-            if (!candidato.ok) return resultadoBase(candidato.codigo);
-            const contaResolvida = resolverReferenciaExataPagar(entrada.contaPagarReferencia, 'conta-pagar', candidato.valor.contasPagar);
-            if (contaResolvida.estado !== 'encontrada') return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
-            const conta = contaResolvida.registro;
-            if (conta.situacaoAdministrativa !== 'ativa') return resultadoBase('CONTA_PAGAR_BLOQUEADA');
-            const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === entrada.parcelaReferencia);
-            if (parcelas.length !== 1) return resultadoBase('PARCELA_PAGAR_NAO_DISPONIVEL');
-            const parcela = parcelas[0];
-            if ((parcela.situacaoAdministrativa || 'ativa') !== 'ativa') {
-                return resultadoBase('PARCELA_PAGAR_BLOQUEADA');
-            }
-            const fornecedor = resolverReferenciaExataPagar(conta.fornecedorReferencia, 'fornecedor', candidato.valor.fornecedores);
-            if (fornecedor.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            if (valor.centavos > parcela.saldoCentavos) return resultadoBase('PAGAMENTO_ACIMA_DO_SALDO');
-            const ultimoPagamento = parcela.pagamentos[parcela.pagamentos.length - 1] || null;
-            const limitesCronologicos = [ultimoPagamento?.criadoEm, parcela.atualizadoEm,
-                conta.atualizadoEm].filter(Boolean).sort();
-            const limiteCronologico = limitesCronologicos[limitesCronologicos.length - 1]
-                || parcela.criadoEm;
-            if (entrada.criadoEm <= limiteCronologico
-                || entrada.dataPagamento < converterInstanteEmDataLocalFinanceira(parcela.criadoEm)) {
-                return resultadoBase('CRONOLOGIA_PAGAMENTO_INVALIDA');
-            }
-            const pagamentoId = `pagamento-${entrada.operacaoId}`;
-            const pagamentoReferencia = criarReferenciaTipadaPagar('pagamento-pagar', pagamentoId);
-            const parcelaSituacaoAnterior = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
-            const parcelaSituacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
-                pagoCentavos: parcela.pagoCentavos + valor.centavos,
-                saldoCentavos: parcela.saldoCentavos - valor.centavos }, entrada.dataReferencia);
-            const base = ordenarChavesCanonicas({
-                tipo: 'financeiro', acao: 'pagamento_conta_pagar', origem: 'contas_pagar',
-                pagamentoId, pagamentoReferencia, operacaoId: entrada.operacaoId,
-                contaPagarReferencia: conta.contaPagarReferencia,
-                parcelaReferencia: parcela.parcelaReferencia,
-                fornecedorReferencia: conta.fornecedorReferencia,
-                propostaReferencia: conta.propostaReferencia,
-                locacaoReferencia: conta.locacaoReferencia,
-                valorPagoCentavos: valor.centavos,
-                dataPagamento: entrada.dataPagamento,
-                dataReferencia: entrada.dataReferencia,
-                formaPagamento: textoPagar(entrada.formaPagamento, 100, true),
-                descricao: textoPagar(entrada.descricao, 1000) ?? '',
-                responsavel: entrada.responsavel, usuario: entrada.responsavel,
-                data: entrada.criadoEm, timestamp: entrada.criadoEm, criadoEm: entrada.criadoEm,
-                parcelaPagoAnteriorCentavos: parcela.pagoCentavos,
-                parcelaPagoPosteriorCentavos: parcela.pagoCentavos + valor.centavos,
-                parcelaSaldoAnteriorCentavos: parcela.saldoCentavos,
-                parcelaSaldoPosteriorCentavos: parcela.saldoCentavos - valor.centavos,
-                parcelaSituacaoAnterior,
-                parcelaSituacaoPosterior,
-                contaPagoAnteriorCentavos: conta.pagoCentavos,
-                contaPagoPosteriorCentavos: conta.pagoCentavos + valor.centavos,
-                contaSaldoAnteriorCentavos: conta.saldoCentavos,
-                contaSaldoPosteriorCentavos: conta.saldoCentavos - valor.centavos,
-                contaSituacaoAnterior: conta.situacaoAdministrativa,
-                contaSituacaoPosterior: conta.situacaoAdministrativa,
-                comprovante: entrada.comprovante ?? null
-            });
-            const assinaturaPlano = assinaturaPagamentoContaPagar(base);
-            const evidenciaPagamento = ordenarChavesCanonicas({ ...base, assinaturaPlano });
-            const pagamento = { ...base, id: pagamentoId, assinaturaPlano, evidenciaPagamento };
-            Object.assign(pagamento, criarRegistroEvidenciaPagamentoPagar(pagamento, 'pagamento'));
-            parcela.pagamentos = [...parcela.pagamentos, pagamento];
-            parcela.pagoCentavos += valor.centavos;
-            parcela.saldoCentavos -= valor.centavos;
-            parcela.situacao = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
-            parcela.atualizadoEm = entrada.criadoEm;
-            const historicoParcela = criarRegistroEvidenciaPagamentoPagar(pagamento, 'parcela');
-            parcela.historico = [...parcela.historico, historicoParcela];
-            conta.pagoCentavos += valor.centavos;
-            conta.saldoCentavos -= valor.centavos;
-            conta.atualizadoEm = entrada.criadoEm;
-            conta.historico = [...conta.historico,
-                criarRegistroEvidenciaPagamentoPagar(pagamento, 'conta')];
-            if (conta.locacaoReferencia) {
-                const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
-                if (locacao.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-                locacao.registro.historicoAlteracoes = [...(Array.isArray(locacao.registro.historicoAlteracoes)
-                    ? locacao.registro.historicoAlteracoes : []),
-                criarRegistroEvidenciaPagamentoPagar(pagamento, 'locacao')];
-            }
-            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
-                criarRegistroEvidenciaPagamentoPagar(pagamento, 'auditoria')];
-            const evidenciaCandidata = localizarPagamentoContaPagarPorOperacao(candidato.valor, entrada.operacaoId);
-            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
-                || !evidenciaCandidata.completo) return resultadoBase('CANDIDATO_PAGAMENTO_PAGAR_INVALIDO');
+            const planejamentoCandidato = construirCandidatoPagamentoFinanceiroInterno({ memoria, entrada, valor });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, pagamentoId, pagamentoReferencia, assinaturaPlano } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparado;
             try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
@@ -9486,21 +10765,7 @@
         const obrigatorias = ['obterEstadoMemoriaAtual', 'prepararSnapshotPersistivelCompleto',
             'persistirSnapshotLocalConfirmavel', 'lerSnapshotLocalConfirmavel',
             'publicarSnapshotAutorizado', 'atualizarMetadadoSincronizacao'];
-        if (!valor.ok || !decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')
-            || !decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')
-            || !decodificarReferenciaTipadaPagar(entrada.pagamentoOriginalReferencia, 'pagamento-pagar')
-            || !validarDataLocalContaReceber(entrada.dataEstorno)
-            || !validarDataLocalContaReceber(entrada.dataReferencia)
-            || !instanteFinanceiroIntegro(entrada.criadoEm)
-            || textoPagar(entrada.motivo, 1000, true) === null
-            || textoPagar(entrada.responsavel, 300, true) === null
-            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
-            || !comprovanteConciliacaoValido(entrada.comprovante)
-            || !persistencia || typeof persistencia !== 'object'
-            || typeof persistencia.versao !== 'string' || persistencia.data !== entrada.criadoEm
-            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
-            || !dependencias.armazenamento) return resultadoBase('ENTRADA_ESTORNO_PAGAR_INVALIDA');
+        if (entradaEstornoPagamentoFinanceiroInvalidaInterna({ valor, entrada, persistencia }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias.armazenamento)) return resultadoBase('ENTRADA_ESTORNO_PAGAR_INVALIDA');
         const trava = `${entrada.contaPagarReferencia}|${entrada.parcelaReferencia}`;
         if (travasFornecedor.size || travasContaPagar.size || travasPagamentoContaPagar.size
             || travasEstornoPagamentoContaPagar.size
@@ -9539,109 +10804,9 @@
             }
             if (evidenciaMemoria.estado !== 'nao_executada' || evidenciaPersistida.estado !== 'nao_executada'
                 || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const candidato = clonarJsonInterno(memoria.valor);
-            if (!candidato.ok) return resultadoBase(candidato.codigo);
-            const contaResolvida = resolverReferenciaExataPagar(
-                entrada.contaPagarReferencia, 'conta-pagar', candidato.valor.contasPagar);
-            if (contaResolvida.estado !== 'encontrada') return resultadoBase('CONTA_PAGAR_NAO_DISPONIVEL');
-            const conta = contaResolvida.registro;
-            if (conta.situacaoAdministrativa !== 'ativa') return resultadoBase('CONTA_PAGAR_BLOQUEADA');
-            const parcelas = conta.parcelas.filter((item) => item?.parcelaReferencia === entrada.parcelaReferencia);
-            if (parcelas.length !== 1) return resultadoBase('PARCELA_PAGAR_NAO_DISPONIVEL');
-            const parcela = parcelas[0];
-            if ((parcela.situacaoAdministrativa || 'ativa') !== 'ativa') {
-                return resultadoBase('PARCELA_PAGAR_BLOQUEADA');
-            }
-            const pagamentos = parcela.pagamentos.filter((item) => (
-                item?.pagamentoReferencia === entrada.pagamentoOriginalReferencia));
-            if (pagamentos.length !== 1) return resultadoBase('PAGAMENTO_ORIGINAL_NAO_DISPONIVEL');
-            const pagamentoOriginal = pagamentos[0];
-            const estornosAnteriores = (Array.isArray(parcela.estornos) ? parcela.estornos : [])
-                .filter((item) => item?.pagamentoOriginalReferencia === pagamentoOriginal.pagamentoReferencia);
-            let totalEstornado = 0n;
-            for (const item of estornosAnteriores) totalEstornado += BigInt(item.valorEstornoCentavos);
-            const disponivel = BigInt(pagamentoOriginal.valorPagoCentavos) - totalEstornado;
-            if (disponivel <= 0n) return resultadoBase('PAGAMENTO_TOTALMENTE_ESTORNADO');
-            if (BigInt(valor.centavos) > disponivel) return resultadoBase('ESTORNO_ACIMA_DO_DISPONIVEL');
-            const operacoesParcela = [
-                ...parcela.pagamentos,
-                ...(Array.isArray(parcela.estornos) ? parcela.estornos : [])
-            ].sort((a, b) => Date.parse(a.criadoEm) - Date.parse(b.criadoEm));
-            const ultimoLancamento = operacoesParcela[operacoesParcela.length - 1] || null;
-            const limitesCronologicos = [ultimoLancamento?.criadoEm, parcela.atualizadoEm,
-                conta.atualizadoEm].filter(Boolean).sort();
-            const limiteCronologico = limitesCronologicos[limitesCronologicos.length - 1]
-                || parcela.criadoEm;
-            if (!instantePagamentoPagarPosterior(entrada.criadoEm, pagamentoOriginal.criadoEm)
-                || !instantePagamentoPagarPosterior(entrada.criadoEm, limiteCronologico)
-                || entrada.dataEstorno < pagamentoOriginal.dataPagamento) {
-                return resultadoBase('CRONOLOGIA_ESTORNO_PAGAR_INVALIDA');
-            }
-            const estornoPagamentoId = `estorno-pagamento-${entrada.operacaoId}`;
-            const estornoPagamentoReferencia = criarReferenciaTipadaPagar(
-                'estorno-pagamento-pagar', estornoPagamentoId);
-            const parcelaSituacaoAnterior = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
-            const parcelaSituacaoPosterior = situacaoEfetivaParcelaPagar({ ...parcela,
-                pagoCentavos: parcela.pagoCentavos - valor.centavos,
-                saldoCentavos: parcela.saldoCentavos + valor.centavos }, entrada.dataReferencia);
-            const base = ordenarChavesCanonicas({
-                tipo: 'financeiro', acao: 'estorno_pagamento_conta_pagar', origem: 'contas_pagar',
-                estornoPagamentoId, estornoPagamentoReferencia,
-                pagamentoOriginalReferencia: pagamentoOriginal.pagamentoReferencia,
-                operacaoId: entrada.operacaoId,
-                contaPagarReferencia: conta.contaPagarReferencia,
-                parcelaReferencia: parcela.parcelaReferencia,
-                fornecedorReferencia: conta.fornecedorReferencia,
-                propostaReferencia: conta.propostaReferencia,
-                locacaoReferencia: conta.locacaoReferencia,
-                valorEstornoCentavos: valor.centavos,
-                dataEstorno: entrada.dataEstorno,
-                dataReferencia: entrada.dataReferencia,
-                motivo: textoPagar(entrada.motivo, 1000, true),
-                responsavel: entrada.responsavel, usuario: entrada.responsavel,
-                data: entrada.criadoEm, timestamp: entrada.criadoEm, criadoEm: entrada.criadoEm,
-                parcelaPagoAnteriorCentavos: parcela.pagoCentavos,
-                parcelaPagoPosteriorCentavos: parcela.pagoCentavos - valor.centavos,
-                parcelaSaldoAnteriorCentavos: parcela.saldoCentavos,
-                parcelaSaldoPosteriorCentavos: parcela.saldoCentavos + valor.centavos,
-                parcelaSituacaoAnterior, parcelaSituacaoPosterior,
-                contaPagoAnteriorCentavos: conta.pagoCentavos,
-                contaPagoPosteriorCentavos: conta.pagoCentavos - valor.centavos,
-                contaSaldoAnteriorCentavos: conta.saldoCentavos,
-                contaSaldoPosteriorCentavos: conta.saldoCentavos + valor.centavos,
-                contaSituacaoAnterior: conta.situacaoAdministrativa,
-                contaSituacaoPosterior: conta.situacaoAdministrativa,
-                comprovante: entrada.comprovante ?? null
-            });
-            const assinaturaPlano = assinaturaEstornoPagamentoContaPagar(base);
-            const evidenciaEstorno = ordenarChavesCanonicas({ ...base, assinaturaPlano });
-            const estorno = { ...base, id: estornoPagamentoId, assinaturaPlano, evidenciaEstorno };
-            Object.assign(estorno, criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'estorno'));
-            parcela.estornos = [...(Array.isArray(parcela.estornos) ? parcela.estornos : []), estorno];
-            parcela.pagoCentavos -= valor.centavos;
-            parcela.saldoCentavos += valor.centavos;
-            parcela.situacao = situacaoEfetivaParcelaPagar(parcela, entrada.dataReferencia);
-            parcela.atualizadoEm = entrada.criadoEm;
-            parcela.historico = [...parcela.historico,
-                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'parcela')];
-            conta.pagoCentavos -= valor.centavos;
-            conta.saldoCentavos += valor.centavos;
-            conta.atualizadoEm = entrada.criadoEm;
-            conta.historico = [...conta.historico,
-                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'conta')];
-            if (conta.locacaoReferencia) {
-                const locacao = resolverReferenciaExataPagar(conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
-                if (locacao.estado !== 'encontrada') return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-                locacao.registro.historicoAlteracoes = [...(Array.isArray(locacao.registro.historicoAlteracoes)
-                    ? locacao.registro.historicoAlteracoes : []),
-                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'locacao')];
-            }
-            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
-                criarRegistroEvidenciaEstornoPagamentoPagar(estorno, 'auditoria')];
-            const evidenciaCandidata = localizarEstornoPagamentoContaPagarPorOperacao(
-                candidato.valor, entrada.operacaoId);
-            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
-                || !evidenciaCandidata.completo) return resultadoBase('CANDIDATO_ESTORNO_PAGAR_INVALIDO');
+            const planejamentoCandidato = construirCandidatoEstornoPagamentoFinanceiroInterno({ memoria, entrada, valor });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, estornoPagamentoId, estornoPagamentoReferencia, assinaturaPlano } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparado;
             try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
@@ -9850,29 +11015,10 @@
             } else {
                 parcelasAlvo = [...conta.parcelas];
             }
-            if (parcelasAlvo.some((parcela) => (
-                (parcela.situacaoAdministrativa || 'ativa') !== 'ativa'))) {
-                return resultadoBase('PARCELA_PAGAR_BLOQUEADA');
-            }
             const parcelaUnica = parcelasAlvo.length === 1 ? parcelasAlvo[0] : null;
-            if (entrada.acao === 'alterar_vencimento_conta_pagar') {
-                if (parcelaUnica.saldoCentavos === 0) return resultadoBase('PARCELA_PAGA_NAO_ALTERAVEL');
-                if (parcelaUnica.vencimento === entrada.novoVencimento) {
-                    return resultadoBase('VENCIMENTO_SEM_ALTERACAO');
-                }
-            }
-            if (entrada.acao === 'cancelar_parcela_conta_pagar') {
-                if (parcelaUnica.saldoCentavos <= 0) return resultadoBase('PARCELA_SEM_SALDO_PARA_CANCELAR');
-                const outrasAbertas = conta.parcelas.filter((parcela) => (
-                    parcela !== parcelaUnica && (parcela.situacaoAdministrativa || 'ativa') === 'ativa'
-                    && parcela.saldoCentavos > 0));
-                if (!outrasAbertas.length && conta.saldoCentavos > 0) {
-                    return resultadoBase('CANCELAMENTO_PARCIAL_CONTRADITORIO');
-                }
-            }
-            if (entrada.acao === 'cancelar_conta_pagar' && conta.saldoCentavos === 0) {
-                return resultadoBase('CONTA_SEM_SALDO_PARA_CANCELAR');
-            }
+            const bloqueioTransicao = bloqueioTransicaoAdministrativaPagar(conta, parcelasAlvo,
+                entrada.acao, entrada.novoVencimento, entrada.dataReferencia);
+            if (bloqueioTransicao) return resultadoBase(bloqueioTransicao);
             const limiteCronologico = [conta.atualizadoEm,
                 ...parcelasAlvo.map((parcela) => parcela.atualizadoEm)].sort().slice(-1)[0];
             if (!instantePagamentoPagarPosterior(entrada.criadoEm, limiteCronologico)) {
@@ -10227,36 +11373,9 @@
             valorBancario = normalizarTextoMonetarioCentavos(
                 entrada.valorBancarioTexto, { permitirZero: false });
         }
-        if (!decodificarReferenciaTipadaPagar(entrada.contaPagarReferencia, 'conta-pagar')
-            || !decodificarReferenciaTipadaPagar(entrada.parcelaReferencia, 'parcela-pagar')
-            || !decodificarReferenciaTipadaPagar(entrada.pagamentoReferencia, 'pagamento-pagar')
-            || !instanteFinanceiroIntegro(entrada.registradoEm)
-            || !validarDataLocalContaReceber(entrada.dataReferencia)
-            || textoPagar(entrada.responsavel, 300, true) === null
-            || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
-            || !persistencia || typeof persistencia !== 'object'
-            || typeof persistencia.versao !== 'string'
-            || persistencia.data !== entrada.registradoEm
-            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')
-            || !dependencias.armazenamento) return resultadoBase('ENTRADA_CONCILIACAO_PAGAR_INVALIDA');
-        if (tipo === 'conciliacao') {
-            const diferencaValida = valorBancario?.ok === true;
-            if (!diferencaValida || !['conciliada', 'divergente'].includes(entrada.situacao)
-                || !validarDataLocalContaReceber(entrada.dataBancaria)
-                || !['pix', 'transferencia', 'boleto', 'cartao', 'dinheiro', 'outro']
-                    .includes(entrada.meioPagamento)
-                || textoPagar(entrada.contaFinanceira, 200, true) === null
-                || textoPagar(entrada.identificadorBancario, 300, true) === null
-                || textoPagar(entrada.observacao, 1000) === null
-                || !comprovanteConciliacaoValido(entrada.comprovante)) {
-                return resultadoBase('ENTRADA_CONCILIACAO_PAGAR_INVALIDA');
-            }
-        } else if (!decodificarReferenciaTipadaPagar(
-            entrada.conciliacaoOriginalReferencia, 'conciliacao-pagamento-pagar')
-            || textoPagar(entrada.motivo, 1000, true) === null) {
-            return resultadoBase('ENTRADA_DESCONSIDERACAO_PAGAR_INVALIDA');
-        }
+        if (entradaConciliacaoPagarFinanceiroInvalidaInterna({ entrada, persistencia }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias.armazenamento)) return resultadoBase('ENTRADA_CONCILIACAO_PAGAR_INVALIDA');
+        const camposConciliacao = validarCamposConciliacaoPagarFinanceiroInterno({ tipo, entrada, valorBancario });
+        if (camposConciliacao.preparado !== true) return camposConciliacao;
         const trava = `${entrada.contaPagarReferencia}|${entrada.parcelaReferencia}|${entrada.pagamentoReferencia}`;
         if (travasFornecedor.size || travasContaPagar.size || travasPagamentoContaPagar.size
             || travasEstornoPagamentoContaPagar.size || travasOperacaoAdministrativaContaPagar.size
@@ -10285,11 +11404,9 @@
                 persistido.valor, entrada.dataReferencia)) {
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
-            const alvoInicial = resolverAlvoConciliacaoPagamentoPagar(memoria.valor, entrada);
-            if (!alvoInicial.ok) return resultadoBase(alvoInicial.codigo, {
-                requerRecuperacao: alvoInicial.requerRecuperacao === true });
-            const registroEsperado = construirRegistroConciliacaoPagamentoPagar(
-                entrada, alvoInicial, tipo, valorBancario?.centavos || 0);
+            const contextoResolverContextoConciliacaoPagarFinanceiroInterno = resolverContextoConciliacaoPagarFinanceiroInterno({ memoria, entrada, tipo, valorBancario });
+            if (contextoResolverContextoConciliacaoPagarFinanceiroInterno.preparado !== true) return contextoResolverContextoConciliacaoPagarFinanceiroInterno;
+            const { alvoInicial, registroEsperado } = contextoResolverContextoConciliacaoPagarFinanceiroInterno.valores;
             const evMemoria = localizarConciliacaoPagamentoPagarPorOperacao(
                 memoria.valor, entrada.operacaoId);
             const evPersistida = localizarConciliacaoPagamentoPagarPorOperacao(
@@ -10313,88 +11430,11 @@
                 || memoria.json !== persistido.json) {
                 return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
-            if (operacaoIdContasPagarEmUso(memoria.valor, entrada.operacaoId)
-                || operacaoIdContasPagarEmUso(persistido.valor, entrada.operacaoId)) {
-                return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            }
-            if (tipo === 'conciliacao') {
-                if (alvoInicial.conta.situacaoAdministrativa !== 'ativa') {
-                    return resultadoBase('CONTA_PAGAR_BLOQUEADA');
-                }
-                if (alvoInicial.disponivelCentavos <= 0) {
-                    return resultadoBase('PAGAMENTO_TOTALMENTE_ESTORNADO');
-                }
-                const situacaoAtual = obterSituacaoConciliacaoPagamentoPagar(memoria.valor,
-                    entrada.contaPagarReferencia, entrada.parcelaReferencia,
-                    entrada.pagamentoReferencia);
-                if (situacaoAtual.estado !== 'pendente'
-                    && situacaoAtual.estado !== 'desconsiderada') {
-                    return resultadoBase('PAGAMENTO_JA_CONCILIADO');
-                }
-                const diferenca = valorBancario.centavos - alvoInicial.pagamento.valorPagoCentavos;
-                if (!Number.isSafeInteger(diferenca)
-                    || (entrada.situacao === 'conciliada' && diferenca !== 0)
-                    || (entrada.situacao === 'divergente'
-                        && (diferenca === 0
-                            || textoPagar(entrada.motivoDivergencia, 500, true) === null))) {
-                    return resultadoBase('CONCILIACAO_PAGAR_VALORES_DIVERGENTES');
-                }
-                if (entrada.dataBancaria < alvoInicial.pagamento.dataPagamento
-                    || entrada.dataBancaria > entrada.registradoEm.slice(0, 10)) {
-                    return resultadoBase('CRONOLOGIA_CONCILIACAO_PAGAR_INVALIDA');
-                }
-            } else {
-                const originais = memoria.valor.conciliacoesPagamentosPagar.filter((registro) => (
-                    registro.tipo === 'conciliacao'
-                    && registro.conciliacaoPagamentoPagarReferencia
-                        === entrada.conciliacaoOriginalReferencia));
-                const atual = obterSituacaoConciliacaoPagamentoPagar(memoria.valor,
-                    entrada.contaPagarReferencia, entrada.parcelaReferencia,
-                    entrada.pagamentoReferencia);
-                if (originais.length !== 1 || atual.conciliacao !== originais[0]) {
-                    return resultadoBase('CONCILIACAO_PAGAR_NAO_DESCONSIDERAVEL');
-                }
-                if (!instantePagamentoPagarPosterior(
-                    entrada.registradoEm, originais[0].registradoEm)) {
-                    return resultadoBase('CRONOLOGIA_DESCONSIDERACAO_PAGAR_INVALIDA');
-                }
-            }
-            const candidato = clonarJsonInterno(memoria.valor);
-            if (!candidato.ok) return resultadoBase(candidato.codigo);
-            const alvo = resolverAlvoConciliacaoPagamentoPagar(candidato.valor, entrada);
-            if (!alvo.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', {
-                requerRecuperacao: true });
-            const registro = construirRegistroConciliacaoPagamentoPagar(
-                entrada, alvo, tipo, valorBancario?.centavos || 0);
-            if (!validarRegistroConciliacaoPagamentoPagar(registro)) {
-                return resultadoBase('REGISTRO_CONCILIACAO_PAGAR_INVALIDO');
-            }
-            candidato.valor.conciliacoesPagamentosPagar = [
-                ...candidato.valor.conciliacoesPagamentosPagar, registro];
-            alvo.pagamento.conciliacoes = [...(Array.isArray(alvo.pagamento.conciliacoes)
-                ? alvo.pagamento.conciliacoes : []),
-            criarEvidenciaConciliacaoPagamentoPagar(registro, 'pagamento')];
-            alvo.conta.historico = [...alvo.conta.historico,
-                criarEvidenciaConciliacaoPagamentoPagar(registro, 'conta')];
-            if (alvo.conta.locacaoReferencia) {
-                const locacao = resolverReferenciaExataPagar(
-                    alvo.conta.locacaoReferencia, 'locacao', candidato.valor.locacoes);
-                if (locacao.estado !== 'encontrada') {
-                    return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-                }
-                locacao.registro.historicoAlteracoes = [
-                    ...(Array.isArray(locacao.registro.historicoAlteracoes)
-                        ? locacao.registro.historicoAlteracoes : []),
-                    criarEvidenciaConciliacaoPagamentoPagar(registro, 'locacao')];
-            }
-            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
-                criarEvidenciaConciliacaoPagamentoPagar(registro, 'auditoria')];
-            const evidenciaCandidata = localizarConciliacaoPagamentoPagarPorOperacao(
-                candidato.valor, entrada.operacaoId);
-            if (!validarFundacaoContasPagar(candidato.valor, entrada.dataReferencia)
-                || !evidenciaCandidata.completo) {
-                return resultadoBase('CANDIDATO_CONCILIACAO_PAGAR_INVALIDO');
-            }
+            const contextoValidarContextoConciliacaoPagarFinanceiroInterno = validarContextoConciliacaoPagarFinanceiroInterno({ memoria, entrada, persistido, tipo, alvoInicial, valorBancario });
+            if (contextoValidarContextoConciliacaoPagarFinanceiroInterno.preparado !== true) return contextoValidarContextoConciliacaoPagarFinanceiroInterno;
+            const planejamentoCandidato = construirCandidatoConciliacaoPagarFinanceiroInterno({ memoria, entrada, tipo, valorBancario });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, registro } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparado;
             try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
@@ -11646,34 +12686,12 @@
             'atualizarMetadadoSincronizacao', 'validarPermissaoFinanceira'];
         const persistencia = entrada.persistencia;
         const permissao = tipo === 'conciliacao' ? 'conciliar_pagamento' : 'desconsiderar_conciliacao';
-        if (!entrada || typeof entrada.operacaoId !== 'string' || !/^[a-z0-9][a-z0-9._:-]{0,159}$/.test(entrada.operacaoId)
-            || typeof entrada.contaReferencia !== 'string' || typeof entrada.parcelaReferencia !== 'string'
-            || typeof entrada.lancamentoReferencia !== 'string' || !instanteFinanceiroIntegro(entrada.registradoEm)
-            || !textoFinanceiroIntegro(entrada.responsavel, 1, 300)
-            || !persistencia || typeof persistencia !== 'object'
-            || typeof persistencia.versao !== 'string' || typeof persistencia.data !== 'string'
-            || !Number.isSafeInteger(persistencia.ultimaEdicao) || persistencia.ultimaEdicao < 0
-            || obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function') || !dependencias.armazenamento) {
+        if (entradaConciliacaoReceberFinanceiroInvalidaInterna({ entrada, persistencia }) || (obrigatorias.some((nome) => typeof dependencias?.[nome] !== 'function')) || (!dependencias.armazenamento)) {
             return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
         }
-        let valorBancario = null;
-        if (tipo === 'conciliacao') {
-            valorBancario = normalizarTextoMonetarioCentavos(entrada.valorBancarioTexto, { permitirZero: false });
-            const meios = ['pix', 'transferencia', 'boleto', 'cartao', 'dinheiro', 'outro'];
-            if (!valorBancario.ok || !['conciliado', 'divergente'].includes(entrada.situacao)
-                || !validarDataLocalContaReceber(entrada.dataBancaria)
-                || entrada.dataBancaria > entrada.registradoEm.slice(0, 10)
-                || !meios.includes(entrada.meioPagamento)
-                || !textoFinanceiroIntegro(entrada.contaFinanceira, 1, 200)
-                || !textoFinanceiroIntegro(entrada.identificadorBancario, 1, 300)
-                || typeof entrada.observacao !== 'string' || entrada.observacao !== entrada.observacao.trim()
-                || entrada.observacao.length > 1000 || !comprovanteConciliacaoValido(entrada.comprovante)) {
-                return resultadoBase('ENTRADA_CONCILIACAO_INVALIDA');
-            }
-        } else if (!textoFinanceiroIntegro(entrada.conciliacaoOriginalReferencia, 1, 500)
-            || !textoFinanceiroIntegro(entrada.motivo, 5, 500)) {
-            return resultadoBase('ENTRADA_DESCONSIDERACAO_INVALIDA');
-        }
+        const camposConciliacao = prepararCamposConciliacaoReceberFinanceiroInterno({ tipo, entrada });
+        if (camposConciliacao.preparado !== true) return camposConciliacao;
+        const { valorBancario } = camposConciliacao.valores;
         let permitido = false;
         try { permitido = dependencias.validarPermissaoFinanceira(permissao) === true; } catch (_erro) { permitido = false; }
         if (!permitido) return resultadoBase('PERMISSAO_FINANCEIRA_NEGADA');
@@ -11682,49 +12700,10 @@
         const memoria = prepararEstadoOperacionalInterno(raizAnterior);
         if (!memoria.ok) return resultadoBase(memoria.codigo, {
             requerRecuperacao: memoria.codigo === 'OPERACAO_REQUER_RECUPERACAO' });
-        const dataReferencia = entrada.registradoEm.slice(0, 10);
-        const alvo = resolverAlvoConciliacaoFinanceira(memoria.valor, entrada, dataReferencia);
-        if (!alvo.ok) return resultadoBase(alvo.codigo, { requerRecuperacao: alvo.requerRecuperacao === true });
-        const colecao = validarColecaoConciliacoesFinanceiras(memoria.valor);
-        if (!colecao.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-        let original = null;
-        if (tipo === 'conciliacao') {
-            const efetiva = obterSituacaoConciliacaoLancamento(memoria.valor, entrada.contaReferencia,
-                entrada.parcelaReferencia, entrada.lancamentoReferencia);
-            if (efetiva.estado !== 'pendente'
-                && (efetiva.estado === 'invalido' || efetiva.conciliacao?.operacaoId !== entrada.operacaoId)) {
-                return resultadoBase(efetiva.estado === 'invalido'
-                    ? 'OPERACAO_REQUER_RECUPERACAO' : 'LANCAMENTO_JA_CONCILIADO', {
-                    requerRecuperacao: efetiva.estado === 'invalido'
-                });
-            }
-            const diferenca = valorBancario.centavos - alvo.valorEsperadoCentavos;
-            if (!Number.isSafeInteger(diferenca)
-                || (entrada.situacao === 'conciliado' && diferenca !== 0)
-                || (entrada.situacao === 'divergente'
-                    && (diferenca === 0 || !textoFinanceiroIntegro(entrada.motivoDivergencia, 5, 500)))) {
-                return resultadoBase('CONCILIACAO_VALORES_DIVERGENTES');
-            }
-        } else {
-            const originais = memoria.valor.conciliacoesFinanceiras.filter((registro) => (
-                registro?.tipo === 'conciliacao' && registro.conciliacaoReferencia === entrada.conciliacaoOriginalReferencia));
-            if (originais.length !== 1 || originais[0].contaReferencia !== entrada.contaReferencia
-                || originais[0].parcelaReferencia !== entrada.parcelaReferencia
-                || originais[0].lancamentoReferencia !== entrada.lancamentoReferencia
-                || (colecao.inversas.has(entrada.conciliacaoOriginalReferencia)
-                    && !memoria.valor.conciliacoesFinanceiras.some((registro) => registro.tipo === 'desconsideracao'
-                        && registro.conciliacaoOriginalReferencia === entrada.conciliacaoOriginalReferencia
-                        && registro.operacaoId === entrada.operacaoId))) {
-                return resultadoBase(originais.length > 1 ? 'CONCILIACAO_DUPLICADA' : 'CONCILIACAO_NAO_DESCONSIDERAVEL');
-            }
-            original = originais[0];
-        }
-        const instanteAnterior = tipo === 'conciliacao' ? alvo.lancamento.data : original.registradoEm;
-        if (!instanteFinanceiroIntegro(instanteAnterior) || entrada.registradoEm <= instanteAnterior) {
-            return resultadoBase(tipo === 'conciliacao'
-                ? 'CRONOLOGIA_CONCILIACAO_INVALIDA' : 'CRONOLOGIA_DESCONSIDERACAO_INVALIDA');
-        }
-        const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}|${entrada.lancamentoReferencia}`;
+        const contextoPrepararContextoConciliacaoReceberFinanceiroInterno = prepararContextoConciliacaoReceberFinanceiroInterno({ entrada, memoria, tipo, valorBancario });
+            if (contextoPrepararContextoConciliacaoReceberFinanceiroInterno.preparado !== true) return contextoPrepararContextoConciliacaoReceberFinanceiroInterno;
+            const { dataReferencia, alvo, original } = contextoPrepararContextoConciliacaoReceberFinanceiroInterno.valores;
+            const trava = `${entrada.contaReferencia}|${entrada.parcelaReferencia}|${entrada.lancamentoReferencia}`;
         if (travasReclassificacaoContaReceber.size || travasConciliacaoFinanceira.has(trava))
             return resultadoBase('OPERACAO_EM_EXECUCAO');
         travasConciliacaoFinanceira.add(trava);
@@ -11751,56 +12730,9 @@
             }
             if (evMemoria.estado !== 'nao_executada' || evPersistida.estado !== 'nao_executada'
                 || memoria.json !== persistido.json) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const candidato = clonarJsonInterno(memoria.valor);
-            if (!candidato.ok) return resultadoBase(candidato.codigo);
-            const alvoCandidato = resolverAlvoConciliacaoFinanceira(candidato.valor, entrada, dataReferencia);
-            if (!alvoCandidato.ok) return resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
-            const id = `${tipo}-${entrada.operacaoId}`;
-            const registro = { id, conciliacaoReferencia: criarReferenciaConciliacaoFinanceira(id), tipo,
-                operacaoId: entrada.operacaoId, assinaturaPlano: assinatura,
-                contaReferencia: alvoCandidato.conta.contaReferencia,
-                parcelaReferencia: alvoCandidato.parcela.parcelaReferencia,
-                locacaoId: alvoCandidato.locacao.id, locacaoReferencia: alvoCandidato.conta.locacaoReferencia,
-                lancamentoReferencia: criarReferenciaLancamentoFinanceiro(alvoCandidato.lancamento.id),
-                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel };
-            if (tipo === 'conciliacao') Object.assign(registro, { situacao: entrada.situacao,
-                natureza: alvoCandidato.natureza, valorEsperadoCentavos: alvoCandidato.valorEsperadoCentavos,
-                valorBancarioCentavos: valorBancario.centavos,
-                diferencaCentavos: valorBancario.centavos - alvoCandidato.valorEsperadoCentavos,
-                dataBancaria: entrada.dataBancaria, meioPagamento: entrada.meioPagamento,
-                contaFinanceira: entrada.contaFinanceira, identificadorBancario: entrada.identificadorBancario,
-                motivoDivergencia: entrada.situacao === 'divergente' ? entrada.motivoDivergencia : '',
-                observacao: entrada.observacao, comprovante: entrada.comprovante || null });
-            else Object.assign(registro, { conciliacaoOriginalReferencia: original.conciliacaoReferencia, motivo: entrada.motivo });
-            if (!validarRegistroConciliacaoFinanceira(registro)) return resultadoBase('REGISTRO_CONCILIACAO_INVALIDO');
-            candidato.valor.conciliacoesFinanceiras = [...candidato.valor.conciliacoesFinanceiras, registro];
-            const baseEvidencia = { id: `historico-${id}`, tipo, operacaoId: entrada.operacaoId,
-                assinaturaPlano: assinatura, contaReferencia: registro.contaReferencia,
-                parcelaReferencia: registro.parcelaReferencia, locacaoId: registro.locacaoId,
-                locacaoReferencia: registro.locacaoReferencia, lancamentoReferencia: registro.lancamentoReferencia,
-                registradoEm: entrada.registradoEm, responsavel: entrada.responsavel,
-                data: entrada.registradoEm, usuario: entrada.responsavel };
-            if (tipo === 'conciliacao') Object.assign(baseEvidencia, { situacao: registro.situacao,
-                natureza: registro.natureza, valorEsperadoCentavos: registro.valorEsperadoCentavos,
-                valorBancarioCentavos: registro.valorBancarioCentavos,
-                diferencaCentavos: registro.diferencaCentavos, dataBancaria: registro.dataBancaria,
-                meioPagamento: registro.meioPagamento, contaFinanceira: registro.contaFinanceira,
-                identificadorBancario: registro.identificadorBancario,
-                motivoDivergencia: registro.motivoDivergencia });
-            if (tipo === 'desconsideracao') Object.assign(baseEvidencia, {
-                conciliacaoOriginalReferencia: registro.conciliacaoOriginalReferencia, motivo: registro.motivo });
-            alvoCandidato.conta.historico = [...alvoCandidato.conta.historico,
-                { ...baseEvidencia, acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
-            alvoCandidato.locacao.historicoAlteracoes = [...(alvoCandidato.locacao.historicoAlteracoes || []),
-                { ...baseEvidencia, id: `historico-locacao-${id}`, origem: 'financeiro',
-                    acao: tipo === 'conciliacao' ? 'conciliacao_financeira' : 'desconsideracao_conciliacao' }];
-            candidato.valor.logsAuditoria = [...candidato.valor.logsAuditoria,
-                { ...baseEvidencia, id: `auditoria-${id}`, timestamp: entrada.registradoEm,
-                    acao: tipo === 'conciliacao' ? 'conciliar_lancamento' : 'desconsiderar_conciliacao' }];
-            if (!validarColecaoConciliacoesFinanceiras(candidato.valor).ok
-                || !verificarEvidenciasConciliacaoFinanceira(candidato.valor, entrada.operacaoId, assinatura).completo) {
-                return resultadoBase('CANDIDATO_CONCILIACAO_INVALIDO');
-            }
+            const planejamentoCandidato = construirCandidatoConciliacaoReceberFinanceiroInterno({ memoria, entrada, dataReferencia, tipo, assinatura, valorBancario, original });
+            if (planejamentoCandidato.planejado !== true) return planejamentoCandidato;
+            const { candidato, registro } = planejamentoCandidato.valores;
             const candidatoCanonico = ordenarChavesCanonicas(candidato.valor);
             let preparado;
             try { preparado = dependencias.prepararSnapshotPersistivelCompleto(
@@ -12750,6 +13682,192 @@
         ));
     }
 
+    function gerarIdTransporteConversaoInterno(transportes, tipo, locacaoId) {
+        const referencia = referenciaEstrita(locacaoId);
+        if (!referencia || (tipo !== 'entrega' && tipo !== 'retirada')) return null;
+        const identidade = referencia.length <= 150
+            ? `${referencia.length}:${referencia}`
+            : `hash:${typeof locacaoId}:${fingerprintFnv1a64(referencia)}`;
+        const base = `mtz-conversao-transporte:${tipo}:${identidade}`;
+        for (let indice = 0; indice <= transportes.length; indice++) {
+            const id = indice === 0 ? base : `${base}:${indice}`;
+            const resolucao = resolverIdEntidadeInterna(transportes, id);
+            if (resolucao.estado === 'ausente') return id;
+            if (!resolucao.encontrado) return null;
+        }
+        return null;
+    }
+
+    function construirCandidatoConversaoPropostaInterno(estado, entrada, assinaturaPlano) {
+        const candidatoClone = clonarJsonInterno(estado);
+        if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
+        const candidato = candidatoClone.valor;
+        if (!Array.isArray(candidato.propostas) || !Array.isArray(candidato.locadores)
+            || !Array.isArray(candidato.locacoes) || !Array.isArray(candidato.transportes)
+            || !Array.isArray(candidato.logsAuditoria)) return resultadoBase('ESTADO_CONVERSAO_INVALIDO');
+
+        const proposta = resolverReferenciaEntidadeInterna(
+            candidato.propostas, 'proposta', entrada.propostaReferencia);
+        if (!proposta.encontrado) return resultadoBase(proposta.estado === 'duplicado'
+            ? 'PROPOSTA_ID_DUPLICADO' : proposta.estado === 'ausente' ? 'PROPOSTA_NAO_ENCONTRADA' : 'REFERENCIA_PROPOSTA_INVALIDA');
+        const statusProposta = typeof proposta.registro.status === 'string'
+            ? proposta.registro.status.trim().toLowerCase() : '';
+        if (statusProposta !== 'aprovada') return resultadoBase('PROPOSTA_NAO_APROVADA');
+
+        const planoAutoritativo = validarPlanoConversaoAutoritativo(candidato, proposta.registro, entrada);
+        if (!planoAutoritativo.ok) return resultadoBase(planoAutoritativo.codigo);
+
+        const vinculadas = candidato.locacoes.filter((locacao) => {
+            if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)) return false;
+            if (locacao.propostaReferencia === entrada.propostaReferencia) return true;
+            return [locacao.propostaOrigemId, locacao.origemPropostaId, locacao.origem?.propostaId]
+                .some((id) => referenciaEstrita(id) && referenciaEstrita(id) === referenciaEstrita(proposta.registro.id));
+        });
+        if (vinculadas.length) return resultadoBase(vinculadas.length > 1
+            ? 'CONVERSAO_PROPOSTA_AMBIGUA' : 'PROPOSTA_JA_CONVERTIDA');
+        const vinculoLegado = localizarVinculosLegadosPropostaUnicos(
+            candidato.propostas, candidato.locacoes, proposta.registro);
+        if (vinculoLegado.estado !== 'ausente') {
+            return resultadoBase(vinculoLegado.estado === 'encontrado'
+                ? 'PROPOSTA_JA_CONVERTIDA' : 'CONVERSAO_PROPOSTA_AMBIGUA');
+        }
+
+        const plano = entrada.plano;
+        const colisaoLocacao = resolverIdEntidadeInterna(candidato.locacoes, plano.locacao.id);
+        if (colisaoLocacao.encontrado || colisaoLocacao.estado === 'duplicado') {
+            return resultadoBase('LOCACAO_ID_DUPLICADO');
+        }
+
+        const clientePlano = plano.cliente;
+        const clienteId = planoAutoritativo.cliente.id;
+        let clienteCriado = false;
+        if (planoAutoritativo.cliente.criado) {
+            const registro = clonarJsonInterno(planoAutoritativo.cliente.registro);
+            if (!registro.ok) return resultadoBase(registro.codigo);
+            const colisaoCliente = resolverIdEntidadeInterna(candidato.locadores, registro.valor.id);
+            if (colisaoCliente.encontrado || colisaoCliente.estado === 'duplicado') {
+                return resultadoBase('CLIENTE_ID_DUPLICADO');
+            }
+            if (encontrarCorrespondenciasClienteManual(candidato.locadores, registro.valor).length) {
+                return resultadoBase('CLIENTE_MANUAL_AMBIGUO');
+            }
+            const assinaturaRegistro = assinaturaRegistroConversao(registro.valor);
+            registro.valor.conversaoProposta = {
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                propostaReferencia: entrada.propostaReferencia,
+                assinaturaRegistro
+            };
+            candidato.locadores.push(registro.valor);
+            clienteCriado = true;
+        }
+
+        const transportesPlano = [];
+        const tiposTransporte = new Set();
+        for (const transporte of planoAutoritativo.transportes) {
+            if (tiposTransporte.has(transporte.tipoOperacao)) {
+                return resultadoBase('PLANO_TRANSPORTES_DUPLICADO');
+            }
+            const id = gerarIdTransporteConversaoInterno(candidato.transportes, transporte.tipoOperacao, plano.locacao.id);
+            if (!id) return resultadoBase('TRANSPORTE_ID_DUPLICADO');
+            transportesPlano.push({ ...transporte, id });
+            tiposTransporte.add(transporte.tipoOperacao);
+        }
+
+        const locacaoCandidata = clonarJsonInterno(planoAutoritativo.locacao);
+        if (!locacaoCandidata.ok) return resultadoBase(locacaoCandidata.codigo);
+        const locacaoReferencia = criarReferenciaEntidadeInterna('locacao', locacaoCandidata.valor.id);
+        const clienteReferencia = planoAutoritativo.cliente.referencia;
+        const transporteReferencias = transportesPlano.map((item) => (
+            criarReferenciaEntidadeInterna('transporte', item.id)
+        ));
+        const assinaturaLocacao = assinaturaRegistroConversao(locacaoCandidata.valor);
+        locacaoCandidata.valor.conversaoProposta = {
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano,
+            propostaReferencia: entrada.propostaReferencia,
+            clienteReferencia,
+            transporteReferencias: [...transporteReferencias],
+            assinaturaRegistro: assinaturaLocacao
+        };
+        const transportesCandidatos = transportesPlano.map((transporte) => {
+            const clone = clonarJsonInterno(transporte);
+            if (!clone.ok) return null;
+            const assinaturaRegistro = assinaturaRegistroConversao(clone.valor);
+            clone.valor.conversaoProposta = {
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                propostaReferencia: entrada.propostaReferencia,
+                locacaoReferencia,
+                assinaturaRegistro
+            };
+            return { registro: clone.valor, referencia: criarReferenciaEntidadeInterna('transporte', clone.valor.id),
+                assinatura: assinaturaRegistro };
+        });
+        if (transportesCandidatos.some((item) => !item)) return resultadoBase('PLANO_TRANSPORTES_INVALIDO');
+        candidato.locacoes.push(locacaoCandidata.valor);
+        transportesCandidatos.forEach((item) => candidato.transportes.unshift(item.registro));
+        candidato.propostas[proposta.indice] = {
+            ...proposta.registro,
+            locacaoVinculadaId: locacaoCandidata.valor.id,
+            locacaoId: locacaoCandidata.valor.id,
+            locacaoVinculadaReferencia: locacaoReferencia,
+            operacaoConversaoId: entrada.operacaoId,
+            assinaturaConversao: assinaturaPlano,
+            clienteConversaoReferencia: clienteReferencia,
+            dataConversaoLocacao: entrada.atualizadoEm,
+            atualizadoEm: entrada.atualizadoEm
+        };
+        const clienteCandidato = resolverReferenciaEntidadeInterna(
+            candidato.locadores, 'cliente', clienteReferencia);
+        if (!clienteCandidato.encontrado) return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
+        const matrizEvidencias = montarMatrizEvidenciasConversao({
+            entrada,
+            assinaturaPlano,
+            proposta: candidato.propostas[proposta.indice],
+            locacao: locacaoCandidata.valor,
+            cliente: clienteCandidato.registro,
+            clienteCriado,
+            transportes: transportesCandidatos.map((item) => ({
+                referencia: item.referencia,
+                registro: item.registro
+            }))
+        });
+        const assinaturaEvidencias = assinarMatrizEvidenciasConversao(matrizEvidencias);
+        candidato.logsAuditoria.unshift({
+            id: `audit-conversao-${entrada.operacaoId}`,
+            operacaoId: entrada.operacaoId,
+            assinaturaPlano,
+            tipo: 'proposta',
+            acao: 'converter',
+            origem: 'conversao_proposta_transacional',
+            propostaReferencia: entrada.propostaReferencia,
+            locacaoReferencia,
+            clienteReferencia,
+            clienteCriado,
+            transporteReferencias: [...transporteReferencias],
+            assinaturaEvidencias,
+            timestamp: entrada.atualizadoEm,
+            data: entrada.atualizadoEm,
+            usuario: entrada.atualizadoPor,
+            descricao: `Proposta convertida na locação ${String(locacaoCandidata.valor.id)}.`,
+            dados: {
+                entidade: 'proposta',
+                propostaId: proposta.registro.id,
+                propostaReferencia: entrada.propostaReferencia,
+                locacaoId: locacaoCandidata.valor.id,
+                locacaoReferencia,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano
+            }
+        });
+
+        if (!validarEvidenciasConversaoProposta(candidato, entrada, assinaturaPlano).completo) {
+            return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
+        }
+        return { ok: true, candidato, locacaoReferencia };
+    }
+
     function executarConversaoPropostaLocacaoTransacional(entradaRecebida, dependencias = {}) {
         let autorizacao = null;
         let persistenciaConfirmada = false;
@@ -12835,176 +13953,9 @@
                 memoria.valor, propostaMemoria.registro, entrada);
             if (!planoAutoritativoMemoria.ok) return resultadoBase(planoAutoritativoMemoria.codigo);
 
-            const candidatoClone = clonarJsonInterno(memoria.valor);
-            if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
-            const candidato = candidatoClone.valor;
-            if (!Array.isArray(candidato.propostas) || !Array.isArray(candidato.locadores)
-                || !Array.isArray(candidato.locacoes) || !Array.isArray(candidato.transportes)
-                || !Array.isArray(candidato.logsAuditoria)) return resultadoBase('ESTADO_CONVERSAO_INVALIDO');
-
-            const proposta = resolverReferenciaEntidadeInterna(
-                candidato.propostas, 'proposta', entrada.propostaReferencia);
-            if (!proposta.encontrado) return resultadoBase(proposta.estado === 'duplicado'
-                ? 'PROPOSTA_ID_DUPLICADO' : proposta.estado === 'ausente' ? 'PROPOSTA_NAO_ENCONTRADA' : 'REFERENCIA_PROPOSTA_INVALIDA');
-            const statusProposta = typeof proposta.registro.status === 'string'
-                ? proposta.registro.status.trim().toLowerCase() : '';
-            if (statusProposta !== 'aprovada') return resultadoBase('PROPOSTA_NAO_APROVADA');
-
-            const planoAutoritativo = validarPlanoConversaoAutoritativo(candidato, proposta.registro, entrada);
-            if (!planoAutoritativo.ok) return resultadoBase(planoAutoritativo.codigo);
-
-            const vinculadas = candidato.locacoes.filter((locacao) => {
-                if (!locacao || typeof locacao !== 'object' || Array.isArray(locacao)) return false;
-                if (locacao.propostaReferencia === entrada.propostaReferencia) return true;
-                return [locacao.propostaOrigemId, locacao.origemPropostaId, locacao.origem?.propostaId]
-                    .some((id) => referenciaEstrita(id) && referenciaEstrita(id) === referenciaEstrita(proposta.registro.id));
-            });
-            if (vinculadas.length) return resultadoBase(vinculadas.length > 1
-                ? 'CONVERSAO_PROPOSTA_AMBIGUA' : 'PROPOSTA_JA_CONVERTIDA');
-            const vinculoLegado = localizarVinculosLegadosPropostaUnicos(
-                candidato.propostas, candidato.locacoes, proposta.registro);
-            if (vinculoLegado.estado !== 'ausente') {
-                return resultadoBase(vinculoLegado.estado === 'encontrado'
-                    ? 'PROPOSTA_JA_CONVERTIDA' : 'CONVERSAO_PROPOSTA_AMBIGUA');
-            }
-
-            const plano = entrada.plano;
-            const colisaoLocacao = resolverIdEntidadeInterna(candidato.locacoes, plano.locacao.id);
-            if (colisaoLocacao.encontrado || colisaoLocacao.estado === 'duplicado') {
-                return resultadoBase('LOCACAO_ID_DUPLICADO');
-            }
-
-            const clientePlano = plano.cliente;
-            const clienteId = planoAutoritativo.cliente.id;
-            let clienteCriado = false;
-            if (planoAutoritativo.cliente.criado) {
-                const registro = clonarJsonInterno(planoAutoritativo.cliente.registro);
-                if (!registro.ok) return resultadoBase(registro.codigo);
-                const colisaoCliente = resolverIdEntidadeInterna(candidato.locadores, registro.valor.id);
-                if (colisaoCliente.encontrado || colisaoCliente.estado === 'duplicado') {
-                    return resultadoBase('CLIENTE_ID_DUPLICADO');
-                }
-                if (encontrarCorrespondenciasClienteManual(candidato.locadores, registro.valor).length) {
-                    return resultadoBase('CLIENTE_MANUAL_AMBIGUO');
-                }
-                const assinaturaRegistro = assinaturaRegistroConversao(registro.valor);
-                registro.valor.conversaoProposta = {
-                    operacaoId: entrada.operacaoId,
-                    assinaturaPlano,
-                    propostaReferencia: entrada.propostaReferencia,
-                    assinaturaRegistro
-                };
-                candidato.locadores.push(registro.valor);
-                clienteCriado = true;
-            }
-
-            const transportesPlano = planoAutoritativo.transportes;
-            const referenciasTransporte = new Set();
-            const tiposTransporte = new Set();
-            for (const transporte of transportesPlano) {
-                const referenciaTransporte = criarReferenciaEntidadeInterna('transporte', transporte.id);
-                if (referenciasTransporte.has(referenciaTransporte) || tiposTransporte.has(transporte.tipoOperacao)) {
-                    return resultadoBase('PLANO_TRANSPORTES_DUPLICADO');
-                }
-                const colisaoTransporte = resolverIdEntidadeInterna(candidato.transportes, transporte.id);
-                if (colisaoTransporte.encontrado || colisaoTransporte.estado === 'duplicado') {
-                    return resultadoBase('TRANSPORTE_ID_DUPLICADO');
-                }
-                referenciasTransporte.add(referenciaTransporte);
-                tiposTransporte.add(transporte.tipoOperacao);
-            }
-
-            const locacaoCandidata = clonarJsonInterno(planoAutoritativo.locacao);
-            if (!locacaoCandidata.ok) return resultadoBase(locacaoCandidata.codigo);
-            const locacaoReferencia = criarReferenciaEntidadeInterna('locacao', locacaoCandidata.valor.id);
-            const clienteReferencia = planoAutoritativo.cliente.referencia;
-            const transporteReferencias = transportesPlano.map((item) => (
-                criarReferenciaEntidadeInterna('transporte', item.id)
-            ));
-            const assinaturaLocacao = assinaturaRegistroConversao(locacaoCandidata.valor);
-            locacaoCandidata.valor.conversaoProposta = {
-                operacaoId: entrada.operacaoId,
-                assinaturaPlano,
-                propostaReferencia: entrada.propostaReferencia,
-                clienteReferencia,
-                transporteReferencias: [...transporteReferencias],
-                assinaturaRegistro: assinaturaLocacao
-            };
-            const transportesCandidatos = transportesPlano.map((transporte) => {
-                const clone = clonarJsonInterno(transporte);
-                if (!clone.ok) return null;
-                const assinaturaRegistro = assinaturaRegistroConversao(clone.valor);
-                clone.valor.conversaoProposta = {
-                    operacaoId: entrada.operacaoId,
-                    assinaturaPlano,
-                    propostaReferencia: entrada.propostaReferencia,
-                    locacaoReferencia,
-                    assinaturaRegistro
-                };
-                return { registro: clone.valor, referencia: criarReferenciaEntidadeInterna('transporte', clone.valor.id),
-                    assinatura: assinaturaRegistro };
-            });
-            if (transportesCandidatos.some((item) => !item)) return resultadoBase('PLANO_TRANSPORTES_INVALIDO');
-            candidato.locacoes.push(locacaoCandidata.valor);
-            transportesCandidatos.forEach((item) => candidato.transportes.unshift(item.registro));
-            candidato.propostas[proposta.indice] = {
-                ...proposta.registro,
-                locacaoVinculadaId: locacaoCandidata.valor.id,
-                locacaoId: locacaoCandidata.valor.id,
-                locacaoVinculadaReferencia: locacaoReferencia,
-                operacaoConversaoId: entrada.operacaoId,
-                assinaturaConversao: assinaturaPlano,
-                clienteConversaoReferencia: clienteReferencia,
-                dataConversaoLocacao: entrada.atualizadoEm,
-                atualizadoEm: entrada.atualizadoEm
-            };
-            const clienteCandidato = resolverReferenciaEntidadeInterna(
-                candidato.locadores, 'cliente', clienteReferencia);
-            if (!clienteCandidato.encontrado) return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
-            const matrizEvidencias = montarMatrizEvidenciasConversao({
-                entrada,
-                assinaturaPlano,
-                proposta: candidato.propostas[proposta.indice],
-                locacao: locacaoCandidata.valor,
-                cliente: clienteCandidato.registro,
-                clienteCriado,
-                transportes: transportesCandidatos.map((item) => ({
-                    referencia: item.referencia,
-                    registro: item.registro
-                }))
-            });
-            const assinaturaEvidencias = assinarMatrizEvidenciasConversao(matrizEvidencias);
-            candidato.logsAuditoria.unshift({
-                id: `audit-conversao-${entrada.operacaoId}`,
-                operacaoId: entrada.operacaoId,
-                assinaturaPlano,
-                tipo: 'proposta',
-                acao: 'converter',
-                origem: 'conversao_proposta_transacional',
-                propostaReferencia: entrada.propostaReferencia,
-                locacaoReferencia,
-                clienteReferencia,
-                clienteCriado,
-                transporteReferencias: [...transporteReferencias],
-                assinaturaEvidencias,
-                timestamp: entrada.atualizadoEm,
-                data: entrada.atualizadoEm,
-                usuario: entrada.atualizadoPor,
-                descricao: `Proposta convertida na locação ${String(locacaoCandidata.valor.id)}.`,
-                dados: {
-                    entidade: 'proposta',
-                    propostaId: proposta.registro.id,
-                    propostaReferencia: entrada.propostaReferencia,
-                    locacaoId: locacaoCandidata.valor.id,
-                    locacaoReferencia,
-                    operacaoId: entrada.operacaoId,
-                    assinaturaPlano
-                }
-            });
-
-            if (!validarEvidenciasConversaoProposta(candidato, entrada, assinaturaPlano).completo) {
-                return resultadoBase('EVIDENCIAS_CONVERSAO_INCOMPLETAS');
-            }
+            const construcao = construirCandidatoConversaoPropostaInterno(memoria.valor, entrada, assinaturaPlano);
+            if (!construcao.ok) return construcao;
+            const { candidato, locacaoReferencia } = construcao;
 
             if (dependencias.validarPermissaoConversao('converter_proposta_locacao') !== true) {
                 return resultadoBase('PERMISSAO_NEGADA');
@@ -13183,6 +14134,83 @@
         return `transporte-v1:fnv1a64:${fingerprintFnv1a64(JSON.stringify(base))}`;
     }
 
+    function construirCandidatoOperacaoTransporteInterno(estado, entrada, referencia, assinaturaPlano) {
+        const memoria = { valor: estado };
+        const candidatoClone = clonarJsonInterno(memoria.valor);
+            if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
+            const candidato = candidatoClone.valor;
+            if (!Array.isArray(candidato.transportes) || !Array.isArray(candidato.logsAuditoria)) {
+                return resultadoBase('ESTADO_TRANSPORTE_INVALIDO');
+            }
+            const resolucao = resolverReferenciaTransporteInterna(candidato.transportes, referencia);
+            if (entrada.acao === 'criar') {
+                if (resolucao.estado === 'duplicado' || resolucao.encontrado) return resultadoBase('TRANSPORTE_ID_DUPLICADO');
+                if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
+                    || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
+                    return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
+                }
+                const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
+                if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
+                    return resultadoBase(locacao.estado === 'duplicado'
+                        ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
+                }
+                candidato.transportes.unshift(clonarJsonInterno(entrada.registro).valor);
+            } else {
+                if (!resolucao.encontrado) return resultadoBase(resolucao.estado === 'duplicado'
+                    ? 'TRANSPORTE_ID_DUPLICADO' : 'TRANSPORTE_NAO_ENCONTRADO');
+                if (entrada.acao === 'editar') {
+                    if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
+                        || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
+                        return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
+                    }
+                    const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
+                    if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
+                        return resultadoBase(locacao.estado === 'duplicado'
+                            ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
+                    }
+                    candidato.transportes[resolucao.indice] = {
+                        ...resolucao.registro,
+                        ...clonarJsonInterno(entrada.registro).valor,
+                        id: resolucao.registro.id
+                    };
+                } else if (entrada.acao === 'excluir') {
+                    candidato.transportes.splice(resolucao.indice, 1);
+                } else {
+                    if (typeof entrada.status !== 'string'
+                        || !['pendente', 'em_rota', 'entregue', 'retirado', 'concluido', 'cancelado'].includes(entrada.status)) {
+                        return resultadoBase('STATUS_TRANSPORTE_INVALIDO');
+                    }
+                    if (resolucao.registro.status === entrada.status) {
+                        return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, idempotente: true });
+                    }
+                    candidato.transportes[resolucao.indice] = {
+                        ...resolucao.registro,
+                        status: entrada.status,
+                        atualizadoEm: entrada.atualizadoEm,
+                        ...(entrada.status === 'concluido' && !resolucao.registro.dataChegada
+                            ? { dataChegada: entrada.dataConclusao || '' } : {})
+                    };
+                }
+            }
+            candidato.logsAuditoria.unshift({
+                id: `audit-transporte-${entrada.operacaoId}`,
+                operacaoId: entrada.operacaoId,
+                assinaturaPlano,
+                tipo: 'sistema',
+                acao: `transporte_${entrada.acao}`,
+                acaoTransporte: entrada.acao,
+                origem: 'transporte_transacional',
+                transporteReferencia: referencia,
+                timestamp: entrada.atualizadoEm,
+                data: entrada.atualizadoEm,
+                usuario: entrada.atualizadoPor,
+                descricao: entrada.descricao || `Operação ${entrada.acao} de transporte confirmada.`
+            });
+
+
+        return { ok: true, candidato };
+    }
+
     function executarOperacaoTransporteTransacional(entradaRecebida, dependencias = {}) {
         let autorizacao = null;
         let persistenciaConfirmada = false;
@@ -13253,76 +14281,9 @@
                     : resultadoBase('OPERACAO_REQUER_RECUPERACAO', { requerRecuperacao: true });
             }
 
-            const candidatoClone = clonarJsonInterno(memoria.valor);
-            if (!candidatoClone.ok) return resultadoBase(candidatoClone.codigo);
-            const candidato = candidatoClone.valor;
-            if (!Array.isArray(candidato.transportes) || !Array.isArray(candidato.logsAuditoria)) {
-                return resultadoBase('ESTADO_TRANSPORTE_INVALIDO');
-            }
-            const resolucao = resolverReferenciaTransporteInterna(candidato.transportes, referencia);
-            if (entrada.acao === 'criar') {
-                if (resolucao.estado === 'duplicado' || resolucao.encontrado) return resultadoBase('TRANSPORTE_ID_DUPLICADO');
-                if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
-                    || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
-                    return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
-                }
-                const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
-                if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
-                    return resultadoBase(locacao.estado === 'duplicado'
-                        ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
-                }
-                candidato.transportes.unshift(clonarJsonInterno(entrada.registro).valor);
-            } else {
-                if (!resolucao.encontrado) return resultadoBase(resolucao.estado === 'duplicado'
-                    ? 'TRANSPORTE_ID_DUPLICADO' : 'TRANSPORTE_NAO_ENCONTRADO');
-                if (entrada.acao === 'editar') {
-                    if (!entrada.registro || typeof entrada.registro !== 'object' || Array.isArray(entrada.registro)
-                        || criarReferenciaTransporteInterna(entrada.registro.id) !== referencia) {
-                        return resultadoBase('REGISTRO_TRANSPORTE_INVALIDO');
-                    }
-                    const locacao = resolverLocacaoTransporteInterna(candidato.locacoes, entrada.registro.locacaoId);
-                    if (locacao.estado !== 'sem_vinculo' && !locacao.encontrado) {
-                        return resultadoBase(locacao.estado === 'duplicado'
-                            ? 'LOCACAO_ID_DUPLICADO' : 'LOCACAO_TRANSPORTE_INVALIDA');
-                    }
-                    candidato.transportes[resolucao.indice] = {
-                        ...resolucao.registro,
-                        ...clonarJsonInterno(entrada.registro).valor,
-                        id: resolucao.registro.id
-                    };
-                } else if (entrada.acao === 'excluir') {
-                    candidato.transportes.splice(resolucao.indice, 1);
-                } else {
-                    if (typeof entrada.status !== 'string'
-                        || !['pendente', 'em_rota', 'entregue', 'retirado', 'concluido', 'cancelado'].includes(entrada.status)) {
-                        return resultadoBase('STATUS_TRANSPORTE_INVALIDO');
-                    }
-                    if (resolucao.registro.status === entrada.status) {
-                        return resultadoBase('OPERACAO_JA_CONCLUIDA', { ok: true, idempotente: true });
-                    }
-                    candidato.transportes[resolucao.indice] = {
-                        ...resolucao.registro,
-                        status: entrada.status,
-                        atualizadoEm: entrada.atualizadoEm,
-                        ...(entrada.status === 'concluido' && !resolucao.registro.dataChegada
-                            ? { dataChegada: entrada.dataConclusao || '' } : {})
-                    };
-                }
-            }
-            candidato.logsAuditoria.unshift({
-                id: `audit-transporte-${entrada.operacaoId}`,
-                operacaoId: entrada.operacaoId,
-                assinaturaPlano,
-                tipo: 'sistema',
-                acao: `transporte_${entrada.acao}`,
-                acaoTransporte: entrada.acao,
-                origem: 'transporte_transacional',
-                transporteReferencia: referencia,
-                timestamp: entrada.atualizadoEm,
-                data: entrada.atualizadoEm,
-                usuario: entrada.atualizadoPor,
-                descricao: entrada.descricao || `Operação ${entrada.acao} de transporte confirmada.`
-            });
+            const construcaoTransporte = construirCandidatoOperacaoTransporteInterno(memoria.valor, entrada, referencia, assinaturaPlano);
+            if (!construcaoTransporte.ok || construcaoTransporte.idempotente) return construcaoTransporte;
+            const candidato = construcaoTransporte.candidato;
 
             const metadados = entrada.persistencia;
             const preparadoExterno = dependencias.prepararSnapshotPersistivelCompleto?.(
@@ -13485,6 +14446,7 @@
     window.obterSituacaoConciliacaoLancamento = obterSituacaoConciliacaoLancamento;
     window.obterProjecaoFluxoCaixaFinanceiro = obterProjecaoFluxoCaixaFinanceiro;
     window.obterProjecaoConsolidadoFinanceiro = obterProjecaoConsolidadoFinanceiro;
+    window.executarEncargoFinanceiroTransacional = executarEncargoFinanceiroTransacional;
     window.obterResultadoFinanceiroLocacao = obterResultadoFinanceiroLocacao;
     window.executarConciliacaoFinanceiraTransacional = executarConciliacaoFinanceiraTransacional;
     window.executarDesconsideracaoConciliacaoTransacional = executarDesconsideracaoConciliacaoTransacional;

@@ -304,7 +304,12 @@ function validarClassificacoesFinanceirasSnapshotV12(snapshot) {
     if (!ehSnapshotMigravelV12(snapshot)) {
         return { ok: false, codigo: 'SNAPSHOT_MIGRAVEL_NAO_CONFIAVEL' };
     }
-    return validarClassificacoesFinanceirasInternasV12(snapshot);
+    const resultado = validarClassificacoesFinanceirasInternasV12(snapshot);
+    if (resultado.ok && (typeof EncargosFinanceiros === 'undefined' ? snapshot.encargosFinanceiros?.length
+        : !EncargosFinanceiros.validarTexto(JSON.stringify(snapshot)))) {
+        return { ok: false, codigo: 'ENCARGOS_FINANCEIROS_INVALIDOS' };
+    }
+    return resultado;
 }
 
 function clonarObjetoSeguro(valor, fallback = {}) {
@@ -1472,6 +1477,7 @@ function migrarDadosParaV12(dadosEntrada, opcoes = {}) {
         contasPagar: clonarArraySeguro(dadosBase.contasPagar),
         categoriasFinanceiras: clonarArraySeguro(dadosBase.categoriasFinanceiras),
         centrosCusto: clonarArraySeguro(dadosBase.centrosCusto),
+        encargosFinanceiros: clonarArraySeguro(dadosBase.encargosFinanceiros),
         conciliacoesFinanceiras: clonarArraySeguro(dadosBase.conciliacoesFinanceiras),
         conciliacoesPagamentosPagar: clonarArraySeguro(dadosBase.conciliacoesPagamentosPagar),
         movimentacoesEstoque: clonarArraySeguro(dadosBase.movimentacoesEstoque).map((movimentacao, indice) => normalizarMovimentacaoEstoqueV12(movimentacao, indice)),
@@ -1651,6 +1657,11 @@ function migrarDadosParaV12(dadosEntrada, opcoes = {}) {
         });
 
     const validacaoClassificacoes = validarClassificacoesFinanceirasInternasV12(dadosMigrados);
+    if ((Object.hasOwn(dadosBase, 'encargosFinanceiros') && !Array.isArray(dadosBase.encargosFinanceiros))
+        || (typeof EncargosFinanceiros === 'undefined' ? dadosMigrados.encargosFinanceiros.length > 0
+            : !EncargosFinanceiros.validarTexto(JSON.stringify(dadosMigrados)))) {
+        return { ok: false, codigo: 'ENCARGOS_FINANCEIROS_INVALIDOS', dadosMigrados: null, houveMudanca: false, logs: contexto.logs };
+    }
     if (!validacaoClassificacoes.ok) {
         return {
             ok: false,

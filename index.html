@@ -19,7 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="./assets/css/style.css?v=23.73">
+    <link rel="stylesheet" href="./assets/css/style.css?v=23.75">
 </head>
 <body>
 
@@ -248,6 +248,7 @@
                 <i class="bi bi-cash-stack"></i> Financeiro <i class="bi bi-chevron-down nav-caret"></i>
             </button>
             <div class="nav-dropdown" id="menu-financeiro" role="menu" aria-label="Financeiro">
+                <button type="button" class="tab-menu-item" data-menu-item data-tab="encargos" data-acesso="admin" data-action="abrirTab" data-arg="encargos"><i class="bi bi-clipboard-check" aria-hidden="true"></i><span>Encargos e Aprovações</span></button>
                 <button type="button" class="tab-menu-item" data-menu-item data-tab="financeiro" data-action="irParaFinanceiroFiltro" data-arg="todos">
                     <i class="bi bi-graph-up-arrow"></i> Resumo financeiro
                 </button>
@@ -816,7 +817,7 @@
                         </button>
                     </div>
                     <button type="button" class="btn btn-secondary proposta-config-open-btn" data-action="abrirConfigOrcamentoProposta" aria-controls="propostaConfigDrawer" aria-expanded="false">
-                        <i class="bi bi-sliders"></i> Configurar orçamento
+                        <i class="bi bi-sliders"></i> Parâmetros
                     </button>
                 </div>
 
@@ -825,8 +826,8 @@
                     <aside class="proposta-config-panel" role="dialog" aria-modal="true" aria-labelledby="propostaConfigTitle" aria-describedby="propostaConfigDescription">
                         <div class="proposta-config-head">
                             <div>
-                                <h3 id="propostaConfigTitle">Configurações do orçamento</h3>
-                                <p id="propostaConfigDescription">Padrões que serão aplicados nesta proposta.</p>
+                                <h3 id="propostaConfigTitle">Parâmetros do orçamento</h3>
+                                <p id="propostaConfigDescription">Condições comerciais, custos e enquadramento fiscal.</p>
                             </div>
                             <button type="button" class="btn btn-sm btn-secondary proposta-config-close" data-action="fecharConfigOrcamentoProposta" aria-label="Fechar configurações do orçamento">
                                 <i class="bi bi-x-lg"></i>
@@ -901,8 +902,8 @@
                         <div id="propostaConfigPanelCustos" class="proposta-config-tabpanel" role="tabpanel" aria-labelledby="propostaConfigTabCustos" data-config-panel="custos" hidden>
                         <div class="proposta-config-section">
                             <div class="proposta-config-section-title">
-                                <h4>Política de custos próprios</h4>
-                                <span>Define somente o padrão de novos itens. Itens já salvos mantêm sua política.</span>
+                                <h4>Resultado gerencial e políticas históricas</h4>
+                                <span>Na nova simulação, material próprio não gera aluguel interno. Depreciação gerencial: 20% uma vez sobre o fechamento positivo.</span>
                             </div>
                             <div class="proposta-config-grid">
                                 <div class="form-group">
@@ -1516,6 +1517,7 @@
 
                     <div id="propostaSecaoFechamento" class="proposta-form-section proposta-closing-section" role="tabpanel" aria-labelledby="propostaFormTabComercial" data-proposta-form-section="fechamento" hidden>
                     <h4>Valores e condições</h4>
+                    <div class="proposta-gerencial-toolbar"><label><input id="propIncluirMaoObra" type="checkbox" checked data-change="recalcularResumoProposta"> Incluir equipe de montagem e desmontagem</label><button id="propRevisaoCalculoHistorico" hidden type="button" class="btn btn-secondary" data-action="revisarFechamentoGerencialProposta">Simular com regras gerenciais atuais</button></div>
                     <div class="proposta-closing-grid">
                         <div class="proposta-closing-block proposta-cost-organization" data-proposta-grupo="logistica">
                             <h5>Logística e custos</h5>
@@ -1626,7 +1628,7 @@
                                     </div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-group"><label>Custo interno total</label><input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Custos próprios adicionais, fora dos itens</label><input type="text" id="propCustoInternoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                     <div class="form-group"><label>Outros custos internos</label><input type="text" id="propOutrosCustosInternos" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                 </div>
                                 <p class="proposta-cost-section__note">Depreciação e custo operacional de material próprio permanecem configurados nos detalhes de cada item.</p>
@@ -1641,7 +1643,7 @@
                                     </div>
                                 </div>
                                 <div class="form-row">
-                                    <div class="form-group"><label>Custo externo/terceirizado total</label><input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
+                                    <div class="form-group"><label>Custos terceirizados adicionais, fora dos itens</label><input type="text" id="propCustoTerceirizadoTotal" class="input-money-br" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta"></div>
                                 </div>
                                 <p class="proposta-cost-section__note">Materiais, gerador, elétrica, operador e demais fornecedores podem ser consolidados aqui. Custos específicos por item continuam nos detalhes da composição.</p>
                             </section>
@@ -1695,7 +1697,7 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Valor líquido previsto após fiscal</label>
+                                    <label>Recebimento líquido previsto (retenções)</label>
                                     <input type="text" id="propValorLiquidoPrevisto" value="R$ 0,00" readonly>
                                 </div>
                             </div>
@@ -1782,6 +1784,18 @@
                     <div id="propostaSecaoPdf" class="proposta-form-section proposta-pdf-section" role="tabpanel" aria-labelledby="propostaFormTabRevisao" data-proposta-form-section="pdf" hidden>
                     <h4>Revisão e PDF</h4>
                     <div id="propRevisaoFinalGuiada" class="proposta-final-review" aria-live="polite"></div>
+                    <section class="proposta-tributos-gerenciais" aria-labelledby="propTributosTitulo">
+                        <div class="section-toolbar"><h4 id="propTributosTitulo">Tributos, retenções e encargos individualizados</h4><button type="button" class="btn btn-secondary" data-action="adicionarTributoGerencial"><i class="bi bi-plus-lg"></i> Adicionar</button></div>
+                        <p>Sem alíquotas presumidas. Confira incidência, base e percentual com a contabilidade. Use fiscal agregado ou tributos individualizados, nunca ambos.</p>
+                        <div id="propTributosIndividuais"></div>
+                        <div class="proposta-config-grid proposta-fiscal-contexto">
+                            <label class="form-group">Competencia / fato gerador estimado<input type="date" id="propDataFiscalGerencial" data-change="recalcularResumoProposta"></label>
+                            <label class="form-group">Tratamento fiscal do desconto<select id="propTipoDescontoFiscal" data-change="recalcularResumoProposta"><option value="">Pendente</option><option value="incondicional">Incondicional</option><option value="condicional">Condicional</option></select></label>
+                            <label class="form-group">Justificativa de nao incidencia / dispensa<input id="propJustificativaFiscal" type="text" data-input="recalcularResumoProposta"></label>
+                            <label class="form-group"><span>Cobertura tributaria conferida pela contabilidade (declaracao administrativa)</span><input id="propCoberturaFiscal" type="checkbox" data-change="recalcularResumoProposta"></label>
+                        </div>
+                        <div id="propFechamentoGerencial" aria-live="polite"></div>
+                    </section>
                     <div class="proposta-fiscal-prep-card" id="propFiscalPrepCard">
                         <div class="proposta-fiscal-prep-head">
                             <div>
@@ -2608,6 +2622,19 @@
         </div>
   </div> 
         
+            <div id="tab-encargos" class="tab-content">
+                <h2>Encargos e Aprovações</h2>
+                <p>Condições administrativas e estimativas. Não representam Contas a Pagar, impostos apurados ou pagamentos.</p>
+                <p id="encargosSemPermissao" role="status" hidden>Acesso restrito ao administrador.</p>
+                <section id="encargosConteudo">
+                    <div class="section-toolbar"><button id="encargosNovo" type="button" class="btn btn-primary" data-encargo-acao="cadastrar">Nova condição</button>
+                        <label>Buscar <input id="encargosBusca" type="search"></label>
+                        <label>Situação <select id="encargosSituacao"><option value="">Todas</option><option value="rascunho">Rascunho</option><option value="aguardando_aprovacao">Aguardando aprovação</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option><option value="cancelado">Cancelado</option></select></label></div>
+                    <div class="table-responsive fluxo-caixa-tabela" role="region" aria-label="Condições e aprovações de encargos" tabindex="0">
+                        <table class="table"><thead><tr><th scope="col">Condição / referência</th><th scope="col">Tipo</th><th scope="col">Situação</th><th scope="col">Versão</th><th scope="col">Valor documental</th><th scope="col">Ações</th></tr></thead><tbody id="encargosTabela"></tbody></table>
+                    </div>
+                </section>
+            </div>
             <div id="tab-classificacoes-financeiras" class="tab-content">
                 <section class="card classificacoes-financeiras-painel"
                     aria-labelledby="classificacoesFinanceirasTitulo">
@@ -3556,24 +3583,25 @@
 
     
     <script src="./assets/js/core/dom.js"></script>
-    <script src="./assets/js/core/state.js?v=12.10"></script>
+    <script src="./assets/js/core/state.js?v=12.12"></script>
     <script src="./assets/js/core/utils.js?v=2.6"></script>
     <script src="./assets/js/ui/toast.js?v=1.1"></script>
     <script src="./assets/js/core/audit.js?v=1.2"></script>
     <script src="./assets/js/core/sync.js?v=1.7"></script>
-    <script src="./assets/js/core/access.js?v=1.11"></script>
-    <script src="./assets/js/core/migrations.js?v=12.21"></script>
-    <script src="./assets/js/core/domain-services.js?v=12.13"></script>
-    <script src="./assets/js/core/storage.js?v=12.19"></script>
-    <script src="./assets/js/core/transaction-services.js?v=2.55"></script>
-    <script src="./assets/js/core/recovery-services.js?v=1.6"></script>
-    <script src="./assets/js/core/state-adapter.js?v=2.18"></script>
+    <script src="./assets/js/core/access.js?v=1.13"></script>
+    <script src="./assets/js/core/encargos-domain.js?v=1.1"></script>
+    <script src="./assets/js/core/migrations.js?v=12.22"></script>
+    <script src="./assets/js/core/domain-services.js?v=12.16"></script>
+    <script src="./assets/js/core/storage.js?v=12.21"></script>
+    <script src="./assets/js/core/transaction-services.js?v=2.69"></script>
+    <script src="./assets/js/core/recovery-services.js?v=1.7"></script>
+    <script src="./assets/js/core/state-adapter.js?v=2.21"></script>
     <script src="./assets/js/ui/pwa.js?v=1.6"></script>
-    <script src="./assets/js/modules/locacoes.js?v=13.24"></script>
-    <script src="./assets/js/modules/propostas.js?v=4.28"></script>
-    <script src="./assets/js/modules/clientes.js?v=2.2"></script>
+    <script src="./assets/js/modules/locacoes.js?v=13.25"></script>
+    <script src="./assets/js/modules/propostas.js?v=4.34"></script>
+    <script src="./assets/js/modules/clientes.js?v=2.3"></script>
     <script src="./assets/js/modules/tipos.js?v=2.1"></script>
-    <script src="./assets/js/modules/estoque.js?v=2.9"></script>
+    <script src="./assets/js/modules/estoque.js?v=2.10"></script>
     <script src="./assets/js/modules/estoque-destinacao.js?v=1.0"></script>
     <script src="./assets/js/modules/checklist.js?v=1.9"></script>
     <script src="./assets/js/modules/config.js?v=1.3"></script>
@@ -3581,11 +3609,11 @@
     <script src="./assets/js/modules/relatorios.js?v=1.8"></script>
     <script src="./assets/js/modules/devolucoes.js?v=3.0"></script>
     <script src="./assets/js/modules/scanner.js?v=1.2"></script>
-    <script src="./assets/js/modules/backup-tools.js?v=1.9"></script>
+    <script src="./assets/js/modules/backup-tools.js?v=1.10"></script>
     <script src="./assets/js/modules/whatsapp.js?v=1.2"></script>
     <script src="./assets/js/modules/transporte.js?v=1.6"></script>
     <script src="./assets/js/modules/shared-actions.js?v=1.3"></script>
-    <script src="./assets/js/render/locacoes.js?v=15.11"></script>
+    <script src="./assets/js/render/locacoes.js?v=15.12"></script>
     <script src="./assets/js/render/cadastros.js?v=3.9"></script>
     <script src="./assets/js/render/estoque.js?v=2.4"></script>
     <script src="./assets/js/render/dashboard.js?v=1.12"></script>
@@ -3593,8 +3621,9 @@
     <script src="./assets/js/render/novas-abas.js?v=3.13"></script>
     <script src="./assets/js/render/contas-pagar.js?v=2.7"></script>
     <script src="./assets/js/render/classificacoes-financeiras.js?v=1.1"></script>
+    <script src="./assets/js/render/encargos-financeiros.js?v=1.1"></script>
     <script src="./assets/js/ui/eventos.js?v=2.9"></script>
-    <script src="./assets/js/core/app.js?v=23.19"></script>
+    <script src="./assets/js/core/app.js?v=23.20"></script>
         
 </body>
 </html>

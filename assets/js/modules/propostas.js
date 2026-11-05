@@ -67,6 +67,373 @@
         CAMPOS_DERIVADOS_CLIENTE_PROPOSTA.map((campo) => campo.id)
     );
     let estadoVinculoClienteProposta = null;
+    let fechamentoGerencialAtual = true;
+    let fechamentoHistoricoFormulario = null;
+    const origensTributosGerenciais = new WeakMap();
+    const controlesHistoricosGerenciais = new Map();
+    const FONTES_FISCAIS_GERENCIAIS = Object.freeze({
+        ISS: { fundamento:'LC 116/2003, arts. 3, 7, 8 e 8-A; lista 3.05. Conferir lei municipal.', fonte:'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm' },
+        PIS: { fundamento:'Lei 9.718/1998; Lei 10.637/2002. Regime e exclusoes devem ser confirmados.', fonte:'https://www2.camara.leg.br/legin/fed/lei/2002/lei-10637-30-dezembro-2002-491384-normaatualizada-pl.html' },
+        COFINS: { fundamento:'Lei 9.718/1998; Lei 10.833/2003, arts. 1 e 30 a 35.', fonte:'https://www2.camara.leg.br/legin/fed/lei/2003/lei-10833-29-dezembro-2003-497045-normaatualizada-pl.html' },
+        IRPJ: { fundamento:'IN RFB 1700/2017; apuracao do periodo, nao lucro gerencial do evento.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=81268' },
+        CSLL: { fundamento:'Lei 7.689/1988; IN RFB 1700/2017; retencao conforme Lei 10.833/2003.', fonte:'https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/tributos/CSLL' },
+        INSS: { fundamento:'Lei 8.212/1991, art. 31; IN RFB 2110/2022, arts. 110 a 114. Nao e ISS.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=126687' },
+        IRRF: { fundamento:'Manual IRRF/RFB: conferir natureza do pagamento, tomador e excecoes.', fonte:'https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/manuais/irrf/mafon-2025.pdf' },
+        ICMS: { fundamento:'Lei SP 6.374/1989, arts. 1 e 2; operacao e documento devem ser conferidos.', fonte:'https://legislacao.fazenda.sp.gov.br/Paginas/leiddtt.aspx' },
+        CBS: { fundamento:'LC 214/2025 atualizada, arts. 346 a 348 e transicao de 2027. Sem aliquota presumida.', fonte:'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html' },
+        IBS: { fundamento:'LC 214/2025 atualizada, arts. 343, 344 e 348. Conferir dispensa/compensacao em 2026.', fonte:'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html' },
+        DAS: { fundamento:'LC 123/2006; Resolucao CGSN 140/2018, arts. 21 e 22. Aliquota efetiva e segregacao.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278' }
+    });
+
+    function normalizarRegimeGerencial(valor) {
+        const n=String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+        return {simplesnacional:'simples_nacional',lucropresumido:'lucro_presumido',lucroreal:'lucro_real'}[n]||null;
+    }
+
+    function codigoTributoGerencial(t) {
+        const informado=String(t.codigo||'').toUpperCase();
+        const peloNome=String(t.nome||'').trim().toUpperCase().replace(/[\s/.-]/g,'');
+        const conhecido=peloNome==='ISSQN'?'ISS':Object.hasOwn(FONTES_FISCAIS_GERENCIAIS,peloNome)?peloNome:null;
+        if(informado && informado!=='OUTRO' && !Object.hasOwn(FONTES_FISCAIS_GERENCIAIS,informado))throw Error('CODIGO_TRIBUTO_INVALIDO');
+        if(conhecido && informado && informado!=='OUTRO' && conhecido!==informado)throw Error('CODIGO_E_NOME_TRIBUTARIO_DIVERGENTES');
+        return conhecido||informado||'OUTRO';
+    }
+
+    function auditarFiscalGerencial(dados, itens, linhas) {
+        const perfil=dados.perfilFiscalEmpresa||obterPerfilFiscalEmpresa(), regime=normalizarRegimeGerencial(perfil.regimeTributario);
+        const data=dados.dataFiscal||'', dataValida=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+        const pendencias=[];
+        const pendente=m=>{if(!pendencias.includes(m))pendencias.push(m);};
+        const perfilConfirmado=!!(regime&&perfil.validadoPorContador===true&&String(perfil.responsavelValidacao||'').trim()
+            &&dataValida(perfil.dataValidacao)&&dataValida(perfil.vigenciaInicio)&&dataValida(data)
+            &&perfil.vigenciaInicio<=data&&perfil.dataValidacao<=data);
+        if(!perfilConfirmado)pendente('Regime e perfil fiscal pendentes de confirmacao contabil declarada.');
+        if(dados.coberturaFiscalConfirmada!==true)pendente('Conferencia da cobertura tributaria da proposta pendente.');
+        if(!linhas.some(t=>t.natureza!=='encargo')&&!String(dados.justificativaFiscalSemTributos||'').trim())pendente('Sem tributos identificados: informar fundamento da nao incidencia/dispensa ou configurar as estimativas.');
+        if(!dataValida(data))pendente('Informe a competencia/fato gerador estimado; data do evento nao e confirmacao de incidencia.');
+        if(itens.some(i=>!i.tipoFiscal||['verificar_contador','locacao_bem_movel'].includes(i.tipoFiscal)))pendente('Classificacao fiscal de itens pendente.');
+        if(itens.some(i=>i.tipoFiscal==='locacao_pura_bem_movel'&&!i.confirmacaoLocacaoPuraSeparada))pendente('Locacao pura exige separacao comprovada dos servicos; cessao do item 3.05 nao e dispensada automaticamente.');
+        if(Number(dados.desconto||0)>0 && !['incondicional','condicional'].includes(dados.tipoDescontoFiscal))pendente('Tratamento fiscal do desconto pendente.');
+        for(const t of linhas){
+            t.codigo=codigoTributoGerencial(t);
+            t.valorCalculado=t.valor;
+            if(t.sujeitoPassivo==='terceiro'){t.natureza='informativo';t.valor=0;t.statusFiscal='responsabilidade_do_terceiro';continue;}
+            t.incidencia=t.incidencia||'pendente';
+            if(!['pendente','aplica','nao_aplica'].includes(t.incidencia))throw Error('INCIDENCIA_INVALIDA');
+            if(t.incidencia==='nao_aplica'){t.valor=0;t.statusFiscal='nao_aplicavel';if(!(t.conferido===true&&String(t.fundamentoLegal||'').trim()&&String(t.responsavelConferencia||'').trim()))pendente(`${t.nome}: fundamento da nao incidencia pendente.`);continue;}
+            if(t.natureza==='encargo'){
+                if(t.codigo!=='OUTRO' && !(t.codigo==='INSS'&&t.baseCalculo==='manual'&&t.baseLegal==='folha'))throw Error('TRIBUTO_NAO_E_ENCARGO_OPERACIONAL');
+                t.statusFiscal='provisao_operacional';continue;
+            }
+            const positiva=Number(t.percentual)>0;
+            if(t.codigo==='ISS' && positiva){
+                if(Number(t.percentual)>5)throw Error('ISS_SUPERA_TETO_LEGAL_NAO_CONFUNDIR_COM_INSS');
+                const locacaoPura=itens.some(i=>i.tipoFiscal==='locacao_pura_bem_movel');
+                if((locacaoPura&&['comercial','materiais'].includes(t.baseCalculo)) || t.tipoFiscalAlvo==='locacao_pura_bem_movel'
+                    || (itens.length>0&&itens.every(i=>i.tipoFiscal==='locacao_pura_bem_movel')&&!Number(dados.custos?.maoObra)))throw Error('ISS_BASE_CONTEM_LOCACAO_PURA');
+                if(!String(dados.fiscal?.municipioIncidencia||'').trim() || !String(dados.fiscal?.codigoServicoMunicipal||'').trim() || !String(t.fundamentoMunicipal||'').trim())pendente('ISS: conferir municipio competente, codigo, aliquota e lei municipal, inclusive Campinas quando pertinente.');
+            }
+            if(['IRPJ','CSLL'].includes(t.codigo)&&t.natureza==='tributo'&&positiva
+                && !(t.baseCalculo==='manual'&&['lucro_real_ajustado','base_presumida','rateio_apuracao'].includes(t.baseLegal)))throw Error('TRIBUTO_SOBRE_LUCRO_EXIGE_BASE_CONTABIL_INFORMADA');
+            if(t.codigo==='INSS'&&t.natureza==='tributo'&&positiva&&!(t.baseCalculo==='manual'&&t.baseLegal==='folha'))throw Error('INSS_PATRONAL_NAO_E_TRIBUTO_DA_NOTA');
+            if(t.codigo==='ICMS'&&positiva&&t.natureza==='tributo'&&!(t.baseCalculo==='vendas'||(t.baseCalculo==='tipo_fiscal'&&t.tipoFiscalAlvo==='produto_venda')||(t.baseCalculo==='manual'&&t.baseLegal==='operacao_icms')))throw Error('ICMS_EXIGE_OPERACAO_E_BASE_ESPECIFICAS');
+            if(t.codigo==='IRRF'&&t.natureza==='tributo')throw Error('IRRF_E_RETENCAO_NAO_DESPESA_ADICIONAL');
+            if(t.codigo==='OUTRO'&&t.natureza!=='encargo')pendente('Estimativa generica nao substitui identificacao individual dos tributos.');
+            if(t.codigo==='ISS'&&positiva&&Number(t.percentual)<2&&t.natureza!=='informativo')pendente('ISS abaixo de 2% exige fundamento de excecao legal ou partilha do Simples; nao presumir aliquota municipal.');
+            if(t.codigo==='INSS'&&t.natureza==='retencao'&&positiva){
+                if(itens.length&&itens.every(i=>i.tipoFiscal==='locacao_pura_bem_movel')&&!Number(dados.custos?.maoObra))throw Error('RETENCAO_INSS_SEM_SERVICO_COMPROVADO');
+                if(!['cessao_mao_obra','empreitada','outra_fundamentada'].includes(t.hipoteseRetencao))pendente('Retencao previdenciaria: comprovar hipotese, contrato e enquadramento; nao decorre automaticamente de ISS ou montagem.');
+            }
+            if(['PIS','COFINS'].includes(t.codigo)&&t.natureza==='tributo'&&data>='2027-01-01'&&regime!=='simples_nacional')throw Error('PIS_COFINS_REVER_TRANSICAO_CBS_2027');
+            if(t.codigo==='DAS'&&regime&&regime!=='simples_nacional')throw Error('DAS_INCOMPATIVEL_COM_REGIME');
+            if(['CBS','IBS'].includes(t.codigo)&&data>='2026-01-01'&&data<='2026-12-31'){
+                if(regime==='simples_nacional'){
+                    if(t.natureza!=='informativo'&&positiva)throw Error('ALIQUOTAS_TESTE_2026_NAO_APLICAVEIS_AO_SIMPLES');
+                    t.valor=0;
+                }else if(t.transicao2026==='dispensa'){
+                    t.natureza='informativo';t.valor=0;
+                }else if(t.transicao2026==='recolher_compensar'){
+                    if(t.compensacaoInformada==null||t.compensacaoInformada==='')throw Error('COMPENSACAO_2026_DEVE_SER_INFORMADA');
+                    const c=centavosGerenciais(t.compensacaoInformada), bruto=centavosGerenciais(t.valor);
+                    if(c>bruto)throw Error('COMPENSACAO_SUPERA_TRIBUTO');
+                    t.valorBrutoTributo=t.valor;t.valor=(bruto-c)/100;
+                }else{
+                    t.natureza='informativo';t.valor=0;pendente('IBS/CBS 2026: definir dispensa e obrigacoes acessorias ou recolhimento/compensacao; destaque nao e despesa automatica.');
+                }
+            }
+            if(t.natureza==='informativo')t.valor=0;
+            const fonteValida=typeof t.fonteLegal==='string'&&/^https:\/\//.test(t.fonteLegal);
+            const regraConfirmada=perfilConfirmado&&t.incidencia==='aplica'&&normalizarRegimeGerencial(t.regimeAplicavel)===regime
+                &&String(t.fundamentoLegal||'').trim()&&fonteValida&&dataValida(t.vigenciaInicio)&&dataValida(t.vigenciaFim)
+                &&t.vigenciaInicio<=data&&data<=t.vigenciaFim&&String(t.responsavelConferencia||'').trim()&&t.conferido===true;
+            if(t.vigenciaInicio&&dataValida(data)&&dataValida(t.vigenciaInicio)&&data<t.vigenciaInicio)throw Error('REGRA_FISCAL_FORA_DA_VIGENCIA');
+            if(t.vigenciaFim&&dataValida(data)&&dataValida(t.vigenciaFim)&&data>t.vigenciaFim)throw Error('REGRA_FISCAL_VENCIDA');
+            if(t.regimeAplicavel&&t.regimeAplicavel!=='pendente'&&regime&&normalizarRegimeGerencial(t.regimeAplicavel)!==regime)throw Error('REGRA_FISCAL_DE_OUTRO_REGIME');
+            t.validacaoFiscalPendente=!regraConfirmada;
+            t.statusFiscal=regraConfirmada?'configuracao_contabil_declarada':'estimativa_pendente';
+            if(!regraConfirmada)pendente(`${t.nome}: incidencia, regime, fundamento, fonte, vigencia e conferencia pendentes.`);
+        }
+        const ativas=linhas.filter(t=>t.incidencia!=='nao_aplica'&&t.natureza==='tributo'&&t.valor>0);
+        if(regime==='simples_nacional'&&ativas.some(t=>t.codigo==='DAS')&&ativas.some(t=>['ISS','PIS','COFINS','IRPJ','CSLL','ICMS'].includes(t.codigo)&&t.apuracaoSeparada!==true))throw Error('DAS_E_COMPONENTES_DUPLICADOS');
+        return {versao:3,regime,perfilConfirmado,dataFiscal:data,tipoDescontoFiscal:dados.tipoDescontoFiscal||'',coberturaFiscalConfirmada:dados.coberturaFiscalConfirmada===true,justificativaFiscalSemTributos:dados.justificativaFiscalSemTributos||'',pendencias,completo:pendencias.length===0,
+            fontesConsultadasEm:'2026-11-05',autenticacaoContadorVerificada:false};
+    }
+
+    function centavosGerenciais(valor) {
+        const n = typeof valor === 'number' ? valor : Number(valor || 0);
+        if (!Number.isFinite(n) || n < 0 || !Number.isSafeInteger(Math.round(n * 100))) throw Error('VALOR_GERENCIAL_INVALIDO');
+        return Math.round((n + Number.EPSILON) * 100);
+    }
+
+    function somarCentavosGerenciais(valores) {
+        const total = valores.reduce((s, n) => s + BigInt(n), 0n);
+        if (total > BigInt(Number.MAX_SAFE_INTEGER) || total < BigInt(Number.MIN_SAFE_INTEGER)) throw Error('LIMITE_MONETARIO_EXCEDIDO');
+        return Number(total);
+    }
+
+    function percentualCentavosGerenciais(base, percentual) {
+        const p = Number(percentual);
+        if (!Number.isFinite(p) || p < 0 || p > 100) throw Error('PERCENTUAL_GERENCIAL_INVALIDO');
+        return Number((BigInt(base) * BigInt(Math.round(p * 10000)) + 500000n) / 1000000n);
+    }
+
+    // Versao explicita de simulacao: as funcoes historicas compartilhadas permanecem intactas.
+    function calcularItemGerencialProposta(origem = {}) {
+        for(const k of ['quantidade','periodoDias','custoUnitario','custoTerceirizadoReal','custoProprioManualTotal'])if(origem[k]!=null && origem[k]!=='' && (!Number.isFinite(Number(origem[k])) || Number(origem[k])<0))throw Error('VALOR_GERENCIAL_INVALIDO');
+        const politica = origem.politicaCustoProprioAplicada?.modo === 'manual'
+            ? origem.politicaCustoProprioAplicada : { modo: 'nao_calcular', percentual: 0, origem: 'gerencial_v2' };
+        const item = calcularItemProposta({ ...origem, origemCusto:normalizarOrigemCustoItemProposta(origem), politicaCustoProprioAplicada: politica });
+        const q = Number(item.quantidade), dias = Number(item.periodoDias);
+        if (!Number.isSafeInteger(q) || q < 0 || !Number.isFinite(dias) || dias < 0 || !Number.isSafeInteger(dias * 10000)) throw Error('QUANTIDADE_GERENCIAL_INVALIDA');
+        const base = (BigInt(centavosGerenciais(item.custoUnitario)) * BigInt(q) * BigInt(dias * 10000) + 5000n) / 10000n;
+        if (base > BigInt(Number.MAX_SAFE_INTEGER)) throw Error('LIMITE_MONETARIO_EXCEDIDO');
+        if (Number(base) !== centavosGerenciais(item.custoTotal)) throw Error('PRECISAO_COMERCIAL_DIVERGENTE');
+        if (item.origemCusto === 'misto' && Number(origem.quantidadePropria) + Number(origem.quantidadeTerceirizada) !== q) throw Error('COMPOSICAO_MISTA_INVALIDA');
+        const total = somarCentavosGerenciais([centavosGerenciais(item.custoTotal), centavosGerenciais(item.valorHonorarios), centavosGerenciais(item.valorEncargos)]);
+        const retencao = item.aplicarINSS ? percentualCentavosGerenciais(somarCentavosGerenciais([centavosGerenciais(item.custoTotal), centavosGerenciais(item.valorHonorarios)]), item.percentualINSS) : 0;
+        const custo = somarCentavosGerenciais([centavosGerenciais(item.custoProprio), centavosGerenciais(item.custoTerceirizado)]);
+        const terceirizado = item.origemCusto === 'misto' || item.origemCusto === 'terceirizado';
+        const custoTerceirizadoInformado = !terceirizado || (origem.custoTerceirizadoInformado !== false
+            && (Object.hasOwn(origem,'custoTerceirizadoReal') || Object.hasOwn(origem,'custoTerceirizado')));
+        return { ...item, valorINSS: retencao / 100, valorTotal: total / 100, totalFinal: total / 100,
+            custoInternoItemTotal: custo / 100, lucroItem: (total - custo) / 100,
+            margemItem: total ? (total - custo) / total * 100 : 0,
+            custoTerceirizadoInformado, custoPendente: item.origemCusto === 'nao_informado' || !custoTerceirizadoInformado,
+            versaoCalculoGerencial: 2 };
+    }
+
+    function calcularFechamentoGerencialProposta(dados = {}) {
+        const itens = (dados.itens || []).map(calcularItemGerencialProposta);
+        const maoObraAtiva = dados.incluirMaoObra !== false;
+        const custos = { ...dados.custos, ...(!maoObraAtiva ? { maoObra: 0, montagem: {total:0}, desmontagem:{total:0} } : {}) };
+        const controle = { ...dados.controleInterno, ...(!maoObraAtiva ? { maoObraOperacional: {total:0} } : {}) };
+        const resumo = calcularResumoProposta({ ...dados, custos, controleInterno: controle,
+            itens: itens.map(i => ({ ...i, aplicarINSS: false })) });
+        const subtotal = somarCentavosGerenciais(itens.map(i => centavosGerenciais(i.valorTotal)));
+        const adicionais = somarCentavosGerenciais(CHAVES_CUSTOS_ADICIONAIS.map(k => centavosGerenciais(custos[k] || 0)));
+        const antesDesconto = somarCentavosGerenciais([subtotal, adicionais, centavosGerenciais(dados.acrescimo || 0)]);
+        const descontoAplicado = Math.min(antesDesconto, centavosGerenciais(dados.desconto || 0));
+        const base = antesDesconto - descontoAplicado;
+        const fiscalAgregado = percentualCentavosGerenciais(base, dados.percentualNF || 0);
+        const total = somarCentavosGerenciais([base, dados.tipoCalculoNF === 'acrescentar' ? fiscalAgregado : 0]);
+        const linhas = [];
+        if (fiscalAgregado) linhas.push({id:'fiscal-legado',nome:'Estimativa fiscal agregada',natureza:'tributo',base:base/100,percentual:Number(dados.percentualNF),valor:fiscalAgregado/100,validacaoFiscalPendente:true});
+        itens.forEach((item, indice) => {
+            const b = arredondarMoeda(item.custoTotal + item.valorHonorarios);
+            if (item.valorEncargos) linhas.push({id:`encargo-item-${indice}`,nome:`Encargo do item ${indice+1}`,natureza:'encargo',base:b,percentual:item.percentualEncargos,valor:item.valorEncargos,tipoCalculo:item.tipoCalculoEncargos});
+            if (item.valorINSS) linhas.push({id:`inss-item-${indice}`,codigo:'INSS',nome:`INSS do item ${indice+1}`,natureza:'retencao',base:b,percentual:item.percentualINSS,valor:item.valorINSS,validacaoFiscalPendente:true});
+        });
+        const individuais = dados.tributos || [];
+        if (!Array.isArray(individuais) || individuais.length > 40) throw Error('TRIBUTOS_INVALIDOS');
+        if (fiscalAgregado && individuais.some(t => t.natureza === 'tributo')) throw Error('FISCAL_AGREGADO_E_INDIVIDUAL_DUPLICADOS');
+        const nomes = new Set(), codigos = new Set(), coberturas=new Map();
+        for (const [indice, t] of individuais.entries()) {
+            if (typeof t.nome !== 'string' || !t.nome.trim() || t.nome.length > 100 || !['tributo','retencao','encargo','informativo'].includes(t.natureza)) throw Error('TRIBUTO_INCOMPLETO');
+            if(t.incidencia!=='nao_aplica'&&(t.percentual === '' || t.percentual == null || (t.baseCalculo==='manual' && (t.baseManual==null || t.baseManual===''))))throw Error('ALIQUOTA_OU_BASE_PENDENTE');
+            const chave = `${t.natureza}:${t.nome.trim().toLowerCase()}`;
+            if (nomes.has(chave) || (t.nome.trim().toLowerCase() === 'inss' && linhas.some(l => l.id.startsWith('inss-')))) throw Error('TRIBUTO_DUPLICADO');
+            nomes.add(chave);
+            const codigo=codigoTributoGerencial(t), chaveCodigo=`${codigo}:${t.natureza}:${t.baseCalculo}:${t.tipoFiscalAlvo||''}:${t.baseManual??''}`;
+            if(codigo==='INSS'&&t.natureza==='retencao'&&linhas.some(l=>l.id.startsWith('inss-')))throw Error('RETENCAO_INSS_ITEM_E_FECHAMENTO_DUPLICADA');
+            if(codigo!=='OUTRO'&&codigos.has(chaveCodigo))throw Error('TRIBUTO_DUPLICADO_POR_CODIGO');
+            codigos.add(chaveCodigo);
+            if(codigo!=='OUTRO'&&Number(t.percentual)>0&&t.incidencia!=='nao_aplica'&&t.natureza!=='informativo'&&t.sujeitoPassivo!=='terceiro'){
+                const servicos=['cessao_estrutura_temporaria_3_05','servico','mao_de_obra','frete_logistica','impressao_producao','art_projeto_documentacao'];
+                const escopo=new Set(itens.flatMap((i,n)=>{
+                    const inclui=t.baseCalculo==='comercial'||(t.baseCalculo==='materiais'&&i.tipoFiscal!=='mao_de_obra'&&i.categoria!==CATEGORIA_MAO_OBRA_PROPOSTA)
+                        ||(t.baseCalculo==='servicos'&&servicos.includes(i.tipoFiscal))||(t.baseCalculo==='vendas'&&i.tipoFiscal==='produto_venda')
+                        ||(t.baseCalculo==='tipo_fiscal'&&i.tipoFiscal===t.tipoFiscalAlvo);
+                    return inclui?[n]:[];
+                }));
+                if(t.baseCalculo==='manual')escopo.add('*');
+                if(['comercial','servicos'].includes(t.baseCalculo)&&custos.maoObra)escopo.add('maoObra');
+                const k=`${codigo}:${t.natureza}`, anteriores=coberturas.get(k)||new Set();
+                if(anteriores.size&&(escopo.has('*')||anteriores.has('*')||[...escopo].some(x=>anteriores.has(x))))throw Error('BASES_TRIBUTARIAS_SOBREPOSTAS');
+                coberturas.set(k,new Set([...anteriores,...escopo]));
+            }
+            const bases = { comercial: total, materiais: somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal!=='mao_de_obra' && i.categoria!==CATEGORIA_MAO_OBRA_PROPOSTA).map(i=>centavosGerenciais(i.valorTotal))),
+                servicos: somarCentavosGerenciais([...itens.filter(i=>['cessao_estrutura_temporaria_3_05','servico','mao_de_obra','frete_logistica','impressao_producao','art_projeto_documentacao'].includes(i.tipoFiscal)).map(i=>centavosGerenciais(i.valorTotal)),centavosGerenciais(custos.maoObra||0)]),
+                vendas:somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal==='produto_venda').map(i=>centavosGerenciais(i.valorTotal))),
+                tipo_fiscal:somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal===t.tipoFiscalAlvo).map(i=>centavosGerenciais(i.valorTotal))),
+                manual: centavosGerenciais(t.baseManual || 0) };
+            if (!Object.hasOwn(bases, t.baseCalculo)) throw Error('BASE_TRIBUTARIA_INVALIDA');
+            if(t.baseCalculo==='tipo_fiscal'&&!TIPOS_FISCAIS_ITEM_PROPOSTA.some(x=>x.id===t.tipoFiscalAlvo))throw Error('TIPO_FISCAL_DA_BASE_INVALIDO');
+            let b=bases[t.baseCalculo];
+            if(t.baseCalculo==='comercial'&&dados.tipoDescontoFiscal==='condicional')b=antesDesconto;
+            if(t.ajusteBase==='rateio_comercial'&&!['manual','comercial'].includes(t.baseCalculo)){
+                if(descontoAplicado&&dados.tipoDescontoFiscal!=='incondicional')throw Error('RATEIO_EXIGE_DESCONTO_INCONDICIONAL_CONFIRMADO');
+                const denominador=somarCentavosGerenciais([subtotal,adicionais]);
+                b=denominador?Number((BigInt(b)*BigInt(base)+BigInt(Math.floor(denominador/2)))/BigInt(denominador)):0;
+            }
+            const percentual=t.incidencia==='nao_aplica'?0:t.percentual, valor=percentualCentavosGerenciais(b,percentual);
+            linhas.push({...t,id:`individual-${indice}`,codigo,nome:t.nome.trim(),natureza:t.natureza,base:b/100,baseCalculo:t.baseCalculo,
+                percentual:Number(percentual),valor:valor/100,validacaoFiscalPendente:t.natureza!=='encargo'});
+        }
+        const auditoriaFiscal=auditarFiscalGerencial(dados,itens,linhas);
+        const tributos = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='tributo').map(t=>centavosGerenciais(t.valor)));
+        const encargos = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='encargo').map(t=>centavosGerenciais(t.valor)));
+        const retencoes = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='retencao').map(t=>centavosGerenciais(t.valor)));
+        if (retencoes > total) throw Error('RETENCOES_SUPERAM_RECEITA');
+        const custosReais = somarCentavosGerenciais([ ...itens.map(i=>centavosGerenciais(i.custoInternoItemTotal)),
+            ...['custoInternoTotal','custoTerceirizadoTotal','outrosCustosInternos'].map(k=>centavosGerenciais(controle[k] || 0)),
+            centavosGerenciais(controle.maoObraOperacional?.total || 0), centavosGerenciais(controle.hospedagemOperacional?.total || 0)]);
+        const antes = somarCentavosGerenciais([total, -custosReais, -tributos, -encargos]);
+        const depreciacao = percentualCentavosGerenciais(Math.max(0, antes), 20);
+        const resultado = antes - depreciacao;
+        const entrada = percentualCentavosGerenciais(total, dados.percentualEntrada ?? 50);
+        return { ...resumo, versao:2,versaoFiscal:3,auditoriaFiscal, itensCalculados:itens, incluirMaoObra:maoObraAtiva, tributosIndividualizados:linhas,
+            resumoFiscal:{...resumo.resumoFiscal,impostosEstimados:tributos/100,retencoesPrevistas:retencoes/100,valorBrutoProposta:total/100,valorLiquidoPrevisto:(total-retencoes)/100,auditoriaFiscal},
+            desconto:descontoAplicado/100,descontoSolicitado:Number(dados.desconto||0),
+            subtotalItens:subtotal/100,totalCustosAdicionais:adicionais/100,valorBase:base/100,
+            valorFinal:total/100,valorFinalComNF:total/100,valorFinalComercial:total/100,valorNF:fiscalAgregado/100,
+            valorEntrada:entrada/100,valorSaldo:(total-entrada)/100,valorLiquidoPrevisto:(total-retencoes)/100,receitaAposTributos:(total-tributos)/100,
+            custoTotalProposta:custosReais/100,tributosTotal:tributos/100,encargosTotal:encargos/100,retencoesTotal:retencoes/100,
+            caixaAposRetencoes:(total-retencoes)/100,resultadoAntesDepreciacao:antes/100,depreciacaoGerencial:depreciacao/100,
+            lucroPrevisto:resultado/100,margemPrevista:total ? resultado/total*100 : 0,
+            custosCompletos:itens.every(i=>!i.custoPendente),resultadoCompleto:itens.every(i=>!i.custoPendente)&&auditoriaFiscal.completo };
+    }
+
+    function calcularItemFormularioGerencial(item) {
+        return fechamentoGerencialAtual ? calcularItemGerencialProposta(item) : calcularItemProposta(item);
+    }
+
+    function coletarTributosGerenciais() {
+        return Array.from(document.querySelectorAll('#propTributosIndividuais .prop-tributo-linha')).map(linha=>{
+            const t={...origensTributosGerenciais.get(linha)};
+            for(const el of linha.querySelectorAll('[data-tributo]')){
+                const chave={base:'baseCalculo',manual:'baseManual'}[el.dataset.tributo]||el.dataset.tributo;
+                t[chave]=el.type==='checkbox'?el.checked:el.type==='number'?(el.value===''?null:Number(el.value)):el.value;
+            }
+            return t;
+        });
+    }
+
+    function calcularResumoFormularioGerencial(dados) {
+        if(!fechamentoGerencialAtual)return fechamentoHistoricoFormulario?JSON.parse(JSON.stringify(fechamentoHistoricoFormulario)):calcularResumoProposta(dados);
+        try{return calcularFechamentoGerencialProposta({ ...dados,
+            dataFiscal:document.getElementById('propDataFiscalGerencial')?.value||'',tipoDescontoFiscal:document.getElementById('propTipoDescontoFiscal')?.value||'',
+            coberturaFiscalConfirmada:document.getElementById('propCoberturaFiscal')?.checked===true,justificativaFiscalSemTributos:document.getElementById('propJustificativaFiscal')?.value||'',
+            incluirMaoObra:document.getElementById('propIncluirMaoObra')?.checked !== false,tributos:coletarTributosGerenciais() });}
+        catch(e){return {...calcularResumoProposta(dados),calculoInvalido:e.message,resultadoCompleto:false};}
+    }
+
+    function adicionarTributoGerencial(dados = {}) {
+        const host=document.getElementById('propTributosIndividuais');if(!host)return;
+        const linha=document.createElement('div');linha.className='prop-tributo-linha';
+        linha.innerHTML='<input data-tributo="nome" aria-label="Nome do tributo ou retenção" placeholder="Nome"><select data-tributo="natureza" aria-label="Natureza"><option value="tributo">Tributo</option><option value="retencao">Retenção</option><option value="encargo">Encargo interno</option></select><select data-tributo="base" aria-label="Base de cálculo"><option value="comercial">Valor comercial</option><option value="materiais">Materiais</option><option value="servicos">Base NFS-e estimada</option><option value="manual">Base informada</option></select><input data-tributo="manual" type="number" min="0" step="0.01" aria-label="Base informada em reais" placeholder="Base R$"><input data-tributo="percentual" type="number" min="0" max="100" step="0.01" aria-label="Alíquota percentual" placeholder="%"><button type="button" title="Remover tributo" aria-label="Remover tributo"><i class="bi bi-trash"></i></button>';
+        origensTributosGerenciais.set(linha,JSON.parse(JSON.stringify(dados)));
+        linha.querySelector('[data-tributo="natureza"]').add(new Option('Informativo / sem despesa','informativo'));
+        const baseSelect=linha.querySelector('[data-tributo="base"]');baseSelect.add(new Option('Vendas de produtos','vendas'));baseSelect.add(new Option('Classificacao fiscal especifica','tipo_fiscal'));
+        const details=document.createElement('details');details.className='prop-tributo-fundamento';const summary=document.createElement('summary');summary.textContent='Incidencia, regime e fundamento';details.append(summary);
+        const grid=document.createElement('div');grid.className='proposta-config-grid';details.append(grid);
+        const campos=[
+            ['codigo','Tributo',['OUTRO',...Object.keys(FONTES_FISCAIS_GERENCIAIS)]],['incidencia','Incidencia',['pendente','aplica','nao_aplica']],
+            ['regimeAplicavel','Regime',['pendente','simples_nacional','lucro_presumido','lucro_real']],['sujeitoPassivo','Responsavel',['mtz','terceiro']],
+            ['tipoFiscalAlvo','Classificacao da base',TIPOS_FISCAIS_ITEM_PROPOSTA.map(x=>x.id)],
+            ['baseLegal','Natureza da base',['receita','lucro_real_ajustado','base_presumida','rateio_apuracao','folha','operacao_icms']],
+            ['ajusteBase','Desconto e acrescimo na base',['sem_rateio','rateio_comercial']],['hipoteseRetencao','Hipotese previdenciaria',['pendente','cessao_mao_obra','empreitada','outra_fundamentada']],
+            ['fundamentoLegal','Fundamento legal','text'],['fonteLegal','Fonte oficial (URL)','url'],['fundamentoMunicipal','Lei municipal / excecao','text'],
+            ['vigenciaInicio','Vigencia inicial','date'],['vigenciaFim','Revisar regra ate','date'],['responsavelConferencia','Responsavel pela conferencia','text'],
+            ['transicao2026','CBS / IBS 2026',['pendente','dispensa','recolher_compensar']],['compensacaoInformada','Compensacao comprovada (R$)','number'],
+            ['apuracaoSeparada','Apuracao fora do DAS comprovada','checkbox'],['conferido','Conferencia contabil declarada (sem autenticacao)','checkbox']];
+        for(const [chave,rotulo,tipo]of campos){
+            const label=document.createElement('label');label.className='form-group';const texto=document.createElement('span');texto.textContent=rotulo;label.append(texto);
+            const el=document.createElement(Array.isArray(tipo)?'select':'input');el.dataset.tributo=chave;
+            if(Array.isArray(tipo))for(const valor of tipo)el.add(new Option(valor.replaceAll('_',' '),valor));else el.type=tipo;
+            if(tipo==='number'){el.min='0';el.step='0.01';}label.append(el);grid.append(label);
+        }
+        linha.append(details);
+        const valores={...dados,base:dados.baseCalculo||dados.base||'comercial',manual:dados.baseManual??dados.manual??'',codigo:dados.codigo||codigoTributoGerencial(dados)};
+        for(const el of linha.querySelectorAll('[data-tributo]')){const v=valores[el.dataset.tributo];if(v!=null){if(el.type==='checkbox')el.checked=v===true;else el.value=v;}}
+        linha.querySelector('[data-tributo="codigo"]').addEventListener('change',e=>{const f=FONTES_FISCAIS_GERENCIAIS[e.target.value];if(f){for(const [k,v]of Object.entries({fundamentoLegal:f.fundamento,fonteLegal:f.fonte})){const el=linha.querySelector(`[data-tributo="${k}"]`);if(!el.value)el.value=v;}}});
+        const atualizarBase=()=>{linha.querySelector('[data-tributo="manual"]').disabled=linha.querySelector('[data-tributo="base"]').value!=='manual';};atualizarBase();
+        linha.querySelector('button').addEventListener('click',()=>{linha.remove();recalcularResumoProposta();});
+        linha.addEventListener('input',()=>recalcularResumoProposta());linha.addEventListener('change',()=>{atualizarBase();recalcularResumoProposta();});
+        host.append(linha);recalcularResumoProposta();
+    }
+
+    function revisarFechamentoGerencialProposta() {
+        liberarControlesHistoricosGerenciais();fechamentoHistoricoFormulario=null;fechamentoGerencialAtual=true;recalcularResumoProposta();
+    }
+
+    function liberarControlesHistoricosGerenciais() {
+        for(const [el,desabilitado]of controlesHistoricosGerenciais)el.disabled=desabilitado;
+        controlesHistoricosGerenciais.clear();
+    }
+
+    function preservarControlesHistoricosGerenciais() {
+        if(!fechamentoHistoricoFormulario)return;
+        for(const el of document.querySelectorAll('#propostaItensBody input, #propostaItensBody select, #propostaItensBody button, #propostaSecaoFechamento input, #propostaSecaoFechamento select, #propostaSecaoFechamento button')){
+            if(el.id==='propRevisaoCalculoHistorico')continue;
+            controlesHistoricosGerenciais.set(el,el.disabled);el.disabled=true;
+        }
+    }
+
+    function organizarParametrosGerenciaisProposta() {
+        const fiscal=document.querySelectorAll('#propostaConfigPanelFiscal .proposta-config-grid')[1];
+        for(const id of ['propOrcConfigINSSPadrao','propOrcConfigTipoINSSPadrao']){
+            const campo=document.getElementById(id);if(fiscal&&campo)fiscal.append(campo.closest('.form-group'));
+        }
+        const label=document.querySelector('label[for="propOrcConfigEncargosPadrao"]');if(label)label.textContent='Encargo estimado por item (%)';
+        const custos=document.querySelector('#propostaConfigPanelCustos .proposta-config-grid');
+        if(custos&&!custos.closest('details')){const historico=document.createElement('details'),titulo=document.createElement('summary');titulo.textContent='Políticas históricas de custos dos itens';custos.before(historico);historico.append(titulo,custos);}
+        const fechamento=document.getElementById('propostaSecaoFechamento'),tributos=document.querySelector('.proposta-tributos-gerenciais');
+        if(fechamento&&tributos)fechamento.append(tributos);
+    }
+
+    function apresentarFechamentoGerencial(resumo) {
+        const host=document.getElementById('propFechamentoGerencial');if(!host)return;
+        const historico=document.getElementById('propRevisaoCalculoHistorico');if(historico)historico.hidden=fechamentoGerencialAtual;
+        if(resumo.calculoInvalido){host.textContent=`Revisar valores: ${resumo.calculoInvalido}`;for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;}
+        if(!fechamentoGerencialAtual){host.textContent='Cálculo histórico preservado. Nenhuma depreciação nova foi aplicada.';return;}
+        host.innerHTML=`<dl><div><dt>Custos reais</dt><dd>${formatarMoeda(resumo.custoTotalProposta)}</dd></div><div><dt>Tributos</dt><dd>${formatarMoeda(resumo.tributosTotal)}</dd></div><div><dt>Encargos</dt><dd>${formatarMoeda(resumo.encargosTotal)}</dd></div><div><dt>Resultado antes da depreciação</dt><dd>${formatarMoeda(resumo.resultadoAntesDepreciacao)}</dd></div><div><dt>Depreciação gerencial · 20%</dt><dd>${formatarMoeda(resumo.depreciacaoGerencial)}</dd></div><div><dt>Resultado gerencial ${resumo.resultadoCompleto?'':'parcial'}</dt><dd>${resumo.resultadoCompleto?formatarMoeda(resumo.lucroPrevisto):'Custos pendentes'}</dd></div><div><dt>Retenções previstas</dt><dd>${formatarMoeda(resumo.retencoesTotal)}</dd></div><div><dt>Caixa após retenções</dt><dd>${formatarMoeda(resumo.caixaAposRetencoes)}</dd></div></dl><div class="table-responsive"><table><thead><tr><th>Nome</th><th>Natureza</th><th>Base</th><th>Alíquota</th><th>Valor</th></tr></thead><tbody>${resumo.tributosIndividualizados.map(t=>`<tr><td>${sanitizar(t.nome)}</td><td>${sanitizar(t.natureza)}</td><td>${formatarMoeda(t.base)}</td><td>${formatarPercentual(t.percentual)}</td><td>${formatarMoeda(t.valor)}</td></tr>`).join('')}</tbody></table></div><p>Estimativa gerencial, não lucro contábil. Retenções afetam o caixa, sem nova dedução do resultado. Incidência, base e alíquota exigem conferência fiscal.</p>`;
+        // Pendencia fiscal nao significa custo ausente: exibir valor provisorio, sem declarar completude.
+        if(resumo.custosCompletos!==false){
+            const dd=[...host.querySelectorAll('dt')].find(x=>x.textContent.startsWith('Resultado gerencial'))?.nextElementSibling;
+            if(dd)dd.textContent=formatarMoeda(resumo.lucroPrevisto)+(resumo.resultadoCompleto?'':' (provisorio)');
+        }
+        const auditoria=resumo.auditoriaFiscal;
+        if(auditoria){const aviso=document.createElement('p');aviso.className='proposta-fiscal-pendencias';aviso.textContent=auditoria.completo?'Cobertura fiscal declarada; nao constitui apuracao contabil ou autenticacao do contador.':`Fiscal pendente: ${auditoria.pendencias.join(' ')}`;host.prepend(aviso);}
+        for(const [i,t]of resumo.tributosIndividualizados.entries()){
+            const td=host.querySelectorAll('tbody tr')[i]?.firstElementChild;if(td){const detalhe=document.createElement('small');detalhe.className='prop-fiscal-regra';detalhe.textContent=[t.codigo,t.incidencia,t.statusFiscal,t.fundamentoLegal,t.fonteLegal,t.vigenciaInicio&&`${t.vigenciaInicio} a ${t.vigenciaFim||'revisar'}`].filter(Boolean).join(' · ');td.append(detalhe);}
+        }
+        if(!resumo.resultadoCompleto)for(const id of ['propLucroPrevisto','propMargemPrevista','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){const valor=resumo.custosCompletos===false?'Custos pendentes':`${id.includes('Margem')?formatarPercentual(resumo.margemPrevista):formatarMoeda(resumo.lucroPrevisto)} (provisorio)`;if('value'in el)el.value=valor;else el.textContent=valor;}}
+    }
+
+    function prepararPropostaApresentacaoGerencial(proposta) {
+        const p=normalizarProposta(proposta), f=proposta?.controleInterno?.fechamentoGerencial;
+        if(proposta?.fiscal?.resumo)p.fiscal={...p.fiscal,resumo:JSON.parse(JSON.stringify(proposta.fiscal.resumo))};
+        for(const k of ['subtotal','totalCustosAdicionais','valorFinal','valorFinalComNF','valorNF','valorBase','valorLiquidoPrevisto','valorEntrada','valorSaldo'])if(typeof proposta?.financeiro?.[k]==='number' && Number.isFinite(proposta.financeiro[k]))p.financeiro[k]=proposta.financeiro[k];
+        for(const k of ['custoTotalProposta','lucroPrevisto','margemPrevista'])if(typeof proposta?.controleInterno?.[k]==='number')p.controleInterno[k]=proposta.controleInterno[k];
+        if(f?.versao!==2)return p;
+        // Usa o fechamento salvo na simulacao; nao recalcula documentos historicos.
+        p.itens=JSON.parse(JSON.stringify(proposta.itens));
+        p.custos=JSON.parse(JSON.stringify(proposta.custos));
+        p.fiscal={...p.fiscal,...JSON.parse(JSON.stringify(proposta.fiscal||{}))};p.dadosFiscais=p.fiscal;
+        for(const k of ['subtotal','valorFinal','valorFinalComNF','valorNF','valorBase','valorLiquidoPrevisto','valorEntrada','valorSaldo'])if(Object.hasOwn(proposta.financeiro,k))p.financeiro[k]=proposta.financeiro[k];
+        p.controleInterno={...p.controleInterno,fechamentoGerencial:f,lucroPrevisto:f.lucroPrevisto,margemPrevista:f.margemPrevista,custoTotalProposta:f.custoTotalProposta};
+        return p;
+    }
     const CATEGORIA_ITEM_PROPOSTA_PADRAO = 'outros';
     const CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME = 'Outros';
     const CATEGORIA_MAO_OBRA_PROPOSTA = 'mao-de-obra';
@@ -257,6 +624,8 @@
     let abaConfigOrcamentoAtual = 'gerais';
     let tipoFiscalConfigOrcamentoAberto = '';
     let acionadorConfigOrcamento = null;
+    let identidadeEdicaoProposta = null;
+    let salvamentoPropostaEmAndamento = false;
     const MENSAGEM_PERCENTUAL_REAL_PROPOSTA = 'Digite o percentual real, exemplo: 18,5. O sistema calcula por dentro automaticamente.';
 
     function textoSeguro(valor, fallback = '') {
@@ -459,7 +828,7 @@
         const custos = obterCustosFormulario();
         const controleInterno = obterControleInternoFormulario();
         const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
-        const resumo = calcularResumoProposta({
+        const resumo = calcularResumoFormularioGerencial({
             itens,
             custos,
             desconto: parseNumeroInput('propDesconto'),
@@ -3485,11 +3854,12 @@
         const revisao = normalizarNumeroRevisaoProposta(proposta?.revisao, 0);
         return {
             entidade: 'proposta',
-            propostaId: String(proposta?.id || ''),
+            propostaId: proposta?.id ?? '',
+            propostaReferencia: criarReferenciaTipadaEntidade('proposta', proposta?.id),
             codigo: textoSeguro(proposta?.codigo),
             codigoBase: obterCodigoBaseProposta(proposta),
             revisao,
-            propostaOrigemId: textoSeguro(proposta?.propostaOrigemId),
+            propostaOrigemId: proposta?.propostaOrigemId ?? '',
             usuarioNome: obterUsuarioAtualNomeOuEmail(),
             ...extras
         };
@@ -3613,7 +3983,7 @@
         const data = textoSeguro(anexo.data ?? anexo.atualizadoEm ?? anexo.criadoEm, '');
         return {
             id: textoSeguro(anexo.id, ''),
-            propostaId: textoSeguro(propostaId || anexo.propostaId, ''),
+            propostaId: normalizarIdEntidadeExato(propostaId).valido ? propostaId : (anexo.propostaId ?? ''),
             nome: textoSeguro(anexo.nome ?? anexo.nomeArquivo, ''),
             tipo: 'link',
             tamanho: 0,
@@ -3746,7 +4116,8 @@
     function salvarAnexoProposta() {
         const propostaId = obterIdPropostaEmEdicao();
         const lista = obterPropostasBase();
-        const indiceProposta = lista.findIndex((item) => String(item.id) === String(propostaId));
+        const resolucao = resolverRegistroPorIdExato(lista, propostaId);
+        const indiceProposta = resolucao.encontrado ? lista.indexOf(resolucao.registro) : -1;
         if (indiceProposta < 0) {
             mostrarToast('Salve a proposta antes de adicionar anexos.', 'erro');
             return;
@@ -3818,7 +4189,8 @@
     function removerAnexoProposta(anexoId) {
         const propostaId = obterIdPropostaEmEdicao();
         const lista = obterPropostasBase();
-        const indiceProposta = lista.findIndex((item) => String(item.id) === String(propostaId));
+        const resolucao = resolverRegistroPorIdExato(lista, propostaId);
+        const indiceProposta = resolucao.encontrado ? lista.indexOf(resolucao.registro) : -1;
         const proposta = indiceProposta >= 0 ? lista[indiceProposta] : null;
         const anexos = normalizarAnexosProposta(proposta?.anexos, proposta?.id);
         const anexo = anexos.find((item) => String(item.id) === String(anexoId));
@@ -3932,16 +4304,16 @@
     function localizarOrigemRevisaoProposta(proposta) {
         const atual = normalizarProposta(proposta);
         const lista = obterPropostasBase();
-        const origemId = textoSeguro(atual.propostaOrigemId);
-        if (origemId) {
-            const direta = lista.find((item) => String(item.id) === origemId);
-            if (direta) return normalizarProposta(direta);
+        const origemId = atual.propostaOrigemId;
+        if (normalizarIdEntidadeExato(origemId).valido) {
+            const direta = resolverRegistroPorIdExato(lista, origemId);
+            return direta.encontrado ? normalizarProposta(direta.registro) : null;
         }
         const codigoBase = obterCodigoBaseProposta(atual);
         const revisaoAtual = normalizarNumeroRevisaoProposta(atual.revisao, 0);
         const anterior = lista
             .map((item) => normalizarProposta(item))
-            .filter((item) => String(item.id) !== String(atual.id))
+            .filter((item) => !idsEntidadeExatos(item.id, atual.id))
             .filter((item) => obterCodigoBaseProposta(item) === codigoBase)
             .filter((item) => normalizarNumeroRevisaoProposta(item.revisao, 0) < revisaoAtual)
             .sort((a, b) => normalizarNumeroRevisaoProposta(b.revisao, 0) - normalizarNumeroRevisaoProposta(a.revisao, 0))[0];
@@ -3960,7 +4332,7 @@
                 revisao: normalizarNumeroRevisaoProposta(item.revisao, 0),
                 status: item.status,
                 data: item.dataCriacao || item.criadoEm || '',
-                atual: String(item.id) === String(atual.id)
+                atual: idsEntidadeExatos(item.id, atual.id)
             }));
         const historico = (Array.isArray(atual.historicoRevisoes) ? atual.historicoRevisoes : [])
             .map((item) => ({
@@ -3973,7 +4345,7 @@
             }));
         const mapa = new Map();
         [...historico, ...porCodigo].forEach((item) => {
-            const chave = `${item.id || ''}-${item.revisao}`;
+            const chave = `${criarReferenciaTipadaEntidade('proposta', item.id)}-${item.revisao}`;
             if (!mapa.has(chave)) mapa.set(chave, item);
         });
         return Array.from(mapa.values()).sort((a, b) => a.revisao - b.revisao);
@@ -4082,7 +4454,7 @@
 
     function criarLinhaItemProposta(item = {}) {
         const itemNovo = Object.keys(item || {}).length === 0;
-        const itemCalculadoBase = calcularItemProposta(item);
+        const itemCalculadoBase = calcularItemFormularioGerencial(item);
         const itemCalculado = itemNovo
             ? {
                 ...itemCalculadoBase,
@@ -4253,7 +4625,7 @@
                             </div>
                             <div class="form-group prop-item-custo-terceiro-config">
                                 <label>Custo real terceirizado</label>
-                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
+                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${itemCalculado.custoPendente ? '' : valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Custo próprio</label>
@@ -4364,7 +4736,8 @@
             quantidadeTerceirizada: numeroNaoNegativo(detalhes?.querySelector('.prop-item-quantidade-terceirizada')?.value, 0),
             custoTerceirizadoReal: numeroNaoNegativo(detalhes?.querySelector('.prop-item-custo-terceirizado-real')?.value, 0)
         };
-        return calcularItemProposta(item);
+        item.custoTerceirizadoInformado = detalhes?.querySelector('.prop-item-custo-terceirizado-real')?.value.trim() !== '';
+        return calcularItemFormularioGerencial(item);
     }
 
     function numeroQuantidadeOperacional(valor) {
@@ -5075,10 +5448,11 @@
 
     function recalcularResumoProposta() {
         executarPropostaMantendoScroll(() => {
+            try {
             const linhas = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
-            const itensTodos = linhas.map((linha) => atualizarLinhaItemProposta(linha));
+            const itensTodos = fechamentoHistoricoFormulario?.itensCalculados||linhas.map((linha) => atualizarLinhaItemProposta(linha));
             const itens = itensTodos.filter((item) => item.descricao && item.periodoDias > 0 && item.quantidade > 0);
-            atualizarResumoCategoriasPropostaSemInterromperDigitacao(itens);
+            atualizarResumoCategoriasPropostaSemInterromperDigitacao(fechamentoGerencialAtual ? itens.map(i=>({...i,aplicarINSS:false})) : itens);
             const custos = obterCustosFormulario();
             const controleInterno = obterControleInternoFormulario();
             const desconto = parseNumeroInput('propDesconto');
@@ -5088,7 +5462,7 @@
             const percentualEntrada = parsePercentualInput('propPercentualEntrada', 50, 100);
             const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
 
-            const resumo = calcularResumoProposta({
+            const resumo = calcularResumoFormularioGerencial({
                 itens,
                 custos,
                 desconto,
@@ -5122,6 +5496,8 @@
             atualizarResumoFiscalProposta(resumo.resumoFiscal);
             atualizarResumoRapidoItensProposta(resumo);
             atualizarExperienciaGuiadaProposta(resumo, itens);
+            apresentarFechamentoGerencial(resumo);
+            } catch(e) { apresentarFechamentoGerencial({calculoInvalido:e.message}); }
         });
     }
 
@@ -5860,7 +6236,7 @@
         const clienteSnapshot = montarClienteSnapshotProposta(proposta.clienteSnapshot || cliente);
         const clientePrecisaNotaFiscal = clientePrecisaNotaFiscalOrigem || cliente.precisaNotaFiscal === true;
         const fiscal = montarFiscalPropostaNormalizado(fiscalOrig, cliente, evento, resumo.resumoFiscal);
-        const id = proposta.id || Date.now();
+        const id = normalizarIdEntidadeExato(proposta.id).valido ? proposta.id : Date.now();
         const anexos = normalizarAnexosProposta(proposta.anexos, id);
         const codigo = textoSeguro(proposta.codigo, '') || gerarCodigoPropostaLegadoPorId(id);
         const codigoBase = obterCodigoBaseProposta(proposta.codigoBase || codigo) || codigo;
@@ -5872,7 +6248,7 @@
         const dataUltimaAlteracao = textoSeguro(proposta.dataUltimaAlteracao ?? proposta.atualizadoEm, dataCriacao);
         const criadoPor = textoSeguro(proposta.criadoPor, usuarioAtual);
         const alteradoPor = textoSeguro(proposta.alteradoPor, criadoPor);
-        const locacaoVinculadaId = textoSeguro(proposta.locacaoVinculadaId ?? proposta.locacaoId, '');
+        const locacaoVinculadaId = proposta.locacaoVinculadaId ?? proposta.locacaoId ?? '';
         const dataConversaoLocacao = textoSeguro(proposta.dataConversaoLocacao, '');
 
         return {
@@ -5917,7 +6293,7 @@
             motivoStatus: textoSeguro(proposta.motivoStatus, ''),
             motivoRecusa: textoSeguro(proposta.motivoRecusa, ''),
             motivoCancelamento: textoSeguro(proposta.motivoCancelamento, ''),
-            propostaOrigemId: textoSeguro(proposta.propostaOrigemId, ''),
+            propostaOrigemId: proposta.propostaOrigemId ?? '',
             historicoRevisoes: Array.isArray(proposta.historicoRevisoes) ? proposta.historicoRevisoes.slice() : [],
             motivoRevisao: textoSeguro(proposta.motivoRevisao, ''),
             // compatibilidade legado
@@ -5926,26 +6302,92 @@
         };
     }
 
+    function preservarCamposComerciais(origem, calculado) {
+        if (!origem || !calculado || Array.isArray(origem) || Array.isArray(calculado)
+            || typeof origem !== 'object' || typeof calculado !== 'object') return calculado;
+        return Object.fromEntries(Array.from(new Set([...Object.keys(origem), ...Object.keys(calculado)]))
+            .map((chave) => [chave, Object.prototype.hasOwnProperty.call(calculado, chave)
+                ? preservarCamposComerciais(origem[chave], calculado[chave]) : origem[chave]]));
+    }
+
+    // Compartilhado com o planejador inativo; nenhuma formula comercial nova.
+    function construirPropostaComercialCalculada(proposta, anterior = null) {
+        const origem = preservarCamposComerciais(anterior || {}, proposta);
+        const normalizada = normalizarProposta(origem);
+        const f = normalizada.financeiro;
+        const resumo = calcularResumoProposta({ itens: normalizada.itens, custos: normalizada.custos,
+            desconto: f.desconto, acrescimo: f.acrescimo, percentualNF: f.percentualNF,
+            tipoCalculoNF: f.tipoCalculoNF, percentualEntrada: f.percentualEntrada,
+            controleInterno: normalizada.controleInterno, clientePrecisaNotaFiscal: normalizada.clientePrecisaNotaFiscal,
+            fiscal: normalizada.fiscal, evento: normalizada.evento });
+        normalizada.financeiro = { ...f, subtotal: resumo.subtotalItens,
+            totalCustosAdicionais: resumo.totalCustosAdicionais, desconto: resumo.desconto,
+            acrescimo: resumo.acrescimo, valorBase: resumo.valorBase, percentualNF: resumo.percentualNF,
+            tipoCalculoNF: resumo.tipoCalculoNF, valorNF: resumo.valorNF, valorFinal: resumo.valorFinal,
+            valorFinalComNF: resumo.valorFinalComNF, valorLiquidoPrevisto: resumo.valorLiquidoPrevisto,
+            percentualEntrada: resumo.percentualEntrada, valorEntrada: resumo.valorEntrada,
+            percentualSaldo: resumo.percentualSaldo, valorSaldo: resumo.valorSaldo };
+        const resultado = preservarCamposComerciais(origem, normalizada);
+        resultado.itens = normalizada.itens.map((item, indice) => preservarCamposComerciais(origem.itens?.[indice], item));
+        // A normalizacao de apresentacao nao pode descartar extensoes de documentos.
+        resultado.anexos = JSON.parse(JSON.stringify(anterior?.anexos ?? proposta.anexos ?? []));
+        resultado.historicoRevisoes = JSON.parse(JSON.stringify(anterior?.historicoRevisoes ?? proposta.historicoRevisoes ?? []));
+        return resultado;
+    }
+
     function obterPropostasBase() {
-        if (!Array.isArray(propostas)) propostas = [];
-        return propostas.map((item) => normalizarProposta(item));
+        return (Array.isArray(propostas) ? propostas : []).map((item) => normalizarProposta(item));
     }
 
     function localizarProposta(id) {
-        const lista = obterPropostasBase();
+        const lista = Array.isArray(propostas) ? propostas : [];
         const resultado = typeof id === 'string' && id.startsWith('proposta:')
             ? resolverRegistroPorReferenciaTipada(lista, 'proposta', id)
             : resolverRegistroPorIdExato(lista, id);
-        return resultado.encontrado ? resultado.registro : null;
+        return resultado.encontrado ? normalizarProposta(resultado.registro) : null;
+    }
+
+    function vincularIdentidadeFormularioProposta(id) {
+        const referencia = criarReferenciaTipadaEntidade('proposta', id);
+        identidadeEdicaoProposta = referencia ? Object.freeze({ id, referencia }) : null;
+        const hidden = document.getElementById('propostaIdAtual');
+        if (hidden) {
+            hidden.value = referencia;
+            hidden.dataset.referenciaTipada = referencia;
+        }
+    }
+
+    function resolverIdentidadeFormularioProposta() {
+        const hidden = document.getElementById('propostaIdAtual');
+        const invalida = { ok: false, codigo: 'IDENTIDADE_PROPOSTA_INVALIDA' };
+        const selecionada = identidadeEdicaoProposta;
+        if (!hidden) return invalida;
+        if (!selecionada) {
+            return hidden.value === '' && !hidden.dataset.referenciaTipada
+                ? { ok: true, nova: true, id: null, referencia: '', registro: null }
+                : invalida;
+        }
+        // O DOM confirma a selecao privada, nunca determina ou converte sua identidade.
+        if (hidden.value !== selecionada.referencia
+            || hidden.dataset.referenciaTipada !== selecionada.referencia) return invalida;
+        const colecao = propostas;
+        const resultado = resolverRegistroPorIdExato(colecao, selecionada.id);
+        if (identidadeEdicaoProposta !== selecionada || propostas !== colecao
+            || hidden.value !== selecionada.referencia
+            || hidden.dataset.referenciaTipada !== selecionada.referencia) return invalida;
+        return resultado.encontrado
+            ? { ok: true, nova: false, ...selecionada, registro: resultado.registro }
+            : { ok: false, codigo: resultado.codigo };
     }
 
     function obterIdPropostaEmEdicao() {
-        return textoSeguro(document.getElementById('propostaIdAtual')?.value);
+        const identidade = resolverIdentidadeFormularioProposta();
+        return identidade.ok ? identidade.id : null;
     }
 
     function obterReferenciaPropostaEmEdicao() {
-        const hidden = document.getElementById('propostaIdAtual');
-        return textoSeguro(hidden?.dataset?.referenciaTipada, '') || obterIdPropostaEmEdicao();
+        const identidade = resolverIdentidadeFormularioProposta();
+        return identidade.ok ? identidade.referencia : '';
     }
 
     function focarPendenciaProposta(pendencia) {
@@ -6094,6 +6536,11 @@
     }
 
     function coletarDadosFormulario(validar = true) {
+        const identidade = resolverIdentidadeFormularioProposta();
+        if (!identidade.ok) {
+            mostrarToast('Identidade da proposta ausente, duplicada ou alterada. Reabra o registro pela lista.', 'erro');
+            return null;
+        }
         if (validar && !validarVinculoClientePropostaAntesSalvar()) {
             return null;
         }
@@ -6101,8 +6548,8 @@
             return null;
         }
 
-        const idAtual = obterIdPropostaEmEdicao();
-        const propostaAtual = idAtual ? localizarProposta(idAtual) : null;
+        const idAtual = identidade.id;
+        const propostaAtual = identidade.nova ? null : normalizarProposta(identidade.registro);
         const usuarioAtual = obterUsuarioAtualNomeOuEmail();
         const agoraIso = obterAgoraIso();
 
@@ -6120,7 +6567,7 @@
         const clienteId = clienteCadastrado?.id ?? '';
         const clientePrecisaNotaFiscal = document.getElementById('propClientePrecisaNf')?.checked === true;
 
-        const resumo = calcularResumoProposta({
+        const resumo = calcularResumoFormularioGerencial({
             itens,
             custos,
             desconto,
@@ -6187,7 +6634,7 @@
         }), resumo.resumoFiscal);
 
         const proposta = {
-            id: idAtual || Date.now(),
+            id: idAtual ?? Date.now(),
             codigo: textoSeguro(document.getElementById('propCodigo')?.value, ''),
             codigoBase: textoSeguro(propostaAtual?.codigoBase || propostaAtual?.codigo, ''),
             revisao: normalizarNumeroRevisaoProposta(propostaAtual?.revisao ?? propostaAtual?.numeroRevisao, 0),
@@ -6261,7 +6708,7 @@
             anexos: normalizarAnexosProposta(propostaAtual?.anexos, idAtual),
             responsavelProposta: textoSeguro(document.getElementById('propResponsavel')?.value, usuarioAtual),
             status: obterStatusSelecionado(),
-            locacaoVinculadaId: textoSeguro(propostaAtual?.locacaoVinculadaId ?? propostaAtual?.locacaoId, ''),
+            locacaoVinculadaId: propostaAtual?.locacaoVinculadaId ?? propostaAtual?.locacaoId ?? '',
             dataCriacao,
             dataUltimaAlteracao: agoraIso,
             criadoPor: textoSeguro(propostaAtual?.criadoPor, usuarioAtual),
@@ -6274,7 +6721,7 @@
             motivoStatus: textoSeguro(propostaAtual?.motivoStatus, ''),
             motivoRecusa: textoSeguro(propostaAtual?.motivoRecusa, ''),
             motivoCancelamento: textoSeguro(propostaAtual?.motivoCancelamento, ''),
-            propostaOrigemId: textoSeguro(propostaAtual?.propostaOrigemId, ''),
+            propostaOrigemId: propostaAtual?.propostaOrigemId ?? '',
             historicoRevisoes: Array.isArray(propostaAtual?.historicoRevisoes) ? propostaAtual.historicoRevisoes.slice() : [],
             motivoRevisao: textoSeguro(propostaAtual?.motivoRevisao, '')
         };
@@ -6312,11 +6759,34 @@
             }
         }
 
-        return normalizarProposta(proposta);
+        if(resumo.calculoInvalido){mostrarToast(`Revisar valores: ${resumo.calculoInvalido}`,'erro');return null;}
+        const resultado = construirPropostaComercialCalculada(proposta, identidade.nova ? null : identidade.registro);
+        if(fechamentoGerencialAtual){
+            resultado.itens=itens;
+            if(!resumo.incluirMaoObra)resultado.custos={...resultado.custos,maoObra:0,montagem:{total:0},desmontagem:{total:0}};
+            resultado.financeiro={...resultado.financeiro,...proposta.financeiro};
+            resultado.controleInterno={...resultado.controleInterno,...proposta.controleInterno,fechamentoGerencial:JSON.parse(JSON.stringify(resumo))};
+            resultado.fiscal={...resultado.fiscal,...proposta.fiscal,tributosIndividualizados:coletarTributosGerenciais()};
+            resultado.dadosFiscais=resultado.fiscal;
+        }else if(fechamentoHistoricoFormulario&&identidade.registro){
+            // Previa historica usa os blocos originais, nao o recalc do construtor legado.
+            for(const chave of ['itens','custos','financeiro','fiscal','controleInterno'])if(identidade.registro[chave]!=null)resultado[chave]=JSON.parse(JSON.stringify(identidade.registro[chave]));
+            resultado.dadosFiscais=resultado.fiscal;
+        }
+        return resultado;
     }
 
     function preencherFormularioComProposta(proposta) {
-        const p = normalizarProposta(proposta);
+        liberarControlesHistoricosGerenciais();
+        fechamentoGerencialAtual=false;
+        fechamentoHistoricoFormulario=proposta?.controleInterno?.fechamentoGerencial?JSON.parse(JSON.stringify(proposta.controleInterno.fechamentoGerencial)):null;
+        const p = prepararPropostaApresentacaoGerencial(proposta);
+        document.getElementById('propTributosIndividuais')?.replaceChildren();
+        const maoObra=document.getElementById('propIncluirMaoObra');if(maoObra)maoObra.checked=proposta?.controleInterno?.fechamentoGerencial?.incluirMaoObra!==false;
+        for(const t of proposta.fiscal?.tributosIndividualizados||[])adicionarTributoGerencial(t);
+        const contexto=proposta.controleInterno?.fechamentoGerencial?.auditoriaFiscal||{};
+        for(const [id,v]of Object.entries({propDataFiscalGerencial:contexto.dataFiscal||'',propTipoDescontoFiscal:contexto.tipoDescontoFiscal||'',propJustificativaFiscal:contexto.justificativaFiscalSemTributos||''})){const el=document.getElementById(id);if(el)el.value=v;}
+        const cobertura=document.getElementById('propCoberturaFiscal');if(cobertura)cobertura.checked=contexto.coberturaFiscalConfirmada===true;
         renderizarSelectClientesProposta(p.clienteId);
         const clienteCadastrado = obterClienteCadastradoProposta(p.clienteId);
         const referenciaCliente = clienteCadastrado ? criarReferenciaTipadaCliente(clienteCadastrado.id) : '';
@@ -6431,8 +6901,8 @@
         const hidden = document.getElementById('propostaIdAtual');
         if (hidden) {
             hidden.dataset.dataCriacao = String(p.dataCriacao || '').slice(0, 10);
-            hidden.dataset.referenciaTipada = criarReferenciaTipadaEntidade('proposta', p.id);
         }
+        vincularIdentidadeFormularioProposta(p.id);
 
         const precisaNfEl = document.getElementById('propClientePrecisaNf');
         if (precisaNfEl) precisaNfEl.checked = p.clientePrecisaNotaFiscal === true || p.cliente.precisaNotaFiscal === true;
@@ -6450,9 +6920,17 @@
         renderizarAnexosProposta(p.id);
         renderizarHistoricoProposta(p.id);
         mostrarSecaoFormularioProposta('dados', { semRolagem: true, foco: false });
+        preservarControlesHistoricosGerenciais();
     }
 
     function limparFormularioProposta() {
+        liberarControlesHistoricosGerenciais();
+        fechamentoGerencialAtual=true;fechamentoHistoricoFormulario=null;
+        for(const id of ['propDataFiscalGerencial','propTipoDescontoFiscal','propJustificativaFiscal']){const el=document.getElementById(id);if(el)el.value='';}
+        const cobertura=document.getElementById('propCoberturaFiscal');if(cobertura)cobertura.checked=false;
+        document.getElementById('propTributosIndividuais')?.replaceChildren();
+        const maoObra=document.getElementById('propIncluirMaoObra');if(maoObra)maoObra.checked=true;
+        identidadeEdicaoProposta = null;
         categoriasOrcamentoTemporarias = null;
         const campos = [
             'propostaIdAtual', 'propCodigo', 'propClienteId', 'propClienteCadastrado', 'propClienteNome', 'propClienteDocumento', 'propClienteTelefone', 'propClienteEmail',
@@ -6580,67 +7058,22 @@
     }
 
     function salvarProposta() {
-        const proposta = coletarDadosFormulario(true);
-        if (!proposta) return;
-
-        const lista = obterPropostasBase();
-        const indice = lista.findIndex((item) => String(item.id) === String(proposta.id));
-        const agoraIso = obterAgoraIso();
-        const propostaAnteriorSalva = indice >= 0 ? lista[indice] : null;
-
-        if (indice >= 0) {
-            const anterior = propostaAnteriorSalva;
-            proposta.dataCriacao = anterior.dataCriacao || proposta.dataCriacao || agoraIso;
-            proposta.criadoPor = anterior.criadoPor || proposta.criadoPor || obterUsuarioAtualNomeOuEmail();
-            proposta.locacaoVinculadaId = anterior.locacaoVinculadaId || proposta.locacaoVinculadaId || '';
-            proposta.locacaoId = proposta.locacaoVinculadaId;
-            proposta.dataUltimaAlteracao = agoraIso;
-            proposta.alteradoPor = obterUsuarioAtualNomeOuEmail();
-            aplicarDatasAutomaticasStatus(proposta, anterior, agoraIso);
-            proposta.criadoEm = proposta.dataCriacao;
-            proposta.atualizadoEm = proposta.dataUltimaAlteracao;
-            lista[indice] = normalizarProposta(proposta);
-        } else {
-            proposta.dataCriacao = proposta.dataCriacao || agoraIso;
-            proposta.dataUltimaAlteracao = agoraIso;
-            proposta.criadoPor = proposta.criadoPor || obterUsuarioAtualNomeOuEmail();
-            proposta.alteradoPor = proposta.alteradoPor || proposta.criadoPor;
-            aplicarDatasAutomaticasStatus(proposta, null, agoraIso);
-            proposta.criadoEm = proposta.dataCriacao;
-            proposta.atualizadoEm = proposta.dataUltimaAlteracao;
-            lista.push(normalizarProposta(proposta));
+        if (salvamentoPropostaEmAndamento) {
+            return { ok: false, codigo: 'SALVAMENTO_PROPOSTA_EM_ANDAMENTO' };
         }
-
-        propostas = lista;
-        const propostaSalva = localizarProposta(proposta.id) || normalizarProposta(proposta);
-        registrarAtividadeProposta(
-            propostaSalva,
-            indice >= 0 ? 'editar' : 'criar',
-            indice >= 0
-                ? `Proposta ${formatarCodigoRevisaoProposta(propostaSalva)} editada e salva.`
-                : `Proposta ${formatarCodigoRevisaoProposta(propostaSalva)} criada.`
-        );
-
-        if (indice >= 0) {
-            const statusAtual = normalizarStatusProposta(propostaSalva.status);
-            const statusOriginal = normalizarStatusProposta(propostaAnteriorSalva?.status || proposta.status);
-            if (statusOriginal !== statusAtual) {
-                registrarAtividadeProposta(
-                    propostaSalva,
-                    'status',
-                    `Status alterado de ${statusRotulo(statusOriginal)} para ${statusRotulo(statusAtual)}.`,
-                    { statusAnterior: statusOriginal, statusNovo: statusAtual }
-                );
+        salvamentoPropostaEmAndamento = true;
+        try {
+            const identidade = resolverIdentidadeFormularioProposta();
+            if (!identidade.ok) {
+                mostrarToast('Identidade da proposta ausente, duplicada ou alterada. Reabra o registro pela lista.', 'erro');
+                return { ok: false, codigo: identidade.codigo };
             }
-        }
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        mostrarToast(indice >= 0 ? 'Proposta atualizada!' : 'Proposta salva!');
-        preencherFormularioComProposta(proposta);
-        mostrarSubAbaPropostas('lista', { semRolagem: true });
-        if (typeof focarRegistroRecemSalvo === 'function') {
-            focarRegistroRecemSalvo({ tipo: 'proposta', id: proposta.id, limparBusca: true });
+            // localStorage nao oferece commit condicional entre todos os escritores da raiz.
+            // Nao alterar memoria nem tentar rollback sobre um estado possivelmente confirmado.
+            mostrarToast('Salvamento de propostas bloqueado por segurança: a persistência atual não garante confirmação e exclusão entre escritores. Os campos do formulário foram mantidos, mas não foram salvos.', 'erro', 10000);
+            return { ok: false, codigo: 'PERSISTENCIA_PROPOSTA_SEGURA_INDISPONIVEL', bloqueada: true };
+        } finally {
+            salvamentoPropostaEmAndamento = false;
         }
     }
 
@@ -6827,7 +7260,7 @@
             'duplicar',
             `Proposta ${formatarCodigoRevisaoProposta(copia)} criada por duplicação de ${formatarCodigoRevisaoProposta(base)}, sem copiar anexos.`,
             {
-                propostaDuplicadaDeId: String(base.id),
+                propostaDuplicadaDeId: base.id,
                 propostaDuplicadaDeCodigo: formatarCodigoRevisaoProposta(base)
             }
         );
@@ -6860,7 +7293,8 @@
         const codigoBase = obterCodigoBaseProposta(base) || base.codigo || gerarCodigoProposta();
         const novaRevisao = obterProximaRevisaoProposta(codigoBase);
         const novaId = Date.now() + Math.floor(Math.random() * 500);
-        const propostaOrigemId = textoSeguro(base.propostaOrigemId) || String(base.id);
+        const propostaOrigemId = normalizarIdEntidadeExato(base.propostaOrigemId).valido
+            ? base.propostaOrigemId : base.id;
         const historicoBase = Array.isArray(base.historicoRevisoes) ? base.historicoRevisoes.slice() : [];
         const registroBase = {
             id: base.id,
@@ -6870,13 +7304,13 @@
             data: agoraIso,
             usuario: obterUsuarioAtualNomeOuEmail()
         };
-        const historicoRevisoes = historicoBase.some((item) => String(item.id) === String(base.id))
+        const historicoRevisoes = historicoBase.some((item) => idsEntidadeExatos(item.id, base.id))
             ? historicoBase
             : [...historicoBase, registroBase];
         const anexosRevisao = normalizarAnexosProposta(base.anexos, base.id).map((anexo, indice) => ({
             ...anexo,
             id: `${novaId}-anexo-${indice + 1}-${Math.floor(Math.random() * 1000)}`,
-            propostaId: String(novaId),
+            propostaId: novaId,
             anexoOrigemId: anexo.id,
             copiadoEm: agoraIso,
             copiadoPor: obterUsuarioAtualNomeOuEmail()
@@ -6912,7 +7346,7 @@
             'revisao',
             `Nova revisão Rev. ${formatarNumeroRevisaoProposta(revisao.revisao)} criada a partir de ${formatarCodigoRevisaoProposta(base)}.`,
             {
-                revisaoOrigemId: String(base.id),
+                revisaoOrigemId: base.id,
                 revisaoOrigemCodigo: formatarCodigoRevisaoProposta(base),
                 anexosReferenciados: anexosRevisao.length
             }
@@ -7001,13 +7435,13 @@
             : 'Descontar do valor final';
     }
 
-    function planejarClienteDaProposta(proposta) {
+    function planejarClienteDaProposta(proposta, catalogoClientes, gerarClienteId) {
         const idVinculado = proposta?.clienteId ?? proposta?.cliente?.id ?? proposta?.cliente?.clienteId;
         if (normalizarIdEntidadeExato(idVinculado).valido
             || (typeof idVinculado === 'string' && idVinculado.startsWith('cliente:'))) {
             const resolucao = typeof idVinculado === 'string' && idVinculado.startsWith('cliente:')
-                ? resolverClientePorReferenciaTipada(locadores, idVinculado)
-                : resolverClientePorIdExato(locadores, idVinculado);
+                ? resolverClientePorReferenciaTipada(catalogoClientes, idVinculado)
+                : resolverClientePorIdExato(catalogoClientes, idVinculado);
             if (!resolucao.encontrado) {
                 return {
                     ok: false,
@@ -7028,7 +7462,7 @@
         const documento = String(clienteProposta.documento || '').replace(/\D+/g, '');
         const email = normalizarTextoBusca(clienteProposta.email || '');
         const nome = normalizarTextoBusca(clienteProposta.nome || '');
-        const correspondenciasFortes = (Array.isArray(locadores) ? locadores : []).filter((item) => {
+        const correspondenciasFortes = (Array.isArray(catalogoClientes) ? catalogoClientes : []).filter((item) => {
             const docItem = String(item?.documento || '').replace(/\D+/g, '');
             const emailItem = normalizarTextoBusca(item?.email || '');
             return (documento && docItem === documento) || (email && emailItem && emailItem === email);
@@ -7046,11 +7480,11 @@
             };
         }
         const correspondenciasNome = nome
-            ? (Array.isArray(locadores) ? locadores : []).filter((item) => normalizarTextoBusca(item?.nome || '') === nome)
+            ? (Array.isArray(catalogoClientes) ? catalogoClientes : []).filter((item) => normalizarTextoBusca(item?.nome || '') === nome)
             : [];
         if (correspondenciasNome.length) return { ok: false, codigo: 'CLIENTE_MANUAL_AMBIGUO' };
 
-        const novoId = Date.now() + Math.floor(Math.random() * 500);
+        const novoId = gerarClienteId();
         const cliente = {
             id: novoId,
             nome: clienteProposta.nome || 'Cliente da proposta',
@@ -7069,10 +7503,10 @@
         };
     }
 
-    function encontrarPecaPorDescricao(itemProposta) {
+    function encontrarPecaPorDescricao(itemProposta, catalogoPecas = pecas) {
         const alvo = normalizarTextoBusca(itemProposta?.descricao || '');
         if (!alvo) return null;
-        const lista = Array.isArray(pecas) ? pecas : [];
+        const lista = Array.isArray(catalogoPecas) ? catalogoPecas : [];
         const exata = lista.find((peca) => normalizarTextoBusca(peca?.nome || '') === alvo);
         if (exata) return exata;
         return lista.find((peca) => {
@@ -7275,25 +7709,11 @@
         mostrarToast(`${mensagem} Abra a locação existente para continuar.`, 'info', 5600);
     }
 
-    function executarConversaoPropostaLocacao(proposta) {
-        const planejamentoCliente = planejarClienteDaProposta(proposta);
-        if (!planejamentoCliente.ok) {
-            const mensagem = planejamentoCliente.codigo === 'CLIENTE_MANUAL_AMBIGUO'
-                ? 'Há clientes compatíveis com os dados informados. Selecione explicitamente o cadastro correto antes de converter.'
-                : 'O cliente vinculado não possui uma identidade única válida. Revise o cadastro antes de converter.';
-            mostrarToast(mensagem, 'erro', 6500);
-            return null;
-        }
-        const cliente = planejamentoCliente.registro;
-        const hojeIso = obterHojeIso();
-        const agoraIso = obterAgoraIso();
-        const responsavelConversao = obterUsuarioAtualNomeOuEmail();
+    function montarPlanoConversaoPropostaInterno(proposta, planejamentoCliente, {
+        hojeIso, agoraIso, responsavelConversao, propostaReferencia, novaLocacaoId, resolverPeca
+    }) {
         const propostaId = proposta.id;
-        const propostaReferencia = criarReferenciaTipadaEntidade('proposta', propostaId);
-        if (!propostaReferencia) {
-            mostrarToast('A proposta possui uma identidade inválida e não pode ser convertida.', 'erro');
-            return null;
-        }
+        const cliente = planejamentoCliente.registro;
         const codigoBaseProposta = obterCodigoBaseProposta(proposta);
         const revisaoProposta = normalizarNumeroRevisaoProposta(
             proposta.revisao ?? proposta.numeroRevisao,
@@ -7350,10 +7770,9 @@
             clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal === true
         };
 
-        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
         let itensLocacao = proposta.itens.map((item) => {
             const itemCalculado = calcularItemProposta(item || {});
-            const peca = encontrarPecaPorDescricao(itemCalculado);
+            const peca = resolverPeca(itemCalculado);
             const periodoDias = numeroNaoNegativo(itemCalculado.periodoDias ?? itemCalculado.periodo, 1) || 1;
             const quantidade = Math.max(1, Math.trunc(numeroNaoNegativo(itemCalculado.quantidade, 1)));
             const custoUnitario = numeroNaoNegativo(itemCalculado.custoUnitario ?? itemCalculado.valorUnitario, 0);
@@ -7365,7 +7784,7 @@
                 ? arredondarMoeda(valorTotalComercial / quantidade / periodoDias)
                 : custoUnitario;
             return {
-                ...clonarDadosConversaoProposta(itemCalculado, {}),
+                ...clonarDadosConversaoProposta(item || {}, {}),
                 pecaId: peca?.id || '',
                 nome: itemCalculado.descricao || item.descricao,
                 descricao: itemCalculado.descricao || item.descricao,
@@ -7377,8 +7796,8 @@
                 periodoDias,
                 medida: itemCalculado.medida || item.medida || '',
                 tipoFiscal: itemCalculado.tipoFiscal || item.tipoFiscal || '',
-                categoria: itemCalculado.categoria || item.categoria || '',
-                categoriaId: itemCalculado.categoriaId || item.categoriaId || '',
+                categoria: textoSeguro(item.categoria),
+                categoriaId: item.categoriaId ?? '',
                 fornecedor: itemCalculado.fornecedorCusto || item.fornecedorCusto || item.fornecedor || '',
                 fornecedorCusto: itemCalculado.fornecedorCusto || item.fornecedorCusto || '',
                 observacoes: itemCalculado.observacoes || item.observacoes || item.obs || '',
@@ -7552,11 +7971,13 @@
         }
 
         const transportesPlanejados = [];
+        const adicionarTransporteConversao = ({ veiculo, placa, motorista, equipe, criadoEm, atualizadoEm, ...transporte }) => {
+            transportesPlanejados.push(transporte);
+        };
         const deveCriarTransporte = custoFrete > 0 || enderecoEvento || cidadeEvento;
         if (deveCriarTransporte) {
             if (typeof montarTransporteDaLocacao !== 'function') {
-                mostrarToast('O construtor de transporte está indisponível. Nenhum dado foi alterado.', 'erro');
-                return null;
+                return { ok: false, mensagem: 'O construtor de transporte está indisponível. Nenhum dado foi alterado.' };
             }
             const criarRetiradaAutomatica = Boolean(dataDesmontagem && dataDesmontagem !== dataMontagem);
             const dividirFreteEntreRotas = criarRetiradaAutomatica && freteKm.calculoAtivo && freteKm.trechos > 1;
@@ -7582,10 +8003,9 @@
                 observacoes: observacoesLogistica
             });
             if (!entrega) {
-                mostrarToast('Não foi possível planejar o transporte de entrega. Nenhum dado foi alterado.', 'erro');
-                return null;
+                return { ok: false, mensagem: 'Não foi possível planejar o transporte de entrega. Nenhum dado foi alterado.' };
             }
-            transportesPlanejados.push(entrega);
+            adicionarTransporteConversao(entrega);
             if (criarRetiradaAutomatica) {
                 const custoRetirada = dividirFreteEntreRotas
                     ? arredondarMoeda(freteKm.distanciaKm * freteKm.valorKm)
@@ -7613,11 +8033,42 @@
                     observacoes: observacoesRetirada
                 });
                 if (!retirada) {
-                    mostrarToast('Não foi possível planejar o transporte de retirada. Nenhum dado foi alterado.', 'erro');
-                    return null;
+                    return { ok: false, mensagem: 'Não foi possível planejar o transporte de retirada. Nenhum dado foi alterado.' };
                 }
-                transportesPlanejados.push(retirada);
+                adicionarTransporteConversao(retirada);
             }
+        }
+        return { ok: true, plano: { propostaReferencia, cliente: planejamentoCliente.plano,
+            locacao: novaLocacao, transportes: transportesPlanejados } };
+    }
+
+    function executarConversaoPropostaLocacao(proposta) {
+        const planejamentoCliente = planejarClienteDaProposta(proposta, locadores,
+            () => Date.now() + Math.floor(Math.random() * 500));
+        if (!planejamentoCliente.ok) {
+            const mensagem = planejamentoCliente.codigo === 'CLIENTE_MANUAL_AMBIGUO'
+                ? 'Há clientes compatíveis com os dados informados. Selecione explicitamente o cadastro correto antes de converter.'
+                : 'O cliente vinculado não possui uma identidade única válida. Revise o cadastro antes de converter.';
+            mostrarToast(mensagem, 'erro', 6500);
+            return null;
+        }
+        const hojeIso = obterHojeIso();
+        const agoraIso = obterAgoraIso();
+        const responsavelConversao = obterUsuarioAtualNomeOuEmail();
+        const propostaId = proposta.id;
+        const propostaReferencia = criarReferenciaTipadaEntidade('proposta', propostaId);
+        if (!propostaReferencia) {
+            mostrarToast('A proposta possui uma identidade inválida e não pode ser convertida.', 'erro');
+            return null;
+        }
+        const novaLocacaoId = Date.now() + Math.floor(Math.random() * 700);
+        const montagem = montarPlanoConversaoPropostaInterno(proposta, planejamentoCliente, {
+            hojeIso, agoraIso, responsavelConversao, propostaReferencia, novaLocacaoId,
+            resolverPeca: encontrarPecaPorDescricao
+        });
+        if (!montagem.ok) {
+            mostrarToast(montagem.mensagem, 'erro');
+            return null;
         }
         if (typeof criarEntradaConversaoPropostaConfiavel !== 'function'
             || typeof executarConversaoPropostaLocacaoTransacional !== 'function'
@@ -7638,12 +8089,7 @@
                 data: agoraIso,
                 ultimaEdicao: Date.parse(agoraIso)
             },
-            plano: {
-                propostaReferencia,
-                cliente: planejamentoCliente.plano,
-                locacao: novaLocacao,
-                transportes: transportesPlanejados
-            }
+            plano: montagem.plano
         };
         const entradaConfiavel = criarEntradaConversaoPropostaConfiavel(JSON.stringify(entradaConversao));
         if (!entradaConfiavel) {
@@ -7853,7 +8299,11 @@
     }
 
     function montarLinhasItensPdfPorCategoria(itens = [], exibirInterno = false) {
-        const grupos = agruparItensPropostaPorCategoria(itens);
+        const grupos = agruparItensPropostaPorCategoria(itens.map((i,indice)=>({...i,indiceGerencialPdf:indice})));
+        for(const grupo of grupos){
+            grupo.itens=grupo.itens.map(i=>itens[i.indiceGerencialPdf]?.versaoCalculoGerencial===2?itens[i.indiceGerencialPdf]:i);
+            grupo.totalFinal=arredondarMoeda(grupo.itens.reduce((s,i)=>s+i.valorTotal,0));grupo.subtotal=grupo.totalFinal;
+        }
         const totalColunas = exibirInterno ? 8 : 5;
         if (!grupos.length) {
             return `<tr><td colspan="${totalColunas}" style="padding:10px;">Sem itens</td></tr>`;
@@ -7930,7 +8380,7 @@
     }
 
     function montarHtmlPdfProposta(proposta) {
-        const p = normalizarProposta(proposta);
+        const p = prepararPropostaApresentacaoGerencial(proposta);
         const exibirInterno = p.financeiro.exibirInformacoesInternasPDF === true;
         const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
         const valorFinalComercial = obterValorFinalComercial(p);
@@ -8076,12 +8526,15 @@
                     <tbody>
                         ${linhaResumoPdf('Valor final base', formatarMoeda(p.financeiro.valorFinal))}
                         ${linhaResumoPdf('Valor final com fiscal', formatarMoeda(p.financeiro.valorFinalComNF))}
-                        ${linhaResumoPdf('Valor liquido previsto apos fiscal', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
+                        ${linhaResumoPdf('Recebimento liquido previsto', formatarMoeda(p.financeiro.valorLiquidoPrevisto))}
                         ${linhaResumoPdf('Custo total interno', formatarMoeda(custoTotalInterno))}
                         ${custoMaoObraInternaPdf > 0 ? linhaResumoPdf(descricaoMaoObraInternaPdf, formatarMoeda(custoMaoObraInternaPdf)) : ''}
                         ${custoHospedagemInternaPdf > 0 ? linhaResumoPdf(descricaoHospedagemInternaPdf, formatarMoeda(custoHospedagemInternaPdf)) : ''}
-                        ${linhaResumoPdf('Resultado estimado da proposta', formatarMoeda(p.controleInterno.lucroPrevisto))}
-                        ${linhaResumoPdf('Margem de contribuição estimada', formatarMargemPercentual(p.controleInterno.margemPrevista))}
+                        ${p.controleInterno.fechamentoGerencial ? linhaResumoPdf('Depreciação gerencial (20% no fechamento positivo)',formatarMoeda(p.controleInterno.fechamentoGerencial.depreciacaoGerencial)) : ''}
+                        ${p.controleInterno.fechamentoGerencial ? p.controleInterno.fechamentoGerencial.tributosIndividualizados.map(t=>linhaResumoPdf(`${sanitizar(t.nome)} · ${sanitizar(t.natureza)} · base ${formatarMoeda(t.base)} · ${formatarPercentual(t.percentual)}<br>${sanitizar([t.incidencia,t.statusFiscal,t.fundamentoLegal,t.fonteLegal,t.vigenciaInicio,t.vigenciaFim].filter(Boolean).join(' · '))}`,formatarMoeda(t.valor))).join('') : ''}
+                        ${linhaResumoPdf('Resultado gerencial estimado', p.controleInterno.fechamentoGerencial?.custosCompletos===false?'Custos pendentes':formatarMoeda(p.controleInterno.lucroPrevisto))}
+                        ${linhaResumoPdf('Margem gerencial estimada', p.controleInterno.fechamentoGerencial?.custosCompletos===false?'Custos pendentes':formatarMargemPercentual(p.controleInterno.margemPrevista))}
+                        ${p.controleInterno.fechamentoGerencial?.auditoriaFiscal?.completo===false?linhaResumoPdf('Fiscal pendente / resultado provisorio',sanitizar(p.controleInterno.fechamentoGerencial.auditoriaFiscal.pendencias.join(' '))):''}
                     </tbody>
                 </table>
             </div>
@@ -8566,7 +9019,7 @@
     }
 
     function montarHtmlPdfPropostaClienteV2(proposta) {
-        const p = normalizarProposta(proposta);
+        const p = prepararPropostaApresentacaoGerencial(proposta);
         const itens = Array.isArray(p.itens) ? p.itens : [];
         const valorFinalComercial = obterValorFinalComercial(p);
         const tipoNF = normalizarTipoCalculoNF(p.financeiro.tipoCalculoNF, 'descontar');
@@ -8812,6 +9265,8 @@
                             ${outrosCustosComerciais > 0 ? montarLinhaResumoV2('Outros custos comerciais', outrosCustosComerciais) : ''}
                             ${numeroNaoNegativo(p.financeiro.desconto, 0) > 0 ? montarLinhaResumoV2('Desconto', p.financeiro.desconto) : ''}
                             ${numeroNaoNegativo(p.financeiro.acrescimo, 0) > 0 ? montarLinhaResumoV2('Acréscimo', p.financeiro.acrescimo) : ''}
+                            ${(p.controleInterno.fechamentoGerencial?.tributosIndividualizados||[]).filter(t=>t.natureza==='retencao').map(t=>montarLinhaResumoV2(`${t.nome} previsto · base ${formatarMoeda(t.base)} · ${formatarPercentual(t.percentual)}`,t.valor)).join('')}
+                            ${p.controleInterno.fechamentoGerencial?.retencoesTotal>0?montarLinhaResumoV2('Valor a receber após retenções',p.controleInterno.fechamentoGerencial.caixaAposRetencoes):''}
                             ${tipoNF === 'acrescentar' && numeroNaoNegativo(p.financeiro.valorNF, 0) > 0
                                 ? montarLinhaResumoV2(`Fiscal estimado (${formatarPercentual(p.financeiro.percentualNF)})`, p.financeiro.valorNF)
                                 : ''}
@@ -9411,7 +9866,7 @@
         renderizarAnexosProposta();
         renderizarHistoricoProposta();
 
-        const base = obterPropostasBase();
+        const base = (Array.isArray(propostas) ? propostas : []).map(prepararPropostaApresentacaoGerencial);
         const termoRaw = textoSeguro(document.getElementById('buscaPropostas')?.value);
         const termo = normalizarTextoBusca(termoRaw);
         atualizarKpisPropostas(base);
@@ -9992,6 +10447,7 @@
         renderizarSelectClientesProposta();
         renderConfigOrcamentoProposta();
         associarRotulosCamposProposta();
+        organizarParametrosGerenciaisProposta();
         mostrarSecaoFormularioProposta(secaoFormularioPropostaAtual, { semRolagem: true, foco: false });
         mostrarSubAbaPropostas(subAbaPropostasAtual, { semRolagem: true, foco: false });
         renderPropostas();
@@ -10004,6 +10460,10 @@
     window.converterTextoMoedaParaNumero = converterTextoMoedaParaNumero;
     window.formatarMoedaProposta = formatarMoeda;
     window.calcularResumoProposta = calcularResumoProposta;
+    window.calcularFechamentoGerencialProposta = calcularFechamentoGerencialProposta;
+    window.calcularItemGerencialProposta = calcularItemGerencialProposta;
+    window.adicionarTributoGerencial = adicionarTributoGerencial;
+    window.revisarFechamentoGerencialProposta = revisarFechamentoGerencialProposta;
     window.obterPendenciasClassificacaoFiscalProposta = obterPendenciasClassificacaoFiscalProposta;
     window.normalizarPadroesOrcamento = normalizarPadroesOrcamento;
     window.CATEGORIAS_ITEM_PROPOSTA = CATEGORIAS_ITEM_PROPOSTA;

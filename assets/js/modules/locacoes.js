@@ -17,6 +17,8 @@ let sessaoContaReceber = null;
 let criacaoContaReceberEmAndamento = false;
 let acionadorModalContaReceber = null;
 let eventosModalContaReceberRegistrados = false;
+const cancelamentosLocacaoEmAndamento = new Set();
+const cancelamentosLocacaoPendentesRecuperacao = new Set();
 const CHAVE_FILTRO_LOCACOES = 'mtz:locacoesFiltro';
 const FILTROS_LOCACOES_VALIDOS = new Set(['todos', 'ativo', 'atrasado', 'devolvido', 'cancelado']);
 
@@ -2362,54 +2364,110 @@ function finalizarLocacao() {
     concluirCriacaoLocacao();
 }
 
-function cancelarLocacao(id) {
-    if (typeof validarPermissao === 'function' && !validarPermissao('cancelar_locacao', 'Somente administrador pode cancelar locações.')) {
-        return;
+function resolverLocacaoAcaoTipada(referencia) {
+    if (typeof referencia !== 'string' || !referencia.startsWith('locacao:')) {
+        return { encontrado: false, codigo: 'REFERENCIA_LOCACAO_INVALIDA', registro: null };
     }
+    return resolverRegistroPorReferenciaTipada(locacoes, 'locacao', referencia);
+}
 
-    confirmarAcao('Cancelar locacao?', () => {
-        const locacao = locacoes.find((l) => String(l.id) === String(id));
-        if (!locacao) {
-            mostrarToast('Locacao nao encontrada.');
-            return;
+function cancelarLocacao(referencia) {
+    const selecionada = resolverLocacaoAcaoTipada(referencia);
+    if (!selecionada.encontrado) {
+        mostrarToast('Referência da locação inválida, ausente ou duplicada. Reabra a lista.', 'erro');
+        return { ok: false, codigo: selecionada.codigo };
+    }
+    if (cancelamentosLocacaoPendentesRecuperacao.has(referencia)) {
+        mostrarToast('Há um cancelamento não confirmado nesta sessão. Recupere o estado persistido e recarregue a página antes de repetir.', 'erro');
+        return { ok: false, codigo: 'CANCELAMENTO_REQUER_RECUPERACAO', requerRecuperacao: true };
+    }
+    const idSelecionado = selecionada.registro.id;
+    const permitido = () => typeof validarPermissao === 'function'
+        && validarPermissao('cancelar_locacao', 'Somente administrador pode cancelar locações.') === true;
+    if (!permitido()) return { ok: false, codigo: 'PERMISSAO_NEGADA' };
+    if (cancelamentosLocacaoEmAndamento.has(referencia)) return { ok: false, codigo: 'OPERACAO_EM_EXECUCAO' };
+
+    const executar = () => {
+        if (cancelamentosLocacaoPendentesRecuperacao.has(referencia)) {
+            return { ok: false, codigo: 'CANCELAMENTO_REQUER_RECUPERACAO', requerRecuperacao: true };
         }
+        if (cancelamentosLocacaoEmAndamento.has(referencia)) return { ok: false, codigo: 'OPERACAO_EM_EXECUCAO' };
+        cancelamentosLocacaoEmAndamento.add(referencia);
+        let estadoAlterado = false;
+        try {
+            const atual = resolverLocacaoAcaoTipada(referencia);
+            if (!atual.encontrado || atual.registro !== selecionada.registro
+                || !idsEntidadeExatos(atual.registro.id, idSelecionado)) {
+                mostrarToast('A locação mudou durante a confirmação. Reabra a lista.', 'erro');
+                return { ok: false, codigo: 'IDENTIDADE_LOCACAO_DIVERGENTE' };
+            }
+            if (!permitido()) return { ok: false, codigo: 'PERMISSAO_NEGADA' };
+            const locacao = atual.registro;
+            const statusAtual = typeof locacao.status === 'string' ? locacao.status.trim().toLowerCase() : '';
+            const fluxoAtual = typeof locacao.statusFluxo === 'string' ? locacao.statusFluxo.trim().toLowerCase() : '';
+            if (statusAtual === 'cancelado' || fluxoAtual === 'cancelado') {
+                mostrarToast('Locação já cancelada.', 'info');
+                return { ok: true, codigo: 'LOCACAO_JA_CANCELADA', idempotente: true };
+            }
+            if (typeof atualizarStatusLocacaoDominio !== 'function'
+                || !Array.isArray(logsAuditoria)
+                || (locacao.historicoAlteracoes != null && !Array.isArray(locacao.historicoAlteracoes))) {
+                mostrarToast('Não foi possível validar o histórico do cancelamento.', 'erro');
+                return { ok: false, codigo: 'CANCELAMENTO_REQUER_RECUPERACAO', requerRecuperacao: true };
+            }
 
-        const statusAtual = String(locacao.status || '').trim().toLowerCase();
-        const fluxoAtual = String(locacao.statusFluxo || '').trim().toLowerCase();
-        if (statusAtual === 'cancelado' || fluxoAtual === 'cancelado') {
-            mostrarToast('Locacao ja esta cancelada.');
-            return;
-        }
-
-        if (typeof atualizarStatusLocacaoDominio === 'function') {
-            atualizarStatusLocacaoDominio(locacao, 'cancelado', {
+            // Preparar sem truncar historicos antigos nem alterar referencias financeiras.
+            const candidato = { ...locacao, historicoAlteracoes: [] };
+            atualizarStatusLocacaoDominio(candidato, 'cancelado', {
                 acao: 'cancelamento',
                 descricao: 'Locacao cancelada.',
                 origem: 'locacoes'
             });
-        } else {
-            locacao.status = 'cancelado';
-            locacao.statusFluxo = 'cancelado';
-            if (typeof registrarHistoricoLocacaoDominio === 'function') {
-                registrarHistoricoLocacaoDominio(locacao, {
-                    acao: 'cancelamento',
-                    descricao: 'Locacao cancelada.',
-                    origem: 'locacoes'
-                });
+            if (!idsEntidadeExatos(candidato.id, idSelecionado) || candidato.status !== 'cancelado'
+                || candidato.statusFluxo !== 'cancelado' || candidato.historicoAlteracoes.length !== 1) {
+                return { ok: false, codigo: 'CANCELAMENTO_INVALIDO' };
             }
-        }
-
-        if (typeof registrarLog === 'function') {
+            const historico = [...(locacao.historicoAlteracoes || []), {
+                ...candidato.historicoAlteracoes[0], locacaoId: idSelecionado, locacaoReferencia: referencia
+            }];
+            const agora = new Date();
             const clienteNome = resolverClienteLocacaoPorIdPersistido(locacao.locadorId)?.nome || 'Cliente';
-            registrarLog('locacao', 'cancelar', `Locacao cancelada: ${clienteNome} #${String(locacao.id || '').slice(-4)}`);
+            const auditoria = { id: agora.getTime(), timestamp: agora.toISOString(), data: agora.toLocaleString('pt-BR'),
+                tipo: 'locacao', acao: 'cancelar', descricao: `Locação cancelada: ${clienteNome}.`,
+                usuario: localStorage.getItem('usuarioEmail') || 'Offline',
+                dados: { locacaoId: idSelecionado, locacaoReferencia: referencia } };
+            if (!permitido()) return { ok: false, codigo: 'PERMISSAO_NEGADA' };
+            const confirmada = resolverLocacaoAcaoTipada(referencia);
+            if (!confirmada.encontrado || confirmada.registro !== locacao
+                || !idsEntidadeExatos(locacao.id, idSelecionado)) {
+                return { ok: false, codigo: 'CANCELAMENTO_INTERROMPIDO' };
+            }
+            // A persistencia continua legada: nao ha commit condicional entre abas.
+            estadoAlterado = true;
+            locacao.status = candidato.status;
+            locacao.statusFluxo = candidato.statusFluxo;
+            locacao.historicoAlteracoes = historico;
+            logsAuditoria = [auditoria, ...logsAuditoria];
+            if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
+            if (salvarLocal() !== true) {
+                cancelamentosLocacaoPendentesRecuperacao.add(referencia);
+                mostrarToast('Cancelamento não confirmado. Pare as alterações e recupere o estado persistido; não repita automaticamente.', 'erro', 8000);
+                return { ok: false, codigo: 'CANCELAMENTO_REQUER_RECUPERACAO', requerRecuperacao: true };
+            }
+            renderTudo();
+            sincronizar('salvar');
+            mostrarToast('Locação cancelada e mantida no histórico.');
+            return { ok: true, codigo: 'LOCACAO_CANCELADA', locacaoReferencia: referencia };
+        } catch (_erro) {
+            if (estadoAlterado) cancelamentosLocacaoPendentesRecuperacao.add(referencia);
+            mostrarToast(estadoAlterado ? 'Cancelamento indeterminado. Interrompa as alterações e recupere o estado persistido.'
+                : 'Cancelamento interrompido antes de alterar a locação.', 'erro');
+            return { ok: false, codigo: 'FALHA_CANCELAMENTO', requerRecuperacao: estadoAlterado };
+        } finally {
+            cancelamentosLocacaoEmAndamento.delete(referencia);
         }
-
-        if (typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade(true);
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        mostrarToast('Locacao cancelada e mantida no historico.');
-    }, {
+    };
+    confirmarAcao('Cancelar locacao?', executar, {
         titulo: 'Cancelar locacao',
         textoConfirmar: 'Cancelar locacao',
         classeConfirmar: 'btn-danger'
@@ -3005,64 +3063,22 @@ function abrirHistoricoLocacao(id) {
     modal.classList.add('active');
 }
 
-function reservarEstoqueDaLocacao(id) {
-    const locacao = Array.isArray(locacoes)
-        ? locacoes.find((item) => String(item?.id || '') === String(id || ''))
-        : null;
-    if (!locacao) {
-        mostrarToast('Locação não encontrada para reserva.', 'erro');
-        return;
+function reservarEstoqueDaLocacao(referencia) {
+    const selecionada = resolverLocacaoAcaoTipada(referencia);
+    if (!selecionada.encontrado) {
+        mostrarToast('Referência da locação inválida, ausente ou duplicada.', 'erro');
+        return { ok: false, codigo: selecionada.codigo };
     }
-    if (typeof reservarEstoqueLocacao !== 'function') {
-        mostrarToast('Serviço de reserva de estoque indisponível.', 'erro');
-        return;
+    const locacao = selecionada.registro;
+    const reservaAtual = locacao.estoqueReserva || {};
+    const statusReserva = typeof reservaAtual.status === 'string' ? reservaAtual.status.trim().toLowerCase() : '';
+    if (statusReserva === 'reservado' || statusReserva === 'reservado_legado') {
+        mostrarToast('Reserva existente preservada. Nenhuma nova movimentação foi criada.', 'info');
+        return { ok: true, codigo: 'RESERVA_EXISTENTE', locacaoReferencia: referencia, aplicado: false };
     }
-
-    const executarReserva = () => {
-        const resultado = reservarEstoqueLocacao(locacao);
-        if (!resultado?.ok) {
-            const detalhe = Array.isArray(resultado?.bloqueios) && resultado.bloqueios.length
-                ? resultado.bloqueios[0]
-                : 'Não foi possível reservar o estoque.';
-            mostrarToast(detalhe, 'erro', 6500);
-            return;
-        }
-
-        if (resultado.jaReservada) {
-            mostrarToast('O estoque desta locação já está reservado. Nenhuma nova movimentação foi criada.', 'info', 5200);
-            return;
-        }
-
-        salvarLocal();
-        renderTudo();
-        sincronizar('salvar');
-        mostrarToast(`Estoque reservado com sucesso: ${resultado.totalReservado || 0} unidade(s) própria(s).`);
-    };
-
-    const reservaAtual = typeof normalizarEstoqueReservaLocacao === 'function'
-        ? normalizarEstoqueReservaLocacao(locacao)
-        : (locacao.estoqueReserva || {});
-    if (reservaAtual.status === 'reservado' || reservaAtual.status === 'reservado_legado') {
-        executarReserva();
-        return;
-    }
-
-    if (typeof confirmarAcao === 'function') {
-        confirmarAcao(
-            'Reservar agora somente as quantidades próprias desta locação?',
-            executarReserva,
-            {
-                titulo: 'Reservar estoque',
-                textoConfirmar: 'Reservar estoque',
-                classeConfirmar: 'btn-warning'
-            }
-        );
-        return;
-    }
-
-    if (confirm('Reservar agora somente as quantidades próprias desta locação?')) {
-        executarReserva();
-    }
+    // O servico legado reduz IDs e chaves a texto. Nao delegar uma nova reserva.
+    mostrarToast('Nova reserva bloqueada por segurança: o serviço legado não preserva identidades tipadas nos movimentos. Nenhum estoque foi alterado.', 'erro', 8000);
+    return { ok: false, codigo: 'RESERVA_TIPADA_INDISPONIVEL', bloqueada: true, locacaoReferencia: referencia };
 }
 
 function obterEstadoQuantidadeItemFormularioLocacao() {

@@ -69,6 +69,7 @@ function gerarSnapshotDadosSistema() {
         contasPagar: Array.isArray(contasPagar) ? contasPagar : [],
         categoriasFinanceiras: Array.isArray(categoriasFinanceiras) ? categoriasFinanceiras : [],
         centrosCusto: Array.isArray(centrosCusto) ? centrosCusto : [],
+        encargosFinanceiros: Array.isArray(encargosFinanceiros) ? encargosFinanceiros : [],
         conciliacoesFinanceiras: Array.isArray(conciliacoesFinanceiras) ? conciliacoesFinanceiras : [],
         conciliacoesPagamentosPagar: Array.isArray(conciliacoesPagamentosPagar)
             ? conciliacoesPagamentosPagar : [],
@@ -136,6 +137,7 @@ const CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO = Object.freeze([
     'contasPagar',
     'categoriasFinanceiras',
     'centrosCusto',
+    'encargosFinanceiros',
     'conciliacoesFinanceiras',
     'conciliacoesPagamentosPagar',
     'movimentacoesEstoque',
@@ -171,13 +173,13 @@ function validarEstruturaSnapshotPersistivelCompleto(snapshot = {}) {
         return { valido: false, codigo: 'SNAPSHOT_COMPLETO_INVALIDO', camposAusentes: [] };
     }
     const camposAusentes = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO
-        .filter((chave) => !Object.prototype.hasOwnProperty.call(snapshot, chave));
+        .filter((chave) => chave !== 'encargosFinanceiros' && !Object.prototype.hasOwnProperty.call(snapshot, chave));
     if (camposAusentes.length > 0) {
         return { valido: false, codigo: 'SNAPSHOT_COMPLETO_INCOMPLETO', camposAusentes };
     }
     const colecoesArrayInvalidas = CHAVES_SNAPSHOT_PERSISTIVEL_COMPLETO
         .filter((chave) => !['config', 'checklistConferencia'].includes(chave))
-        .filter((chave) => !Array.isArray(snapshot[chave]));
+        .filter((chave) => !(chave === 'encargosFinanceiros' && !Object.hasOwn(snapshot, chave)) && !Array.isArray(snapshot[chave]));
     if (colecoesArrayInvalidas.length > 0) {
         return {
             valido: false,
@@ -388,6 +390,11 @@ function prepararSnapshotPersistivelCompleto(estado = {}, metadados = {}) {
 }
 
 function persistirSnapshotLocalConfirmavel(snapshot = {}, opcoes = {}) {
+    if (typeof window !== 'undefined' && typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) {
+        return { ok: false, codigo: 'ESCRITA_LEGADA_BLOQUEADA', confirmado: false,
+            estadoPersistidoIndeterminado: false, requerRecuperacao: true,
+            metadadoSincronizacaoAtualizado: false };
+    }
     const armazenamento = opcoes.armazenamento;
     const chaveFoiFornecida = Object.prototype.hasOwnProperty.call(opcoes, 'chave');
     const chaveInformada = chaveFoiFornecida ? opcoes.chave : STORAGE_KEY;
@@ -565,6 +572,9 @@ function registrarLogsMigracaoV12(logs = [], metadados = {}) {
 }
 
 function aplicarDadosSistema(dados = {}, opcoes = {}) {
+    if (typeof window !== 'undefined' && typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) {
+        throw new Error('ESCRITA_LEGADA_BLOQUEADA');
+    }
     const manterConfigAtual = !!opcoes.manterConfigAtual;
     const origemCarga = opcoes.origem || 'desconhecida';
     const baseConfig = manterConfigAtual
@@ -625,6 +635,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         categoriasFinanceiras: Array.isArray(dadosNormalizados.categoriasFinanceiras)
             ? dadosNormalizados.categoriasFinanceiras : [],
         centrosCusto: Array.isArray(dadosNormalizados.centrosCusto) ? dadosNormalizados.centrosCusto : [],
+        encargosFinanceiros: Array.isArray(dadosNormalizados.encargosFinanceiros) ? dadosNormalizados.encargosFinanceiros : [],
         conciliacoesFinanceiras: Array.isArray(dadosNormalizados.conciliacoesFinanceiras)
             ? dadosNormalizados.conciliacoesFinanceiras : [],
         conciliacoesPagamentosPagar: Array.isArray(dadosNormalizados.conciliacoesPagamentosPagar)
@@ -658,6 +669,7 @@ function aplicarDadosSistema(dados = {}, opcoes = {}) {
         contasPagar = estadoNormalizado.contasPagar;
         categoriasFinanceiras = estadoNormalizado.categoriasFinanceiras;
         centrosCusto = estadoNormalizado.centrosCusto;
+        encargosFinanceiros = estadoNormalizado.encargosFinanceiros;
         conciliacoesFinanceiras = estadoNormalizado.conciliacoesFinanceiras;
         conciliacoesPagamentosPagar = estadoNormalizado.conciliacoesPagamentosPagar;
         movimentacoesEstoque = estadoNormalizado.movimentacoesEstoque;
@@ -703,6 +715,8 @@ function validarClassificacoesFinanceirasAntesDeEfeito(snapshot) {
     try {
         const preparado = criarSnapshotMigravelV12(JSON.stringify(snapshot));
         return preparado.ok
+            && (typeof EncargosFinanceiros === 'undefined' ? !snapshot.encargosFinanceiros?.length
+                : EncargosFinanceiros.validarTexto(JSON.stringify(snapshot)))
             && validarClassificacoesFinanceirasSnapshotV12(preparado.snapshot).ok === true;
     } catch (_erro) {
         return false;
@@ -789,6 +803,9 @@ function criarBackupEmergencia() {
 }
 
 async function sincronizar(modo) {
+    if (typeof window !== 'undefined' && typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) {
+        throw new Error('SINCRONIZACAO_LEGADA_BLOQUEADA');
+    }
     if (sincronizacaoEmAndamento) {
         sincronizacaoPendente = modo;
         return;
@@ -852,6 +869,7 @@ async function sincronizar(modo) {
                 snapshotLocal.contasPagar.length > 0 ||
                 snapshotLocal.categoriasFinanceiras.length > 0 ||
                 snapshotLocal.centrosCusto.length > 0 ||
+                snapshotLocal.encargosFinanceiros.length > 0 ||
                 snapshotLocal.conciliacoesFinanceiras.length > 0 ||
                 snapshotLocal.conciliacoesPagamentosPagar.length > 0 ||
                 snapshotLocal.modelosChecklist.length > 0;
@@ -1066,6 +1084,7 @@ function tentarRecuperacaoAutomatica() {
 }
 
 function salvarLocal() {
+    if (typeof window !== 'undefined' && typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) return false;
     cacheDisponibilidade = null;
     try {
         const ultimaEdicao = Date.now();

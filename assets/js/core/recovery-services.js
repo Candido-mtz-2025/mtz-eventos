@@ -13,6 +13,7 @@
         'contasPagar',
         'categoriasFinanceiras',
         'centrosCusto',
+        'encargosFinanceiros',
         'conciliacoesFinanceiras',
         'conciliacoesPagamentosPagar'
     ]);

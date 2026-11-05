@@ -1,6 +1,7 @@
 // Render central e inicialização da aplicação
 // === RENDERIZAÇÃO GERAL (GARANTE QUE AS ABAS CARREGUEM) ===
 function renderTudo() {
+    if(typeof renderEncargosFinanceiros === 'function') renderEncargosFinanceiros();
     if(typeof recalcularDisponibilidade === 'function') recalcularDisponibilidade();
     if(typeof renderLocacoes === 'function') renderLocacoes();
     if(typeof renderPropostas === 'function') renderPropostas();
@@ -40,6 +41,7 @@ const TAB_TOPBAR_CONFIG = {
     financeiro: { icon: 'bi-cash-stack', titulo: 'Financeiro', descricao: 'Receitas, pendências e visão de caixa.', meta: 'Cobrança' },
     'fluxo-caixa': { icon: 'bi-bar-chart-line', titulo: 'Fluxo de Caixa', descricao: 'Entradas, saídas e movimentos projetados.', meta: 'Tesouraria' },
     'contas-pagar': { icon: 'bi-receipt-cutoff', titulo: 'Contas a Pagar', descricao: 'Fornecedores, despesas e vencimentos.', meta: 'Financeiro' },
+    encargos: { icon: 'bi-clipboard-check', titulo: 'Encargos e Aprovações', descricao: 'Condições administrativas e estimativas.', meta: 'Governança financeira' },
     'classificacoes-financeiras': { icon: 'bi-diagram-3', titulo: 'Classificações Financeiras', descricao: 'Categorias financeiras e centros de custo.', meta: 'Governança financeira' },
     agenda: { icon: 'bi-calendar-event', titulo: 'Agenda', descricao: 'Programação operacional de montagens e retiradas.', meta: 'Operação diária' },
     transporte: { icon: 'bi-truck-front', titulo: 'Transporte', descricao: 'Rotas, veículos, motoristas e custo por km.', meta: 'Logística' },
@@ -51,7 +53,7 @@ const NAV_GRUPOS_ABAS = Object.freeze({
     comercial: ['locadores', 'propostas', 'locacoes'],
     operacao: ['estoque', 'checklist', 'devolucoes', 'tipos'],
     logistica: ['agenda', 'transporte'],
-    financeiro: ['financeiro', 'fluxo-caixa', 'contas-pagar'],
+    financeiro: ['financeiro', 'fluxo-caixa', 'contas-pagar', 'encargos'],
     admin: ['auditoria', 'config', 'classificacoes-financeiras']
 });
 const CHAVE_SIDEBAR_RECOLHIDA = 'mtz:sidebarCollapsed';
@@ -659,6 +661,10 @@ function sincronizarEstadoVisualDaAba(tabId) {
 
     if (aba === 'contas-pagar') {
         if (typeof renderContasPagar === 'function') renderContasPagar();
+        return;
+    }
+    if (aba === 'encargos') {
+        if (typeof renderEncargosFinanceiros === 'function') renderEncargosFinanceiros();
         return;
     }
 

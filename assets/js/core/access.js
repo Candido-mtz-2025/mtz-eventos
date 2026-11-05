@@ -3,6 +3,7 @@ const PERFIL_ADMIN = 'admin';
 const PERFIL_OPERACAO = 'operacao';
 const PERFIL_KEY = 'mtzUserRole';
 const PERMISSOES_ABAS_RESTRITAS = Object.freeze({
+    encargos: 'visualizar_encargos_financeiros',
     auditoria: 'visualizar_auditoria',
     config: 'visualizar_configuracoes',
     'fluxo-caixa': 'visualizar_fluxo_caixa',
@@ -76,9 +77,14 @@ function rotuloPerfilAcesso() {
 }
 
 function temPermissao(acao) {
+    if (acao === 'aprovar_encargo_financeiro') return false;
     if (ehAdmin()) return true;
 
     const bloqueadas = new Set([
+        'visualizar_encargos_financeiros',
+        'cadastrar_encargo_financeiro',
+        'editar_encargo_financeiro',
+        'aprovar_encargo_financeiro',
         'excluir_registro',
         'editar_valor',
         'arquivar_historico',
@@ -188,6 +194,7 @@ function aplicarPermissoesInterface() {
     }
 
     if (!admin) {
+        if (typeof renderEncargosFinanceiros === 'function') renderEncargosFinanceiros();
         const tabelaAuditoria = document.getElementById('tblLogs');
         if (tabelaAuditoria) tabelaAuditoria.replaceChildren();
         document.querySelectorAll('#tab-config input, #tab-config textarea, #tab-config select')

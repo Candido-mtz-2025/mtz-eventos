@@ -24528,3 +24528,56 @@ body #modalClassificacaoFinanceira [hidden] {
         max-height: calc(100dvh - 20px);
     }
 }
+
+/* Parametros comerciais: superficie de trabalho compacta, sem paineis laterais. */
+#tab-propostas .proposta-config-panel {
+    left: 50%; right: auto; top: 24px; bottom: 24px;
+    width: min(1080px, calc(100vw - 48px)); max-width: none;
+    margin-left: max(-540px, calc((48px - 100vw) / 2));
+    border-radius: 8px; animation: none; transform: none;
+}
+#tab-propostas .proposta-config-head { padding: 16px 24px; }
+#tab-propostas .proposta-config-head h3 { font-size: 20px; letter-spacing: 0; }
+#tab-propostas .proposta-config-content { padding: 0 24px; min-height: 0; overflow-y: auto; }
+#tab-propostas .proposta-config-section {
+    border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+    background: transparent; padding: 20px 0; box-shadow: none;
+}
+#tab-propostas .proposta-config-section-title { display: block; }
+#tab-propostas .proposta-config-section-title h4 { font-size: 16px; margin-bottom: 4px; }
+#tab-propostas .proposta-config-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+#tab-propostas .proposta-config-grid .form-group { min-width: 0; }
+#tab-propostas .proposta-config-tabs { padding: 10px 24px; gap: 4px; }
+#tab-propostas .proposta-config-tab { border-radius: 4px; padding: 10px 14px; }
+#tab-propostas .proposta-config-footer { padding: 12px 24px; border-top: 1px solid var(--border); }
+#tab-propostas .proposta-config-fiscal-note { border: 0; border-left: 3px solid #17826c; border-radius: 0; font-weight: 400; }
+#tab-propostas .proposta-gerencial-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 0; }
+#tab-propostas .proposta-gerencial-toolbar input { width: auto; }
+#tab-propostas .proposta-tributos-gerenciais { padding: 20px 0; border-top: 1px solid var(--border); margin-top: 16px; }
+#tab-propostas .prop-tributo-linha { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr 1fr .7fr 38px; gap: 8px; margin: 10px 0; align-items: center; }
+#tab-propostas .prop-tributo-linha > * { width: 100%; min-width: 0; }
+#tab-propostas .prop-tributo-fundamento { grid-column: 1 / -1; border-bottom: 1px solid var(--border); padding: 6px 0 10px; }
+#tab-propostas .prop-tributo-fundamento summary { cursor: pointer; font-size: 13px; margin-bottom: 8px; }
+#tab-propostas .prop-tributo-fundamento label { min-width: 0; font-size: 12px; }
+#tab-propostas .prop-tributo-fundamento input:not([type="checkbox"]), #tab-propostas .prop-tributo-fundamento select { width: 100%; min-width: 0; }
+#tab-propostas .prop-fiscal-regra { display: block; overflow-wrap: anywhere; font-size: 11px; max-width: 420px; }
+#tab-propostas .proposta-fiscal-pendencias { border-left: 3px solid #a97712; padding: 8px 12px; font-size: 13px; }
+#tab-propostas .prop-tributo-linha button { height: 38px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: #ad3535; cursor: pointer; }
+#propFechamentoGerencial dl { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0 20px; }
+#propFechamentoGerencial dl > div { padding: 14px 0; border-bottom: 1px solid var(--border); }
+#propFechamentoGerencial dt { font-size: 13px; color: var(--text-light); }
+#propFechamentoGerencial dd { margin: 6px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+#propFechamentoGerencial p, .proposta-tributos-gerenciais > p { font-size: 13px; color: var(--text-light); }
+#propFechamentoGerencial table { width: 100%; border-collapse: collapse; }
+#propFechamentoGerencial th, #propFechamentoGerencial td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+#tab-propostas:is([data-etapa-proposta="comercial"],[data-etapa-proposta="revisao"]) .proposta-guided-summary { display: none; }
+#tab-propostas:is([data-etapa-proposta="comercial"],[data-etapa-proposta="revisao"]) .proposta-guided-layout { grid-template-columns: minmax(0,1fr); }
+@media(max-width: 760px) {
+    #tab-propostas .proposta-config-panel { left: 8px; right: 8px; top: 8px; bottom: 8px; width: auto; margin-left: 0; max-height: calc(100dvh - 16px); }
+    #tab-propostas .proposta-config-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+    #tab-propostas .proposta-config-content, #tab-propostas .proposta-config-head, #tab-propostas .proposta-config-footer { padding-left: 12px; padding-right: 12px; }
+    #tab-propostas .proposta-config-tabs { padding: 8px 12px; flex-wrap: wrap; }
+    #tab-propostas .proposta-config-tab { flex: 1 1 40%; }
+    #tab-propostas .prop-tributo-linha { grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    #propFechamentoGerencial dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}

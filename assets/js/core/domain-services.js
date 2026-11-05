@@ -482,15 +482,19 @@
     }
 
     function normalizarEstoqueReservaLocacao(locacao = {}, registrosDevolucao = null) {
+        const registros = Array.isArray(registrosDevolucao)
+            ? registrosDevolucao
+            : (typeof devolucoes !== 'undefined' && Array.isArray(devolucoes) ? devolucoes : []);
+        return normalizarEstoqueReservaComRegistrosLocacao(locacao, registros);
+    }
+
+    function normalizarEstoqueReservaComRegistrosLocacao(locacao = {}, registrosDisponiveis = []) {
         const reservaAtual = clonarObjetoSeguro(locacao.estoqueReserva);
         const statusAtual = valorEmConjunto(
             reservaAtual.status,
             STATUS_RESERVA_ESTOQUE_VALIDOS,
             ''
         );
-        const registrosDisponiveis = Array.isArray(registrosDevolucao)
-            ? registrosDevolucao
-            : (typeof devolucoes !== 'undefined' && Array.isArray(devolucoes) ? devolucoes : []);
         const statusLegadoComprovado = classificarStatusReservaLegadoLocacao(
             locacao,
             registrosDisponiveis
@@ -2188,16 +2192,9 @@
             locacaoOriginal.historicoAlteracoes = [];
         }
 
-        const registro = {
-            id: Date.now(),
-            data: new Date().toISOString(),
-            acao: textoSeguro(evento.acao, 'atualizacao'),
-            descricao: textoSeguro(evento.descricao, 'Atualização de locação'),
-            origem: textoSeguro(evento.origem, 'sistema'),
-            status: textoSeguro(locacaoOriginal.status, ''),
-            statusFluxo: textoSeguro(locacaoOriginal.statusFluxo, ''),
-            usuario: textoSeguro(evento.usuario, obterIdentidadeOperacaoDominio())
-        };
+        const registro = criarRegistroHistoricoLocacaoDominio(locacaoOriginal, evento, {
+            id: Date.now(), timestamp: new Date().toISOString(), usuario: obterIdentidadeOperacaoDominio()
+        });
 
         locacaoOriginal.historicoAlteracoes.push(registro);
         if (locacaoOriginal.historicoAlteracoes.length > 240) {
@@ -2207,10 +2204,21 @@
         return locacaoOriginal;
     }
 
-    function atualizarStatusLocacaoDominio(locacaoOriginal = {}, proximoStatusFluxo = '', opcoes = {}) {
-        if (!locacaoOriginal || typeof locacaoOriginal !== 'object') return locacaoOriginal;
+    function criarRegistroHistoricoLocacaoDominio(locacaoOriginal, evento, metadados) {
+        return {
+            id: metadados.id,
+            data: metadados.timestamp,
+            acao: textoSeguro(evento.acao, 'atualizacao'),
+            descricao: textoSeguro(evento.descricao, 'Atualização de locação'),
+            origem: textoSeguro(evento.origem, 'sistema'),
+            status: textoSeguro(locacaoOriginal.status, ''),
+            statusFluxo: textoSeguro(locacaoOriginal.statusFluxo, ''),
+            usuario: textoSeguro(evento.usuario, metadados.usuario)
+        };
+    }
 
-        const locacao = locacaoOriginal;
+    function calcularAtualizacaoStatusLocacaoDominio(locacaoOriginal = {}, proximoStatusFluxo = '') {
+        const locacao = { status: locacaoOriginal.status, statusFluxo: locacaoOriginal.statusFluxo };
         const statusAnterior = textoSeguro(locacao.status, '').trim().toLowerCase();
         const fluxoAnterior = valorEmConjunto(locacao.statusFluxo, STATUS_FLUXO_VALIDOS, '');
         const fluxoAtualizado = valorEmConjunto(
@@ -2232,6 +2240,17 @@
         const statusNovo = textoSeguro(locacao.status, '').trim().toLowerCase();
         const fluxoNovo = valorEmConjunto(locacao.statusFluxo, STATUS_FLUXO_VALIDOS, fluxoAtualizado);
         const houveMudanca = fluxoAnterior !== fluxoNovo || statusAnterior !== statusNovo;
+        return { status: locacao.status, statusFluxo: locacao.statusFluxo, houveMudanca };
+    }
+
+    function atualizarStatusLocacaoDominio(locacaoOriginal = {}, proximoStatusFluxo = '', opcoes = {}) {
+        if (!locacaoOriginal || typeof locacaoOriginal !== 'object') return locacaoOriginal;
+        const locacao = locacaoOriginal;
+        const calculo = calcularAtualizacaoStatusLocacaoDominio(locacao, proximoStatusFluxo);
+        locacao.status = calculo.status;
+        locacao.statusFluxo = calculo.statusFluxo;
+        const fluxoNovo = locacao.statusFluxo;
+        const houveMudanca = calculo.houveMudanca;
 
         if (opcoes.registrarHistorico !== false && (houveMudanca || opcoes.forcarHistorico)) {
             const nomeFluxo = fluxoNovo || 'aprovado';
@@ -2349,6 +2368,48 @@
         };
     }
 
+    function locacaoComprometeEstoqueComRegistros(locacao, registrosDevolucao, referenciaHoje) {
+        const statusVisual = inferirStatusVisualLocacao(locacao, new Date(referenciaHoje));
+        if (statusVisual === 'devolvido' || statusVisual === 'cancelado') return false;
+        const registros = registrosDevolucao.filter(d => d.locacaoId === locacao.id);
+        const reserva = normalizarEstoqueReservaComRegistrosLocacao(locacao, registros);
+        return reserva.status === 'reservado' || reserva.status === 'reservado_legado';
+    }
+
+    // Estado interno explicito; nao acessa cache, armazenamento ou relogio global.
+    function recalcularDisponibilidadeEstado(estado, referenciaHoje, pecaIdsAlvo = null) {
+        if (!estado || !Array.isArray(estado.pecas) || !Array.isArray(estado.locacoes)
+            || !Array.isArray(estado.devolucoes) || typeof referenciaHoje !== 'string'
+            || !Number.isFinite(Date.parse(referenciaHoje))
+            || pecaIdsAlvo !== null && !Array.isArray(pecaIdsAlvo)) throw new TypeError('ESTADO_RECALCULO_INVALIDO');
+        const copia = clonarJsonPersistivelEstrito({ pecas: estado.pecas, locacoes: estado.locacoes, devolucoes: estado.devolucoes });
+        if (!copia.ok) throw new TypeError('ESTADO_RECALCULO_NAO_PERSISTIVEL');
+        const dados = copia.valor, alugueis = new Map(), alvos = pecaIdsAlvo === null ? null : new Set(pecaIdsAlvo);
+        dados.locacoes.forEach(locacao => {
+            if (!locacaoComprometeEstoqueComRegistros(locacao, dados.devolucoes, referenciaHoje)) return;
+            (locacao.items || []).forEach(item => {
+                const propria = obterQuantidadePropriaOperacional(item);
+                const devolvida = Math.max(parseInt(item.devolvidos, 10) || 0, 0);
+                const avariada = Math.max(parseInt(item.avariadosEstoqueProprio, 10) || 0, 0);
+                const pendente = Math.max(propria - devolvida - avariada, 0);
+                const acumulada = (alugueis.get(item.pecaId) || 0) + pendente;
+                if (!Number.isSafeInteger(acumulada) || acumulada < 0) throw new TypeError('QUANTIDADE_RECALCULO_INVALIDA');
+                alugueis.set(item.pecaId, acumulada);
+            });
+        });
+        return dados.pecas.map(peca => {
+            if (alvos && !alvos.has(peca.id)) return peca;
+            const normalizada = normalizarPecaDominio(peca);
+            const reservado = Math.max(alugueis.get(peca.id) || 0, 0);
+            const disponivel = Math.max((normalizada.quantidadeTotal || normalizada.quantidade || 0) - reservado, 0);
+            const resultado = normalizarPecaDominio({ ...normalizada, reservado, disponivel });
+            for (const k of ['quantidadeTotal', 'reservado', 'disponivel', 'manutencao', 'avariado', 'perdido']) {
+                if (!Number.isSafeInteger(resultado[k]) || resultado[k] < 0) throw new TypeError('SALDO_RECALCULO_INVALIDO');
+            }
+            return resultado;
+        });
+    }
+
     function calcularResumoEstoqueDominio(listaPecas = []) {
         const lista = clonarArraySeguro(listaPecas).map((peca) => normalizarPecaDominio(peca));
 
@@ -2371,6 +2432,12 @@
 
     function normalizarMovimentacaoEstoque(movimentacaoOriginal = {}, indice = 0) {
         const movimentacao = clonarObjetoSeguro(movimentacaoOriginal);
+        return construirRegistroMovimentacaoEstoque(movimentacao, {
+            id: `mov-${Date.now()}-${indice + 1}`, usuario: obterIdentidadeOperacaoDominio(), dataHora: new Date().toISOString()
+        });
+    }
+
+    function construirRegistroMovimentacaoEstoque(movimentacao, padroes) {
         const tiposPermitidos = new Set(['reserva', 'separacao', 'saida', 'devolucao', 'avaria', 'perda', 'ajuste', 'entrada']);
         const tipoMovimentacao = valorEmConjunto(movimentacao.tipoMovimentacao, tiposPermitidos, 'ajuste');
         const quantidade = Math.max(0, numeroSeguro(movimentacao.quantidade, 0));
@@ -2378,17 +2445,17 @@
 
         return {
             ...movimentacao,
-            id: textoSeguro(movimentacao.id, `mov-${Date.now()}-${indice + 1}`),
+            id: textoSeguro(movimentacao.id, padroes.id),
             chaveIdempotencia: textoSeguro(movimentacao.chaveIdempotencia, ''),
-            pecaId: movimentacao.origemEvento === 'edicao_transacional_estoque'
+            pecaId: padroes.tipado === true || movimentacao.origemEvento === 'edicao_transacional_estoque'
                 ? movimentacao.pecaId : textoSeguro(movimentacao.pecaId, ''),
             pecaNome: textoSeguro(movimentacao.pecaNome, ''),
             tipoMovimentacao,
             quantidade,
-            locacaoId: textoSeguro(movimentacao.locacaoId, ''),
+            locacaoId: padroes.tipado === true ? movimentacao.locacaoId : textoSeguro(movimentacao.locacaoId, ''),
             locacaoRef: textoSeguro(movimentacao.locacaoRef, ''),
-            usuario: textoSeguro(movimentacao.usuario, obterIdentidadeOperacaoDominio()),
-            dataHora: textoSeguro(movimentacao.dataHora, new Date().toISOString()),
+            usuario: textoSeguro(movimentacao.usuario, padroes.usuario),
+            dataHora: textoSeguro(movimentacao.dataHora, padroes.dataHora),
             observacao: textoSeguro(movimentacao.observacao, ''),
             valorEstimado,
             saldoAntes: Number.isFinite(Number(movimentacao.saldoAntes)) ? Number(movimentacao.saldoAntes) : null,
@@ -2462,7 +2529,10 @@
         return typeof pecas !== 'undefined' && Array.isArray(pecas) ? pecas : [];
     }
 
-    function obterChaveItemReservaEstoque(locacaoId, item, indice) {
+    function obterChaveItemReservaEstoque(locacaoId, item, indice, operacaoId = null) {
+        if (operacaoId !== null) return `reserva-estoque-v2:${encodeURIComponent(JSON.stringify([
+            operacaoId, [typeof locacaoId, locacaoId], item.itemId, [typeof item.pecaId, item.pecaId]
+        ]))}`;
         const itemId = textoSeguro(
             item?.itemId || item?.id || item?.codigo || item?.pecaId || `item-${indice + 1}`,
             `item-${indice + 1}`
@@ -2502,71 +2572,10 @@
             recalcularDisponibilidade(true);
         }
 
-        const itens = clonarArraySeguro(locacao.items);
-        const pecasDisponiveis = obterPecasParaReserva();
-        const bloqueios = [];
-        const reservas = [];
-        const totaisPorPeca = new Map();
-        const consultasPorPeca = new Map();
-        const intervaloOperacional = obterIntervaloOperacionalLocacao(locacao);
-
-        if (!intervaloOperacional.completo) {
-            return {
-                ok: false,
-                bloqueios: [formatarMensagemDisponibilidadeEstoque({
-                    tipo: 'intervalo_invalido',
-                    consulta: { motivo: 'intervalo_incompleto' }
-                })],
-                movimentacoes: [],
-                totalReservado: 0
-            };
-        }
-
-        itens.forEach((item, indice) => {
-            const quantidade = obterQuantidadePropriaOperacional(item);
-            if (quantidade <= 0) return;
-
-            const pecaId = textoSeguro(item?.pecaId, '');
-            const descricao = textoSeguro(item?.nome || item?.descricao, `Item ${indice + 1}`);
-            if (!pecaId) {
-                bloqueios.push(`${descricao}: vincule o item ao estoque antes de reservar.`);
-                return;
-            }
-
-            const peca = pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
-            if (!peca) {
-                bloqueios.push(`${descricao}: item de estoque não encontrado.`);
-                return;
-            }
-
-            const chaveIdempotencia = obterChaveItemReservaEstoque(locacao.id, item, indice);
-            reservas.push({
-                item,
-                indice,
-                peca,
-                pecaId,
-                descricao,
-                quantidade,
-                chaveIdempotencia
-            });
-            totaisPorPeca.set(pecaId, (totaisPorPeca.get(pecaId) || 0) + quantidade);
-        });
-
-        totaisPorPeca.forEach((quantidadeNecessaria, pecaId) => {
-            const peca = pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
-            const consulta = consultarDisponibilidadeItemPeriodo(peca, intervaloOperacional, {
-                ignorarLocacaoId: locacao.id
-            });
-            consultasPorPeca.set(pecaId, consulta);
-            if (quantidadeNecessaria > consulta.disponivel) {
-                bloqueios.push(formatarMensagemDisponibilidadeEstoque({
-                    item: textoSeguro(peca?.nome, 'Item de estoque'),
-                    solicitado: quantidadeNecessaria,
-                    consulta
-                }));
-            }
-        });
-
+        const preparacao = planejarReservaInicialEstoqueLocacao(locacao, obterPecasParaReserva(), {});
+        if (!preparacao.ok && !preparacao.reservas) return preparacao;
+        const { reservas, totaisPorPeca, consultasPorPeca } = preparacao;
+        const bloqueios = preparacao.bloqueios.slice();
         const movimentosExistentes = reservas.filter((reserva) => movimentacaoJaRegistrada(reserva.chaveIdempotencia));
         if (movimentosExistentes.length > 0 && movimentosExistentes.length !== reservas.length) {
             bloqueios.push('A reserva possui movimentações parciais anteriores. Confira o histórico antes de continuar.');
@@ -2643,6 +2652,80 @@
         };
     }
 
+    // Mesmo agrupamento e mesma consulta usados pela reserva legada. O contexto
+    // tipado e fornecido somente pelo preparador interno, nunca pelo formulario.
+    function planejarReservaInicialEstoqueLocacao(locacao, pecasDisponiveis, contexto = {}) {
+        const itens = clonarArraySeguro(locacao.items);
+        const bloqueios = [];
+        const reservas = [];
+        const totaisPorPeca = new Map();
+        const consultasPorPeca = new Map();
+        const intervaloOperacional = obterIntervaloOperacionalLocacao(locacao);
+
+        if (!intervaloOperacional.completo) {
+            return {
+                ok: false,
+                bloqueios: [formatarMensagemDisponibilidadeEstoque({
+                    tipo: 'intervalo_invalido',
+                    consulta: { motivo: 'intervalo_incompleto' }
+                })],
+                movimentacoes: [],
+                totalReservado: 0
+            };
+        }
+
+        itens.forEach((item, indice) => {
+            const quantidade = obterQuantidadePropriaOperacional(item);
+            if (quantidade <= 0) return;
+
+            const pecaId = contexto.tipado === true ? item.pecaId : textoSeguro(item?.pecaId, '');
+            const descricao = textoSeguro(item?.nome || item?.descricao, `Item ${indice + 1}`);
+            if (contexto.tipado === true ? !['number', 'string'].includes(typeof pecaId) : !pecaId) {
+                bloqueios.push(`${descricao}: vincule o item ao estoque antes de reservar.`);
+                return;
+            }
+
+            const encontradas = contexto.tipado === true
+                ? pecasDisponiveis.filter(registro => typeof registro.id === typeof pecaId && Object.is(registro.id, pecaId)) : [];
+            const peca = contexto.tipado === true ? (encontradas.length === 1 ? encontradas[0] : null)
+                : pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
+            if (!peca) {
+                bloqueios.push(`${descricao}: item de estoque não encontrado.`);
+                return;
+            }
+
+            const chaveIdempotencia = obterChaveItemReservaEstoque(locacao.id, item, indice, contexto.tipado === true ? contexto.operacaoId : null);
+            reservas.push({
+                item,
+                indice,
+                peca,
+                pecaId,
+                descricao,
+                quantidade,
+                chaveIdempotencia
+            });
+            totaisPorPeca.set(pecaId, (totaisPorPeca.get(pecaId) || 0) + quantidade);
+        });
+
+        totaisPorPeca.forEach((quantidadeNecessaria, pecaId) => {
+            const peca = contexto.tipado === true ? reservas.find(r => r.pecaId === pecaId).peca
+                : pecasDisponiveis.find((registro) => String(registro?.id || '') === pecaId);
+            const consulta = contexto.tipado === true ? contexto.consultar(pecaId) : consultarDisponibilidadeItemPeriodo(peca, intervaloOperacional, {
+                ignorarLocacaoId: locacao.id
+            });
+            consultasPorPeca.set(pecaId, consulta);
+            if (quantidadeNecessaria > consulta.disponivel) {
+                bloqueios.push(formatarMensagemDisponibilidadeEstoque({
+                    item: textoSeguro(peca?.nome, 'Item de estoque'),
+                    solicitado: quantidadeNecessaria,
+                    consulta
+                }));
+            }
+        });
+
+        return { ok: bloqueios.length === 0, bloqueios, reservas, totaisPorPeca, consultasPorPeca };
+    }
+
     function pecaAceitaNovoUso(peca) {
         return !!peca && textoSeguro(peca.status, '').trim().toLowerCase() !== 'inativo';
     }
@@ -2709,6 +2792,7 @@
     window.reservarEstoqueLocacao = reservarEstoqueLocacao;
     window.normalizarLocacaoDominio = normalizarLocacaoDominio;
     window.normalizarPecaDominio = normalizarPecaDominio;
+    window.recalcularDisponibilidadeEstado = recalcularDisponibilidadeEstado;
     window.calcularResumoEstoqueDominio = calcularResumoEstoqueDominio;
     window.normalizarMovimentacaoEstoque = normalizarMovimentacaoEstoque;
     window.gerarChaveMovimentacao = gerarChaveMovimentacao;

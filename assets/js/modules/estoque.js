@@ -7,42 +7,9 @@ function recalcularDisponibilidade(forcar = false) {
             return;
         }
         
-        const aluguelPorPeca = new Map();
-        
-        locacoes.forEach(l => {
-            const locacaoNormalizada = typeof normalizarLocacaoDominio === 'function'
-                ? normalizarLocacaoDominio(l, { hoje: new Date() })
-                : l;
-            const statusVisual = String(locacaoNormalizada?.statusVisual || locacaoNormalizada?.status || '').toLowerCase();
-            const reservaStatus = String(l?.estoqueReserva?.status || '').trim().toLowerCase();
-            const comprometeEstoque = typeof locacaoComprometeEstoque === 'function'
-                ? locacaoComprometeEstoque(l)
-                : (!reservaStatus || reservaStatus === 'reservado' || reservaStatus === 'reservado_legado');
-            if (statusVisual !== 'devolvido' && statusVisual !== 'cancelado' && comprometeEstoque) {
-                (l.items || []).forEach(i => {
-                    const quantidadeEstoque = typeof obterQuantidadePropriaOperacional === 'function'
-                        ? obterQuantidadePropriaOperacional(i)
-                        : Math.max(parseInt(i.quantidade, 10) || 0, 0);
-                    const qtdDevolvida = Math.max(parseInt(i.devolvidos, 10) || 0, 0);
-                    const qtdAvariada = Math.max(parseInt(i.avariadosEstoqueProprio, 10) || 0, 0);
-                    const qtdAlugada = Math.max(quantidadeEstoque - qtdDevolvida - qtdAvariada, 0);
-                    const atual = aluguelPorPeca.get(i.pecaId) || 0;
-                    aluguelPorPeca.set(i.pecaId, atual + qtdAlugada);
-                });
-            }
-        });
-        
-        pecas.forEach(p => {
-            if (typeof normalizarPecaDominio === 'function') {
-                Object.assign(p, normalizarPecaDominio(p));
-            }
-            const alugado = aluguelPorPeca.get(p.id) || 0;
-            p.reservado = Math.max(alugado, 0);
-            p.disponivel = Math.max((p.quantidadeTotal || p.quantidade || 0) - p.reservado, 0);
-            if (typeof normalizarPecaDominio === 'function') {
-                Object.assign(p, normalizarPecaDominio(p));
-            }
-        });
+        const recalculadas = recalcularDisponibilidadeEstado({ pecas, locacoes,
+            devolucoes: typeof devolucoes !== 'undefined' && Array.isArray(devolucoes) ? devolucoes : [] }, new Date(agora).toISOString());
+        pecas.forEach((peca, indice) => Object.assign(peca, recalculadas[indice]));
         
         cacheDisponibilidade = true;
         ultimaAtualizacaoCache = agora;

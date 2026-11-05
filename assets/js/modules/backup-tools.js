@@ -80,6 +80,7 @@
                     locadores, pecas, locacoes, propostas, devolucoes, contasReceber,
                     fornecedores, contasPagar, conciliacoesFinanceiras,
                     categoriasFinanceiras, centrosCusto, conciliacoesPagamentosPagar,
+                    encargosFinanceiros,
                     transportes, tipos, usuarios, config,
                     logsAuditoria, modelosChecklist, checklistsGerados,
                     checklistMontagem, checklistConferencia, checklistEtapasMontagem

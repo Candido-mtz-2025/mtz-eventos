@@ -49,7 +49,8 @@
                 return false;
             }
         }
-        return true;
+        return typeof EncargosFinanceiros === 'undefined' ? !estado.encargosFinanceiros?.length
+            : EncargosFinanceiros.validarTexto(JSON.stringify(estado));
     }
 
     function coletarLancamentosFinanceirosParaProtecao(estado) {
@@ -143,6 +144,8 @@
             proteger(centro, ['id', 'centroCustoReferencia', 'operacaoId', 'criadoEm']);
             congelarProfundamente(centro);
         });
+        congelarProfundamente(estado.encargosFinanceiros);
+        (estado.logsAuditoria || []).filter(a => a.origem === 'encargos_financeiros').forEach(a => congelarProfundamente(a));
         (Array.isArray(estado?.contasPagar) ? estado.contasPagar : []).forEach((conta) => {
             proteger(conta, ['id', 'contaId', 'contaPagarReferencia', 'fornecedorId',
                 'fornecedorReferencia', 'propostaReferencia', 'locacaoReferencia',
@@ -347,6 +350,9 @@
     }
 
     function publicarNaRaiz(estadoAnterior, estadoConfirmado, opcoes = {}) {
+        if (typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) {
+            return { ok: false, codigo: 'PUBLICACAO_LEGADA_BLOQUEADA', publicacaoRealizada: false };
+        }
         const tentativa = consumirAutorizacaoNaPrimeiraTentativa(estadoAnterior, opcoes);
         if (!tentativa.ok) {
             return {
@@ -485,6 +491,7 @@
     }
 
     function atualizarMetadadoSincronizacao(dados = {}) {
+        if (typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) return false;
         const valor = dados.ultimaEdicao;
         const valido = (typeof valor === 'number' && Number.isFinite(valor))
             || (typeof valor === 'string' && valor.trim());
@@ -614,6 +621,15 @@
         };
     }
 
+    function criarDependenciasExecutorEncargos(opcoes = {}) {
+        return { ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
+            validarPermissaoEncargo: acao => acao !== 'aprovar_encargo_financeiro'
+                && typeof window.temPermissao === 'function' && window.temPermissao(acao) === true,
+            // Identificacao documental local; nao constitui autenticacao para aprovacao.
+            obterIdentidadeEncargos: () => typeof obterEmailSessao === 'function' ? obterEmailSessao() : '',
+            publicarSnapshotAutorizado: (estado, autorizacao) => publicarEstadoConfirmado(estado, controlador.obterReferencia(), autorizacao) };
+    }
+
     function criarDependenciasExecutorClassificacoesFinanceiras(opcoes = {}) {
         return {
             ...dependenciasComuns(opcoes.armazenamento || window.localStorage, opcoes.dependencias),
@@ -671,6 +687,7 @@
     window.criarDependenciasExecutorEstornoRecebimento = criarDependenciasExecutorEstornoRecebimento;
     window.criarDependenciasExecutorContaReceber = criarDependenciasExecutorContaReceber;
     window.criarDependenciasExecutorContasPagar = criarDependenciasExecutorContasPagar;
+    window.criarDependenciasExecutorEncargos = criarDependenciasExecutorEncargos;
     window.criarDependenciasExecutorClassificacoesFinanceiras
         = criarDependenciasExecutorClassificacoesFinanceiras;
     window.criarDependenciasExecutorConciliacaoFinanceira = criarDependenciasExecutorConciliacaoFinanceira;

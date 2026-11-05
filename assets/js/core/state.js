@@ -12,6 +12,7 @@
         contasPagar: [],
         categoriasFinanceiras: [],
         centrosCusto: [],
+        encargosFinanceiros: [],
         conciliacoesFinanceiras: [],
         conciliacoesPagamentosPagar: [],
         movimentacoesEstoque: [],
@@ -52,6 +53,32 @@
     const chaves = Object.freeze(Object.keys(estadoInicial));
     let estadoRaiz = estadoInicial;
     let controladorEntregue = false;
+    let fronteiraEscrita = null;
+    const permitirLegado = () => {
+        if (!fronteiraEscrita) return true;
+        try { return fronteiraEscrita() === true; } catch (_) { return false; }
+    };
+    const congelarRaiz = (v) => {
+        if (v && typeof v === 'object') {
+            Object.values(v).forEach(congelarRaiz);
+            Object.freeze(v);
+        }
+        return v;
+    };
+    Object.defineProperty(window, '__permitirEscritaLegada', { value: permitirLegado });
+    // Porta inativa. Instalacao exclusiva pelo futuro bootstrap, nunca pelos formularios.
+    Object.defineProperty(window, '__instalarFronteiraEscrita', { value: (permitir) => {
+        if (fronteiraEscrita || typeof permitir !== 'function') throw new Error('FRONTEIRA_INVALIDA');
+        fronteiraEscrita = permitir;
+        return Object.freeze({
+            selar: () => congelarRaiz(estadoRaiz),
+            publicarConfirmado: (estado) => {
+                if (!estado || typeof estado !== 'object' || Array.isArray(estado)) return false;
+                estadoRaiz = congelarRaiz(estado);
+                return true;
+            }
+        });
+    } });
 
     chaves.forEach((chave) => {
         Object.defineProperty(window, chave, {
@@ -59,6 +86,7 @@
             enumerable: true,
             get: () => estadoRaiz[chave],
             set: (valor) => {
+                if (!permitirLegado()) throw new Error('ESCRITA_LEGADA_BLOQUEADA');
                 estadoRaiz[chave] = valor;
             }
         });
@@ -74,6 +102,7 @@
                 chaves: chaves.slice(),
                 obterReferencia: () => estadoRaiz,
                 publicarReferencia: (estadoAnterior, estadoConfirmado) => {
+                    if (!permitirLegado()) return false;
                     if (estadoRaiz !== estadoAnterior || !estadoConfirmado
                         || typeof estadoConfirmado !== 'object' || Array.isArray(estadoConfirmado)) {
                         return false;
