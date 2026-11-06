@@ -892,10 +892,11 @@ function obterOffsetCabecalhoApp() {
     ];
 
     let offset = 12;
-    candidatos.forEach((el) => {
+    new Set(candidatos).forEach((el) => {
         if (!el) return;
         const estilos = window.getComputedStyle(el);
         if (estilos.display === 'none' || estilos.visibility === 'hidden') return;
+        if (el.id === 'appMainSidebar' && estilos.position === 'fixed') return;
         if (estilos.position === 'sticky' || estilos.position === 'fixed') {
             const ret = el.getBoundingClientRect();
             // Conta apenas elementos realmente ocupando a faixa superior da viewport.
@@ -914,7 +915,10 @@ function atualizarMedidasTopoApp() {
     const headerVisivel = header && window.getComputedStyle(header).display !== 'none';
     const tabsVisivel = tabs && window.getComputedStyle(tabs).display !== 'none';
     const headerAltura = headerVisivel ? Math.ceil(header.getBoundingClientRect().height) : 0;
-    const tabsAltura = tabsVisivel ? Math.ceil(tabs.getBoundingClientRect().height) : 0;
+    // A sidebar fixa ocupa a lateral, nao o topo. Soma-la criava scroll-margin maior que a janela.
+    const sidebarLateral = tabsVisivel && tabs.id === 'appMainSidebar'
+        && window.getComputedStyle(tabs).position === 'fixed';
+    const tabsAltura = tabsVisivel && !sidebarLateral ? Math.ceil(tabs.getBoundingClientRect().height) : 0;
     const gap = window.matchMedia('(max-width: 760px)').matches ? 8 : 10;
     const respiro = window.matchMedia('(max-width: 760px)').matches ? 18 : 22;
 
@@ -1001,7 +1005,10 @@ function rolarParaElementoAtalho(elemento, block = 'start', opcoes = {}) {
     const atual = Math.round(window.pageYOffset);
     if (Math.abs(destinoFinal - atual) < 3) return true;
 
-    window.scrollTo({ top: destinoFinal, behavior: 'smooth' });
+    const alvoOrcamento = elemento instanceof HTMLElement && Boolean(elemento.closest('#tab-propostas'));
+    window.scrollTo({ top: destinoFinal, behavior: alvoOrcamento ? 'auto' : 'smooth' });
+    // Orcamentos nao deve corrigir novamente a posicao depois de outra interacao.
+    if (alvoOrcamento) return true;
 
     // Ajuste fino: em telas com header sticky/fixo o alvo pode ficar alguns
     // pixels encoberto após o smooth scroll, então corrigimos em duas passadas curtas.

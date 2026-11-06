@@ -71,5 +71,38 @@ Bloquear novas escritas e recuperar pela mesma identidade e journal/recibos.
 Resposta perdida e recuperada pelo identificador e assinatura do comando; nunca
 repetir com outra chave para tentar adivinhar o resultado.
 
-Sem autenticacao forte neste ensaio. O ator e sintetico/documental. O P2 legado
-de restauracao temporizada de foco/rolagem nao foi refatorado nesta integracao.
+Sem autenticacao forte neste ensaio. O ator e sintetico/documental. Isso nao
+autoriza aprovacoes da 7A nem habilita Clientes/Tipos.
+
+## Corte operacional obrigatorio antes de qualquer liberacao
+
+O procedimento suportado e uma ORIGEM DE DESTINO ISOLADA, sem escritor legado,
+sem service worker anterior, sem sincronizador e sem importacao automatica.
+Nao se declara que JavaScript novo controle abas antigas. Atualizar uma pagina,
+fechar algumas abas ou limpar cache nao comprova exclusao de todos os escritores.
+
+1. Solicitar autorizacao explicita para a copia real, com empresa, responsavel,
+   origem legada e origem de destino identificadas. Nao ativar na origem antiga.
+2. Suspender operacionalmente novos lancamentos no legado e preservar a copia
+   independente. Registrar revisao e SHA-256. Qualquer divergencia posterior
+   exige novo preflight e decisao, nunca mesclagem silenciosa.
+3. Aprovar a restauracao da copia e TODOS os diagnosticos do preflight real.
+   A fixture aprovada nao certifica automaticamente dados reais desconhecidos.
+4. Comprovar origem de destino sem legado, identidade/revisao e protocolo exatos,
+   funcionalidades permitidas limitadas a criar/editar Orcamentos e outros
+   dominios sem escrita. O backup da nuvem permanece fora desse fluxo.
+5. Importar explicitamente em base nova pela autoridade existente e comparar
+   estado completo. Apenas apos confirmacao nativa publicar a raiz na UI.
+6. Registrar aceite de acesso pela nova origem. Nao disponibilizar um caminho
+   que reimporte localStorage ou o JSON da nuvem durante o uso.
+7. Se o destino compartilhar origem/caminhos remotos com escritores antigos,
+   permanecer BLOQUEADO. Nao usar uma trava cooperativa como substituto.
+
+Na entrega atual, index.html nao carrega o bootstrap IndexedDB e Salvar publico
+continua retornando PERSISTENCIA_PROPOSTA_SEGURA_INDISPONIVEL. O bootstrap de
+homologacao exige loopback e metadado do host local. Logo, esta simulacao, seus
+parametros ou um eventual refresh NAO ativam gravacao publica ou migracao real.
+Uma futura alteracao desse bloqueio depende da autorizacao e das provas acima.
+
+O P2 de Orcamentos foi corrigido na medicao de topo e no tratamento de foco e
+rolagem; as regras comerciais/fiscais e os 37 comandos nao foram alterados.

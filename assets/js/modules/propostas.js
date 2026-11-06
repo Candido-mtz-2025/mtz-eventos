@@ -655,7 +655,7 @@
         const editandoProposta = campoDaProposta || usuarioEditandoProposta();
 
         if (editandoProposta && typeof executarMantendoScroll === 'function') {
-            executarMantendoScroll(acao, alvo);
+            executarMantendoScroll(acao, alvo, { imediato: true });
             return;
         }
 
@@ -745,32 +745,11 @@
                 };
 
                 requestAnimationFrame(() => {
+                    if (!document.contains(campo)) return;
                     centralizarImediatamente();
                     focarPropostaSemRolagem(campo);
+                    campo.reportValidity?.();
                 });
-
-                const manterVisivelEFocado = (reportar = false) => {
-                    if (!document.contains(campo)) return;
-
-                    const viewport = window.visualViewport;
-                    const topoViewport = viewport?.offsetTop || 0;
-                    const alturaViewport = viewport?.height || window.innerHeight;
-                    const limiteSuperior = topoViewport + 16;
-                    const limiteInferior = topoViewport + alturaViewport - 16;
-                    const retangulo = campo.getBoundingClientRect();
-
-                    if (retangulo.top < limiteSuperior || retangulo.bottom > limiteInferior) {
-                        centralizarImediatamente();
-                    }
-
-                    focarPropostaSemRolagem(campo);
-                    if (reportar) campo.reportValidity?.();
-                };
-
-                setTimeout(() => manterVisivelEFocado(true), 220);
-                setTimeout(() => manterVisivelEFocado(false), 520);
-                setTimeout(() => manterVisivelEFocado(false), 1500);
-                setTimeout(() => manterVisivelEFocado(false), 2300);
                 setTimeout(() => {
                     campo.classList.remove('proposta-validation-target');
                     if (!campo.validationMessage) campo.removeAttribute('aria-invalid');
@@ -3420,6 +3399,7 @@
         if (opcoes.semRolagem) return;
 
         setTimeout(() => {
+            if (subAba !== subAbaPropostasAtual) return;
             if (usuarioEditandoProposta()) return;
 
             const alvoScroll = subAba === 'lista'
@@ -3491,6 +3471,7 @@
         setTimeout(() => {
             if (usuarioEditandoProposta()) return;
 
+            if (etapa !== secaoFormularioPropostaAtual) return;
             const painel = document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
             if (typeof window.rolarParaElementoAtalho === 'function') {
                 window.rolarParaElementoAtalho(painel, 'start', { forcar: true });
@@ -6773,30 +6754,15 @@
 
         if (validar) {
             if (!proposta.cliente.nome) {
-                mostrarToast('Informe o nome/empresa do cliente.', 'erro');
-                mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.getElementById('propClienteNome'));
-                }, 120);
+                focarPendenciaProposta({secao:'cliente',campo:'propClienteNome',mensagem:'Informe o nome/empresa do cliente.'});
                 return null;
             }
             if (!proposta.evento.nome) {
-                mostrarToast('Informe o nome do evento.', 'erro');
-                mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.getElementById('propEventoNome'));
-                }, 120);
+                focarPendenciaProposta({secao:'evento',campo:'propEventoNome',mensagem:'Informe o nome do evento.'});
                 return null;
             }
             if (proposta.itens.length === 0) {
-                mostrarToast('Adicione pelo menos 1 item na proposta.', 'erro');
-                mostrarSecaoFormularioProposta('itens');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
-                }, 120);
+                focarPendenciaProposta({secao:'itens',campo:'propBtnAdicionarItem',mensagem:'Adicione pelo menos 1 item na proposta.'});
                 return null;
             }
         }

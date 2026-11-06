@@ -7,8 +7,9 @@ import { selecionarEntradasComerciaisFormulario } from '../assets/js/core/propos
 if(location.hostname!=='127.0.0.1' || !document.querySelector('meta[name="mtz-homologacao"]'))throw Error('HOST_NAO_AUTORIZADO');
 const texto=v=>decodificarTextoEstrito(JSON.stringify(v)).texto;
 const ref=id=>`proposta:${encodeURIComponent(JSON.stringify([typeof id,id]))}`;
-const nomeBanco='mtz-idb-fundacao-lote1-teste-interdominios-orcamentos-local-v1';
-const identidadeBaseTexto=texto({baseId:'ensaio-interdominios:orcamentos-local-v1',epocaAutoridade:'1',protocolo:1});
+const simulacaoLegada=document.querySelector('meta[name="mtz-homologacao"]').dataset.simulacao==='legado-sintetico';
+let nomeBanco='mtz-idb-fundacao-lote1-teste-interdominios-orcamentos-local-v1';
+let identidadeBaseTexto=texto({baseId:'ensaio-interdominios:orcamentos-local-v1',epocaAutoridade:'1',protocolo:1});
 const comandos=['proposta.criar.v1','proposta.editar.v1'];
 const permissoes=new Set(['criar_proposta','editar_proposta','visualizar_locacoes','restaurar_backup']);
 const script=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(Error('RECURSO_INDISPONIVEL'));document.head.append(s);});
@@ -20,7 +21,8 @@ const barra=document.createElement('div');barra.className='card-header';barra.id
 barra.innerHTML='<strong>Homologação local · dados sintéticos</strong> <button type="button" class="btn btn-sm" id="localIniciar">Iniciar base sintética</button> <button type="button" class="btn btn-sm" id="localAtualizar">Atualizar lista</button> <button type="button" class="btn btn-sm" id="localRecuperar">Recuperar salvamento</button> <output role="status" id="localEstado">Carregando…</output>';
 tab.prepend(barra);
 const estado=document.getElementById('localEstado');
-const avisar=m=>{estado.textContent=m;};
+let notificarVisual=null;
+const avisar=m=>{estado.textContent=m;notificarVisual?.(m);};
 window.mostrarToast=m=>avisar(m);
 // Ator documental sintetico; nao representa autenticacao comercial nem aprovacao segregada.
 window.validarPermissao=p=>permissoes.has(p);
@@ -28,12 +30,25 @@ window.validarAcessoAba=id=>['dashboard','propostas'].includes(id);
 window.obterUsuarioAtual=()=>({nome:'Equipe sintetica de homologacao'});
 await script('/assets/js/core/state.js');
 const controle=window.__obterControladorEstadoAplicacao();
-const genesis={...JSON.parse(texto(controle.obterReferencia())),versao:'12',data:'2026-11-06T12:00:00.000Z',ultimaEdicao:0};
-const origem=criarLedgerEstoqueV2Texto(texto(genesis),texto({tipo:'sem_reserva_v2'}));
+let genesis={...JSON.parse(texto(controle.obterReferencia())),versao:'12',data:'2026-11-06T12:00:00.000Z',ultimaEdicao:0};
+let origem;
+if(simulacaoLegada){
+    const {criarPropostasLegadasSinteticas}=await import('./propostas-legadas-sinteticas.mjs');
+    const {simularMigracaoTexto,obterArtefatoSimulacaoTexto}=await import('../assets/js/core/migration-preflight.mjs');
+    const r=await simularMigracaoTexto(texto(criarPropostasLegadasSinteticas(genesis)),texto({fonte:'arquivo_json',criadoEm:genesis.data,dataReferencia:'2026-11-06'}));
+    if(!r.ok){avisar('Simulação legada bloqueada pelo preflight.');throw Error('PREFLIGHT_LEGADO_RECUSADO');}
+    const artefato=obterArtefatoSimulacaoTexto(r);
+    if(!artefato.ok)throw Error('SIMULACAO_NAO_COMPROVADA');
+    genesis=JSON.parse(artefato.snapshotTexto);origem={ok:true,ledgerTexto:artefato.ledgerTexto};
+    identidadeBaseTexto=artefato.identidadeBaseTexto;
+    nomeBanco='mtz-idb-fundacao-lote1-teste-interdominios-migracao-'+JSON.parse(r.relatorioTexto).sha256Origem.slice(0,32);
+    barra.querySelector('strong').textContent='Simulação legada · fixture sintética fixa';
+    document.getElementById('localIniciar').textContent='Importar fixture sintética validada';
+}else origem=criarLedgerEstoqueV2Texto(texto(genesis),texto({tipo:'sem_reserva_v2'}));
 if(!origem.ok)throw Error('ORIGEM_SINTETICA_INVALIDA');
 const config={ensaioSintetico:true,nomeBanco,identidadeBaseTexto,dataReferencia:'2026-11-06',origemLedgerTexto:origem.ledgerTexto};
 let atual=null, porta=null, formulario=null, revisaoDraft=null, idDraft=null, ocupado=false, pendente=null, pronto=false, abrirConfirmada=null;
-const chavePendente='mtz-homologacao-orcamentos-operacao-v1';
+const chavePendente='mtz-homologacao-orcamentos-operacao-v1'+(simulacaoLegada?':'+nomeBanco:'');
 const fronteira=criarFronteiraEscritaDeEnsaio({...config,
     criarGatewayPrivado:permitir=>{
         const g=criarGatewayInterdominiosDeEnsaio({...config,
@@ -53,6 +68,13 @@ if(navigator.serviceWorker && (navigator.serviceWorker.controller || (await navi
     throw Error('ORIGEM_CONTROLADA_POR_VERSAO_ANTERIOR');
 }
 await script('/assets/js/core/utils.js');
+await script('/assets/js/ui/toast.js');
+const toastOriginal=window.mostrarToast;
+document.getElementById('toast').setAttribute('role','status');
+document.getElementById('toast').setAttribute('aria-live','polite');
+document.getElementById('toast').style.pointerEvents='none';
+notificarVisual=m=>toastOriginal(m,/Erro|bloquead|Não confirmado|Conflito/.test(m)?'erro':'ok',6000);
+window.mostrarToast=m=>avisar(m);
 await script('/assets/js/core/storage.js');
 await script('/assets/js/core/app.js');
 await script('/assets/js/modules/relatorios.js');
@@ -64,6 +86,7 @@ formulario=window.__instalarOrcamentosHomologacao({
 formulario.iniciar();
 await script('/assets/js/ui/eventos.js');
 inicializarTemaSistema();inicializarSidebarLayout();inicializarNavegacaoPrincipal();atualizarMedidasTopoApp();
+window.addEventListener('resize',()=>{atualizarMedidasTopoApp();atualizarControleSidebar();});
 abrirTab('propostas',{semRolagem:true});
 // A interface principal permanece visivel; modulos fora do escopo nao recebem handlers de escrita.
 for(const b of document.querySelectorAll('[data-menu-item][data-tab], #appMainSidebar [data-tab]'))if(!['dashboard','propostas'].includes(b.dataset.tab)){
@@ -176,4 +199,4 @@ script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').ca
 script('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js').catch(()=>{});
 // Nao criar sequer a selecao de autoridade antes da primeira acao explicita.
 if((await indexedDB.databases()).some(b=>b.name===`${nomeBanco}-fronteira`))await atualizar();
-else {botoes(false);avisar('Clique em Iniciar base sintética. Nenhum dado real será importado.');}
+else {botoes(false);avisar(simulacaoLegada?'Clique em Importar fixture sintética validada. Nenhum dado real será importado.':'Clique em Iniciar base sintética. Nenhum dado real será importado.');}

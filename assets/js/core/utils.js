@@ -195,10 +195,12 @@ function restaurarEstadoRolagem(estadoRolagem) {
 
 let sequenciaExecucaoMantendoScroll = 0;
 
-function executarMantendoScroll(callback, elementoPreferido = null) {
+function executarMantendoScroll(callback, elementoPreferido = null, opcoes = {}) {
     const sequenciaAtual = ++sequenciaExecucaoMantendoScroll;
     const estadoRolagem = capturarEstadoRolagem();
     const estadoCampo = capturarEstadoCampoAtivo(elementoPreferido);
+    const alvo = elementoPreferido instanceof HTMLElement ? elementoPreferido : document.activeElement;
+    const campoOrcamento = alvo instanceof HTMLElement && Boolean(alvo.closest('#tab-propostas'));
 
     try {
         if (typeof callback === 'function') callback();
@@ -209,12 +211,19 @@ function executarMantendoScroll(callback, elementoPreferido = null) {
             restaurarEstadoRolagem(estadoRolagem);
         };
 
-        requestAnimationFrame(restaurar);
-        setTimeout(restaurar, 80);
-        setTimeout(restaurar, 180);
-        setTimeout(restaurar, 350);
-        setTimeout(restaurar, 700);
-        setTimeout(restaurar, 1200);
+        if (opcoes.imediato === true || campoOrcamento) {
+            // Nao retomar foco/scroll depois que o usuario ja iniciou outra acao.
+            const ativo = document.activeElement;
+            if (!estadoCampo || ativo === estadoCampo.elemento || ativo === document.body
+                || !document.contains(estadoCampo.elemento)) restaurar();
+        } else {
+            requestAnimationFrame(restaurar);
+            setTimeout(restaurar, 80);
+            setTimeout(restaurar, 180);
+            setTimeout(restaurar, 350);
+            setTimeout(restaurar, 700);
+            setTimeout(restaurar, 1200);
+        }
     }
 }
 

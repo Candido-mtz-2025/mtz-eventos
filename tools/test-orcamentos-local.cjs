@@ -6,7 +6,7 @@ const test=async(name,fn)=>{try{await fn();results.push({name,ok:true});console.
 (async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{
  browser=await chromium.launch({headless:true,executablePath:process.env.MTZ_CHROME});
- const context=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1080}}),page=await context.newPage();
+ const context=await browser.newContext({acceptDownloads:true,viewport:{width:1280,height:600}}),page=await context.newPage();
  pagina=page;
  const url=`http://127.0.0.1:${server.address().port}`;
  const watch=p=>p.on('pageerror',e=>errors.push(e.stack));watch(page);
@@ -15,8 +15,7 @@ try{
  const root=p=>p.evaluate(()=>JSON.parse(JSON.stringify(propostas)));
  const section=(p,s)=>p.evaluate(s=>mostrarSecaoFormularioProposta(s,{semRolagem:true,foco:false,ignorarValidacao:true}),s);
  const save=async p=>{await p.waitForFunction(()=>document.getElementById('tab-propostas').getAttribute('aria-busy')!=='true');
-  // O helper legado de foco restaura scroll ate 1200ms apos renderizar; nao mudar esse P2 neste teste.
-  await p.waitForTimeout(1300);const b=p.locator('[data-action="salvarProposta"]').first();await b.evaluate(el=>el.scrollIntoView({behavior:'instant',block:'center'}));await b.click();await p.waitForFunction(()=>!document.querySelector('[data-action="salvarProposta"]').disabled);return msg(p);};
+  const b=p.locator('[data-action="salvarProposta"]').first();await b.click();await p.waitForFunction(()=>!document.querySelector('[data-action="salvarProposta"]').disabled);return msg(p);};
  const edit=async p=>{await p.locator('#propostasSubtabLista').click();await p.locator('[data-action="editarProposta"]:visible').first().click();await p.waitForFunction(()=>document.getElementById('tab-propostas').getAttribute('aria-busy')!=='true');};
  const review=p=>p.evaluate(()=>revisarFechamentoGerencialProposta());
  const dump=p=>p.evaluate(async()=>{const name='mtz-idb-fundacao-lote1-teste-interdominios-orcamentos-local-v1';const db=await new Promise((ok,no)=>{const r=indexedDB.open(name,2);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});return new Promise((ok,no)=>{const tx=db.transaction(['raiz','historico','auditoria','recibos','controle'],'readonly'),data={};for(const k of tx.objectStoreNames){const r=tx.objectStore(k).getAll();r.onsuccess=()=>data[k]=r.result;}tx.oncomplete=()=>{db.close();ok(JSON.stringify(data));};tx.onabort=()=>{db.close();no(tx.error);};});});

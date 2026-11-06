@@ -18,15 +18,16 @@ function criarServidor() {
             'Referrer-Policy':'no-referrer', 'X-Frame-Options':'DENY',
             'Content-Security-Policy':"default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" };
         if (pathname === '/' || pathname === '/index.html') {
+            const simulacao=new URL(req.url,'http://127.0.0.1').searchParams.get('simulacao')==='legado-sintetico';
             const html = fs.readFileSync(path.join(root,'index.html'),'utf8')
                 .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')
                 .replace(/<link[^>]*rel="manifest"[^>]*>/gi,'')
-                .replace('</head>','<meta name="mtz-homologacao" content="orcamentos-sinteticos-v1"></head>')
+                .replace('</head>',`<meta name="mtz-homologacao" content="orcamentos-sinteticos-v1"${simulacao?' data-simulacao="legado-sintetico"':''}></head>`)
                 .replace('</body>','<script type="module" src="/homologacao/orcamentos.mjs"></script></body>');
             res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8'});return res.end(html);
         }
         // Allowlist estatica; nenhum arquivo de clientes, docs, .git ou evidencias e servido.
-        if (!/^\/(assets\/(js\/(core|modules|ui)\/[a-z0-9.-]+\.(js|mjs)|css\/[a-z0-9.-]+\.css)|homologacao\/orcamentos\.mjs|logo\.png)$/.test(pathname)) {
+        if (!/^\/(assets\/(js\/(core|modules|ui)\/[a-z0-9.-]+\.(js|mjs)|css\/[a-z0-9.-]+\.css)|homologacao\/(orcamentos|propostas-legadas-sinteticas)\.mjs|logo\.png)$/.test(pathname)) {
             res.writeHead(404,headers);return res.end();
         }
         const file = path.join(root,pathname.slice(1));

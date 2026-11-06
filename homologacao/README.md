@@ -40,7 +40,7 @@ Nao reutilizar esta base para operacao comercial. Nao publicar este host.
 
 Nao ha comando novo. O registro conserva 37 comandos, mas este bootstrap permite
 somente criar/editar propostas e ler/inicializar a base sintetica. Nenhuma outra
-aba ou piloto e carregado. Nao ha conversao, sync, importacao ou migracao real.
+aba ou piloto e carregado. Nao ha conversao, sync, importacao geral ou migracao real.
 
 O estado publicado e congelado e os escritores legados sao recusados pela
 fronteira existente. O host carrega as funcoes reais de storage.js DEPOIS de selar
@@ -93,3 +93,24 @@ Uma aba antiga ainda pode escrever seu proprio localStorage: essa escrita nao e
 autoritativa, nao e importada, nao publica dados e nao altera o IndexedDB. Isso
 nao significa revogacao global de clientes antigos ou do sincronizador remoto.
 O procedimento para adocao futura esta em ADOCAO_ORCAMENTOS.md.
+
+## Simulacao legada e fechamento tecnico
+
+`http://127.0.0.1:54145/?simulacao=legado-sintetico` utiliza somente uma fixture
+fixa de quatro propostas, dois clientes e dois tipos sinteticos. Nao recebe JSON
+do usuario. Percentuais da fixture sao exclusivamente ilustrativos, com pendencia
+fiscal declarada; nao configuram a empresa nem representam validacao contabil.
+Backup independente, restauracao exata e preflight sao reutilizados
+antes da inicializacao NATIVA do IndexedDB. Os stores fabricados pelo dry-run nao
+sao importados. O banco dessa simulacao e separado por hash e nao substitui a
+homologacao anterior. Nenhuma importacao ocorre sem clicar explicitamente.
+
+O P2 foi corrigido: sidebar vertical nao integra o offset superior, cabecalhos
+nao sao contados duas vezes e Orcamentos nao restaura foco/rolagem em timers
+atrasados. Validacoes direcionam uma vez ao campo real. Mensagens utilizam o
+toast existente, acessivel e sem interceptar cliques. Nao houve redesenho.
+
+`node tools/test-orcamentos-migration.cjs` cobre copia exata, importacao real
+da fixture em IDB, edicao, conflitos, falhas, recibos, rejeicoes e janela baixa.
+Os testes funcionais de Salvar usam 1280x600 sem clique forcado, sem aumentar a
+janela e sem esperas artificiais para contornar foco ou rolagem.
