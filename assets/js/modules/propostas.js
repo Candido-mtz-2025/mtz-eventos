@@ -70,6 +70,9 @@
     let fechamentoGerencialAtual = true;
     let fechamentoHistoricoFormulario = null;
     const origensTributosGerenciais = new WeakMap();
+    const origensLinhasHomologacao = new WeakMap();
+    const origensTributosHomologacao = new WeakMap();
+    let portaHomologacaoOrcamentos = null;
     const controlesHistoricosGerenciais = new Map();
     const FONTES_FISCAIS_GERENCIAIS = Object.freeze({
         ISS: { fundamento:'LC 116/2003, arts. 3, 7, 8 e 8-A; lista 3.05. Conferir lei municipal.', fonte:'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm' },
@@ -4236,6 +4239,7 @@
     }
 
     function registrarGeracaoPdfProposta(proposta, exibirInterno = false) {
+        if (portaHomologacaoOrcamentos) return; // Previa local e leitura, nao comprovante de exportacao.
         const propostaSalva = localizarProposta(proposta?.id);
         if (!propostaSalva) return;
         const tipo = exibirInterno ? 'pdf_interno' : 'pdf_cliente';
@@ -4990,6 +4994,10 @@
         if (!tbody) return;
         const lista = Array.isArray(itens) && itens.length ? itens : [{}];
         tbody.innerHTML = lista.map((item) => criarLinhaItemProposta(item)).join('');
+        if (portaHomologacaoOrcamentos && identidadeEdicaoProposta) {
+            Array.from(tbody.querySelectorAll('.proposta-item-row')).forEach((linha,indice)=>
+                origensLinhasHomologacao.set(linha,indice));
+        }
         associarRotulosCamposProposta(tbody);
         recalcularResumoProposta();
         atualizarBotaoExpandirTodosItensProposta(false);
@@ -6335,6 +6343,40 @@
         return resultado;
     }
 
+    // Compartilhado com o redutor: recebe entradas comerciais, nunca totais confiados ao formulario.
+    function construirPropostaGerencialCalculada(proposta, anterior, contexto) {
+        const resultado = construirPropostaComercialCalculada(proposta, anterior);
+        const custos = { ...resultado.custos };
+        // A opcao desmarcada zera a cobranca, nao a entrada historica informada.
+        // Na releitura, a entrada preservada vem do snapshot validado pelo journal.
+        if (contexto.incluirMaoObra === false && Object.hasOwn(contexto,'maoObraComercialInformada')) {
+            custos.maoObra = contexto.maoObraComercialInformada;
+            custos.maoObraCobrada = { ...custos.maoObraCobrada, total: custos.maoObra };
+        }
+        const resumo = calcularFechamentoGerencialProposta({ ...proposta.financeiro,
+            ...(Object.hasOwn(contexto,'descontoSolicitado') ? { desconto:contexto.descontoSolicitado } : {}),
+            itens: proposta.itens, custos, controleInterno: resultado.controleInterno,
+            clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal,
+            fiscal: proposta.fiscal, evento: proposta.evento, ...contexto });
+        resultado.itens = resumo.itensCalculados;
+        if (!resumo.incluirMaoObra) {
+            resumo.maoObraComercialInformada = custos.maoObra;
+            resultado.custos = { ...custos, maoObra: 0, montagem: { total: 0 }, desmontagem: { total: 0 } };
+        }
+        for (const chave of ['subtotalItens','totalCustosAdicionais','desconto','acrescimo','valorBase',
+            'percentualNF','tipoCalculoNF','valorNF','valorFinal','valorFinalComNF','valorLiquidoPrevisto',
+            'percentualEntrada','valorEntrada','percentualSaldo','valorSaldo']) {
+            resultado.financeiro[chave === 'subtotalItens' ? 'subtotal' : chave] = resumo[chave];
+        }
+        resultado.controleInterno = { ...resultado.controleInterno,
+            custoTotalProposta: resumo.custoTotalProposta, lucroPrevisto: resumo.lucroPrevisto,
+            margemPrevista: resumo.margemPrevista, fechamentoGerencial: resumo };
+        resultado.fiscal = { ...montarFiscalPropostaNormalizado(resultado.fiscal,
+            resultado.cliente,resultado.evento,resumo.resumoFiscal), tributosIndividualizados: contexto.tributos };
+        resultado.dadosFiscais = resultado.fiscal;
+        return resultado;
+    }
+
     function obterPropostasBase() {
         return (Array.isArray(propostas) ? propostas : []).map((item) => normalizarProposta(item));
     }
@@ -6777,6 +6819,7 @@
     }
 
     function preencherFormularioComProposta(proposta) {
+        portaHomologacaoOrcamentos?.aoAbrir(proposta.id);
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=false;
         fechamentoHistoricoFormulario=proposta?.controleInterno?.fechamentoGerencial?JSON.parse(JSON.stringify(proposta.controleInterno.fechamentoGerencial)):null;
@@ -6784,6 +6827,8 @@
         document.getElementById('propTributosIndividuais')?.replaceChildren();
         const maoObra=document.getElementById('propIncluirMaoObra');if(maoObra)maoObra.checked=proposta?.controleInterno?.fechamentoGerencial?.incluirMaoObra!==false;
         for(const t of proposta.fiscal?.tributosIndividualizados||[])adicionarTributoGerencial(t);
+        if(portaHomologacaoOrcamentos)Array.from(document.querySelectorAll('#propTributosIndividuais .prop-tributo-linha'))
+            .forEach((linha,indice)=>origensTributosHomologacao.set(linha,indice));
         const contexto=proposta.controleInterno?.fechamentoGerencial?.auditoriaFiscal||{};
         for(const [id,v]of Object.entries({propDataFiscalGerencial:contexto.dataFiscal||'',propTipoDescontoFiscal:contexto.tipoDescontoFiscal||'',propJustificativaFiscal:contexto.justificativaFiscalSemTributos||''})){const el=document.getElementById(id);if(el)el.value=v;}
         const cobertura=document.getElementById('propCoberturaFiscal');if(cobertura)cobertura.checked=contexto.coberturaFiscalConfirmada===true;
@@ -6843,7 +6888,7 @@
             propFreteDistanciaKm: p.custos.freteDistanciaKm,
             propFreteValorKm: valorInputMonetario(p.custos.freteValorKm),
             propCustoFrete: valorInputMonetario(p.custos.frete),
-            propCustoMaoObra: valorInputMonetario(p.custos.maoObra),
+            propCustoMaoObra: valorInputMonetario(p.controleInterno.fechamentoGerencial?.maoObraComercialInformada ?? p.custos.maoObra),
             propMaoObraComercialDetalhadaAtiva: p.custos.maoObraCobrada?.detalhada ? '1' : '0',
             propMaoObraMontagemPessoas: p.custos.maoObraCobrada?.montagem?.pessoas || '',
             propMaoObraMontagemValorPessoaDia: valorInputMonetario(p.custos.maoObraCobrada?.montagem?.valorPessoaDia || 0),
@@ -6924,6 +6969,7 @@
     }
 
     function limparFormularioProposta() {
+        portaHomologacaoOrcamentos?.aoNovo();
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=true;fechamentoHistoricoFormulario=null;
         for(const id of ['propDataFiscalGerencial','propTipoDescontoFiscal','propJustificativaFiscal']){const el=document.getElementById(id);if(el)el.value='';}
@@ -7058,6 +7104,7 @@
     }
 
     function salvarProposta() {
+        if (portaHomologacaoOrcamentos) return portaHomologacaoOrcamentos.salvar();
         if (salvamentoPropostaEmAndamento) {
             return { ok: false, codigo: 'SALVAMENTO_PROPOSTA_EM_ANDAMENTO' };
         }
@@ -10455,7 +10502,46 @@
         atualizarExperienciaGuiadaProposta();
     }
 
-    inicializarPropostas();
+    // Esta porta existe somente no HTML de homologacao servido em loopback.
+    // Nao e autenticacao: a origem isolada nunca recebe dados de clientes reais.
+    if (typeof location !== 'undefined' && ['127.0.0.1','localhost'].includes(location.hostname)
+        && document.querySelector('meta[name="mtz-homologacao"][content="orcamentos-sinteticos-v1"]')) {
+        Object.defineProperty(window, '__instalarOrcamentosHomologacao', { value: porta => {
+            if (portaHomologacaoOrcamentos || !porta || typeof porta.salvar !== 'function') throw Error('PORTA_INVALIDA');
+            portaHomologacaoOrcamentos = Object.freeze(porta);
+            return Object.freeze({
+                coletar() {
+                    if (!fechamentoGerencialAtual) throw Error('REVISAO_GERENCIAL_EXPLICITA_NECESSARIA');
+                    const proposta = coletarDadosFormulario(true);
+                    if (!proposta) throw Error('FORMULARIO_INVALIDO');
+                    proposta.financeiro.desconto = parseNumeroInput('propDesconto');
+                    proposta.custos = obterCustosFormulario();
+                    proposta.controleInterno = obterControleInternoFormulario();
+                    const contexto = { incluirMaoObra:document.getElementById('propIncluirMaoObra').checked,
+                        dataFiscal:document.getElementById('propDataFiscalGerencial').value,
+                        tipoDescontoFiscal:document.getElementById('propTipoDescontoFiscal').value,
+                        coberturaFiscalConfirmada:document.getElementById('propCoberturaFiscal').checked,
+                        justificativaFiscalSemTributos:document.getElementById('propJustificativaFiscal').value,
+                        tributos:coletarTributosGerenciais().map((t,indice)=>{
+                            const linha=document.querySelectorAll('#propTributosIndividuais .prop-tributo-linha')[indice];
+                            const origem=origensTributosHomologacao.get(linha);
+                            return {...t,...(origem===undefined?{}:{indiceOrigem:origem})};
+                        }) };
+                    const linhas=Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+                    return {proposta,contexto,indices:linhas.map(l=>origensLinhasHomologacao.get(l)??null)};
+                },
+                abrir(id) {
+                    const p=resolverRegistroPorIdExato(propostas,id);
+                    if(!p.encontrado)throw Error('PROPOSTA_AUSENTE');
+                    preencherFormularioComProposta(p.registro);
+                    mostrarSubAbaPropostas('formulario',{semRolagem:true,foco:false});
+                },
+                iniciar:inicializarPropostas
+            });
+        } });
+    } else {
+        inicializarPropostas();
+    }
 
     window.converterTextoMoedaParaNumero = converterTextoMoedaParaNumero;
     window.formatarMoedaProposta = formatarMoeda;

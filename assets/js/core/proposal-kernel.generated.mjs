@@ -5,6 +5,15 @@ export const manifesto=Object.freeze({
   "TEXTO_PADRAO_OBS_PAGAMENTO": "86085ce5e4d4bf8606d35399ba33589f54709549fb808aab18cf0d0607503bb8",
   "TEXTO_PADRAO_INCLUSO": "df8ab343b230d4f41fbbfb8f5236e9111173a4007ffd83eca906f81b32317162",
   "TEXTO_PADRAO_NAO_INCLUSO": "1a96dbdf4e2625a18286d854b72fddb0a7c55a63cbe89b55b24f9cbd3bf04da9",
+  "FONTES_FISCAIS_GERENCIAIS": "bdcaaba98fbbf68e7834d3c87f3cfe0840cdb1e837bffcd16f4b2ed7df7fa067",
+  "normalizarRegimeGerencial": "87edf5efa0c2ff79e1684f7a3b2b49d6a5a75dc48f5f69b61d857378b177b4b5",
+  "codigoTributoGerencial": "4f1425b5210a184d21d4c475978c9be9673941ed25d55444b5d80ff1f47199a4",
+  "auditarFiscalGerencial": "fa64c66dbf45b4625aa847a9b25040876dace6ea42369dec88a14e3db866e230",
+  "centavosGerenciais": "55bf71934ccdb30e90005196ac83c02233e4ea8148315526942a244e58a72e44",
+  "somarCentavosGerenciais": "be8edc75284d68bfcb46072d282e72304de2fc66b04c7f7bd44cc0dcfa038f42",
+  "percentualCentavosGerenciais": "d7fd8a5fca8b27aeedc8737db45b79bb5211e1a9e97c68b7bf57b04122aeda94",
+  "calcularItemGerencialProposta": "dd5202a8db0116dbbff69a48d8a5701d4df2d26e31ba29f5961fa299e94a92c4",
+  "calcularFechamentoGerencialProposta": "e42c3548d84511afaa0c21506397d309d6bfc128f275bb3e989741ebe14a57c9",
   "CATEGORIA_ITEM_PROPOSTA_PADRAO": "242c9b80a601e85ce882271d67b20c1f27e64fac3d196d7e936515f27c2a18f2",
   "CATEGORIA_ITEM_PROPOSTA_PADRAO_NOME": "f7d65049d2b9a3e552106efe82b4b426cb10d11ad8897323ad163651d15898f4",
   "CATEGORIA_MAO_OBRA_PROPOSTA": "9364dda5d64832654e158759bb615c3fbe3e4ddf225109b884d8b2cddf029ae6",
@@ -110,6 +119,7 @@ export const manifesto=Object.freeze({
   "normalizarProposta": "608f1f2461f6eb064ab6b5de08de048e1e377b4156d0530bcdedfb57fbaab7b0",
   "preservarCamposComerciais": "df4219fe3e544fec0b91a65b0a471df61e81f0119bfdc642725ff50c230b1df3",
   "construirPropostaComercialCalculada": "f8620d3bae0fa514951e43785c9284076d3055a8f7096b05f8935d997d6c047f",
+  "construirPropostaGerencialCalculada": "6d73127b0c98475c8627c438f109edeb94323124db669423840013f202aba2fa",
   "obterPropostasBase": "581108a23d038ced14bc6f15889246d477c4d8c71698bee3c1c487fa52dc04bc",
   "obterPendenciasPropostaPronta": "5b46b3f13d2adb6adc600a9e57f29594d5da78a6812ec56c0505aa86787785c1",
   "obterPendenciasFiscaisObrigatoriasProposta": "7a97db69e45fda2c2aa8664d5984c45bb360f770f850228f9e7dc03c255a6326",
@@ -149,6 +159,247 @@ let TEXTO_PADRAO_OBS_PAGAMENTO = '50% na aprovacao e 50% na montagem/desmontagem
 let TEXTO_PADRAO_INCLUSO = 'Montagem, desmontagem e estrutura conforme descrito nos itens da proposta.';
 
 let TEXTO_PADRAO_NAO_INCLUSO = 'Nao estao inclusos itens nao descritos na proposta, ART/laudo tecnico, gerador, eletrica, seguranca, taxas publicas, alimentacao, hospedagem, custos de estacionamento, liberacoes junto ao local e alteracoes apos aprovacao, salvo quando especificado.';
+
+let FONTES_FISCAIS_GERENCIAIS = Object.freeze({
+        ISS: { fundamento:'LC 116/2003, arts. 3, 7, 8 e 8-A; lista 3.05. Conferir lei municipal.', fonte:'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm' },
+        PIS: { fundamento:'Lei 9.718/1998; Lei 10.637/2002. Regime e exclusoes devem ser confirmados.', fonte:'https://www2.camara.leg.br/legin/fed/lei/2002/lei-10637-30-dezembro-2002-491384-normaatualizada-pl.html' },
+        COFINS: { fundamento:'Lei 9.718/1998; Lei 10.833/2003, arts. 1 e 30 a 35.', fonte:'https://www2.camara.leg.br/legin/fed/lei/2003/lei-10833-29-dezembro-2003-497045-normaatualizada-pl.html' },
+        IRPJ: { fundamento:'IN RFB 1700/2017; apuracao do periodo, nao lucro gerencial do evento.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=81268' },
+        CSLL: { fundamento:'Lei 7.689/1988; IN RFB 1700/2017; retencao conforme Lei 10.833/2003.', fonte:'https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/tributos/CSLL' },
+        INSS: { fundamento:'Lei 8.212/1991, art. 31; IN RFB 2110/2022, arts. 110 a 114. Nao e ISS.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=126687' },
+        IRRF: { fundamento:'Manual IRRF/RFB: conferir natureza do pagamento, tomador e excecoes.', fonte:'https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/manuais/irrf/mafon-2025.pdf' },
+        ICMS: { fundamento:'Lei SP 6.374/1989, arts. 1 e 2; operacao e documento devem ser conferidos.', fonte:'https://legislacao.fazenda.sp.gov.br/Paginas/leiddtt.aspx' },
+        CBS: { fundamento:'LC 214/2025 atualizada, arts. 346 a 348 e transicao de 2027. Sem aliquota presumida.', fonte:'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html' },
+        IBS: { fundamento:'LC 214/2025 atualizada, arts. 343, 344 e 348. Conferir dispensa/compensacao em 2026.', fonte:'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-normaatualizada-pl.html' },
+        DAS: { fundamento:'LC 123/2006; Resolucao CGSN 140/2018, arts. 21 e 22. Aliquota efetiva e segregacao.', fonte:'https://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278' }
+    });
+
+function normalizarRegimeGerencial(valor) {
+        const n=String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+        return {simplesnacional:'simples_nacional',lucropresumido:'lucro_presumido',lucroreal:'lucro_real'}[n]||null;
+    }
+
+function codigoTributoGerencial(t) {
+        const informado=String(t.codigo||'').toUpperCase();
+        const peloNome=String(t.nome||'').trim().toUpperCase().replace(/[\s/.-]/g,'');
+        const conhecido=peloNome==='ISSQN'?'ISS':Object.hasOwn(FONTES_FISCAIS_GERENCIAIS,peloNome)?peloNome:null;
+        if(informado && informado!=='OUTRO' && !Object.hasOwn(FONTES_FISCAIS_GERENCIAIS,informado))throw Error('CODIGO_TRIBUTO_INVALIDO');
+        if(conhecido && informado && informado!=='OUTRO' && conhecido!==informado)throw Error('CODIGO_E_NOME_TRIBUTARIO_DIVERGENTES');
+        return conhecido||informado||'OUTRO';
+    }
+
+function auditarFiscalGerencial(dados, itens, linhas) {
+        const perfil=dados.perfilFiscalEmpresa||obterPerfilFiscalEmpresa(), regime=normalizarRegimeGerencial(perfil.regimeTributario);
+        const data=dados.dataFiscal||'', dataValida=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+        const pendencias=[];
+        const pendente=m=>{if(!pendencias.includes(m))pendencias.push(m);};
+        const perfilConfirmado=!!(regime&&perfil.validadoPorContador===true&&String(perfil.responsavelValidacao||'').trim()
+            &&dataValida(perfil.dataValidacao)&&dataValida(perfil.vigenciaInicio)&&dataValida(data)
+            &&perfil.vigenciaInicio<=data&&perfil.dataValidacao<=data);
+        if(!perfilConfirmado)pendente('Regime e perfil fiscal pendentes de confirmacao contabil declarada.');
+        if(dados.coberturaFiscalConfirmada!==true)pendente('Conferencia da cobertura tributaria da proposta pendente.');
+        if(!linhas.some(t=>t.natureza!=='encargo')&&!String(dados.justificativaFiscalSemTributos||'').trim())pendente('Sem tributos identificados: informar fundamento da nao incidencia/dispensa ou configurar as estimativas.');
+        if(!dataValida(data))pendente('Informe a competencia/fato gerador estimado; data do evento nao e confirmacao de incidencia.');
+        if(itens.some(i=>!i.tipoFiscal||['verificar_contador','locacao_bem_movel'].includes(i.tipoFiscal)))pendente('Classificacao fiscal de itens pendente.');
+        if(itens.some(i=>i.tipoFiscal==='locacao_pura_bem_movel'&&!i.confirmacaoLocacaoPuraSeparada))pendente('Locacao pura exige separacao comprovada dos servicos; cessao do item 3.05 nao e dispensada automaticamente.');
+        if(Number(dados.desconto||0)>0 && !['incondicional','condicional'].includes(dados.tipoDescontoFiscal))pendente('Tratamento fiscal do desconto pendente.');
+        for(const t of linhas){
+            t.codigo=codigoTributoGerencial(t);
+            t.valorCalculado=t.valor;
+            if(t.sujeitoPassivo==='terceiro'){t.natureza='informativo';t.valor=0;t.statusFiscal='responsabilidade_do_terceiro';continue;}
+            t.incidencia=t.incidencia||'pendente';
+            if(!['pendente','aplica','nao_aplica'].includes(t.incidencia))throw Error('INCIDENCIA_INVALIDA');
+            if(t.incidencia==='nao_aplica'){t.valor=0;t.statusFiscal='nao_aplicavel';if(!(t.conferido===true&&String(t.fundamentoLegal||'').trim()&&String(t.responsavelConferencia||'').trim()))pendente(`${t.nome}: fundamento da nao incidencia pendente.`);continue;}
+            if(t.natureza==='encargo'){
+                if(t.codigo!=='OUTRO' && !(t.codigo==='INSS'&&t.baseCalculo==='manual'&&t.baseLegal==='folha'))throw Error('TRIBUTO_NAO_E_ENCARGO_OPERACIONAL');
+                t.statusFiscal='provisao_operacional';continue;
+            }
+            const positiva=Number(t.percentual)>0;
+            if(t.codigo==='ISS' && positiva){
+                if(Number(t.percentual)>5)throw Error('ISS_SUPERA_TETO_LEGAL_NAO_CONFUNDIR_COM_INSS');
+                const locacaoPura=itens.some(i=>i.tipoFiscal==='locacao_pura_bem_movel');
+                if((locacaoPura&&['comercial','materiais'].includes(t.baseCalculo)) || t.tipoFiscalAlvo==='locacao_pura_bem_movel'
+                    || (itens.length>0&&itens.every(i=>i.tipoFiscal==='locacao_pura_bem_movel')&&!Number(dados.custos?.maoObra)))throw Error('ISS_BASE_CONTEM_LOCACAO_PURA');
+                if(!String(dados.fiscal?.municipioIncidencia||'').trim() || !String(dados.fiscal?.codigoServicoMunicipal||'').trim() || !String(t.fundamentoMunicipal||'').trim())pendente('ISS: conferir municipio competente, codigo, aliquota e lei municipal, inclusive Campinas quando pertinente.');
+            }
+            if(['IRPJ','CSLL'].includes(t.codigo)&&t.natureza==='tributo'&&positiva
+                && !(t.baseCalculo==='manual'&&['lucro_real_ajustado','base_presumida','rateio_apuracao'].includes(t.baseLegal)))throw Error('TRIBUTO_SOBRE_LUCRO_EXIGE_BASE_CONTABIL_INFORMADA');
+            if(t.codigo==='INSS'&&t.natureza==='tributo'&&positiva&&!(t.baseCalculo==='manual'&&t.baseLegal==='folha'))throw Error('INSS_PATRONAL_NAO_E_TRIBUTO_DA_NOTA');
+            if(t.codigo==='ICMS'&&positiva&&t.natureza==='tributo'&&!(t.baseCalculo==='vendas'||(t.baseCalculo==='tipo_fiscal'&&t.tipoFiscalAlvo==='produto_venda')||(t.baseCalculo==='manual'&&t.baseLegal==='operacao_icms')))throw Error('ICMS_EXIGE_OPERACAO_E_BASE_ESPECIFICAS');
+            if(t.codigo==='IRRF'&&t.natureza==='tributo')throw Error('IRRF_E_RETENCAO_NAO_DESPESA_ADICIONAL');
+            if(t.codigo==='OUTRO'&&t.natureza!=='encargo')pendente('Estimativa generica nao substitui identificacao individual dos tributos.');
+            if(t.codigo==='ISS'&&positiva&&Number(t.percentual)<2&&t.natureza!=='informativo')pendente('ISS abaixo de 2% exige fundamento de excecao legal ou partilha do Simples; nao presumir aliquota municipal.');
+            if(t.codigo==='INSS'&&t.natureza==='retencao'&&positiva){
+                if(itens.length&&itens.every(i=>i.tipoFiscal==='locacao_pura_bem_movel')&&!Number(dados.custos?.maoObra))throw Error('RETENCAO_INSS_SEM_SERVICO_COMPROVADO');
+                if(!['cessao_mao_obra','empreitada','outra_fundamentada'].includes(t.hipoteseRetencao))pendente('Retencao previdenciaria: comprovar hipotese, contrato e enquadramento; nao decorre automaticamente de ISS ou montagem.');
+            }
+            if(['PIS','COFINS'].includes(t.codigo)&&t.natureza==='tributo'&&data>='2027-01-01'&&regime!=='simples_nacional')throw Error('PIS_COFINS_REVER_TRANSICAO_CBS_2027');
+            if(t.codigo==='DAS'&&regime&&regime!=='simples_nacional')throw Error('DAS_INCOMPATIVEL_COM_REGIME');
+            if(['CBS','IBS'].includes(t.codigo)&&data>='2026-01-01'&&data<='2026-12-31'){
+                if(regime==='simples_nacional'){
+                    if(t.natureza!=='informativo'&&positiva)throw Error('ALIQUOTAS_TESTE_2026_NAO_APLICAVEIS_AO_SIMPLES');
+                    t.valor=0;
+                }else if(t.transicao2026==='dispensa'){
+                    t.natureza='informativo';t.valor=0;
+                }else if(t.transicao2026==='recolher_compensar'){
+                    if(t.compensacaoInformada==null||t.compensacaoInformada==='')throw Error('COMPENSACAO_2026_DEVE_SER_INFORMADA');
+                    const c=centavosGerenciais(t.compensacaoInformada), bruto=centavosGerenciais(t.valor);
+                    if(c>bruto)throw Error('COMPENSACAO_SUPERA_TRIBUTO');
+                    t.valorBrutoTributo=t.valor;t.valor=(bruto-c)/100;
+                }else{
+                    t.natureza='informativo';t.valor=0;pendente('IBS/CBS 2026: definir dispensa e obrigacoes acessorias ou recolhimento/compensacao; destaque nao e despesa automatica.');
+                }
+            }
+            if(t.natureza==='informativo')t.valor=0;
+            const fonteValida=typeof t.fonteLegal==='string'&&/^https:\/\//.test(t.fonteLegal);
+            const regraConfirmada=perfilConfirmado&&t.incidencia==='aplica'&&normalizarRegimeGerencial(t.regimeAplicavel)===regime
+                &&String(t.fundamentoLegal||'').trim()&&fonteValida&&dataValida(t.vigenciaInicio)&&dataValida(t.vigenciaFim)
+                &&t.vigenciaInicio<=data&&data<=t.vigenciaFim&&String(t.responsavelConferencia||'').trim()&&t.conferido===true;
+            if(t.vigenciaInicio&&dataValida(data)&&dataValida(t.vigenciaInicio)&&data<t.vigenciaInicio)throw Error('REGRA_FISCAL_FORA_DA_VIGENCIA');
+            if(t.vigenciaFim&&dataValida(data)&&dataValida(t.vigenciaFim)&&data>t.vigenciaFim)throw Error('REGRA_FISCAL_VENCIDA');
+            if(t.regimeAplicavel&&t.regimeAplicavel!=='pendente'&&regime&&normalizarRegimeGerencial(t.regimeAplicavel)!==regime)throw Error('REGRA_FISCAL_DE_OUTRO_REGIME');
+            t.validacaoFiscalPendente=!regraConfirmada;
+            t.statusFiscal=regraConfirmada?'configuracao_contabil_declarada':'estimativa_pendente';
+            if(!regraConfirmada)pendente(`${t.nome}: incidencia, regime, fundamento, fonte, vigencia e conferencia pendentes.`);
+        }
+        const ativas=linhas.filter(t=>t.incidencia!=='nao_aplica'&&t.natureza==='tributo'&&t.valor>0);
+        if(regime==='simples_nacional'&&ativas.some(t=>t.codigo==='DAS')&&ativas.some(t=>['ISS','PIS','COFINS','IRPJ','CSLL','ICMS'].includes(t.codigo)&&t.apuracaoSeparada!==true))throw Error('DAS_E_COMPONENTES_DUPLICADOS');
+        return {versao:3,regime,perfilConfirmado,dataFiscal:data,tipoDescontoFiscal:dados.tipoDescontoFiscal||'',coberturaFiscalConfirmada:dados.coberturaFiscalConfirmada===true,justificativaFiscalSemTributos:dados.justificativaFiscalSemTributos||'',pendencias,completo:pendencias.length===0,
+            fontesConsultadasEm:'2026-11-05',autenticacaoContadorVerificada:false};
+    }
+
+function centavosGerenciais(valor) {
+        const n = typeof valor === 'number' ? valor : Number(valor || 0);
+        if (!Number.isFinite(n) || n < 0 || !Number.isSafeInteger(Math.round(n * 100))) throw Error('VALOR_GERENCIAL_INVALIDO');
+        return Math.round((n + Number.EPSILON) * 100);
+    }
+
+function somarCentavosGerenciais(valores) {
+        const total = valores.reduce((s, n) => s + BigInt(n), 0n);
+        if (total > BigInt(Number.MAX_SAFE_INTEGER) || total < BigInt(Number.MIN_SAFE_INTEGER)) throw Error('LIMITE_MONETARIO_EXCEDIDO');
+        return Number(total);
+    }
+
+function percentualCentavosGerenciais(base, percentual) {
+        const p = Number(percentual);
+        if (!Number.isFinite(p) || p < 0 || p > 100) throw Error('PERCENTUAL_GERENCIAL_INVALIDO');
+        return Number((BigInt(base) * BigInt(Math.round(p * 10000)) + 500000n) / 1000000n);
+    }
+
+function calcularItemGerencialProposta(origem = {}) {
+        for(const k of ['quantidade','periodoDias','custoUnitario','custoTerceirizadoReal','custoProprioManualTotal'])if(origem[k]!=null && origem[k]!=='' && (!Number.isFinite(Number(origem[k])) || Number(origem[k])<0))throw Error('VALOR_GERENCIAL_INVALIDO');
+        const politica = origem.politicaCustoProprioAplicada?.modo === 'manual'
+            ? origem.politicaCustoProprioAplicada : { modo: 'nao_calcular', percentual: 0, origem: 'gerencial_v2' };
+        const item = calcularItemProposta({ ...origem, origemCusto:normalizarOrigemCustoItemProposta(origem), politicaCustoProprioAplicada: politica });
+        const q = Number(item.quantidade), dias = Number(item.periodoDias);
+        if (!Number.isSafeInteger(q) || q < 0 || !Number.isFinite(dias) || dias < 0 || !Number.isSafeInteger(dias * 10000)) throw Error('QUANTIDADE_GERENCIAL_INVALIDA');
+        const base = (BigInt(centavosGerenciais(item.custoUnitario)) * BigInt(q) * BigInt(dias * 10000) + 5000n) / 10000n;
+        if (base > BigInt(Number.MAX_SAFE_INTEGER)) throw Error('LIMITE_MONETARIO_EXCEDIDO');
+        if (Number(base) !== centavosGerenciais(item.custoTotal)) throw Error('PRECISAO_COMERCIAL_DIVERGENTE');
+        if (item.origemCusto === 'misto' && Number(origem.quantidadePropria) + Number(origem.quantidadeTerceirizada) !== q) throw Error('COMPOSICAO_MISTA_INVALIDA');
+        const total = somarCentavosGerenciais([centavosGerenciais(item.custoTotal), centavosGerenciais(item.valorHonorarios), centavosGerenciais(item.valorEncargos)]);
+        const retencao = item.aplicarINSS ? percentualCentavosGerenciais(somarCentavosGerenciais([centavosGerenciais(item.custoTotal), centavosGerenciais(item.valorHonorarios)]), item.percentualINSS) : 0;
+        const custo = somarCentavosGerenciais([centavosGerenciais(item.custoProprio), centavosGerenciais(item.custoTerceirizado)]);
+        const terceirizado = item.origemCusto === 'misto' || item.origemCusto === 'terceirizado';
+        const custoTerceirizadoInformado = !terceirizado || (origem.custoTerceirizadoInformado !== false
+            && (Object.hasOwn(origem,'custoTerceirizadoReal') || Object.hasOwn(origem,'custoTerceirizado')));
+        return { ...item, valorINSS: retencao / 100, valorTotal: total / 100, totalFinal: total / 100,
+            custoInternoItemTotal: custo / 100, lucroItem: (total - custo) / 100,
+            margemItem: total ? (total - custo) / total * 100 : 0,
+            custoTerceirizadoInformado, custoPendente: item.origemCusto === 'nao_informado' || !custoTerceirizadoInformado,
+            versaoCalculoGerencial: 2 };
+    }
+
+function calcularFechamentoGerencialProposta(dados = {}) {
+        const itens = (dados.itens || []).map(calcularItemGerencialProposta);
+        const maoObraAtiva = dados.incluirMaoObra !== false;
+        const custos = { ...dados.custos, ...(!maoObraAtiva ? { maoObra: 0, montagem: {total:0}, desmontagem:{total:0} } : {}) };
+        const controle = { ...dados.controleInterno, ...(!maoObraAtiva ? { maoObraOperacional: {total:0} } : {}) };
+        const resumo = calcularResumoProposta({ ...dados, custos, controleInterno: controle,
+            itens: itens.map(i => ({ ...i, aplicarINSS: false })) });
+        const subtotal = somarCentavosGerenciais(itens.map(i => centavosGerenciais(i.valorTotal)));
+        const adicionais = somarCentavosGerenciais(CHAVES_CUSTOS_ADICIONAIS.map(k => centavosGerenciais(custos[k] || 0)));
+        const antesDesconto = somarCentavosGerenciais([subtotal, adicionais, centavosGerenciais(dados.acrescimo || 0)]);
+        const descontoAplicado = Math.min(antesDesconto, centavosGerenciais(dados.desconto || 0));
+        const base = antesDesconto - descontoAplicado;
+        const fiscalAgregado = percentualCentavosGerenciais(base, dados.percentualNF || 0);
+        const total = somarCentavosGerenciais([base, dados.tipoCalculoNF === 'acrescentar' ? fiscalAgregado : 0]);
+        const linhas = [];
+        if (fiscalAgregado) linhas.push({id:'fiscal-legado',nome:'Estimativa fiscal agregada',natureza:'tributo',base:base/100,percentual:Number(dados.percentualNF),valor:fiscalAgregado/100,validacaoFiscalPendente:true});
+        itens.forEach((item, indice) => {
+            const b = arredondarMoeda(item.custoTotal + item.valorHonorarios);
+            if (item.valorEncargos) linhas.push({id:`encargo-item-${indice}`,nome:`Encargo do item ${indice+1}`,natureza:'encargo',base:b,percentual:item.percentualEncargos,valor:item.valorEncargos,tipoCalculo:item.tipoCalculoEncargos});
+            if (item.valorINSS) linhas.push({id:`inss-item-${indice}`,codigo:'INSS',nome:`INSS do item ${indice+1}`,natureza:'retencao',base:b,percentual:item.percentualINSS,valor:item.valorINSS,validacaoFiscalPendente:true});
+        });
+        const individuais = dados.tributos || [];
+        if (!Array.isArray(individuais) || individuais.length > 40) throw Error('TRIBUTOS_INVALIDOS');
+        if (fiscalAgregado && individuais.some(t => t.natureza === 'tributo')) throw Error('FISCAL_AGREGADO_E_INDIVIDUAL_DUPLICADOS');
+        const nomes = new Set(), codigos = new Set(), coberturas=new Map();
+        for (const [indice, t] of individuais.entries()) {
+            if (typeof t.nome !== 'string' || !t.nome.trim() || t.nome.length > 100 || !['tributo','retencao','encargo','informativo'].includes(t.natureza)) throw Error('TRIBUTO_INCOMPLETO');
+            if(t.incidencia!=='nao_aplica'&&(t.percentual === '' || t.percentual == null || (t.baseCalculo==='manual' && (t.baseManual==null || t.baseManual===''))))throw Error('ALIQUOTA_OU_BASE_PENDENTE');
+            const chave = `${t.natureza}:${t.nome.trim().toLowerCase()}`;
+            if (nomes.has(chave) || (t.nome.trim().toLowerCase() === 'inss' && linhas.some(l => l.id.startsWith('inss-')))) throw Error('TRIBUTO_DUPLICADO');
+            nomes.add(chave);
+            const codigo=codigoTributoGerencial(t), chaveCodigo=`${codigo}:${t.natureza}:${t.baseCalculo}:${t.tipoFiscalAlvo||''}:${t.baseManual??''}`;
+            if(codigo==='INSS'&&t.natureza==='retencao'&&linhas.some(l=>l.id.startsWith('inss-')))throw Error('RETENCAO_INSS_ITEM_E_FECHAMENTO_DUPLICADA');
+            if(codigo!=='OUTRO'&&codigos.has(chaveCodigo))throw Error('TRIBUTO_DUPLICADO_POR_CODIGO');
+            codigos.add(chaveCodigo);
+            if(codigo!=='OUTRO'&&Number(t.percentual)>0&&t.incidencia!=='nao_aplica'&&t.natureza!=='informativo'&&t.sujeitoPassivo!=='terceiro'){
+                const servicos=['cessao_estrutura_temporaria_3_05','servico','mao_de_obra','frete_logistica','impressao_producao','art_projeto_documentacao'];
+                const escopo=new Set(itens.flatMap((i,n)=>{
+                    const inclui=t.baseCalculo==='comercial'||(t.baseCalculo==='materiais'&&i.tipoFiscal!=='mao_de_obra'&&i.categoria!==CATEGORIA_MAO_OBRA_PROPOSTA)
+                        ||(t.baseCalculo==='servicos'&&servicos.includes(i.tipoFiscal))||(t.baseCalculo==='vendas'&&i.tipoFiscal==='produto_venda')
+                        ||(t.baseCalculo==='tipo_fiscal'&&i.tipoFiscal===t.tipoFiscalAlvo);
+                    return inclui?[n]:[];
+                }));
+                if(t.baseCalculo==='manual')escopo.add('*');
+                if(['comercial','servicos'].includes(t.baseCalculo)&&custos.maoObra)escopo.add('maoObra');
+                const k=`${codigo}:${t.natureza}`, anteriores=coberturas.get(k)||new Set();
+                if(anteriores.size&&(escopo.has('*')||anteriores.has('*')||[...escopo].some(x=>anteriores.has(x))))throw Error('BASES_TRIBUTARIAS_SOBREPOSTAS');
+                coberturas.set(k,new Set([...anteriores,...escopo]));
+            }
+            const bases = { comercial: total, materiais: somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal!=='mao_de_obra' && i.categoria!==CATEGORIA_MAO_OBRA_PROPOSTA).map(i=>centavosGerenciais(i.valorTotal))),
+                servicos: somarCentavosGerenciais([...itens.filter(i=>['cessao_estrutura_temporaria_3_05','servico','mao_de_obra','frete_logistica','impressao_producao','art_projeto_documentacao'].includes(i.tipoFiscal)).map(i=>centavosGerenciais(i.valorTotal)),centavosGerenciais(custos.maoObra||0)]),
+                vendas:somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal==='produto_venda').map(i=>centavosGerenciais(i.valorTotal))),
+                tipo_fiscal:somarCentavosGerenciais(itens.filter(i=>i.tipoFiscal===t.tipoFiscalAlvo).map(i=>centavosGerenciais(i.valorTotal))),
+                manual: centavosGerenciais(t.baseManual || 0) };
+            if (!Object.hasOwn(bases, t.baseCalculo)) throw Error('BASE_TRIBUTARIA_INVALIDA');
+            if(t.baseCalculo==='tipo_fiscal'&&!TIPOS_FISCAIS_ITEM_PROPOSTA.some(x=>x.id===t.tipoFiscalAlvo))throw Error('TIPO_FISCAL_DA_BASE_INVALIDO');
+            let b=bases[t.baseCalculo];
+            if(t.baseCalculo==='comercial'&&dados.tipoDescontoFiscal==='condicional')b=antesDesconto;
+            if(t.ajusteBase==='rateio_comercial'&&!['manual','comercial'].includes(t.baseCalculo)){
+                if(descontoAplicado&&dados.tipoDescontoFiscal!=='incondicional')throw Error('RATEIO_EXIGE_DESCONTO_INCONDICIONAL_CONFIRMADO');
+                const denominador=somarCentavosGerenciais([subtotal,adicionais]);
+                b=denominador?Number((BigInt(b)*BigInt(base)+BigInt(Math.floor(denominador/2)))/BigInt(denominador)):0;
+            }
+            const percentual=t.incidencia==='nao_aplica'?0:t.percentual, valor=percentualCentavosGerenciais(b,percentual);
+            linhas.push({...t,id:`individual-${indice}`,codigo,nome:t.nome.trim(),natureza:t.natureza,base:b/100,baseCalculo:t.baseCalculo,
+                percentual:Number(percentual),valor:valor/100,validacaoFiscalPendente:t.natureza!=='encargo'});
+        }
+        const auditoriaFiscal=auditarFiscalGerencial(dados,itens,linhas);
+        const tributos = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='tributo').map(t=>centavosGerenciais(t.valor)));
+        const encargos = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='encargo').map(t=>centavosGerenciais(t.valor)));
+        const retencoes = somarCentavosGerenciais(linhas.filter(t=>t.natureza==='retencao').map(t=>centavosGerenciais(t.valor)));
+        if (retencoes > total) throw Error('RETENCOES_SUPERAM_RECEITA');
+        const custosReais = somarCentavosGerenciais([ ...itens.map(i=>centavosGerenciais(i.custoInternoItemTotal)),
+            ...['custoInternoTotal','custoTerceirizadoTotal','outrosCustosInternos'].map(k=>centavosGerenciais(controle[k] || 0)),
+            centavosGerenciais(controle.maoObraOperacional?.total || 0), centavosGerenciais(controle.hospedagemOperacional?.total || 0)]);
+        const antes = somarCentavosGerenciais([total, -custosReais, -tributos, -encargos]);
+        const depreciacao = percentualCentavosGerenciais(Math.max(0, antes), 20);
+        const resultado = antes - depreciacao;
+        const entrada = percentualCentavosGerenciais(total, dados.percentualEntrada ?? 50);
+        return { ...resumo, versao:2,versaoFiscal:3,auditoriaFiscal, itensCalculados:itens, incluirMaoObra:maoObraAtiva, tributosIndividualizados:linhas,
+            resumoFiscal:{...resumo.resumoFiscal,impostosEstimados:tributos/100,retencoesPrevistas:retencoes/100,valorBrutoProposta:total/100,valorLiquidoPrevisto:(total-retencoes)/100,auditoriaFiscal},
+            desconto:descontoAplicado/100,descontoSolicitado:Number(dados.desconto||0),
+            subtotalItens:subtotal/100,totalCustosAdicionais:adicionais/100,valorBase:base/100,
+            valorFinal:total/100,valorFinalComNF:total/100,valorFinalComercial:total/100,valorNF:fiscalAgregado/100,
+            valorEntrada:entrada/100,valorSaldo:(total-entrada)/100,valorLiquidoPrevisto:(total-retencoes)/100,receitaAposTributos:(total-tributos)/100,
+            custoTotalProposta:custosReais/100,tributosTotal:tributos/100,encargosTotal:encargos/100,retencoesTotal:retencoes/100,
+            caixaAposRetencoes:(total-retencoes)/100,resultadoAntesDepreciacao:antes/100,depreciacaoGerencial:depreciacao/100,
+            lucroPrevisto:resultado/100,margemPrevista:total ? resultado/total*100 : 0,
+            custosCompletos:itens.every(i=>!i.custoPendente),resultadoCompleto:itens.every(i=>!i.custoPendente)&&auditoriaFiscal.completo };
+    }
 
 let CATEGORIA_ITEM_PROPOSTA_PADRAO = 'outros';
 
@@ -2324,6 +2575,39 @@ function construirPropostaComercialCalculada(proposta, anterior = null) {
         return resultado;
     }
 
+function construirPropostaGerencialCalculada(proposta, anterior, contexto) {
+        const resultado = construirPropostaComercialCalculada(proposta, anterior);
+        const custos = { ...resultado.custos };
+        // A opcao desmarcada zera a cobranca, nao a entrada historica informada.
+        // Na releitura, a entrada preservada vem do snapshot validado pelo journal.
+        if (contexto.incluirMaoObra === false && Object.hasOwn(contexto,'maoObraComercialInformada')) {
+            custos.maoObra = contexto.maoObraComercialInformada;
+            custos.maoObraCobrada = { ...custos.maoObraCobrada, total: custos.maoObra };
+        }
+        const resumo = calcularFechamentoGerencialProposta({ ...proposta.financeiro,
+            ...(Object.hasOwn(contexto,'descontoSolicitado') ? { desconto:contexto.descontoSolicitado } : {}),
+            itens: proposta.itens, custos, controleInterno: resultado.controleInterno,
+            clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal,
+            fiscal: proposta.fiscal, evento: proposta.evento, ...contexto });
+        resultado.itens = resumo.itensCalculados;
+        if (!resumo.incluirMaoObra) {
+            resumo.maoObraComercialInformada = custos.maoObra;
+            resultado.custos = { ...custos, maoObra: 0, montagem: { total: 0 }, desmontagem: { total: 0 } };
+        }
+        for (const chave of ['subtotalItens','totalCustosAdicionais','desconto','acrescimo','valorBase',
+            'percentualNF','tipoCalculoNF','valorNF','valorFinal','valorFinalComNF','valorLiquidoPrevisto',
+            'percentualEntrada','valorEntrada','percentualSaldo','valorSaldo']) {
+            resultado.financeiro[chave === 'subtotalItens' ? 'subtotal' : chave] = resumo[chave];
+        }
+        resultado.controleInterno = { ...resultado.controleInterno,
+            custoTotalProposta: resumo.custoTotalProposta, lucroPrevisto: resumo.lucroPrevisto,
+            margemPrevista: resumo.margemPrevista, fechamentoGerencial: resumo };
+        resultado.fiscal = { ...montarFiscalPropostaNormalizado(resultado.fiscal,
+            resultado.cliente,resultado.evento,resumo.resumoFiscal), tributosIndividualizados: contexto.tributos };
+        resultado.dadosFiscais = resultado.fiscal;
+        return resultado;
+    }
+
 function obterPropostasBase() {
         return (Array.isArray(propostas) ? propostas : []).map((item) => normalizarProposta(item));
     }
@@ -2421,5 +2705,5 @@ function obterValorFinalComercial(proposta) {
         const valorFinalComNF = numeroNaoNegativo(proposta?.financeiro?.valorFinalComNF, valorFinal);
         return tipo === 'acrescentar' ? valorFinalComNF : valorFinal;
     }
-return Object.freeze({construirPropostaComercialCalculada,normalizarProposta,calcularResumoProposta,calcularItemProposta,gerarCodigoProposta,obterInconsistenciaQuantidadeOperacionalItem,normalizarUrlAnexoProposta,montarClientePropostaNormalizado,normalizarAnexoProposta,obterPendenciasPropostaPronta,obterPendenciasFiscaisObrigatoriasProposta,aplicarDatasAutomaticasStatus,obterProximaRevisaoProposta,obterPadroesOrcamento,obterPerfilFiscalEmpresa,obterCategoriasOrcamento,normalizarIdCategoriaOrcamento,normalizarPadroesOrcamento,normalizarCategoriaConfigOrcamento,normalizarCategoriasOrcamentoConfig,normalizarPerfilFiscalEmpresa,normalizarTipoFiscalItem,normalizarRegraMatrizFiscal,obterCategoriaOrcamentoPorValor,VERSAO_POLITICA_CUSTOS_PROPRIOS,obterAvisos:()=>Object.freeze([...avisos])});
+return Object.freeze({construirPropostaComercialCalculada,normalizarProposta,calcularResumoProposta,calcularItemProposta,gerarCodigoProposta,obterInconsistenciaQuantidadeOperacionalItem,normalizarUrlAnexoProposta,montarClientePropostaNormalizado,normalizarAnexoProposta,obterPendenciasPropostaPronta,obterPendenciasFiscaisObrigatoriasProposta,aplicarDatasAutomaticasStatus,obterProximaRevisaoProposta,obterPadroesOrcamento,obterPerfilFiscalEmpresa,obterCategoriasOrcamento,normalizarIdCategoriaOrcamento,normalizarPadroesOrcamento,normalizarCategoriaConfigOrcamento,normalizarCategoriasOrcamentoConfig,normalizarPerfilFiscalEmpresa,normalizarTipoFiscalItem,normalizarRegraMatrizFiscal,obterCategoriaOrcamentoPorValor,VERSAO_POLITICA_CUSTOS_PROPRIOS,calcularFechamentoGerencialProposta,calcularItemGerencialProposta,construirPropostaGerencialCalculada,obterAvisos:()=>Object.freeze([...avisos])});
 }

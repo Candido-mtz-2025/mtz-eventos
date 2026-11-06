@@ -29,7 +29,7 @@ const equipe = { ...numeros('pessoas valorPessoaDia dias') };
 const hospedagem = { ...numeros('pessoas diarias valorDiariaPessoa') };
 const ITEM = { ...textos('categoria tipoFiscal descricao medida observacoes tipoCalculoEncargos tipoCalculoINSS origemCusto fornecedorCusto'),
     ...numeros('periodoDias quantidade custoUnitario percentualHonorarios percentualEncargos percentualINSS percentualCustoProprio custoProprioManualTotal quantidadePropria quantidadeTerceirizada custoTerceirizadoReal'),
-    aplicarHonorarios:'boolean', aplicarEncargos:'boolean', aplicarINSS:'boolean', confirmacaoLocacaoPuraSeparada:'boolean',
+    aplicarHonorarios:'boolean', aplicarEncargos:'boolean', aplicarINSS:'boolean', confirmacaoLocacaoPuraSeparada:'boolean', custoTerceirizadoInformado:'boolean',
     indiceOrigem:'indice', tipoReferencia:'texto', modoCustoProprio:'texto' };
 const FINANCEIRO = { ...numeros('desconto acrescimo percentualNF percentualEntrada validadePropostaDias'),
     ...textos('tipoCalculoNF vencimentoEntrada vencimentoSaldo formaPagamento condicaoPagamento observacaoPagamento validadePropostaData') };
@@ -54,6 +54,39 @@ function campos(v, schema) {
                     && (schema[k] !== 'indice' || Number.isSafeInteger(x))));
 }
 function exatas(v, nomes) { return objeto(v) && canon(Object.keys(v).sort()) === canon(nomes.sort()); }
+
+const TRIBUTO_GERENCIAL = { ...textos('nome codigo natureza baseCalculo incidencia regimeAplicavel sujeitoPassivo tipoFiscalAlvo baseLegal ajusteBase hipoteseRetencao fundamentoLegal fonteLegal fundamentoMunicipal vigenciaInicio vigenciaFim responsavelConferencia transicao2026'),
+    ...numeros('baseManual percentual compensacaoInformada'), apuracaoSeparada:'boolean', conferido:'boolean', indiceOrigem:'indice' };
+const GERENCIAL = { incluirMaoObra:'boolean', dataFiscal:'texto', tipoDescontoFiscal:'texto',
+    coberturaFiscalConfirmada:'boolean', justificativaFiscalSemTributos:'texto' };
+export function selecionarEntradasComerciaisFormulario(proposta, contexto, indices) {
+    const selecionar=(v,s)=>Object.fromEntries(Object.entries(s).filter(([k])=>Object.hasOwn(v??{},k) && v[k]!=null)
+        .map(([k,t])=>[k,objeto(t)?selecionar(v[k],t):v[k]]));
+    const c=selecionar(proposta,CAMPOS);
+    c.clientePrecisaNotaFiscal=proposta.clientePrecisaNotaFiscal;
+    if(proposta.clienteId!=='' && proposta.clienteId!=null)c.clienteReferencia=ref('cliente',proposta.clienteId);
+    else c.clienteManual=selecionar(proposta.cliente,CAMPOS.clienteManual);
+    const itens=proposta.itens.map((i,ix)=>({ ...selecionar(i,ITEM),
+        ...(indices[ix]===null?{}:{indiceOrigem:indices[ix]}),
+        ...(Object.hasOwn(i,'tipoId')?{tipoReferencia:ref('tipo',i.tipoId)}:{}),
+        modoCustoProprio:i.politicaCustoProprioAplicada?.modo??'nao_calcular' }));
+    return {campos:c,itens,gerencial:{...selecionar(contexto,GERENCIAL),
+        tributos:contexto.tributos.map(t=>selecionar(t,TRIBUTO_GERENCIAL))}};
+}
+function gerencialValido(g) {
+    if (!objeto(g) || !Array.isArray(g.tributos) || g.tributos.length > 40) return false;
+    const { tributos, ...c } = g;
+    return campos(c,GERENCIAL) && tributos.every(t => campos(t,TRIBUTO_GERENCIAL));
+}
+function contextoGerencial(p) {
+    const f = p.controleInterno.fechamentoGerencial;
+    return { incluirMaoObra:f.incluirMaoObra, dataFiscal:f.auditoriaFiscal.dataFiscal,
+        tipoDescontoFiscal:f.auditoriaFiscal.tipoDescontoFiscal,
+        coberturaFiscalConfirmada:f.auditoriaFiscal.coberturaFiscalConfirmada,
+        justificativaFiscalSemTributos:f.auditoriaFiscal.justificativaFiscalSemTributos,
+        tributos:p.fiscal.tributosIndividualizados, descontoSolicitado:f.descontoSolicitado,
+        ...(f.incluirMaoObra===false?{maoObraComercialInformada:f.maoObraComercialInformada}:{}) };
+}
 
 export const COMANDO_CONFIG_ORCAMENTO = 'config.orcamento_salvar.v1';
 const GLOBAIS_ORCAMENTO = {
@@ -199,7 +232,9 @@ export function validarComandoPropostaTexto(tipo,texto) {
                 && (['recusada','cancelada'].includes(d.status)?!!d.motivo.trim():d.motivo==='');
             return exatas(d,['propostaReferencia','id'])&&idValido(d.id);
         }
-        return exatas(d,[chave,'campos','itens']) && (criar?idValido(d.id):typeof d.propostaReferencia==='string')
+        return exatas(d,[chave,'campos','itens',...(Object.hasOwn(d,'gerencial')?['gerencial']:[])])
+            && (!Object.hasOwn(d,'gerencial') || gerencialValido(d.gerencial))
+            && (criar?idValido(d.id):typeof d.propostaReferencia==='string')
             && campos(d.campos,CAMPOS) && !(d.campos.clienteReferencia && d.campos.clienteManual)
             && Array.isArray(d.itens) && d.itens.length>0 && d.itens.length<=500
             && d.itens.every(i=>campos(i,ITEM) && (!criar || !Object.hasOwn(i,'indiceOrigem')));
@@ -247,7 +282,9 @@ function verificarRegistro(s,p) {
         ids.add(ref('anexo',a.id));
     }
     verificarNumeros(p);
-    const recalculada=n.construirPropostaComercialCalculada(p,p);
+    const recalculada=p.controleInterno?.fechamentoGerencial?.versaoFiscal===3
+        ? n.construirPropostaGerencialCalculada(p,p,contextoGerencial(p))
+        : n.construirPropostaComercialCalculada(p,p);
     exigir(canon(recalculada)===canon(p),'CALCULO_COMERCIAL_DIVERGENTE');
 }
 // O prefixo foi reconstruido pela autoridade. A configuracao de um comando
@@ -473,12 +510,14 @@ export function prepararComandoPropostaTexto(tipo,snapshotTexto,dadosTexto,metad
             const item=mesclar(base,{...i,politicaCustoProprioAplicada:{...politica,modo,percentual,
                 origem:alterada?'ajuste_manual':politica.origem,aplicadaEm:alterada?m.timestamp:politica.aplicadaEm}});
             exigir(item.descricao?.trim()&&item.quantidade>0&&!n.obterInconsistenciaQuantidadeOperacionalItem(item),'ITEM_INVALIDO');
-            return mesclar(item,n.calcularItemProposta(item));
+            return mesclar(item,d.gerencial ? n.calcularItemGerencialProposta(item) : n.calcularItemProposta(item));
         });
         let cliente=anterior?.cliente,clienteSnapshot=anterior?.clienteSnapshot,clienteId=anterior?.clienteId??'';
         if(Object.hasOwn(c,'clienteReferencia')) {const a=resolver(s.locadores,'cliente',c.clienteReferencia);clienteId=a.id;
             cliente=n.montarClientePropostaNormalizado({...a,precisaNotaFiscal:c.clientePrecisaNotaFiscal??a.precisaNotaFiscal});clienteSnapshot=cliente;}
-        if(Object.hasOwn(c,'clienteManual')) {clienteId='';cliente=n.montarClientePropostaNormalizado(c.clienteManual);clienteSnapshot=cliente;}
+        if(Object.hasOwn(c,'clienteManual')) {clienteId='';
+            cliente=mesclar(anterior?.clienteId===''?anterior.cliente:{},n.montarClientePropostaNormalizado(c.clienteManual));
+            clienteSnapshot=mesclar(anterior?.clienteId===''?anterior.clienteSnapshot:{},cliente);}
         delete c.clienteReferencia;delete c.clienteManual;
         exigir(cliente?.nome,'CLIENTE_OBRIGATORIO');
         if(Object.hasOwn(c,'clientePrecisaNotaFiscal')) {
@@ -507,7 +546,21 @@ export function prepararComandoPropostaTexto(tipo,snapshotTexto,dadosTexto,metad
             bruto.controleInterno[k].total=0;
             if(Object.hasOwn(bruto.controleInterno,`${k}Total`))bruto.controleInterno[`${k}Total`]=0;
         }
-        const proposta=n.construirPropostaComercialCalculada(bruto,anterior);
+        let proposta;
+        if (d.gerencial) {
+            const g=JSON.parse(canon(d.gerencial)), usados=new Set();
+            g.tributos=g.tributos.map(t=>{
+                const { indiceOrigem,...entrada }=t;
+                if(indiceOrigem===undefined) return entrada;
+                const origem=anterior?.fiscal?.tributosIndividualizados;
+                exigir(origem && indiceOrigem<origem.length && !usados.has(indiceOrigem),'ORIGEM_TRIBUTO_INVALIDA');
+                usados.add(indiceOrigem);return mesclar(origem[indiceOrigem],entrada);
+            });
+            proposta=n.construirPropostaGerencialCalculada(bruto,anterior,g);
+        } else {
+            exigir(!anterior?.controleInterno?.fechamentoGerencial,'REVISAO_GERENCIAL_EXPLICITA_NECESSARIA');
+            proposta=n.construirPropostaComercialCalculada(bruto,anterior);
+        }
         verificarRegistro({...s,propostas:s.propostas.filter(p=>p.id!==id)},proposta);
         if(anterior)s.propostas[s.propostas.indexOf(anterior)]=proposta;else s.propostas.push(proposta);
         s.logsAuditoria.push({id:`audit-proposta-${m.operacaoId}`,tipo:'proposta',acao:criar?'criar':'editar',
