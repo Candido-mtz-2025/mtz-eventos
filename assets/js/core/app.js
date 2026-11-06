@@ -3130,6 +3130,8 @@ function executarAtalhoRapido(atalhoId) {
 
     // --- INICIALIZAÇÃO ---
     window.onload = function() {
+    // Um bootstrap transacional deve inicializar sua UI sem hidratar ou agendar escritores legados.
+    if (typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) return;
     carregarLocal();
     if(typeof atualizarPerfilAcesso === 'function') atualizarPerfilAcesso();
     renderTudo();

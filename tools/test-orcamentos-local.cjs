@@ -1,24 +1,27 @@
 const {criarServidor}=require('./serve-orcamentos.cjs');
 const {chromium}=require(process.env.MTZ_PLAYWRIGHT || 'playwright');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const results=[],errors=[],server=criarServidor();
-const test=async(name,fn)=>{try{await fn();results.push({name,ok:true});console.log('PASS',name);}catch(e){results.push({name,ok:false,error:e.stack});console.log('FAIL',name,e.message);}};
+const results=[],errors=[],server=criarServidor();let pagina;
+const test=async(name,fn)=>{try{await fn();results.push({name,ok:true});console.log('PASS',name);}catch(e){results.push({name,ok:false,error:e.stack});console.log('FAIL',name,e.message);if(process.env.MTZ_TEST_OUTPUT&&pagina)await pagina.screenshot({path:path.join(process.env.MTZ_TEST_OUTPUT,'failure-'+name.replace(/[^a-zA-Z0-9]/g,'-')+'.png')});}};
 (async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{
  browser=await chromium.launch({headless:true,executablePath:process.env.MTZ_CHROME});
- const context=await browser.newContext({acceptDownloads:true}),page=await context.newPage();
+ const context=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:1080}}),page=await context.newPage();
+ pagina=page;
  const url=`http://127.0.0.1:${server.address().port}`;
  const watch=p=>p.on('pageerror',e=>errors.push(e.stack));watch(page);
  const boot=async p=>{await p.goto(url,{waitUntil:'domcontentloaded'});await p.waitForFunction(()=>/Clique|Base confirmada/.test(document.querySelector('#localEstado')?.textContent||''));};
  const msg=p=>p.locator('#localEstado').textContent();
  const root=p=>p.evaluate(()=>JSON.parse(JSON.stringify(propostas)));
  const section=(p,s)=>p.evaluate(s=>mostrarSecaoFormularioProposta(s,{semRolagem:true,foco:false,ignorarValidacao:true}),s);
- const save=async p=>{await p.locator('[data-action="salvarProposta"]').first().click();await p.waitForFunction(()=>!document.querySelector('[data-action="salvarProposta"]').disabled);return msg(p);};
- const edit=async p=>{await p.locator('#propostasSubtabLista').click();await p.locator('[data-action="editarProposta"]:visible').first().click();};
+ const save=async p=>{await p.waitForFunction(()=>document.getElementById('tab-propostas').getAttribute('aria-busy')!=='true');
+  // O helper legado de foco restaura scroll ate 1200ms apos renderizar; nao mudar esse P2 neste teste.
+  await p.waitForTimeout(1300);const b=p.locator('[data-action="salvarProposta"]').first();await b.evaluate(el=>el.scrollIntoView({behavior:'instant',block:'center'}));await b.click();await p.waitForFunction(()=>!document.querySelector('[data-action="salvarProposta"]').disabled);return msg(p);};
+ const edit=async p=>{await p.locator('#propostasSubtabLista').click();await p.locator('[data-action="editarProposta"]:visible').first().click();await p.waitForFunction(()=>document.getElementById('tab-propostas').getAttribute('aria-busy')!=='true');};
  const review=p=>p.evaluate(()=>revisarFechamentoGerencialProposta());
  const dump=p=>p.evaluate(async()=>{const name='mtz-idb-fundacao-lote1-teste-interdominios-orcamentos-local-v1';const db=await new Promise((ok,no)=>{const r=indexedDB.open(name,2);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});return new Promise((ok,no)=>{const tx=db.transaction(['raiz','historico','auditoria','recibos','controle'],'readonly'),data={};for(const k of tx.objectStoreNames){const r=tx.objectStore(k).getAll();r.onsuccess=()=>data[k]=r.result;}tx.oncomplete=()=>{db.close();ok(JSON.stringify(data));};tx.onabort=()=>{db.close();no(tx.error);};});});
  await boot(page);
- await test('isolamento: nenhum banco antes da criacao explicita',async()=>{assert.deepEqual(await page.evaluate(async()=>await indexedDB.databases()),[]);assert.equal(await page.evaluate(()=>typeof salvarLocal),'undefined');});
+ await test('isolamento: nenhum banco antes da criacao explicita e salvarLocal bloqueado',async()=>{assert.deepEqual(await page.evaluate(async()=>await indexedDB.databases()),[]);assert.equal(await page.evaluate(()=>salvarLocal()),false);});
  await test('criacao sintetica explicita e formulario original',async()=>{await page.click('#localIniciar');await page.waitForFunction(()=>document.querySelector('#localEstado').textContent==='Base confirmada.');assert.equal(await page.evaluate(()=>__permitirEscritaLegada()),false);});
  let expected,first;
  await test('A: criar pela UI: misto, custos, retencoes e depreciacao unica',async()=>{

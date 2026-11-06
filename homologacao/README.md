@@ -8,7 +8,15 @@ node tools/serve-orcamentos.cjs 54145
 
 Endereco: http://127.0.0.1:54145/
 
-Somente dados sinteticos. Na primeira visita, clicar em **Iniciar base sintetica**.
+A porta de uso e fixa. O CLI recusa outra porta e nao escolhe uma automaticamente
+se houver conflito. localhost redireciona para 127.0.0.1, inclusive /index.html.
+O banco, a identidade e a epoca da homologacao anterior foram mantidos. Nao
+confundir navegadores/perfis diferentes com perda de dados. Service worker
+preexistente bloqueia a inicializacao, sem exclusao automatica de caches/dados.
+
+Somente dados sinteticos. A estrutura principal (cabecalho, sidebar e navegacao)
+e a do aplicativo existente; somente Orcamentos recebe comandos de escrita.
+Na primeira visita, clicar em **Iniciar base sintetica**.
 O host nunca importa localStorage, backups, credenciais ou cadastros reais.
 Nao reutilizar esta base para operacao comercial. Nao publicar este host.
 
@@ -35,8 +43,13 @@ somente criar/editar propostas e ler/inicializar a base sintetica. Nenhuma outra
 aba ou piloto e carregado. Nao ha conversao, sync, importacao ou migracao real.
 
 O estado publicado e congelado e os escritores legados sao recusados pela
-fronteira existente. O host nao carrega storage.js, sync, PWA, autenticacao remota,
-executores financeiros legados ou os modulos de Clientes/Tipos.
+fronteira existente. O host carrega as funcoes reais de storage.js DEPOIS de selar
+a fronteira, para recusar salvarLocal, carregarLocal, aplicarDadosSistema e
+sincronizar antes de leitura, escrita ou rede. O onload legado de app.js nao e
+executado nessa fronteira: somente suas funcoes de tema, sidebar e navegacao
+sao inicializadas. Nao carrega sync.js, PWA, autenticacao remota, executores
+financeiros legados ou os modulos de Clientes/Tipos. Nao agenda autosave ou
+backup legado. Outras telas permanecem indisponiveis para escrita.
 
 O banco tem nome `mtz-idb-fundacao-lote1-teste-interdominios-orcamentos-local-v1`.
 A origem, a identidade e o checkpoint inicial sao estaveis e sinteticos. A selecao
@@ -60,6 +73,7 @@ isso nao adiciona custo, retencao ou depreciacao ao calculo aprovado.
 node tools/test-proposal-gerencial.cjs
 node tools/test-proposal-idb.cjs
 node tools/test-orcamentos-local.cjs
+node tools/test-orcamentos-main.cjs
 node tools/build-proposal-kernel.cjs --check
 ```
 
@@ -74,3 +88,8 @@ exportacao PDF exige que esses recursos sejam carregados. O banco e local ao
 navegador e origem: trocar navegador, perfil ou porta nao transfere os registros.
 Atualizacoes futuras que alterem o checkpoint ou protocolo precisam de migracao
 explicita; este ensaio nao implementa migracao nem atualizacao de bases reais.
+
+Uma aba antiga ainda pode escrever seu proprio localStorage: essa escrita nao e
+autoritativa, nao e importada, nao publica dados e nao altera o IndexedDB. Isso
+nao significa revogacao global de clientes antigos ou do sincronizador remoto.
+O procedimento para adocao futura esta em ADOCAO_ORCAMENTOS.md.

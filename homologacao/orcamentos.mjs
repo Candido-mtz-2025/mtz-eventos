@@ -13,17 +13,18 @@ const comandos=['proposta.criar.v1','proposta.editar.v1'];
 const permissoes=new Set(['criar_proposta','editar_proposta','visualizar_locacoes','restaurar_backup']);
 const script=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(Error('RECURSO_INDISPONIVEL'));document.head.append(s);});
 const tab=document.getElementById('tab-propostas'), modal=document.getElementById('modalRelatorio');
-document.body.replaceChildren();
-const main=document.createElement('main');main.id='appArea';main.style.display='block';main.append(tab);document.body.append(main);
-tab.style.display='block';tab.classList.add('active');document.title='MTZ | Orcamentos - homologacao sintetica local';
-const barra=document.createElement('div');barra.className='card-header';
+const main=document.getElementById('appArea');main.inert=true;main.style.display='block';
+document.getElementById('loginArea').style.display='none';
+document.title='MTZ Eventos | Homologacao local de Orcamentos';
+const barra=document.createElement('div');barra.className='card-header';barra.id='homologacaoEstado';
 barra.innerHTML='<strong>Homologação local · dados sintéticos</strong> <button type="button" class="btn btn-sm" id="localIniciar">Iniciar base sintética</button> <button type="button" class="btn btn-sm" id="localAtualizar">Atualizar lista</button> <button type="button" class="btn btn-sm" id="localRecuperar">Recuperar salvamento</button> <output role="status" id="localEstado">Carregando…</output>';
-main.prepend(barra);document.body.append(modal);
+tab.prepend(barra);
 const estado=document.getElementById('localEstado');
 const avisar=m=>{estado.textContent=m;};
 window.mostrarToast=m=>avisar(m);
 // Ator documental sintetico; nao representa autenticacao comercial nem aprovacao segregada.
-window.validarPermissao=p=>!['converter_proposta_locacao','excluir_registro','configuracao'].includes(p);
+window.validarPermissao=p=>permissoes.has(p);
+window.validarAcessoAba=id=>['dashboard','propostas'].includes(id);
 window.obterUsuarioAtual=()=>({nome:'Equipe sintetica de homologacao'});
 await script('/assets/js/core/state.js');
 const controle=window.__obterControladorEstadoAplicacao();
@@ -46,9 +47,15 @@ const fronteira=criarFronteiraEscritaDeEnsaio({...config,
         window.renderPropostas?.();return true;
     }});
 porta=window.__instalarFronteiraEscrita(fronteira.permitirLegado);porta.selar();
+// Recusar service worker anterior, sem apagar caches, registros ou dados do usuario.
+if(navigator.serviceWorker && (navigator.serviceWorker.controller || (await navigator.serviceWorker.getRegistrations()).length)){
+    avisar('Homologação bloqueada: há um service worker anterior nesta origem. Exige revisão explícita.');
+    throw Error('ORIGEM_CONTROLADA_POR_VERSAO_ANTERIOR');
+}
 await script('/assets/js/core/utils.js');
+await script('/assets/js/core/storage.js');
+await script('/assets/js/core/app.js');
 await script('/assets/js/modules/relatorios.js');
-window.fecharModal=id=>document.getElementById(id)?.classList.remove('active');
 await script('/assets/js/modules/propostas.js');
 formulario=window.__instalarOrcamentosHomologacao({
     aoAbrir:id=>{idDraft=id;revisaoDraft=atual?.revisao??null;},
@@ -56,6 +63,20 @@ formulario=window.__instalarOrcamentosHomologacao({
 });
 formulario.iniciar();
 await script('/assets/js/ui/eventos.js');
+inicializarTemaSistema();inicializarSidebarLayout();inicializarNavegacaoPrincipal();atualizarMedidasTopoApp();
+abrirTab('propostas',{semRolagem:true});
+// A interface principal permanece visivel; modulos fora do escopo nao recebem handlers de escrita.
+for(const b of document.querySelectorAll('[data-menu-item][data-tab], #appMainSidebar [data-tab]'))if(!['dashboard','propostas'].includes(b.dataset.tab)){
+    b.disabled=true;b.setAttribute('aria-disabled','true');b.title='Módulo não ativado nesta homologação.';
+}
+for(const b of document.querySelectorAll('header [data-action]'))if(!['toggleSidebarMobile','toggleTheme','selecionarTema'].includes(b.dataset.action))b.disabled=true;
+document.getElementById('syncText').textContent='Homologação local';
+main.inert=false;
+// Escritas de uma aba antiga em localStorage nao ingressam na autoridade nem sao apagadas.
+window.addEventListener('storage',e=>{
+    if(e.key===null || ['mtzBackup','mtzBackupEmergencia','mtzBackupAutomatico','mtzUltimaEdicao'].includes(e.key))
+        avisar('Escrita legada detectada em outra aba. Nenhum dado foi importado ou publicado; a autoridade continua IndexedDB.');
+});
 // Somente criacao/edicao neste host. Demais escritores nao recebem capacidades.
 const proibidos=new Set(['salvarConfigOrcamento','salvarConfigPropostas','salvarAnexoProposta',
     'aplicarConfigOrcamentoProposta','restaurarPadroesConfigOrcamentoProposta','salvarEditorCategoriaConfigOrcamento',

@@ -3,16 +3,21 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const PORTA_HOMOLOGACAO = 54145;
 function criarServidor() {
     return http.createServer((req,res) => {
+        const porta = req.socket.localPort;
+        if(req.method==='GET' && req.headers.host===`localhost:${porta}`){
+            res.writeHead(307,{Location:`http://127.0.0.1:${porta}${req.url}`,'Cache-Control':'no-store'});return res.end();
+        }
         if (!/^127\.0\.0\.1:\d+$/.test(req.headers.host || '') || req.method !== 'GET') {
             res.writeHead(403); return res.end();
         }
         const pathname = new URL(req.url,'http://127.0.0.1').pathname;
         const headers = { 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff',
             'Referrer-Policy':'no-referrer', 'X-Frame-Options':'DENY',
-            'Content-Security-Policy':"default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'" };
-        if (pathname === '/') {
+            'Content-Security-Policy':"default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'" };
+        if (pathname === '/' || pathname === '/index.html') {
             const html = fs.readFileSync(path.join(root,'index.html'),'utf8')
                 .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'')
                 .replace(/<link[^>]*rel="manifest"[^>]*>/gi,'')
@@ -32,6 +37,10 @@ function criarServidor() {
         });
     });
 }
-module.exports = { criarServidor };
-if(require.main===module)criarServidor().listen(Number(process.argv[2]||54145),'127.0.0.1',()=>
-    console.log('Homologacao sintetica: http://127.0.0.1:'+(process.argv[2]||54145)+'/'));
+module.exports = { criarServidor, PORTA_HOMOLOGACAO };
+if(require.main===module){
+    if(process.argv[2] && process.argv[2]!==String(PORTA_HOMOLOGACAO))throw Error('ORIGEM_ESTAVEL_OBRIGATORIA: use 127.0.0.1:54145. Nao existe fallback de porta.');
+    const servidor=criarServidor();
+    servidor.on('error',e=>{console.error(`Homologacao nao iniciada (${e.code}). Preserve a origem 127.0.0.1:54145; nao escolha outra porta.`);process.exitCode=1;});
+    servidor.listen(PORTA_HOMOLOGACAO,'127.0.0.1',()=>console.log('Homologacao sintetica: http://127.0.0.1:54145/'));
+}
