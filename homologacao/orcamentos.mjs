@@ -59,6 +59,8 @@ const fronteira=criarFronteiraEscritaDeEnsaio({...config,
         if(!porta || meta.identidadeBaseTexto!==identidadeBaseTexto)throw Error('IDENTIDADE_DIVERGENTE');
         if(porta.publicarConfirmado(raiz)!==true)return false;
         atual={raiz,revisao:meta.revisao};
+        // Vincular somente o rascunho inicial ainda sem revisao; nunca rebasear uma edicao em curso.
+        if(idDraft===null && revisaoDraft===null)revisaoDraft=meta.revisao;
         window.renderPropostas?.();return true;
     }});
 porta=window.__instalarFronteiraEscrita(fronteira.permitirLegado);porta.selar();
