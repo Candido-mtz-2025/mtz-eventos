@@ -327,6 +327,9 @@
                 const chave={base:'baseCalculo',manual:'baseManual'}[el.dataset.tributo]||el.dataset.tributo;
                 t[chave]=el.type==='checkbox'?el.checked:el.type==='number'?(el.value===''?null:Number(el.value)):el.value;
             }
+            if (t.codigo === 'ISS' && t.incidencia !== 'nao_aplica' && Number(t.percentual) > 0 && !t.tipoFiscalAlvo) {
+                throw Error('CLASSIFICACAO_ISS_PENDENTE');
+            }
             return t;
         });
     }
@@ -365,16 +368,32 @@
         for(const [chave,rotulo,tipo]of campos){
             const label=document.createElement('label');label.className='form-group';const texto=document.createElement('span');texto.textContent=rotulo;label.append(texto);
             const el=document.createElement(Array.isArray(tipo)?'select':'input');el.dataset.tributo=chave;
+            if (chave === 'tipoFiscalAlvo') el.add(new Option('Selecione o enquadramento', ''));
             if(Array.isArray(tipo))for(const valor of tipo)el.add(new Option(valor.replaceAll('_',' '),valor));else el.type=tipo;
             if(tipo==='number'){el.min='0';el.step='0.01';}label.append(el);grid.append(label);
+            if (chave === 'tipoFiscalAlvo') {
+                texto.textContent = 'Enquadramento fiscal da base';
+                label.classList.add('prop-tributo-classificacao');
+                linha.append(label);
+            }
         }
         linha.append(details);
         const valores={...dados,base:dados.baseCalculo||dados.base||'comercial',manual:dados.baseManual??dados.manual??'',codigo:dados.codigo||codigoTributoGerencial(dados)};
         for(const el of linha.querySelectorAll('[data-tributo]')){const v=valores[el.dataset.tributo];if(v!=null){if(el.type==='checkbox')el.checked=v===true;else el.value=v;}}
         linha.querySelector('[data-tributo="codigo"]').addEventListener('change',e=>{const f=FONTES_FISCAIS_GERENCIAIS[e.target.value];if(f){for(const [k,v]of Object.entries({fundamentoLegal:f.fundamento,fonteLegal:f.fonte})){const el=linha.querySelector(`[data-tributo="${k}"]`);if(!el.value)el.value=v;}}});
-        const atualizarBase=()=>{linha.querySelector('[data-tributo="manual"]').disabled=linha.querySelector('[data-tributo="base"]').value!=='manual';};atualizarBase();
+        const atualizarBase=()=>{
+            const base = linha.querySelector('[data-tributo="base"]').value;
+            linha.querySelector('[data-tributo="manual"]').disabled = base !== 'manual';
+            const classificacao = linha.querySelector('[data-tributo="tipoFiscalAlvo"]');
+            const exigeISS = linha.querySelector('[data-tributo="codigo"]').value === 'ISS'
+                && linha.querySelector('[data-tributo="incidencia"]').value !== 'nao_aplica'
+                && Number(linha.querySelector('[data-tributo="percentual"]').value) > 0;
+            classificacao.closest('label').hidden = !exigeISS && base !== 'tipo_fiscal';
+            classificacao.required = exigeISS || base === 'tipo_fiscal';
+            classificacao.setCustomValidity(exigeISS && !classificacao.value ? 'Selecione conscientemente o enquadramento fiscal da base de ISS.' : '');
+        };atualizarBase();
         linha.querySelector('button').addEventListener('click',()=>{linha.remove();recalcularResumoProposta();});
-        linha.addEventListener('input',()=>recalcularResumoProposta());linha.addEventListener('change',()=>{atualizarBase();recalcularResumoProposta();});
+        linha.addEventListener('input',()=>{atualizarBase();recalcularResumoProposta();});linha.addEventListener('change',()=>{atualizarBase();recalcularResumoProposta();});
         host.append(linha);recalcularResumoProposta();
     }
 
@@ -438,13 +457,24 @@
         if (rotulo) rotulo.textContent = agregado ? 'Adicionar retenção / encargo' : 'Adicionar tributo / retenção';
         const aviso = document.getElementById('propModalidadeFiscalAviso');
         if (aviso) {
+            if (mensagem && solicitada !== modalidade.value) {
+                aviso.dataset.destinoRecusado = solicitada;
+                aviso.dataset.mensagemRecusa = mensagem;
+            }
+            const destino = aviso.dataset.destinoRecusado;
+            const corrigido = destino === 'agregado' ? !individualAtivo : destino === 'individualizado' ? !agregadoAtivo : true;
+            if (conflito || corrigido || destino === modalidade.value) {
+                delete aviso.dataset.destinoRecusado;
+                delete aviso.dataset.mensagemRecusa;
+            }
             aviso.textContent = conflito ? 'Há tributos nas duas modalidades. Revise a estimativa agregada ou os tributos individuais; o cálculo permanece bloqueado.'
-                : solicitada !== modalidade.value ? mensagem : '';
+                : aviso.dataset.mensagemRecusa || '';
             aviso.hidden = !aviso.textContent;
         }
         // Recolher uma secao nunca remove seus valores nem muda o calculo.
         for (const detalhe of document.querySelectorAll('[data-logistica-opcional]')) {
             const preenchido = [...detalhe.querySelectorAll('input:not([readonly])')]
+                .filter(el => el.id !== 'propFreteTrechos' || Number(el.value) > 1)
                 .some(el => converterTextoMoedaParaNumero(el.value, 0) > 0);
             if (preenchido && detalhe.dataset.preenchido !== 'true') detalhe.open = true;
             detalhe.dataset.preenchido = String(preenchido);
@@ -455,7 +485,14 @@
         atualizarApresentacaoFiscalProposta();
         const host=document.getElementById('propFechamentoGerencial');if(!host)return;
         const historico=document.getElementById('propRevisaoCalculoHistorico');if(historico)historico.hidden=fechamentoGerencialAtual;
-        if(resumo.calculoInvalido){host.textContent=`Revisar valores: ${resumo.calculoInvalido}`;for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;}
+        if(resumo.calculoInvalido){
+            const explicacoes = {
+                CLASSIFICACAO_ISS_PENDENTE: 'Selecione o enquadramento fiscal da base na linha de ISS. Nenhuma classificação foi presumida.',
+                ISS_BASE_CONTEM_LOCACAO_PURA: 'A base de ISS está incompatível com locação pura de bem móvel. Confira os itens, a base e o enquadramento com a contabilidade; não reclassifique apenas para liberar o cálculo.'
+            };
+            host.textContent=`Revisar valores: ${explicacoes[resumo.calculoInvalido] || ''} (${resumo.calculoInvalido})`;
+            for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;
+        }
         if(!fechamentoGerencialAtual){host.textContent='Cálculo histórico preservado. Nenhuma depreciação nova foi aplicada.';return;}
         host.innerHTML=`<h4>Resumo gerencial</h4><dl>
             <div><dt>Faturamento previsto</dt><dd>${formatarMoeda(resumo.valorFinal)}</dd></div>
@@ -6853,6 +6890,8 @@
     }
 
     function preencherFormularioComProposta(proposta) {
+        const avisoModalidade = document.getElementById('propModalidadeFiscalAviso');
+        if (avisoModalidade) { delete avisoModalidade.dataset.destinoRecusado; delete avisoModalidade.dataset.mensagemRecusa; }
         portaHomologacaoOrcamentos?.aoAbrir(proposta.id);
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=false;
@@ -7003,6 +7042,8 @@
     }
 
     function limparFormularioProposta() {
+        const avisoModalidade = document.getElementById('propModalidadeFiscalAviso');
+        if (avisoModalidade) { delete avisoModalidade.dataset.destinoRecusado; delete avisoModalidade.dataset.mensagemRecusa; }
         portaHomologacaoOrcamentos?.aoNovo();
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=true;fechamentoHistoricoFormulario=null;
