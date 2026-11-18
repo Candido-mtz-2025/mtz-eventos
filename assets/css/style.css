@@ -24553,6 +24553,41 @@ body #modalClassificacaoFinanceira [hidden] {
 #tab-propostas .proposta-config-fiscal-note { border: 0; border-left: 3px solid #17826c; border-radius: 0; font-weight: 400; }
 #tab-propostas .proposta-gerencial-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 12px 0; }
 #tab-propostas .proposta-gerencial-toolbar input { width: auto; }
+#tab-propostas[data-etapa-proposta="itens"] .proposta-guided-summary { display: none; }
+#tab-propostas[data-etapa-proposta="itens"] .proposta-guided-layout { grid-template-columns: minmax(0, 1fr); }
+#tab-propostas .proposta-items-table { table-layout: fixed; }
+#tab-propostas .proposta-items-table th { white-space: normal !important; overflow-wrap: anywhere; }
+#tab-propostas .proposta-items-table th:nth-child(1) { width: 14%; }
+#tab-propostas .proposta-items-table th:nth-child(2) { width: 22%; }
+#tab-propostas .proposta-items-table th:nth-child(3), #tab-propostas .proposta-items-table th:nth-child(4) { width: 8%; }
+#tab-propostas .proposta-items-table th:nth-child(5) { width: 13%; }
+#tab-propostas .proposta-items-table th:nth-child(6) { width: 15%; }
+#tab-propostas .proposta-items-table th:nth-child(7) { width: 20% !important; min-width: 0 !important; }
+#tab-propostas #propostaItensBody .proposta-item-row td { width: auto !important; min-width: 0 !important; }
+#tab-propostas .prop-item-details-panel { border-radius: 6px; }
+#tab-propostas .prop-item-composicao { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+#tab-propostas .prop-item-composicao .form-group { min-width: 0; margin-bottom: 0; }
+#tab-propostas .prop-item-composicao [hidden] { display: none !important; }
+#tab-propostas .prop-item-composicao label { white-space: normal; }
+#tab-propostas .prop-item-composicao input, #tab-propostas .prop-item-composicao select { width: 100%; min-width: 0; }
+#tab-propostas .prop-item-divisao-mista-erro { grid-column: 1 / -1; color: #b42318; font-weight: 600; white-space: normal; }
+#tab-propostas .prop-item-advanced { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+#tab-propostas .prop-item-advanced[hidden] { display: none; }
+#tab-propostas .proposta-opcional { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 10px 0; margin-bottom: 12px; }
+#tab-propostas .proposta-opcional > summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+#tab-propostas .proposta-opcional[open] > summary { margin-bottom: 12px; }
+#tab-propostas .proposta-modalidade-fiscal { max-width: 360px; }
+#tab-propostas #propModalidadeFiscalAviso { border-left: 3px solid #b42318; padding: 8px 12px; }
+@media (max-width: 1100px) {
+    #tab-propostas .proposta-items-table, #tab-propostas .proposta-items-table tbody { display: block; min-width: 0 !important; width: 100%; }
+    #tab-propostas .proposta-items-table thead { display: none; }
+    #tab-propostas .proposta-item-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px; gap: 10px; }
+    #tab-propostas .proposta-items-table .proposta-item-row td { display: block; width: auto !important; min-width: 0 !important; padding: 0 !important; border: 0 !important; }
+    #tab-propostas .proposta-item-row td::before { display: block; content: attr(data-label); font-size: 12px; white-space: normal; margin-bottom: 4px; }
+    #tab-propostas #propostaItensBody .proposta-item-actions-cell { grid-column: 1 / -1; width: auto !important; min-width: 0 !important; }
+    #tab-propostas .proposta-item-row .actions-cell { justify-content: flex-start; }
+    #tab-propostas .proposta-item-details-row, #tab-propostas .proposta-item-details-row td { display: block; width: 100% !important; min-width: 0 !important; }
+}
 #tab-propostas .proposta-tributos-gerenciais { padding: 20px 0; border-top: 1px solid var(--border); margin-top: 16px; }
 #tab-propostas .prop-tributo-linha { display: grid; grid-template-columns: 1.5fr 1fr 1.2fr 1fr .7fr 38px; gap: 8px; margin: 10px 0; align-items: center; }
 #tab-propostas .prop-tributo-linha > * { width: 100%; min-width: 0; }
@@ -24573,6 +24608,9 @@ body #modalClassificacaoFinanceira [hidden] {
 #tab-propostas:is([data-etapa-proposta="comercial"],[data-etapa-proposta="revisao"]) .proposta-guided-summary { display: none; }
 #tab-propostas:is([data-etapa-proposta="comercial"],[data-etapa-proposta="revisao"]) .proposta-guided-layout { grid-template-columns: minmax(0,1fr); }
 @media(max-width: 760px) {
+    #tab-propostas .prop-item-composicao { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body[data-theme] #tab-propostas .proposta-guided-stepper .proposta-form-tab { display: grid !important; grid-template-columns: 26px minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 8px; min-height: 116px; align-items: start; }
+    #tab-propostas .proposta-step-status { grid-column: 1 / -1; margin-left: 0; justify-self: start; }
     #tab-propostas .proposta-config-panel { left: 8px; right: 8px; top: 8px; bottom: 8px; width: auto; margin-left: 0; max-height: calc(100dvh - 16px); }
     #tab-propostas .proposta-config-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
     #tab-propostas .proposta-config-content, #tab-propostas .proposta-config-head, #tab-propostas .proposta-config-footer { padding-left: 12px; padding-right: 12px; }

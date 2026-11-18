@@ -342,6 +342,9 @@
 
     function adicionarTributoGerencial(dados = {}) {
         const host=document.getElementById('propTributosIndividuais');if(!host)return;
+        if (!Object.keys(dados).length && document.getElementById('propModalidadeFiscal')?.value === 'agregado') {
+            dados = { natureza: 'retencao' };
+        }
         const linha=document.createElement('div');linha.className='prop-tributo-linha';
         linha.innerHTML='<input data-tributo="nome" aria-label="Nome do tributo ou retenção" placeholder="Nome"><select data-tributo="natureza" aria-label="Natureza"><option value="tributo">Tributo</option><option value="retencao">Retenção</option><option value="encargo">Encargo interno</option></select><select data-tributo="base" aria-label="Base de cálculo"><option value="comercial">Valor comercial</option><option value="materiais">Materiais</option><option value="servicos">Base NFS-e estimada</option><option value="manual">Base informada</option></select><input data-tributo="manual" type="number" min="0" step="0.01" aria-label="Base informada em reais" placeholder="Base R$"><input data-tributo="percentual" type="number" min="0" max="100" step="0.01" aria-label="Alíquota percentual" placeholder="%"><button type="button" title="Remover tributo" aria-label="Remover tributo"><i class="bi bi-trash"></i></button>';
         origensTributosGerenciais.set(linha,JSON.parse(JSON.stringify(dados)));
@@ -402,14 +405,70 @@
         if(custos&&!custos.closest('details')){const historico=document.createElement('details'),titulo=document.createElement('summary');titulo.textContent='Políticas históricas de custos dos itens';custos.before(historico);historico.append(titulo,custos);}
         const fechamento=document.getElementById('propostaSecaoFechamento'),tributos=document.querySelector('.proposta-tributos-gerenciais');
         if(fechamento&&tributos)fechamento.append(tributos);
+        const agregado = document.getElementById('propFiscalAgregadoCampos');
+        const individuais = document.getElementById('propTributosIndividuais');
+        if (agregado && individuais) individuais.before(agregado);
+        document.getElementById('propModalidadeFiscal')?.addEventListener('change', () => {
+            atualizarApresentacaoFiscalProposta('Para trocar, revise os valores da modalidade anterior. Nenhum valor foi apagado.');
+        });
+    }
+
+    function atualizarApresentacaoFiscalProposta(mensagem = '') {
+        const modalidade = document.getElementById('propModalidadeFiscal');
+        const percentual = document.getElementById('propPercentualNF');
+        if (!modalidade || !percentual) return;
+        const agregadoAtivo = Number(percentual.value.replace(',', '.')) > 0;
+        const naturezas = [...document.querySelectorAll('#propTributosIndividuais [data-tributo="natureza"]')];
+        const individualAtivo = naturezas.some(el => el.value === 'tributo');
+        const conflito = agregadoAtivo && individualAtivo;
+        const solicitada = modalidade.value;
+        if (agregadoAtivo && !individualAtivo) modalidade.value = 'agregado';
+        if (individualAtivo && !agregadoAtivo) modalidade.value = 'individualizado';
+        const agregado = modalidade.value === 'agregado';
+        document.getElementById('propFiscalAgregadoCampos').hidden = !agregado && !conflito;
+        for (const id of ['propPercentualNF', 'propTipoCalculoNF']) {
+            const campo = document.getElementById(id);
+            if (campo) campo.disabled = (!agregado && !conflito) || !fechamentoGerencialAtual;
+        }
+        for (const campo of naturezas) {
+            const opcao = campo.querySelector('option[value="tributo"]');
+            if (opcao) opcao.disabled = agregado && !conflito;
+        }
+        const rotulo = document.querySelector('#propAdicionarTributo span');
+        if (rotulo) rotulo.textContent = agregado ? 'Adicionar retenção / encargo' : 'Adicionar tributo / retenção';
+        const aviso = document.getElementById('propModalidadeFiscalAviso');
+        if (aviso) {
+            aviso.textContent = conflito ? 'Há tributos nas duas modalidades. Revise a estimativa agregada ou os tributos individuais; o cálculo permanece bloqueado.'
+                : solicitada !== modalidade.value ? mensagem : '';
+            aviso.hidden = !aviso.textContent;
+        }
+        // Recolher uma secao nunca remove seus valores nem muda o calculo.
+        for (const detalhe of document.querySelectorAll('[data-logistica-opcional]')) {
+            const preenchido = [...detalhe.querySelectorAll('input:not([readonly])')]
+                .some(el => converterTextoMoedaParaNumero(el.value, 0) > 0);
+            if (preenchido && detalhe.dataset.preenchido !== 'true') detalhe.open = true;
+            detalhe.dataset.preenchido = String(preenchido);
+        }
     }
 
     function apresentarFechamentoGerencial(resumo) {
+        atualizarApresentacaoFiscalProposta();
         const host=document.getElementById('propFechamentoGerencial');if(!host)return;
         const historico=document.getElementById('propRevisaoCalculoHistorico');if(historico)historico.hidden=fechamentoGerencialAtual;
         if(resumo.calculoInvalido){host.textContent=`Revisar valores: ${resumo.calculoInvalido}`;for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;}
         if(!fechamentoGerencialAtual){host.textContent='Cálculo histórico preservado. Nenhuma depreciação nova foi aplicada.';return;}
-        host.innerHTML=`<dl><div><dt>Custos reais</dt><dd>${formatarMoeda(resumo.custoTotalProposta)}</dd></div><div><dt>Tributos</dt><dd>${formatarMoeda(resumo.tributosTotal)}</dd></div><div><dt>Encargos</dt><dd>${formatarMoeda(resumo.encargosTotal)}</dd></div><div><dt>Resultado antes da depreciação</dt><dd>${formatarMoeda(resumo.resultadoAntesDepreciacao)}</dd></div><div><dt>Depreciação gerencial · 20%</dt><dd>${formatarMoeda(resumo.depreciacaoGerencial)}</dd></div><div><dt>Resultado gerencial ${resumo.resultadoCompleto?'':'parcial'}</dt><dd>${resumo.resultadoCompleto?formatarMoeda(resumo.lucroPrevisto):'Custos pendentes'}</dd></div><div><dt>Retenções previstas</dt><dd>${formatarMoeda(resumo.retencoesTotal)}</dd></div><div><dt>Caixa após retenções</dt><dd>${formatarMoeda(resumo.caixaAposRetencoes)}</dd></div></dl><div class="table-responsive"><table><thead><tr><th>Nome</th><th>Natureza</th><th>Base</th><th>Alíquota</th><th>Valor</th></tr></thead><tbody>${resumo.tributosIndividualizados.map(t=>`<tr><td>${sanitizar(t.nome)}</td><td>${sanitizar(t.natureza)}</td><td>${formatarMoeda(t.base)}</td><td>${formatarPercentual(t.percentual)}</td><td>${formatarMoeda(t.valor)}</td></tr>`).join('')}</tbody></table></div><p>Estimativa gerencial, não lucro contábil. Retenções afetam o caixa, sem nova dedução do resultado. Incidência, base e alíquota exigem conferência fiscal.</p>`;
+        host.innerHTML=`<h4>Resumo gerencial</h4><dl>
+            <div><dt>Faturamento previsto</dt><dd>${formatarMoeda(resumo.valorFinal)}</dd></div>
+            <div><dt>Custos reais</dt><dd>${formatarMoeda(resumo.custoTotalProposta)}</dd></div>
+            <div><dt>Tributos configurados</dt><dd>${formatarMoeda(resumo.tributosTotal)}</dd></div>
+            <div><dt>Encargos</dt><dd>${formatarMoeda(resumo.encargosTotal)}</dd></div>
+            <div><dt>Resultado antes da dedução gerencial</dt><dd>${formatarMoeda(resumo.resultadoAntesDepreciacao)}</dd></div>
+            <div><dt>Depreciação gerencial · 20%</dt><dd>${formatarMoeda(resumo.depreciacaoGerencial)}</dd></div>
+            <div><dt>Resultado gerencial ${resumo.resultadoCompleto?'':'parcial'}</dt><dd>${resumo.resultadoCompleto?formatarMoeda(resumo.lucroPrevisto):'Custos pendentes'}</dd></div>
+            <div><dt>Margem gerencial</dt><dd>${resumo.custosCompletos===false?'Custos pendentes':formatarPercentual(resumo.margemPrevista)}</dd></div>
+            <div><dt>Retenções previstas</dt><dd>${formatarMoeda(resumo.retencoesTotal)}</dd></div>
+            <div><dt>Recebimento líquido previsto</dt><dd>${formatarMoeda(resumo.caixaAposRetencoes)}</dd></div>
+            </dl><div class="table-responsive"><table><thead><tr><th>Nome</th><th>Natureza</th><th>Base</th><th>Alíquota</th><th>Valor</th></tr></thead><tbody>${resumo.tributosIndividualizados.map(t=>`<tr><td>${sanitizar(t.nome)}</td><td>${sanitizar(t.natureza)}</td><td>${formatarMoeda(t.base)}</td><td>${formatarPercentual(t.percentual)}</td><td>${formatarMoeda(t.valor)}</td></tr>`).join('')}</tbody></table></div><p>Estimativa gerencial, não lucro contábil. Retenções afetam o caixa, sem nova dedução do resultado. Incidência, base e alíquota exigem conferência fiscal.</p>`;
         // Pendencia fiscal nao significa custo ausente: exibir valor provisorio, sem declarar completude.
         if(resumo.custosCompletos!==false){
             const dd=[...host.querySelectorAll('dt')].find(x=>x.textContent.startsWith('Resultado gerencial'))?.nextElementSibling;
@@ -2403,7 +2462,7 @@
                             <span><i class="bi ${sanitizar(grupo.icone || 'bi-tag')}"></i> ${sanitizar(grupo.nome || rotuloCategoriaOrcamento(grupo.categoria))}${grupo.ativa === false ? ' <em>inativa</em>' : ''}</span>
                             <strong>${formatarMoeda(grupo.subtotal)}</strong>
                             <small>${grupo.quantidade} ${grupo.quantidade === 1 ? 'item' : 'itens'}</small>
-                            <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
+                            <small>Preço de venda ${formatarMoeda(grupo.custoTotal)}</small>
                             <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
                         </div>
                     `).join('')}
@@ -4466,8 +4525,8 @@
                 <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta" aria-label="Descrição do item"></td>
                 <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta" aria-label="Quantidade comercial do item"></td>
                 <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta" aria-label="Período em dias do item"></td>
-                <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta" aria-label="Valor unitário do item"></td>
-                <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly aria-label="Total do item"></td>
+                <td data-label="Preço de venda unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta" aria-label="Preço de venda unitário do item"></td>
+                <td data-label="Subtotal do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly aria-label="Subtotal do item"></td>
                 <td class="col-actions proposta-item-actions-cell" data-label="Ações">
                     <div class="actions-cell proposta-item-actions">
                         <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn proposta-item-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de cálculo" aria-label="Abrir detalhes do item">
@@ -4485,12 +4544,34 @@
                     </div>
                 </td>
             </tr>
-            <tr class="proposta-item-details-row" hidden
+            <tr class="proposta-item-details-row"
                 data-politica-custo-origem="${sanitizar(itemCalculado.politicaCustoProprioAplicada.origem)}"
                 data-politica-custo-aplicada-em="${sanitizar(itemCalculado.politicaCustoProprioAplicada.aplicadaEm)}"
                 data-politica-custo-modo-original="${sanitizar(itemCalculado.politicaCustoProprioAplicada.modo)}">
                 <td colspan="7">
                     <div class="prop-item-details-panel">
+                        <div class="prop-item-composicao prop-item-details-grid">
+                            <div class="form-group">
+                                <label>Origem do material</label>
+                                <select class="prop-item-origem-custo" data-change="recalcularResumoProposta">
+                                    ${montarOptionsOrigemCustoItemProposta(itemCalculado.origemCusto)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Quantidade própria</label>
+                                <input type="number" class="prop-item-quantidade-propria" min="0" step="1" value="${itemCalculado.quantidadePropria}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Quantidade terceirizada</label>
+                                <input type="number" class="prop-item-quantidade-terceirizada" min="0" step="1" value="${itemCalculado.quantidadeTerceirizada}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-custo-terceiro-config">
+                                <label>Custo real da terceirização (total)</label>
+                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${itemCalculado.custoPendente ? '' : valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
+                            </div>
+                            <small class="prop-item-divisao-mista-erro" role="alert" hidden>${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}</small>
+                        </div>
+                        <div class="prop-item-advanced" hidden>
                         <div class="prop-item-details-title">
                             <strong>Cálculos avançados</strong>
                             <span>Use estes campos apenas para exceções do item.</span>
@@ -4511,7 +4592,7 @@
                                 <input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
-                                <label>Subtotal</label>
+                                <label>Subtotal de venda antes dos adicionais</label>
                                 <input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly>
                             </div>
                             <label class="prop-calc-toggle">
@@ -4572,12 +4653,6 @@
                             <span>Controle interno para apuração do resultado estimado. Não altera o valor cobrado.</span>
                         </div>
                         <div class="prop-item-details-grid prop-item-cost-details-grid">
-                            <div class="form-group">
-                                <label>Origem do item</label>
-                                <select class="prop-item-origem-custo" data-change="recalcularResumoProposta">
-                                    ${montarOptionsOrigemCustoItemProposta(itemCalculado.origemCusto)}
-                                </select>
-                            </div>
                             <div class="form-group prop-item-custo-proprio-config">
                                 <label>Política aplicada ao item</label>
                                 <select class="prop-item-modo-custo-proprio" data-change="recalcularResumoProposta">
@@ -4593,24 +4668,9 @@
                                 <input type="text" class="prop-item-custo-proprio-manual-total input-money-br" inputmode="decimal" value="${valorInputMonetario(itemCalculado.custoProprioManualTotal)}" data-input="recalcularResumoProposta">
                                 <small>Valor total do item. Não será multiplicado por quantidade ou período.</small>
                             </div>
-                            <div class="form-group prop-item-divisao-mista-config">
-                                <label>Quantidade própria</label>
-                                <input type="number" class="prop-item-quantidade-propria" min="0" step="1" value="${itemCalculado.quantidadePropria}" data-input="recalcularResumoProposta">
-                            </div>
-                            <div class="form-group prop-item-divisao-mista-config">
-                                <label>Quantidade terceirizada</label>
-                                <input type="number" class="prop-item-quantidade-terceirizada" min="0" step="1" value="${itemCalculado.quantidadeTerceirizada}" data-input="recalcularResumoProposta">
-                            </div>
-                            <small class="prop-item-divisao-mista-erro" role="alert" hidden style="grid-column:1/-1;color:#b42318;font-weight:700;">
-                                ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}
-                            </small>
                             <div class="form-group prop-item-custo-terceiro-config">
                                 <label>Fornecedor</label>
                                 <input type="text" class="prop-item-fornecedor-custo" value="${fornecedorCusto}" placeholder="Nome do fornecedor" data-input="recalcularResumoProposta">
-                            </div>
-                            <div class="form-group prop-item-custo-terceiro-config">
-                                <label>Custo real terceirizado</label>
-                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${itemCalculado.custoPendente ? '' : valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Custo próprio</label>
@@ -4621,7 +4681,7 @@
                                 <input type="text" class="prop-item-custo-terceirizado" value="${formatarMoeda(itemCalculado.custoTerceirizado)}" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Custo total do item</label>
+                                <label>Custo real total do item</label>
                                 <input type="text" class="prop-item-custo-interno-total" value="${formatarMoeda(itemCalculado.custoInternoItemTotal)}" readonly>
                             </div>
                             <div class="form-group">
@@ -4640,6 +4700,7 @@
                                     <small>Política de custos próprios pendente. Configure o padrão antes de usar custos automáticos.</small>
                                 </div>
                             ` : ''}
+                        </div>
                         </div>
                     </div>
                 </td>
@@ -4927,6 +4988,10 @@
         detalhes.querySelectorAll('.prop-item-divisao-mista-config').forEach((el) => {
             el.hidden = !ehMisto;
         });
+        for (const seletor of ['.prop-item-quantidade-propria', '.prop-item-quantidade-terceirizada']) {
+            const campo = detalhes.querySelector(seletor);
+            if (campo) campo.readOnly = !ehMisto;
+        }
         detalhes.querySelectorAll('.prop-item-custo-proprio-aviso').forEach((el) => {
             el.hidden = !(permiteProprio && ehMaoObra);
         });
@@ -5072,10 +5137,12 @@
             ? linha.nextElementSibling
             : null;
         if (!detalhes) return;
-        const aberto = detalhes.hidden;
-        detalhes.hidden = !aberto;
+        const avancado = detalhes.querySelector('.prop-item-advanced');
+        if (!avancado) return;
+        const aberto = avancado.hidden;
+        avancado.hidden = !aberto;
         atualizarBotaoDetalhesItemProposta(botao, aberto);
-        const todosAbertos = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-details-row')).every((detalhe) => !detalhe.hidden);
+        const todosAbertos = Array.from(document.querySelectorAll('#propostaItensBody .prop-item-advanced')).every((detalhe) => !detalhe.hidden);
         atualizarBotaoExpandirTodosItensProposta(todosAbertos);
     }
 
@@ -5084,13 +5151,14 @@
         if (!linhas.length) return;
         const deveAbrir = linhas.some((linha) => {
             const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
-            return detalhes?.hidden;
+            return detalhes?.querySelector('.prop-item-advanced')?.hidden;
         });
 
         linhas.forEach((linha) => {
             const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
             if (!detalhes) return;
-            detalhes.hidden = !deveAbrir;
+            const avancado = detalhes.querySelector('.prop-item-advanced');
+            if (avancado) avancado.hidden = !deveAbrir;
             atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), deveAbrir);
         });
         atualizarBotaoExpandirTodosItensProposta(deveAbrir);
@@ -10140,7 +10208,8 @@
             const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
                 ? linha.nextElementSibling
                 : null;
-            if (detalhes) detalhes.hidden = false;
+            const avancado = detalhes?.querySelector('.prop-item-advanced');
+            if (avancado) avancado.hidden = false;
             atualizarBotaoDetalhesItemProposta(linha?.querySelector('.prop-details-toggle-btn'), true);
 
             const seletor = pendencia.campo === 'confirmacaoLocacaoPuraSeparada'
