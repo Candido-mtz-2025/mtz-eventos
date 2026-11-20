@@ -8955,6 +8955,17 @@
                     color:#0f172a;
                     white-space:nowrap;
                 }
+                .pdf-items-table--internal th.desc { width:auto; }
+                .pdf-items-table.pdf-items-table--internal th,
+                .pdf-items-table.pdf-items-table--internal td {
+                    padding-left:4px;
+                    padding-right:4px;
+                    white-space:normal;
+                    overflow-wrap:anywhere;
+                    letter-spacing:0;
+                }
+                .pdf-items-table--internal td.center { width:auto; }
+                .pdf-items-table.pdf-items-table--internal th { padding-left:2px; padding-right:2px; }
                 .proposal-bottom-grid {
                     display:grid;
                     grid-template-columns:1.05fr .95fr;
@@ -9094,7 +9105,8 @@
                     <div class="proposal-section-title">
                         <span>Itens do orcamento</span>
                     </div>
-                    <table class="pdf-items-table">
+                    <table class="pdf-items-table${exibirInterno ? ' pdf-items-table--internal' : ''}">
+                        ${exibirInterno ? '<colgroup><col style="width:30%"><col style="width:7%"><col style="width:5%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:7%"></colgroup>' : ''}
                         <thead>${cabecalhoItens}</thead>
                         <tbody>${linhasItens}</tbody>
                     </table>
