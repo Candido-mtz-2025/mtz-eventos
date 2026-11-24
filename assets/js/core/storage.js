@@ -1135,6 +1135,9 @@ function salvarLocal() {
 }
 
 function carregarLocal() {
+    if (typeof window.__permitirEscritaLegada === 'function' && !window.__permitirEscritaLegada()) {
+        return { ok: false, codigo: 'ESCRITA_LEGADA_BLOQUEADA', confirmado: false };
+    }
     try {
         const json = localStorage.getItem(STORAGE_KEY);
         if (!json) {

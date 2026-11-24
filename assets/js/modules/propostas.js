@@ -70,6 +70,9 @@
     let fechamentoGerencialAtual = true;
     let fechamentoHistoricoFormulario = null;
     const origensTributosGerenciais = new WeakMap();
+    const origensLinhasHomologacao = new WeakMap();
+    const origensTributosHomologacao = new WeakMap();
+    let portaHomologacaoOrcamentos = null;
     const controlesHistoricosGerenciais = new Map();
     const FONTES_FISCAIS_GERENCIAIS = Object.freeze({
         ISS: { fundamento:'LC 116/2003, arts. 3, 7, 8 e 8-A; lista 3.05. Conferir lei municipal.', fonte:'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm' },
@@ -324,6 +327,9 @@
                 const chave={base:'baseCalculo',manual:'baseManual'}[el.dataset.tributo]||el.dataset.tributo;
                 t[chave]=el.type==='checkbox'?el.checked:el.type==='number'?(el.value===''?null:Number(el.value)):el.value;
             }
+            if (t.codigo === 'ISS' && t.incidencia !== 'nao_aplica' && Number(t.percentual) > 0 && !t.tipoFiscalAlvo) {
+                throw Error('CLASSIFICACAO_ISS_PENDENTE');
+            }
             return t;
         });
     }
@@ -339,6 +345,9 @@
 
     function adicionarTributoGerencial(dados = {}) {
         const host=document.getElementById('propTributosIndividuais');if(!host)return;
+        if (!Object.keys(dados).length && document.getElementById('propModalidadeFiscal')?.value === 'agregado') {
+            dados = { natureza: 'retencao' };
+        }
         const linha=document.createElement('div');linha.className='prop-tributo-linha';
         linha.innerHTML='<input data-tributo="nome" aria-label="Nome do tributo ou retenção" placeholder="Nome"><select data-tributo="natureza" aria-label="Natureza"><option value="tributo">Tributo</option><option value="retencao">Retenção</option><option value="encargo">Encargo interno</option></select><select data-tributo="base" aria-label="Base de cálculo"><option value="comercial">Valor comercial</option><option value="materiais">Materiais</option><option value="servicos">Base NFS-e estimada</option><option value="manual">Base informada</option></select><input data-tributo="manual" type="number" min="0" step="0.01" aria-label="Base informada em reais" placeholder="Base R$"><input data-tributo="percentual" type="number" min="0" max="100" step="0.01" aria-label="Alíquota percentual" placeholder="%"><button type="button" title="Remover tributo" aria-label="Remover tributo"><i class="bi bi-trash"></i></button>';
         origensTributosGerenciais.set(linha,JSON.parse(JSON.stringify(dados)));
@@ -359,16 +368,32 @@
         for(const [chave,rotulo,tipo]of campos){
             const label=document.createElement('label');label.className='form-group';const texto=document.createElement('span');texto.textContent=rotulo;label.append(texto);
             const el=document.createElement(Array.isArray(tipo)?'select':'input');el.dataset.tributo=chave;
+            if (chave === 'tipoFiscalAlvo') el.add(new Option('Selecione o enquadramento', ''));
             if(Array.isArray(tipo))for(const valor of tipo)el.add(new Option(valor.replaceAll('_',' '),valor));else el.type=tipo;
             if(tipo==='number'){el.min='0';el.step='0.01';}label.append(el);grid.append(label);
+            if (chave === 'tipoFiscalAlvo') {
+                texto.textContent = 'Enquadramento fiscal da base';
+                label.classList.add('prop-tributo-classificacao');
+                linha.append(label);
+            }
         }
         linha.append(details);
         const valores={...dados,base:dados.baseCalculo||dados.base||'comercial',manual:dados.baseManual??dados.manual??'',codigo:dados.codigo||codigoTributoGerencial(dados)};
         for(const el of linha.querySelectorAll('[data-tributo]')){const v=valores[el.dataset.tributo];if(v!=null){if(el.type==='checkbox')el.checked=v===true;else el.value=v;}}
         linha.querySelector('[data-tributo="codigo"]').addEventListener('change',e=>{const f=FONTES_FISCAIS_GERENCIAIS[e.target.value];if(f){for(const [k,v]of Object.entries({fundamentoLegal:f.fundamento,fonteLegal:f.fonte})){const el=linha.querySelector(`[data-tributo="${k}"]`);if(!el.value)el.value=v;}}});
-        const atualizarBase=()=>{linha.querySelector('[data-tributo="manual"]').disabled=linha.querySelector('[data-tributo="base"]').value!=='manual';};atualizarBase();
+        const atualizarBase=()=>{
+            const base = linha.querySelector('[data-tributo="base"]').value;
+            linha.querySelector('[data-tributo="manual"]').disabled = base !== 'manual';
+            const classificacao = linha.querySelector('[data-tributo="tipoFiscalAlvo"]');
+            const exigeISS = linha.querySelector('[data-tributo="codigo"]').value === 'ISS'
+                && linha.querySelector('[data-tributo="incidencia"]').value !== 'nao_aplica'
+                && Number(linha.querySelector('[data-tributo="percentual"]').value) > 0;
+            classificacao.closest('label').hidden = !exigeISS && base !== 'tipo_fiscal';
+            classificacao.required = exigeISS || base === 'tipo_fiscal';
+            classificacao.setCustomValidity(exigeISS && !classificacao.value ? 'Selecione conscientemente o enquadramento fiscal da base de ISS.' : '');
+        };atualizarBase();
         linha.querySelector('button').addEventListener('click',()=>{linha.remove();recalcularResumoProposta();});
-        linha.addEventListener('input',()=>recalcularResumoProposta());linha.addEventListener('change',()=>{atualizarBase();recalcularResumoProposta();});
+        linha.addEventListener('input',()=>{atualizarBase();recalcularResumoProposta();});linha.addEventListener('change',()=>{atualizarBase();recalcularResumoProposta();});
         host.append(linha);recalcularResumoProposta();
     }
 
@@ -399,14 +424,88 @@
         if(custos&&!custos.closest('details')){const historico=document.createElement('details'),titulo=document.createElement('summary');titulo.textContent='Políticas históricas de custos dos itens';custos.before(historico);historico.append(titulo,custos);}
         const fechamento=document.getElementById('propostaSecaoFechamento'),tributos=document.querySelector('.proposta-tributos-gerenciais');
         if(fechamento&&tributos)fechamento.append(tributos);
+        const agregado = document.getElementById('propFiscalAgregadoCampos');
+        const individuais = document.getElementById('propTributosIndividuais');
+        if (agregado && individuais) individuais.before(agregado);
+        document.getElementById('propModalidadeFiscal')?.addEventListener('change', () => {
+            atualizarApresentacaoFiscalProposta('Para trocar, revise os valores da modalidade anterior. Nenhum valor foi apagado.');
+        });
+    }
+
+    function atualizarApresentacaoFiscalProposta(mensagem = '') {
+        const modalidade = document.getElementById('propModalidadeFiscal');
+        const percentual = document.getElementById('propPercentualNF');
+        if (!modalidade || !percentual) return;
+        const agregadoAtivo = Number(percentual.value.replace(',', '.')) > 0;
+        const naturezas = [...document.querySelectorAll('#propTributosIndividuais [data-tributo="natureza"]')];
+        const individualAtivo = naturezas.some(el => el.value === 'tributo');
+        const conflito = agregadoAtivo && individualAtivo;
+        const solicitada = modalidade.value;
+        if (agregadoAtivo && !individualAtivo) modalidade.value = 'agregado';
+        if (individualAtivo && !agregadoAtivo) modalidade.value = 'individualizado';
+        const agregado = modalidade.value === 'agregado';
+        document.getElementById('propFiscalAgregadoCampos').hidden = !agregado && !conflito;
+        for (const id of ['propPercentualNF', 'propTipoCalculoNF']) {
+            const campo = document.getElementById(id);
+            if (campo) campo.disabled = (!agregado && !conflito) || !fechamentoGerencialAtual;
+        }
+        for (const campo of naturezas) {
+            const opcao = campo.querySelector('option[value="tributo"]');
+            if (opcao) opcao.disabled = agregado && !conflito;
+        }
+        const rotulo = document.querySelector('#propAdicionarTributo span');
+        if (rotulo) rotulo.textContent = agregado ? 'Adicionar retenção / encargo' : 'Adicionar tributo / retenção';
+        const aviso = document.getElementById('propModalidadeFiscalAviso');
+        if (aviso) {
+            if (mensagem && solicitada !== modalidade.value) {
+                aviso.dataset.destinoRecusado = solicitada;
+                aviso.dataset.mensagemRecusa = mensagem;
+            }
+            const destino = aviso.dataset.destinoRecusado;
+            const corrigido = destino === 'agregado' ? !individualAtivo : destino === 'individualizado' ? !agregadoAtivo : true;
+            if (conflito || corrigido || destino === modalidade.value) {
+                delete aviso.dataset.destinoRecusado;
+                delete aviso.dataset.mensagemRecusa;
+            }
+            aviso.textContent = conflito ? 'Há tributos nas duas modalidades. Revise a estimativa agregada ou os tributos individuais; o cálculo permanece bloqueado.'
+                : aviso.dataset.mensagemRecusa || '';
+            aviso.hidden = !aviso.textContent;
+        }
+        // Recolher uma secao nunca remove seus valores nem muda o calculo.
+        for (const detalhe of document.querySelectorAll('[data-logistica-opcional]')) {
+            const preenchido = [...detalhe.querySelectorAll('input:not([readonly])')]
+                .filter(el => el.id !== 'propFreteTrechos' || Number(el.value) > 1)
+                .some(el => converterTextoMoedaParaNumero(el.value, 0) > 0);
+            if (preenchido && detalhe.dataset.preenchido !== 'true') detalhe.open = true;
+            detalhe.dataset.preenchido = String(preenchido);
+        }
     }
 
     function apresentarFechamentoGerencial(resumo) {
+        atualizarApresentacaoFiscalProposta();
         const host=document.getElementById('propFechamentoGerencial');if(!host)return;
         const historico=document.getElementById('propRevisaoCalculoHistorico');if(historico)historico.hidden=fechamentoGerencialAtual;
-        if(resumo.calculoInvalido){host.textContent=`Revisar valores: ${resumo.calculoInvalido}`;for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;}
+        if(resumo.calculoInvalido){
+            const explicacoes = {
+                CLASSIFICACAO_ISS_PENDENTE: 'Selecione o enquadramento fiscal da base na linha de ISS. Nenhuma classificação foi presumida.',
+                ISS_BASE_CONTEM_LOCACAO_PURA: 'A base de ISS está incompatível com locação pura de bem móvel. Confira os itens, a base e o enquadramento com a contabilidade; não reclassifique apenas para liberar o cálculo.'
+            };
+            host.textContent=`Revisar valores: ${explicacoes[resumo.calculoInvalido] || ''} (${resumo.calculoInvalido})`;
+            for(const id of ['propLucroPrevisto','propMargemPrevista','propValorFinal','propValorFinalComNF','propStickyLucro','propStickyMargem','propGuidedLucro','propGuidedMargem']){const el=document.getElementById(id);if(el){if('value'in el)el.value='Revisar valores';else el.textContent='Revisar valores';}}return;
+        }
         if(!fechamentoGerencialAtual){host.textContent='Cálculo histórico preservado. Nenhuma depreciação nova foi aplicada.';return;}
-        host.innerHTML=`<dl><div><dt>Custos reais</dt><dd>${formatarMoeda(resumo.custoTotalProposta)}</dd></div><div><dt>Tributos</dt><dd>${formatarMoeda(resumo.tributosTotal)}</dd></div><div><dt>Encargos</dt><dd>${formatarMoeda(resumo.encargosTotal)}</dd></div><div><dt>Resultado antes da depreciação</dt><dd>${formatarMoeda(resumo.resultadoAntesDepreciacao)}</dd></div><div><dt>Depreciação gerencial · 20%</dt><dd>${formatarMoeda(resumo.depreciacaoGerencial)}</dd></div><div><dt>Resultado gerencial ${resumo.resultadoCompleto?'':'parcial'}</dt><dd>${resumo.resultadoCompleto?formatarMoeda(resumo.lucroPrevisto):'Custos pendentes'}</dd></div><div><dt>Retenções previstas</dt><dd>${formatarMoeda(resumo.retencoesTotal)}</dd></div><div><dt>Caixa após retenções</dt><dd>${formatarMoeda(resumo.caixaAposRetencoes)}</dd></div></dl><div class="table-responsive"><table><thead><tr><th>Nome</th><th>Natureza</th><th>Base</th><th>Alíquota</th><th>Valor</th></tr></thead><tbody>${resumo.tributosIndividualizados.map(t=>`<tr><td>${sanitizar(t.nome)}</td><td>${sanitizar(t.natureza)}</td><td>${formatarMoeda(t.base)}</td><td>${formatarPercentual(t.percentual)}</td><td>${formatarMoeda(t.valor)}</td></tr>`).join('')}</tbody></table></div><p>Estimativa gerencial, não lucro contábil. Retenções afetam o caixa, sem nova dedução do resultado. Incidência, base e alíquota exigem conferência fiscal.</p>`;
+        host.innerHTML=`<h4>Resumo gerencial</h4><dl>
+            <div><dt>Faturamento previsto</dt><dd>${formatarMoeda(resumo.valorFinal)}</dd></div>
+            <div><dt>Custos reais</dt><dd>${formatarMoeda(resumo.custoTotalProposta)}</dd></div>
+            <div><dt>Tributos configurados</dt><dd>${formatarMoeda(resumo.tributosTotal)}</dd></div>
+            <div><dt>Encargos</dt><dd>${formatarMoeda(resumo.encargosTotal)}</dd></div>
+            <div><dt>Resultado antes da dedução gerencial</dt><dd>${formatarMoeda(resumo.resultadoAntesDepreciacao)}</dd></div>
+            <div><dt>Depreciação gerencial · 20%</dt><dd>${formatarMoeda(resumo.depreciacaoGerencial)}</dd></div>
+            <div><dt>Resultado gerencial ${resumo.resultadoCompleto?'':'parcial'}</dt><dd>${resumo.resultadoCompleto?formatarMoeda(resumo.lucroPrevisto):'Custos pendentes'}</dd></div>
+            <div><dt>Margem gerencial</dt><dd>${resumo.custosCompletos===false?'Custos pendentes':formatarPercentual(resumo.margemPrevista)}</dd></div>
+            <div><dt>Retenções previstas</dt><dd>${formatarMoeda(resumo.retencoesTotal)}</dd></div>
+            <div><dt>Recebimento líquido previsto</dt><dd>${formatarMoeda(resumo.caixaAposRetencoes)}</dd></div>
+            </dl><div class="table-responsive"><table><thead><tr><th>Nome</th><th>Natureza</th><th>Base</th><th>Alíquota</th><th>Valor</th></tr></thead><tbody>${resumo.tributosIndividualizados.map(t=>`<tr><td>${sanitizar(t.nome)}</td><td>${sanitizar(t.natureza)}</td><td>${formatarMoeda(t.base)}</td><td>${formatarPercentual(t.percentual)}</td><td>${formatarMoeda(t.valor)}</td></tr>`).join('')}</tbody></table></div><p>Estimativa gerencial, não lucro contábil. Retenções afetam o caixa, sem nova dedução do resultado. Incidência, base e alíquota exigem conferência fiscal.</p>`;
         // Pendencia fiscal nao significa custo ausente: exibir valor provisorio, sem declarar completude.
         if(resumo.custosCompletos!==false){
             const dd=[...host.querySelectorAll('dt')].find(x=>x.textContent.startsWith('Resultado gerencial'))?.nextElementSibling;
@@ -652,7 +751,7 @@
         const editandoProposta = campoDaProposta || usuarioEditandoProposta();
 
         if (editandoProposta && typeof executarMantendoScroll === 'function') {
-            executarMantendoScroll(acao, alvo);
+            executarMantendoScroll(acao, alvo, { imediato: true });
             return;
         }
 
@@ -742,32 +841,11 @@
                 };
 
                 requestAnimationFrame(() => {
+                    if (!document.contains(campo)) return;
                     centralizarImediatamente();
                     focarPropostaSemRolagem(campo);
+                    campo.reportValidity?.();
                 });
-
-                const manterVisivelEFocado = (reportar = false) => {
-                    if (!document.contains(campo)) return;
-
-                    const viewport = window.visualViewport;
-                    const topoViewport = viewport?.offsetTop || 0;
-                    const alturaViewport = viewport?.height || window.innerHeight;
-                    const limiteSuperior = topoViewport + 16;
-                    const limiteInferior = topoViewport + alturaViewport - 16;
-                    const retangulo = campo.getBoundingClientRect();
-
-                    if (retangulo.top < limiteSuperior || retangulo.bottom > limiteInferior) {
-                        centralizarImediatamente();
-                    }
-
-                    focarPropostaSemRolagem(campo);
-                    if (reportar) campo.reportValidity?.();
-                };
-
-                setTimeout(() => manterVisivelEFocado(true), 220);
-                setTimeout(() => manterVisivelEFocado(false), 520);
-                setTimeout(() => manterVisivelEFocado(false), 1500);
-                setTimeout(() => manterVisivelEFocado(false), 2300);
                 setTimeout(() => {
                     campo.classList.remove('proposta-validation-target');
                     if (!campo.validationMessage) campo.removeAttribute('aria-invalid');
@@ -2421,7 +2499,7 @@
                             <span><i class="bi ${sanitizar(grupo.icone || 'bi-tag')}"></i> ${sanitizar(grupo.nome || rotuloCategoriaOrcamento(grupo.categoria))}${grupo.ativa === false ? ' <em>inativa</em>' : ''}</span>
                             <strong>${formatarMoeda(grupo.subtotal)}</strong>
                             <small>${grupo.quantidade} ${grupo.quantidade === 1 ? 'item' : 'itens'}</small>
-                            <small>Custo ${formatarMoeda(grupo.custoTotal)}</small>
+                            <small>Preço de venda ${formatarMoeda(grupo.custoTotal)}</small>
                             <small>Hon. ${formatarMoeda(grupo.honorarios)} • Enc. ${formatarMoeda(grupo.encargos)} • INSS ${formatarMoeda(grupo.inss)}</small>
                         </div>
                     `).join('')}
@@ -3417,6 +3495,7 @@
         if (opcoes.semRolagem) return;
 
         setTimeout(() => {
+            if (subAba !== subAbaPropostasAtual) return;
             if (usuarioEditandoProposta()) return;
 
             const alvoScroll = subAba === 'lista'
@@ -3488,6 +3567,7 @@
         setTimeout(() => {
             if (usuarioEditandoProposta()) return;
 
+            if (etapa !== secaoFormularioPropostaAtual) return;
             const painel = document.querySelector(`[data-proposta-form-section="${secaoReal}"]`);
             if (typeof window.rolarParaElementoAtalho === 'function') {
                 window.rolarParaElementoAtalho(painel, 'start', { forcar: true });
@@ -4236,6 +4316,7 @@
     }
 
     function registrarGeracaoPdfProposta(proposta, exibirInterno = false) {
+        if (portaHomologacaoOrcamentos) return; // Previa local e leitura, nao comprovante de exportacao.
         const propostaSalva = localizarProposta(proposta?.id);
         if (!propostaSalva) return;
         const tipo = exibirInterno ? 'pdf_interno' : 'pdf_cliente';
@@ -4481,8 +4562,8 @@
                 <td data-label="Descrição"><input type="text" class="prop-item-descricao" value="${descricao}" placeholder="Descricao do item" data-input="recalcularResumoProposta" aria-label="Descrição do item"></td>
                 <td data-label="Quantidade"><input type="number" class="prop-item-quantidade" value="${itemCalculado.quantidade}" min="0" step="1" data-input="recalcularResumoProposta" aria-label="Quantidade comercial do item"></td>
                 <td data-label="Período (dias)"><input type="number" class="prop-item-periodo" value="${itemCalculado.periodoDias}" min="0" step="0.5" data-input="recalcularResumoProposta" aria-label="Período em dias do item"></td>
-                <td data-label="Valor unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta" aria-label="Valor unitário do item"></td>
-                <td data-label="Total do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly aria-label="Total do item"></td>
+                <td data-label="Preço de venda unitário"><input type="text" class="prop-item-unitario input-money-br" value="${valorInputMonetario(itemCalculado.custoUnitario)}" inputmode="decimal" placeholder="0,00" data-input="recalcularResumoProposta" aria-label="Preço de venda unitário do item"></td>
+                <td data-label="Subtotal do item"><input type="text" class="prop-item-total" value="${formatarMoeda(itemCalculado.valorTotal)}" readonly aria-label="Subtotal do item"></td>
                 <td class="col-actions proposta-item-actions-cell" data-label="Ações">
                     <div class="actions-cell proposta-item-actions">
                         <button type="button" class="btn btn-sm btn-secondary table-action-btn prop-details-toggle-btn proposta-item-action-btn" data-action="alternarDetalhesCalculoItemProposta" data-arg="__this__" aria-expanded="false" title="Detalhes de cálculo" aria-label="Abrir detalhes do item">
@@ -4500,12 +4581,34 @@
                     </div>
                 </td>
             </tr>
-            <tr class="proposta-item-details-row" hidden
+            <tr class="proposta-item-details-row"
                 data-politica-custo-origem="${sanitizar(itemCalculado.politicaCustoProprioAplicada.origem)}"
                 data-politica-custo-aplicada-em="${sanitizar(itemCalculado.politicaCustoProprioAplicada.aplicadaEm)}"
                 data-politica-custo-modo-original="${sanitizar(itemCalculado.politicaCustoProprioAplicada.modo)}">
                 <td colspan="7">
                     <div class="prop-item-details-panel">
+                        <div class="prop-item-composicao prop-item-details-grid">
+                            <div class="form-group">
+                                <label>Origem do material</label>
+                                <select class="prop-item-origem-custo" data-change="recalcularResumoProposta">
+                                    ${montarOptionsOrigemCustoItemProposta(itemCalculado.origemCusto)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Quantidade própria</label>
+                                <input type="number" class="prop-item-quantidade-propria" min="0" step="1" value="${itemCalculado.quantidadePropria}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group">
+                                <label>Quantidade terceirizada</label>
+                                <input type="number" class="prop-item-quantidade-terceirizada" min="0" step="1" value="${itemCalculado.quantidadeTerceirizada}" data-input="recalcularResumoProposta">
+                            </div>
+                            <div class="form-group prop-item-custo-terceiro-config">
+                                <label>Custo real da terceirização (total)</label>
+                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${itemCalculado.custoPendente ? '' : valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
+                            </div>
+                            <small class="prop-item-divisao-mista-erro" role="alert" hidden>${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}</small>
+                        </div>
+                        <div class="prop-item-advanced" hidden>
                         <div class="prop-item-details-title">
                             <strong>Cálculos avançados</strong>
                             <span>Use estes campos apenas para exceções do item.</span>
@@ -4526,7 +4629,7 @@
                                 <input type="text" class="prop-item-medida" value="${medida}" placeholder="Medida" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
-                                <label>Subtotal</label>
+                                <label>Subtotal de venda antes dos adicionais</label>
                                 <input type="text" class="prop-item-custo-total" value="${formatarMoeda(itemCalculado.custoTotal)}" readonly>
                             </div>
                             <label class="prop-calc-toggle">
@@ -4587,12 +4690,6 @@
                             <span>Controle interno para apuração do resultado estimado. Não altera o valor cobrado.</span>
                         </div>
                         <div class="prop-item-details-grid prop-item-cost-details-grid">
-                            <div class="form-group">
-                                <label>Origem do item</label>
-                                <select class="prop-item-origem-custo" data-change="recalcularResumoProposta">
-                                    ${montarOptionsOrigemCustoItemProposta(itemCalculado.origemCusto)}
-                                </select>
-                            </div>
                             <div class="form-group prop-item-custo-proprio-config">
                                 <label>Política aplicada ao item</label>
                                 <select class="prop-item-modo-custo-proprio" data-change="recalcularResumoProposta">
@@ -4608,24 +4705,9 @@
                                 <input type="text" class="prop-item-custo-proprio-manual-total input-money-br" inputmode="decimal" value="${valorInputMonetario(itemCalculado.custoProprioManualTotal)}" data-input="recalcularResumoProposta">
                                 <small>Valor total do item. Não será multiplicado por quantidade ou período.</small>
                             </div>
-                            <div class="form-group prop-item-divisao-mista-config">
-                                <label>Quantidade própria</label>
-                                <input type="number" class="prop-item-quantidade-propria" min="0" step="1" value="${itemCalculado.quantidadePropria}" data-input="recalcularResumoProposta">
-                            </div>
-                            <div class="form-group prop-item-divisao-mista-config">
-                                <label>Quantidade terceirizada</label>
-                                <input type="number" class="prop-item-quantidade-terceirizada" min="0" step="1" value="${itemCalculado.quantidadeTerceirizada}" data-input="recalcularResumoProposta">
-                            </div>
-                            <small class="prop-item-divisao-mista-erro" role="alert" hidden style="grid-column:1/-1;color:#b42318;font-weight:700;">
-                                ${MENSAGEM_QUANTIDADE_MISTA_INVALIDA}
-                            </small>
                             <div class="form-group prop-item-custo-terceiro-config">
                                 <label>Fornecedor</label>
                                 <input type="text" class="prop-item-fornecedor-custo" value="${fornecedorCusto}" placeholder="Nome do fornecedor" data-input="recalcularResumoProposta">
-                            </div>
-                            <div class="form-group prop-item-custo-terceiro-config">
-                                <label>Custo real terceirizado</label>
-                                <input type="text" class="prop-item-custo-terceirizado-real input-money-br" inputmode="decimal" value="${itemCalculado.custoPendente ? '' : valorInputMonetario(itemCalculado.custoTerceirizadoReal)}" data-input="recalcularResumoProposta">
                             </div>
                             <div class="form-group">
                                 <label>Custo próprio</label>
@@ -4636,7 +4718,7 @@
                                 <input type="text" class="prop-item-custo-terceirizado" value="${formatarMoeda(itemCalculado.custoTerceirizado)}" readonly>
                             </div>
                             <div class="form-group">
-                                <label>Custo total do item</label>
+                                <label>Custo real total do item</label>
                                 <input type="text" class="prop-item-custo-interno-total" value="${formatarMoeda(itemCalculado.custoInternoItemTotal)}" readonly>
                             </div>
                             <div class="form-group">
@@ -4655,6 +4737,7 @@
                                     <small>Política de custos próprios pendente. Configure o padrão antes de usar custos automáticos.</small>
                                 </div>
                             ` : ''}
+                        </div>
                         </div>
                     </div>
                 </td>
@@ -4942,6 +5025,10 @@
         detalhes.querySelectorAll('.prop-item-divisao-mista-config').forEach((el) => {
             el.hidden = !ehMisto;
         });
+        for (const seletor of ['.prop-item-quantidade-propria', '.prop-item-quantidade-terceirizada']) {
+            const campo = detalhes.querySelector(seletor);
+            if (campo) campo.readOnly = !ehMisto;
+        }
         detalhes.querySelectorAll('.prop-item-custo-proprio-aviso').forEach((el) => {
             el.hidden = !(permiteProprio && ehMaoObra);
         });
@@ -4990,6 +5077,10 @@
         if (!tbody) return;
         const lista = Array.isArray(itens) && itens.length ? itens : [{}];
         tbody.innerHTML = lista.map((item) => criarLinhaItemProposta(item)).join('');
+        if (portaHomologacaoOrcamentos && identidadeEdicaoProposta) {
+            Array.from(tbody.querySelectorAll('.proposta-item-row')).forEach((linha,indice)=>
+                origensLinhasHomologacao.set(linha,indice));
+        }
         associarRotulosCamposProposta(tbody);
         recalcularResumoProposta();
         atualizarBotaoExpandirTodosItensProposta(false);
@@ -5083,10 +5174,12 @@
             ? linha.nextElementSibling
             : null;
         if (!detalhes) return;
-        const aberto = detalhes.hidden;
-        detalhes.hidden = !aberto;
+        const avancado = detalhes.querySelector('.prop-item-advanced');
+        if (!avancado) return;
+        const aberto = avancado.hidden;
+        avancado.hidden = !aberto;
         atualizarBotaoDetalhesItemProposta(botao, aberto);
-        const todosAbertos = Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-details-row')).every((detalhe) => !detalhe.hidden);
+        const todosAbertos = Array.from(document.querySelectorAll('#propostaItensBody .prop-item-advanced')).every((detalhe) => !detalhe.hidden);
         atualizarBotaoExpandirTodosItensProposta(todosAbertos);
     }
 
@@ -5095,13 +5188,14 @@
         if (!linhas.length) return;
         const deveAbrir = linhas.some((linha) => {
             const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
-            return detalhes?.hidden;
+            return detalhes?.querySelector('.prop-item-advanced')?.hidden;
         });
 
         linhas.forEach((linha) => {
             const detalhes = linha.nextElementSibling?.classList?.contains('proposta-item-details-row') ? linha.nextElementSibling : null;
             if (!detalhes) return;
-            detalhes.hidden = !deveAbrir;
+            const avancado = detalhes.querySelector('.prop-item-advanced');
+            if (avancado) avancado.hidden = !deveAbrir;
             atualizarBotaoDetalhesItemProposta(linha.querySelector('.prop-details-toggle-btn'), deveAbrir);
         });
         atualizarBotaoExpandirTodosItensProposta(deveAbrir);
@@ -6335,6 +6429,40 @@
         return resultado;
     }
 
+    // Compartilhado com o redutor: recebe entradas comerciais, nunca totais confiados ao formulario.
+    function construirPropostaGerencialCalculada(proposta, anterior, contexto) {
+        const resultado = construirPropostaComercialCalculada(proposta, anterior);
+        const custos = { ...resultado.custos };
+        // A opcao desmarcada zera a cobranca, nao a entrada historica informada.
+        // Na releitura, a entrada preservada vem do snapshot validado pelo journal.
+        if (contexto.incluirMaoObra === false && Object.hasOwn(contexto,'maoObraComercialInformada')) {
+            custos.maoObra = contexto.maoObraComercialInformada;
+            custos.maoObraCobrada = { ...custos.maoObraCobrada, total: custos.maoObra };
+        }
+        const resumo = calcularFechamentoGerencialProposta({ ...proposta.financeiro,
+            ...(Object.hasOwn(contexto,'descontoSolicitado') ? { desconto:contexto.descontoSolicitado } : {}),
+            itens: proposta.itens, custos, controleInterno: resultado.controleInterno,
+            clientePrecisaNotaFiscal: proposta.clientePrecisaNotaFiscal,
+            fiscal: proposta.fiscal, evento: proposta.evento, ...contexto });
+        resultado.itens = resumo.itensCalculados;
+        if (!resumo.incluirMaoObra) {
+            resumo.maoObraComercialInformada = custos.maoObra;
+            resultado.custos = { ...custos, maoObra: 0, montagem: { total: 0 }, desmontagem: { total: 0 } };
+        }
+        for (const chave of ['subtotalItens','totalCustosAdicionais','desconto','acrescimo','valorBase',
+            'percentualNF','tipoCalculoNF','valorNF','valorFinal','valorFinalComNF','valorLiquidoPrevisto',
+            'percentualEntrada','valorEntrada','percentualSaldo','valorSaldo']) {
+            resultado.financeiro[chave === 'subtotalItens' ? 'subtotal' : chave] = resumo[chave];
+        }
+        resultado.controleInterno = { ...resultado.controleInterno,
+            custoTotalProposta: resumo.custoTotalProposta, lucroPrevisto: resumo.lucroPrevisto,
+            margemPrevista: resumo.margemPrevista, fechamentoGerencial: resumo };
+        resultado.fiscal = { ...montarFiscalPropostaNormalizado(resultado.fiscal,
+            resultado.cliente,resultado.evento,resumo.resumoFiscal), tributosIndividualizados: contexto.tributos };
+        resultado.dadosFiscais = resultado.fiscal;
+        return resultado;
+    }
+
     function obterPropostasBase() {
         return (Array.isArray(propostas) ? propostas : []).map((item) => normalizarProposta(item));
     }
@@ -6731,30 +6859,15 @@
 
         if (validar) {
             if (!proposta.cliente.nome) {
-                mostrarToast('Informe o nome/empresa do cliente.', 'erro');
-                mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.getElementById('propClienteNome'));
-                }, 120);
+                focarPendenciaProposta({secao:'cliente',campo:'propClienteNome',mensagem:'Informe o nome/empresa do cliente.'});
                 return null;
             }
             if (!proposta.evento.nome) {
-                mostrarToast('Informe o nome do evento.', 'erro');
-                mostrarSecaoFormularioProposta('dados');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.getElementById('propEventoNome'));
-                }, 120);
+                focarPendenciaProposta({secao:'evento',campo:'propEventoNome',mensagem:'Informe o nome do evento.'});
                 return null;
             }
             if (proposta.itens.length === 0) {
-                mostrarToast('Adicione pelo menos 1 item na proposta.', 'erro');
-                mostrarSecaoFormularioProposta('itens');
-                setTimeout(() => {
-                    if (usuarioEditandoProposta()) return;
-                    focarPropostaSemRolagem(document.querySelector('#propostaItensBody .prop-item-descricao'));
-                }, 120);
+                focarPendenciaProposta({secao:'itens',campo:'propBtnAdicionarItem',mensagem:'Adicione pelo menos 1 item na proposta.'});
                 return null;
             }
         }
@@ -6777,6 +6890,9 @@
     }
 
     function preencherFormularioComProposta(proposta) {
+        const avisoModalidade = document.getElementById('propModalidadeFiscalAviso');
+        if (avisoModalidade) { delete avisoModalidade.dataset.destinoRecusado; delete avisoModalidade.dataset.mensagemRecusa; }
+        portaHomologacaoOrcamentos?.aoAbrir(proposta.id);
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=false;
         fechamentoHistoricoFormulario=proposta?.controleInterno?.fechamentoGerencial?JSON.parse(JSON.stringify(proposta.controleInterno.fechamentoGerencial)):null;
@@ -6784,6 +6900,8 @@
         document.getElementById('propTributosIndividuais')?.replaceChildren();
         const maoObra=document.getElementById('propIncluirMaoObra');if(maoObra)maoObra.checked=proposta?.controleInterno?.fechamentoGerencial?.incluirMaoObra!==false;
         for(const t of proposta.fiscal?.tributosIndividualizados||[])adicionarTributoGerencial(t);
+        if(portaHomologacaoOrcamentos)Array.from(document.querySelectorAll('#propTributosIndividuais .prop-tributo-linha'))
+            .forEach((linha,indice)=>origensTributosHomologacao.set(linha,indice));
         const contexto=proposta.controleInterno?.fechamentoGerencial?.auditoriaFiscal||{};
         for(const [id,v]of Object.entries({propDataFiscalGerencial:contexto.dataFiscal||'',propTipoDescontoFiscal:contexto.tipoDescontoFiscal||'',propJustificativaFiscal:contexto.justificativaFiscalSemTributos||''})){const el=document.getElementById(id);if(el)el.value=v;}
         const cobertura=document.getElementById('propCoberturaFiscal');if(cobertura)cobertura.checked=contexto.coberturaFiscalConfirmada===true;
@@ -6843,7 +6961,7 @@
             propFreteDistanciaKm: p.custos.freteDistanciaKm,
             propFreteValorKm: valorInputMonetario(p.custos.freteValorKm),
             propCustoFrete: valorInputMonetario(p.custos.frete),
-            propCustoMaoObra: valorInputMonetario(p.custos.maoObra),
+            propCustoMaoObra: valorInputMonetario(p.controleInterno.fechamentoGerencial?.maoObraComercialInformada ?? p.custos.maoObra),
             propMaoObraComercialDetalhadaAtiva: p.custos.maoObraCobrada?.detalhada ? '1' : '0',
             propMaoObraMontagemPessoas: p.custos.maoObraCobrada?.montagem?.pessoas || '',
             propMaoObraMontagemValorPessoaDia: valorInputMonetario(p.custos.maoObraCobrada?.montagem?.valorPessoaDia || 0),
@@ -6924,6 +7042,9 @@
     }
 
     function limparFormularioProposta() {
+        const avisoModalidade = document.getElementById('propModalidadeFiscalAviso');
+        if (avisoModalidade) { delete avisoModalidade.dataset.destinoRecusado; delete avisoModalidade.dataset.mensagemRecusa; }
+        portaHomologacaoOrcamentos?.aoNovo();
         liberarControlesHistoricosGerenciais();
         fechamentoGerencialAtual=true;fechamentoHistoricoFormulario=null;
         for(const id of ['propDataFiscalGerencial','propTipoDescontoFiscal','propJustificativaFiscal']){const el=document.getElementById(id);if(el)el.value='';}
@@ -7058,6 +7179,7 @@
     }
 
     function salvarProposta() {
+        if (portaHomologacaoOrcamentos) return portaHomologacaoOrcamentos.salvar();
         if (salvamentoPropostaEmAndamento) {
             return { ok: false, codigo: 'SALVAMENTO_PROPOSTA_EM_ANDAMENTO' };
         }
@@ -8833,6 +8955,17 @@
                     color:#0f172a;
                     white-space:nowrap;
                 }
+                .pdf-items-table--internal th.desc { width:auto; }
+                .pdf-items-table.pdf-items-table--internal th,
+                .pdf-items-table.pdf-items-table--internal td {
+                    padding-left:4px;
+                    padding-right:4px;
+                    white-space:normal;
+                    overflow-wrap:anywhere;
+                    letter-spacing:0;
+                }
+                .pdf-items-table--internal td.center { width:auto; }
+                .pdf-items-table.pdf-items-table--internal th { padding-left:2px; padding-right:2px; }
                 .proposal-bottom-grid {
                     display:grid;
                     grid-template-columns:1.05fr .95fr;
@@ -8972,7 +9105,8 @@
                     <div class="proposal-section-title">
                         <span>Itens do orcamento</span>
                     </div>
-                    <table class="pdf-items-table">
+                    <table class="pdf-items-table${exibirInterno ? ' pdf-items-table--internal' : ''}">
+                        ${exibirInterno ? '<colgroup><col style="width:30%"><col style="width:7%"><col style="width:5%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:7%"></colgroup>' : ''}
                         <thead>${cabecalhoItens}</thead>
                         <tbody>${linhasItens}</tbody>
                     </table>
@@ -10127,7 +10261,8 @@
             const detalhes = linha?.nextElementSibling?.classList?.contains('proposta-item-details-row')
                 ? linha.nextElementSibling
                 : null;
-            if (detalhes) detalhes.hidden = false;
+            const avancado = detalhes?.querySelector('.prop-item-advanced');
+            if (avancado) avancado.hidden = false;
             atualizarBotaoDetalhesItemProposta(linha?.querySelector('.prop-details-toggle-btn'), true);
 
             const seletor = pendencia.campo === 'confirmacaoLocacaoPuraSeparada'
@@ -10455,7 +10590,46 @@
         atualizarExperienciaGuiadaProposta();
     }
 
-    inicializarPropostas();
+    // Esta porta existe somente no HTML de homologacao servido em loopback.
+    // Nao e autenticacao: a origem isolada nunca recebe dados de clientes reais.
+    if (typeof location !== 'undefined' && ['127.0.0.1','localhost'].includes(location.hostname)
+        && document.querySelector('meta[name="mtz-homologacao"][content="orcamentos-sinteticos-v1"]')) {
+        Object.defineProperty(window, '__instalarOrcamentosHomologacao', { value: porta => {
+            if (portaHomologacaoOrcamentos || !porta || typeof porta.salvar !== 'function') throw Error('PORTA_INVALIDA');
+            portaHomologacaoOrcamentos = Object.freeze(porta);
+            return Object.freeze({
+                coletar() {
+                    if (!fechamentoGerencialAtual) throw Error('REVISAO_GERENCIAL_EXPLICITA_NECESSARIA');
+                    const proposta = coletarDadosFormulario(true);
+                    if (!proposta) throw Error('FORMULARIO_INVALIDO');
+                    proposta.financeiro.desconto = parseNumeroInput('propDesconto');
+                    proposta.custos = obterCustosFormulario();
+                    proposta.controleInterno = obterControleInternoFormulario();
+                    const contexto = { incluirMaoObra:document.getElementById('propIncluirMaoObra').checked,
+                        dataFiscal:document.getElementById('propDataFiscalGerencial').value,
+                        tipoDescontoFiscal:document.getElementById('propTipoDescontoFiscal').value,
+                        coberturaFiscalConfirmada:document.getElementById('propCoberturaFiscal').checked,
+                        justificativaFiscalSemTributos:document.getElementById('propJustificativaFiscal').value,
+                        tributos:coletarTributosGerenciais().map((t,indice)=>{
+                            const linha=document.querySelectorAll('#propTributosIndividuais .prop-tributo-linha')[indice];
+                            const origem=origensTributosHomologacao.get(linha);
+                            return {...t,...(origem===undefined?{}:{indiceOrigem:origem})};
+                        }) };
+                    const linhas=Array.from(document.querySelectorAll('#propostaItensBody .proposta-item-row'));
+                    return {proposta,contexto,indices:linhas.map(l=>origensLinhasHomologacao.get(l)??null)};
+                },
+                abrir(id) {
+                    const p=resolverRegistroPorIdExato(propostas,id);
+                    if(!p.encontrado)throw Error('PROPOSTA_AUSENTE');
+                    preencherFormularioComProposta(p.registro);
+                    mostrarSubAbaPropostas('formulario',{semRolagem:true,foco:false});
+                },
+                iniciar:inicializarPropostas
+            });
+        } });
+    } else {
+        inicializarPropostas();
+    }
 
     window.converterTextoMoedaParaNumero = converterTextoMoedaParaNumero;
     window.formatarMoedaProposta = formatarMoeda;

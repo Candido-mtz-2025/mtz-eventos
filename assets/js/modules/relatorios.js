@@ -937,6 +937,7 @@ function gerarPDF() {
     const { jsPDF } = window.jspdf;
     const tituloDoc = (document.querySelector('#printArea h1, #printArea h2')?.textContent || 'Documento MTZ').trim();
     const dataGeracao = new Date().toLocaleString('pt-BR');
+    let cortesPropostaInterna = null;
     const opcoesCanvas = {
         scale: Math.min(window.devicePixelRatio || 2, 2),
         useCORS: true,
@@ -944,7 +945,35 @@ function gerarPDF() {
         logging: false,
         scrollX: 0,
         scrollY: -window.scrollY,
-        windowWidth: document.documentElement.scrollWidth
+        windowWidth: document.documentElement.scrollWidth,
+        onclone: ehProposta && !ehPropostaComercial ? (documentoClone) => {
+            // Mesma compatibilidade de cores do comercial, somente na copia de exportacao.
+            const areaClone = documentoClone.getElementById('printArea');
+            // O modal rolavel nao pode recortar o restante do documento exportado.
+            for (let ancestral = areaClone?.parentElement; ancestral; ancestral = ancestral.parentElement) {
+                ancestral.style.setProperty('overflow', 'visible', 'important');
+                ancestral.style.setProperty('max-height', 'none', 'important');
+            }
+            areaClone.style.setProperty('height', 'auto', 'important');
+            areaClone.style.setProperty('max-height', 'none', 'important');
+            areaClone.style.setProperty('overflow', 'visible', 'important');
+            // Conservar as duas colunas previstas sem expandir a pagina por texto fiscal longo.
+            const estiloExportacao = documentoClone.createElement('style');
+            estiloExportacao.textContent = `
+                #printArea .proposal-bottom-grid { grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr) !important; }
+                #printArea :is(.proposal-terms-box,.proposal-summary-box,.proposal-internal-summary) { min-width:0 !important; }
+                #printArea .proposal-summary-box table { width:100% !important; table-layout:fixed !important; }
+                #printArea .proposal-summary-box :is(td,strong) { white-space:normal !important; overflow-wrap:anywhere !important; }
+                #printArea .proposal-info-line { grid-template-columns:minmax(0,112px) minmax(0,1fr) !important; }
+            `;
+            documentoClone.head.appendChild(estiloExportacao);
+            sanitizarCoresClonePDFV2(areaClone);
+            const alturaClone = areaClone.getBoundingClientRect().height;
+            cortesPropostaInterna = {
+                altura: alturaClone,
+                pontos: obterPontosDeCorteSeguroPDF(areaClone, { height: alturaClone })
+            };
+        } : undefined
     };
 
     html2canvas(elemento, opcoesCanvas)
@@ -961,7 +990,9 @@ function gerarPDF() {
             const imgLargura = larguraUtil;
             const pxPorMm = canvas.width / imgLargura;
             const alturaFatiaPx = Math.max(1, Math.floor(alturaUtil * pxPorMm));
-            const pontosCorteSeguro = obterPontosDeCorteSeguroPDF(elemento, canvas);
+            const pontosCorteSeguro = cortesPropostaInterna?.altura > 0
+                ? cortesPropostaInterna.pontos.map(ponto => Math.round(ponto * canvas.height / cortesPropostaInterna.altura))
+                : obterPontosDeCorteSeguroPDF(elemento, canvas);
             let origemY = 0;
             let paginaCriada = false;
             const alturaNaturalMm = (canvas.height * imgLargura) / canvas.width;
@@ -1015,7 +1046,8 @@ function gerarPDF() {
             pdf.save(gerarNomeArquivoPDF());
             mostrarToast('PDF gerado com sucesso!', 'ok');
         })
-        .catch(() => {
+        .catch((erro) => {
+            console.error('Erro ao gerar PDF:', erro);
             mostrarToast('Erro ao gerar PDF. Tente novamente.', 'erro');
         })
         .finally(() => {
