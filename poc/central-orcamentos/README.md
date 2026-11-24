@@ -1,4 +1,10 @@
-# Prova local de Orcamentos centralizados
+# Orcamentos centralizados: prova local e preparacao online
+
+Adaptacoes para homologacao online: [ONLINE.md](ONLINE.md). A entrada `server.mjs`
+e separada da demo abaixo; nao cria cluster, chaves, schema ou fixtures no inicio.
+O modo online carrega os modulos das 17 abas do aplicativo completo, com leitura
+nos demais dominios e somente criar/editar Orcamentos no servidor. A demo local
+mantem seu carregamento restrito anterior. Nenhum ambiente externo foi criado.
 
 Somente dados sinteticos. Base de codigo: b21be3aaec1f9a24873dccd8bb6dd0b58ea988f0.
 Nenhuma conta Supabase, recurso de nuvem, assinatura ou migracao real e criado.
@@ -64,8 +70,10 @@ Aliquotas das fixtures sao somente ilustrativas, nunca parametros reais.
 O servidor reutiliza o index e os controles originais, aplicando em memoria o
 mesmo ponto de integracao de formulario da homologacao. ui.mjs e somente um
 adaptador de transporte SQL. Nao existe uma segunda tela de orcamentos.
-Somente handlers do escopo sao carregados; demais modulos ficam sem escrita
-nesta POC. Todos os arquivos e modulos originais continuam intactos.
+Na demo local, somente handlers do escopo sao carregados; no adaptador online,
+os modulos originais sao carregados, exceto registro de PWA/service worker.
+As demais escritas permanecem bloqueadas. Guards de renderizacao evitam gravar
+tipo Geral, caches e aliases de checklist no snapshot central imutavel.
 
 | Endpoint | Uso |
 | --- | --- |
@@ -132,6 +140,10 @@ Nao usar esse ciclo de vida como armazenamento de dados reais.
   permanece para uma futura certificacao, sem alterar o motor nesta POC.
 
 ## Limites e conexao futura
+
+Os itens abaixo descrevem a prova local original. As novas adaptacoes HTTPS,
+Supabase JWT, TLS e backup manual estao documentadas e testadas em ONLINE.md;
+isso nao significa que um provedor real tenha sido conectado ou homologado.
 
 1. Auth sintetica assinada nao comprova pessoas reais, MFA, recuperacao de conta
    ou seguranca comercial. Supabase Auth nao foi provisionado nem conectado.

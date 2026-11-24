@@ -75,7 +75,7 @@ function renderConfigPadroesOrcamento() {
     if (!container) return;
 
     const padroes = obterPadroesOrcamentoConfig();
-    if (config && typeof config === 'object') {
+    if (config && typeof config === 'object' && !Object.isFrozen(config)) {
         config.padroesOrcamento = padroes;
         if (Array.isArray(padroes.categoriasOrcamento)) {
             config.categoriasOrcamento = padroes.categoriasOrcamento;

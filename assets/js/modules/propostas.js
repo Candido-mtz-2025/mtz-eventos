@@ -10590,10 +10590,11 @@
         atualizarExperienciaGuiadaProposta();
     }
 
-    // Esta porta existe somente no HTML de homologacao servido em loopback.
-    // Nao e autenticacao: a origem isolada nunca recebe dados de clientes reais.
-    if (typeof location !== 'undefined' && ['127.0.0.1','localhost'].includes(location.hostname)
-        && document.querySelector('meta[name="mtz-homologacao"][content="orcamentos-sinteticos-v1"]')) {
+    // Porta de UI somente em hosts de homologacao explicitamente identificados.
+    // Nao concede autorizacao: comandos online exigem identidade e permissao no servidor.
+    if (typeof location !== 'undefined' && (
+        ['127.0.0.1','localhost'].includes(location.hostname) && document.querySelector('meta[name="mtz-homologacao"][content="orcamentos-sinteticos-v1"]')
+        || location.protocol === 'https:' && document.querySelector('meta[name="mtz-central"][content="online-homologacao-v1"]'))) {
         Object.defineProperty(window, '__instalarOrcamentosHomologacao', { value: porta => {
             if (portaHomologacaoOrcamentos || !porta || typeof porta.salvar !== 'function') throw Error('PORTA_INVALIDA');
             portaHomologacaoOrcamentos = Object.freeze(porta);

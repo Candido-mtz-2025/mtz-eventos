@@ -261,7 +261,7 @@ function renderTipos() {
         
         // 4. Tipos (garante um "Geral" real para evitar id inválido = 0)
         let tipoGeral = tipos.find((x) => String(x?.nome || '').trim().toLowerCase() === 'geral');
-        if (!tipoGeral) {
+        if (!tipoGeral && !Object.isFrozen(tipos)) {
             tipoGeral = {
                 id: Date.now(),
                 nome: 'Geral',
@@ -270,8 +270,8 @@ function renderTipos() {
             tipos.push(tipoGeral);
         }
 
-        const referenciaGeral = criarReferenciaTipadaEntidade('tipo', tipoGeral.id);
-        const tOpts = `<option value="${sanitizarTexto(referenciaGeral)}">Geral</option>` + tipos
+        const referenciaGeral = tipoGeral ? criarReferenciaTipadaEntidade('tipo', tipoGeral.id) : '';
+        const tOpts = (tipoGeral ? `<option value="${sanitizarTexto(referenciaGeral)}">Geral</option>` : '<option value="">Sem tipos cadastrados</option>') + tipos
             .filter((x) => x !== tipoGeral)
             .map((x) => {
             const nome = typeof sanitizarTexto === 'function' ? sanitizarTexto(x.nome || '') : (x.nome || '');

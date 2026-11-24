@@ -1,31 +1,68 @@
 import http from 'node:http';
+import https from 'node:https';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fail } from './service.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), repo = path.resolve(here, '../..');
 const csp = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
-export function createHttpServer({ service, verify, hooks = {} }) {
-    const server = http.createServer(async (req, res) => {
+export function createHttpServer({ service, verify, hooks = {}, config = {}, sessions, tls, logger = () => {} }) {
+    const online = config.mode === 'online', buckets = new Map();
+    const accessName = online ? '__Host-central_session' : 'central_session', refreshName = '__Host-central_refresh';
+    const limited = (key, max) => {
+        const now = Date.now(); let item = buckets.get(key);
+        if (!item || item.until < now) { item = { count: 0, until: now + 60000 }; buckets.set(key, item); }
+        if (++item.count > max) fail(429, 'LIMITE_DE_REQUISICOES');
+        if (buckets.size > 10000) for (const [k, v] of buckets) if (v.until < now) buckets.delete(k);
+        if (buckets.size > 10000) fail(429, 'LIMITE_DE_REQUISICOES');
+    };
+    const server = (tls ? https : http).createServer(...(tls ? [tls] : []), async (req, res) => {
+        const requestId = randomUUID(), started = Date.now();
+        res.once('finish', () => { if (online) logger({ requestId, method: req.method, status: res.statusCode, elapsedMs: Date.now() - started }); });
         const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-            'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': csp, 'X-Frame-Options': 'DENY' };
+            'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': csp, 'X-Frame-Options': 'DENY',
+            ...(online ? { 'Strict-Transport-Security': 'max-age=15552000', 'X-Request-Id': requestId } : {}) };
         const json = (status, value) => res.writeHead(status, { ...headers, 'Content-Type': 'application/json' }).end(JSON.stringify(value));
         try {
-            const authority = `127.0.0.1:${server.address().port}`, origin = 'http://' + authority;
+            const origin = online ? config.origin : 'http://127.0.0.1:' + server.address().port, authority = new URL(origin).host;
             if (req.headers.host !== authority) fail(403, 'HOST_RECUSADO');
+            if (online && !req.socket.encrypted && !(config.trustedProxy?.(req.socket.remoteAddress) && req.headers['x-forwarded-proto'] === 'https')) fail(403, 'HTTPS_OBRIGATORIO');
             if (req.headers.origin && req.headers.origin !== origin) fail(403, 'ORIGEM_RECUSADA');
+            if (online && req.method !== 'GET' && req.headers.origin !== origin) fail(403, 'ORIGEM_OBRIGATORIA');
+            if (req.url.startsWith('/api/')) limited(req.socket.remoteAddress + ':api', config.limits?.api || 240);
             const url = new URL(req.url, origin), method = req.method;
             const bearer = req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1];
-            const cookie = req.headers.cookie?.split(';').map(x => x.trim()).find(x => x.startsWith('central_session='))?.slice(16);
+            const getCookie = name => req.headers.cookie?.split(';').map(x => x.trim()).find(x => x.startsWith(name + '='))?.slice(name.length + 1);
+            const cookie = getCookie(accessName);
             const body = async () => {
                 if (!/^application\/json(?:;|$)/.test(req.headers['content-type'] || '')) fail(415, 'JSON_OBRIGATORIO');
                 const chunks = []; let length = 0;
                 for await (const chunk of req) { length += chunk.length; if (length > 256000) fail(413, 'PEDIDO_EXCESSIVO'); chunks.push(chunk); }
                 try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { fail(400, 'JSON_INVALIDO'); }
             };
+            if (online && url.pathname === '/api/auth/login' && method === 'POST') {
+                limited(req.socket.remoteAddress + ':login', config.limits?.login || 5);
+                const result = await sessions.login(await body()); await service.me(await verify(result.accessToken));
+                res.setHeader('Set-Cookie', [`${accessName}=${result.accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${Math.floor(result.expiresIn)}`,
+                    `${refreshName}=${result.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`]);
+                return json(200, { ok: true });
+            }
+            if (online && url.pathname === '/api/auth/refresh' && method === 'POST') {
+                limited(req.socket.remoteAddress + ':refresh', 20);
+                const result = await sessions.refresh(getCookie(refreshName)); await service.me(await verify(result.accessToken));
+                res.setHeader('Set-Cookie', [`${accessName}=${result.accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${Math.floor(result.expiresIn)}`,
+                    `${refreshName}=${result.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`]);
+                return json(200, { ok: true });
+            }
+            if (online && url.pathname === '/api/auth/logout' && method === 'POST') {
+                res.setHeader('Set-Cookie', [accessName, refreshName].map(name => `${name}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`));
+                if (cookie) await sessions.logout(cookie); return json(200, { ok: true });
+            }
             if (url.pathname.startsWith('/api/')) {
                 const identity = await verify(bearer || cookie);
                 if (url.pathname === '/api/session' && method === 'POST') {
+                    if (online) fail(404, 'ROTA_INEXISTENTE');
                     if (!bearer) fail(401, 'TOKEN_OBRIGATORIO'); await service.me(identity);
                     res.setHeader('Set-Cookie', `central_session=${bearer}; HttpOnly; SameSite=Strict; Path=/; Max-Age=600`);
                     return json(200, { ok: true });
@@ -45,11 +82,16 @@ export function createHttpServer({ service, verify, hooks = {} }) {
             }
             if (method !== 'GET') fail(404, 'ROTA_INEXISTENTE');
             let bytes, type;
+            if (url.pathname === '/central-config.json') {
+                const html = await readFile(path.join(repo, 'index.html'), 'utf8');
+                const modules = [...html.matchAll(/<script src="(\.\/assets\/js\/[^"?]+)(?:\?[^"]*)?"/g)].map(m => m[1].slice(1));
+                return json(200, { mode: online ? 'online' : 'local', fullApp: online, modules: online ? modules : [] });
+            }
             if (url.pathname === '/' || url.pathname === '/index.html') {
                 bytes = (await readFile(path.join(repo, 'index.html'), 'utf8'))
                     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
                     .replace(/<link[^>]*rel="manifest"[^>]*>/gi, '')
-                    .replace('</head>', '<meta name="mtz-homologacao" content="orcamentos-sinteticos-v1"></head>')
+                    .replace('</head>', (online ? '<meta name="mtz-central" content="online-homologacao-v1">' : '<meta name="mtz-homologacao" content="orcamentos-sinteticos-v1">') + '</head>')
                     .replace('</body>', '<script type="module" src="/central-ui.mjs"></script></body>');
                 type = 'text/html';
             } else if (url.pathname === '/central-ui.mjs') { bytes = await readFile(path.join(here, 'ui.mjs')); type = 'text/javascript'; }
@@ -59,8 +101,9 @@ export function createHttpServer({ service, verify, hooks = {} }) {
             } else fail(404, 'ROTA_INEXISTENTE');
             res.writeHead(200, { ...headers, 'Content-Type': type + (type.startsWith('text/') ? '; charset=utf-8' : '') }).end(bytes);
         } catch (e) {
-            if (!res.destroyed) json(e.status || 503, { ok: false, codigo: e.code || 'OPERACAO_NAO_CONFIRMADA' });
+            if (!res.destroyed) json(e.status || 503, { ok: false, codigo: e.status ? e.code : 'OPERACAO_NAO_CONFIRMADA' });
         }
     });
+    server.requestTimeout = 20000; server.headersTimeout = 10000; server.maxHeadersCount = 40;
     return server;
 }

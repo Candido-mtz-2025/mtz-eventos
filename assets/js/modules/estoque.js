@@ -1,6 +1,8 @@
 // Estoque: cadastro, edição, remoção e seleção em lote
     // === RECALCULAR DISPONIBILIDADE COM CACHE ===
 function recalcularDisponibilidade(forcar = false) {
+        // O snapshot central confirmado nao pode receber caches de escrita legada.
+        if (Object.isFrozen(pecas)) return;
         const agora = Date.now();
         
         if (!forcar && cacheDisponibilidade && (agora - ultimaAtualizacaoCache) < 5000) {
@@ -940,5 +942,7 @@ window.renderModelosChecklist = renderModelosChecklist;
 window.excluirModeloChecklistUI = excluirModeloChecklistUI;
 window.gerarChecklistModelo = gerarChecklistModelo;
 window.editarModeloChecklist = editarModeloChecklist;
-window.checklistMontagem = checklistMontagem;
-window.checklistEtapasMontagem = checklistEtapasMontagem;
+if (typeof __permitirEscritaLegada !== 'function' || __permitirEscritaLegada()) {
+    window.checklistMontagem = checklistMontagem;
+    window.checklistEtapasMontagem = checklistEtapasMontagem;
+}
