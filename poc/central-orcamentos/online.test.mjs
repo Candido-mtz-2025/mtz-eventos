@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import https from 'node:https';
 import http from 'node:http';
-import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { generateKeyPair, exportJWK, SignJWT, decodeJwt } from 'jose';
 import pg from 'pg';
 import { randomBytes } from 'node:crypto';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
@@ -32,13 +32,18 @@ test('Adaptacoes online em laboratorio HTTPS/TLS local, sem Supabase externo', {
     const check = async (name, fn) => t.test(name, async () => { try { await fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); throw e; } });
     const rsa = await generateKeyPair('RS256'), ec = await generateKeyPair('ES256'); let issuer, base;
     const token = async (name = 'alice', claims = {}, header = {}, options = {}) => new SignJWT({ role: 'authenticated', is_anonymous: false, ...claims })
+        .setJti(randomBytes(16).toString('hex'))
         .setProtectedHeader({ alg: 'RS256', kid: 'rsa', typ: 'JWT', ...header })
         .setIssuer(options.issuer || issuer).setAudience(options.audience || 'authenticated').setSubject(ids[name])
         .setIssuedAt(options.iat ?? Math.floor(Date.now() / 1000)).setExpirationTime(options.exp ?? '5m').sign(options.key || (header.alg === 'ES256' ? ec.privateKey : rsa.privateKey));
     const publicKeys = [{ ...await exportJWK(rsa.publicKey), kid: 'rsa', alg: 'RS256' }, { ...await exportJWK(ec.publicKey), kid: 'ec', alg: 'ES256' }];
     provider = https.createServer({ key: cert.key, cert: cert.cert }, async (req, res) => {
         if (req.url === '/auth/v1/.well-known/jwks.json') return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ keys: publicKeys }));
-        if (req.url === '/auth/v1/logout?scope=local') return res.writeHead(204).end();
+        if (req.url.startsWith('/auth/v1/logout?scope=')) return res.writeHead(204).end();
+        if (req.url === '/auth/v1/user' && req.method === 'GET') {
+            try { return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ id: decodeJwt(req.headers.authorization.slice(7)).sub })); }
+            catch { return res.writeHead(401).end('{}'); }
+        }
         let text = ''; for await (const c of req) text += c;
         const data = JSON.parse(text || '{}'), name = data.email?.split('@')[0] || data.refresh_token?.replace('refresh-', '');
         if (!ids[name] || req.headers.apikey !== 'sb_publishable_local_fixture' || data.password && data.password !== 'Synthetic-local-only-123!') return res.writeHead(401, { 'Content-Type': 'application/json' }).end('{}');

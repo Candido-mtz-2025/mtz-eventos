@@ -5,11 +5,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fail } from './service.mjs';
+import { createAuthHttp } from './auth-http.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), repo = path.resolve(here, '../..');
 const csp = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
 export function createHttpServer({ service, verify, hooks = {}, config = {}, sessions, tls, logger = () => {} }) {
     const online = config.mode === 'online', buckets = new Map();
-    const accessName = online ? '__Host-central_session' : 'central_session', refreshName = '__Host-central_refresh';
+    const auth = online ? createAuthHttp({ sessions, verify, service, now: config.authClock }) : null;
+    const accessName = online ? '__Host-central_session' : 'central_session';
     const limited = (key, max) => {
         const now = Date.now(); let item = buckets.get(key);
         if (!item || item.until < now) { item = { count: 0, until: now + 60000 }; buckets.set(key, item); }
@@ -41,26 +43,9 @@ export function createHttpServer({ service, verify, hooks = {}, config = {}, ses
                 for await (const chunk of req) { length += chunk.length; if (length > 256000) fail(413, 'PEDIDO_EXCESSIVO'); chunks.push(chunk); }
                 try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { fail(400, 'JSON_INVALIDO'); }
             };
-            if (online && url.pathname === '/api/auth/login' && method === 'POST') {
-                limited(req.socket.remoteAddress + ':login', config.limits?.login || 5);
-                const result = await sessions.login(await body()); await service.me(await verify(result.accessToken));
-                res.setHeader('Set-Cookie', [`${accessName}=${result.accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${Math.floor(result.expiresIn)}`,
-                    `${refreshName}=${result.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`]);
-                return json(200, { ok: true });
-            }
-            if (online && url.pathname === '/api/auth/refresh' && method === 'POST') {
-                limited(req.socket.remoteAddress + ':refresh', 20);
-                const result = await sessions.refresh(getCookie(refreshName)); await service.me(await verify(result.accessToken));
-                res.setHeader('Set-Cookie', [`${accessName}=${result.accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${Math.floor(result.expiresIn)}`,
-                    `${refreshName}=${result.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`]);
-                return json(200, { ok: true });
-            }
-            if (online && url.pathname === '/api/auth/logout' && method === 'POST') {
-                res.setHeader('Set-Cookie', [accessName, refreshName].map(name => `${name}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`));
-                if (cookie) await sessions.logout(cookie); return json(200, { ok: true });
-            }
+            if (online && await auth.handle({ route: url.pathname, method, body, getCookie, limited, ip: req.socket.remoteAddress, res, json, limits: config.limits })) return;
             if (url.pathname.startsWith('/api/')) {
-                const identity = await verify(bearer || cookie);
+                const identity = await (online ? auth.authorize(bearer || cookie) : verify(bearer || cookie));
                 if (url.pathname === '/api/session' && method === 'POST') {
                     if (online) fail(404, 'ROTA_INEXISTENTE');
                     if (!bearer) fail(401, 'TOKEN_OBRIGATORIO'); await service.me(identity);
@@ -87,7 +72,7 @@ export function createHttpServer({ service, verify, hooks = {}, config = {}, ses
                 const modules = [...html.matchAll(/<script src="(\.\/assets\/js\/[^"?]+)(?:\?[^"]*)?"/g)].map(m => m[1].slice(1));
                 return json(200, { mode: online ? 'online' : 'local', fullApp: online, modules: online ? modules : [] });
             }
-            if (url.pathname === '/' || url.pathname === '/index.html') {
+            if (url.pathname === '/' || url.pathname === '/index.html' || online && url.pathname === '/auth/confirm') {
                 bytes = (await readFile(path.join(repo, 'index.html'), 'utf8'))
                     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
                     .replace(/<link[^>]*rel="manifest"[^>]*>/gi, '')
@@ -95,6 +80,7 @@ export function createHttpServer({ service, verify, hooks = {}, config = {}, ses
                     .replace('</body>', '<script type="module" src="/central-ui.mjs"></script></body>');
                 type = 'text/html';
             } else if (url.pathname === '/central-ui.mjs') { bytes = await readFile(path.join(here, 'ui.mjs')); type = 'text/javascript'; }
+            else if (online && url.pathname === '/central-auth-ui.mjs') { bytes = await readFile(path.join(here, 'auth-ui.mjs')); type = 'text/javascript'; }
             else if (/^\/(assets\/(js\/(core|modules|render|ui)\/[a-z0-9.-]+\.(js|mjs)|css\/[a-z0-9.-]+\.css)|logo\.png)$/.test(url.pathname)) {
                 bytes = await readFile(path.join(repo, url.pathname.slice(1)));
                 type = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.png': 'image/png' }[path.extname(url.pathname)];

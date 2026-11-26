@@ -23,8 +23,10 @@ nao sao alternativas. Demais modulos ficam em leitura, nao centralizados.
 ## Identidade, empresa e comandos
 
 Login com e-mail/senha em formulario existente adaptado; servidor troca essas
-credenciais com Supabase Auth por HTTPS. Nao ha cadastro, OAuth, MFA ou reset de
-senha implementados nesta etapa. Nao usar GitHub Pages como origem/callback.
+credenciais com Supabase Auth por HTTPS. Convite, definicao e recuperacao de senha
+estao implementados em [AUTH.md](AUTH.md), com callback /auth/confirm e templates
+proprios. Nao ha cadastro, OAuth ou MFA implementados. Nao usar GitHub Pages como
+origem/callback. Configurar os templates antes de novos convites autorizados.
 Tokens ficam em cookies __Host-, HttpOnly, Secure e SameSite=Strict; nao passam
 para JSON, URLs ou localStorage. Ha renovacao e logout no servidor.
 
@@ -54,7 +56,7 @@ MTZ na UI. Nao foi introduzida deducao de 20% para outras empresas.
    hospedagem, nao no navegador/Git. O arquivo nao e carregado implicitamente.
    Fixar issuer/audience/JWKS/algoritmo conforme configuracao real do projeto.
    Registrar somente essa origem para confirmacao/recuperacao no Supabase;
-   esses fluxos ainda exigem configuracao e validacao externa.
+   esses fluxos implementados ainda exigem configuracao e validacao externa.
 3. DATABASE_URL usa usuario orc_app (ou orc_app.PROJECT no pooler) e senha
    exclusiva. Preferir conexao direta ou pooler de sessao. Nao incluir sslmode,
    sslrootcert, sslkey, sslcert ou options na URL: poderiam substituir o objeto

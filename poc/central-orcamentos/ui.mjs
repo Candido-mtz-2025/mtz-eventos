@@ -19,22 +19,8 @@ async function request(url, options = {}, retry = true) {
     if (!response.ok) return { ...result, status: response.status }; return result;
 }
 async function loginOnline() {
-    const area = document.getElementById('loginArea'); main.style.display = 'none'; area.style.display = 'flex';
-    area.innerHTML = '<div class="login-box"><div class="login-brand"><img src="/logo.png" alt="MTZ Eventos"><h1>MTZ Eventos</h1></div><h2>Homologacao</h2><form id="centralLogin"><label for="centralEmail">E-mail</label><input id="centralEmail" type="email" autocomplete="username" required><label for="centralPassword">Senha</label><input id="centralPassword" type="password" autocomplete="current-password" required><button type="submit" class="btn btn-primary">Entrar</button><output id="centralLoginEstado" role="status"></output></form></div>';
-    await new Promise(resolve => {
-        document.getElementById('centralLogin').onsubmit = async event => {
-            event.preventDefault(); const button = event.target.querySelector('button'); button.disabled = true;
-            try {
-                const result = await request('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: document.getElementById('centralEmail').value, password: document.getElementById('centralPassword').value }) });
-                document.getElementById('centralPassword').value = '';
-                if (!result.ok) throw Error('Acesso nao autorizado.');
-                resolve();
-            } catch { document.getElementById('centralLoginEstado').textContent = 'Acesso nao autorizado ou servico indisponivel.'; }
-            finally { button.disabled = false; }
-        };
-    });
-    area.style.display = 'none'; main.style.display = 'block';
+    const auth = await import('/central-auth-ui.mjs');
+    await auth.loginOnline({ request, main });
 }
 try {
     if (!online && location.hash) {
@@ -42,6 +28,7 @@ try {
         const result = await request('/api/session', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
         if (!result.ok) throw Error(result.codigo);
     }
+    if (online && location.pathname === '/auth/confirm') await loginOnline();
     if (online && location.hash) history.replaceState(null, '', location.pathname);
     let me = await request('/api/me');
     if (online && me.status === 401) { await loginOnline(); me = await request('/api/me'); }
@@ -152,7 +139,12 @@ try {
     window.addEventListener('resize', () => { atualizarMedidasTopoApp(); atualizarControleSidebar(); });
     if (online) {
         const logout = document.createElement('button'); logout.type = 'button'; logout.className = 'btn btn-sm'; logout.textContent = 'Sair';
-        logout.onclick = async () => { await request('/api/auth/logout', { method: 'POST' }); location.reload(); }; bar.append(logout);
+        logout.onclick = async () => {
+            try {
+                const result = await request('/api/auth/logout', { method: 'POST' });
+                location.replace(result.ok ? '/' : '/?logout=unconfirmed');
+            } catch { say('Logout nao confirmado. Feche esta sessao e contate o administrador.'); }
+        }; bar.append(logout);
     }
     await refresh(); say('Base central SQL confirmada. Somente dados ficticios.'); main.inert = false;
     for (const src of ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js']) script(src).catch(() => {});

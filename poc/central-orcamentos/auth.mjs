@@ -38,16 +38,22 @@ export function createSupabaseVerifier({ issuer, audience, jwksUrl, algorithms, 
     };
 }
 
-export function createSupabaseSessions({ url, publishableKey, fetcher = fetch, verify }) {
+export function createSupabaseSessions({ url, publishableKey, fetcher = fetch, verify, origin }) {
     if (new URL(url).protocol !== 'https:' || !publishableKey?.startsWith('sb_publishable_')) throw Error('SUPABASE_LOGIN_CONFIG_INVALIDA');
+    const call = (path, method, body, token) => fetcher(url + '/auth/v1/' + path, { method, redirect: 'error',
+        headers: { apikey: publishableKey, 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(8000) });
+    const session = async result => {
+        await verify(result.access_token);
+        if (typeof result.refresh_token !== 'string' || !/^[A-Za-z0-9_.-]{1,512}$/.test(result.refresh_token)
+            || !Number.isFinite(result.expires_in) || result.expires_in <= 0) fail(401, 'LOGIN_RECUSADO');
+        return { accessToken: result.access_token, refreshToken: result.refresh_token, expiresIn: Math.min(result.expires_in, 3600) };
+    };
     const exchange = async (grant, data) => {
         const response = await fetcher(url + '/auth/v1/token?grant_type=' + grant, { method: 'POST', redirect: 'error',
             headers: { apikey: publishableKey, 'Content-Type': 'application/json' }, body: JSON.stringify(data), signal: AbortSignal.timeout(8000) });
         if (!response.ok) fail(401, 'LOGIN_RECUSADO');
-        const result = await response.json(); await verify(result.access_token);
-        if (typeof result.refresh_token !== 'string' || !/^[A-Za-z0-9_.-]{1,512}$/.test(result.refresh_token)
-            || !Number.isFinite(result.expires_in) || result.expires_in <= 0) fail(401, 'LOGIN_RECUSADO');
-        return { accessToken: result.access_token, refreshToken: result.refresh_token, expiresIn: Math.min(result.expires_in, 3600) };
+        return session(await response.json());
     };
     return Object.freeze({
         login: data => {
@@ -55,9 +61,38 @@ export function createSupabaseSessions({ url, publishableKey, fetcher = fetch, v
                 || data.email.length > 254 || typeof data.password !== 'string' || data.password.length < 1 || data.password.length > 1024) fail(400, 'LOGIN_INVALIDO');
             return exchange('password', data);
         },
-        logout: async accessToken => {
+        user: async accessToken => {
+            const identity = await verify(accessToken), response = await call('user', 'GET', undefined, accessToken);
+            if (!response.ok || (await response.json()).id !== identity.subject) fail(401, 'SESSAO_RECUSADA');
+            return identity;
+        },
+        recover: async email => {
+            if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'EMAIL_INVALIDO');
+            if (!origin || new URL(origin).protocol !== 'https:') throw Error('ORIGEM_RECUPERACAO_INVALIDA');
+            // Resposta uniforme: nao revelar cadastro, bloqueio ou limite do provedor.
+            await call('recover?redirect_to=' + encodeURIComponent(origin + '/auth/confirm'), 'POST', { email });
+        },
+        verifyLink: async data => {
+            if (!data || Object.keys(data).sort().join('|') !== 'tokenHash|type'
+                || !['invite', 'recovery'].includes(data.type) || typeof data.tokenHash !== 'string'
+                || !/^[a-zA-Z0-9_-]{20,512}$/.test(data.tokenHash)) fail(400, 'LINK_INVALIDO');
+            const response = await call('verify', 'POST', { token_hash: data.tokenHash, type: data.type });
+            if (!response.ok) fail(401, 'LINK_INVALIDO_OU_EXPIRADO');
+            const result = await session(await response.json());
+            const user = await call('user', 'GET', undefined, result.accessToken);
+            if (!user.ok || (await user.json()).id !== (await verify(result.accessToken)).subject) fail(401, 'SESSAO_RECUSADA');
+            return result;
+        },
+        setPassword: async (accessToken, password) => {
+            if (typeof password !== 'string' || password.length < 12 || password.length > 1024) fail(400, 'SENHA_MINIMA_12_CARACTERES');
+            const identity = await verify(accessToken), response = await call('user', 'PUT', { password }, accessToken);
+            if (!response.ok) fail(422, 'SENHA_RECUSADA_PELO_PROVEDOR');
+            if ((await response.json()).id !== identity.subject) fail(401, 'SESSAO_RECUSADA');
+        },
+        logout: async (accessToken, scope = 'local') => {
             await verify(accessToken);
-            const response = await fetcher(url + '/auth/v1/logout?scope=local', { method: 'POST', redirect: 'error',
+            if (!['local', 'global'].includes(scope)) fail(400, 'ESCOPO_INVALIDO');
+            const response = await fetcher(url + '/auth/v1/logout?scope=' + scope, { method: 'POST', redirect: 'error',
                 headers: { apikey: publishableKey, Authorization: 'Bearer ' + accessToken }, signal: AbortSignal.timeout(8000) });
             if (!response.ok) fail(502, 'LOGOUT_PROVEDOR_NAO_CONFIRMADO');
         },

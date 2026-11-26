@@ -7,7 +7,7 @@ import { createHttpServer } from './http.mjs';
 export async function startOnline(env) {
     const config = loadOnlineConfig(env), pool = await createHostedPool(config);
     try {
-        const verify = createSupabaseVerifier(config), sessions = createSupabaseSessions({ url: config.supabaseUrl, publishableKey: config.publishableKey, verify });
+        const verify = createSupabaseVerifier(config), sessions = createSupabaseSessions({ url: config.supabaseUrl, publishableKey: config.publishableKey, verify, origin: config.origin });
         const tls = config.tlsCertFile ? { cert: await readFile(config.tlsCertFile), key: await readFile(config.tlsKeyFile) } : null;
         const server = createHttpServer({ service: createService(pool), verify, sessions, config, tls,
             logger: entry => process.stdout.write(JSON.stringify(entry) + '\n') });
