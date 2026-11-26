@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
-  "scripts": { "test": "node --test --test-concurrency=1 test.mjs", "start": "node demo.mjs", "start:online": "node server.mjs", "test:online": "node --test --test-concurrency=1 online.test.mjs", "test:auth": "node --test --test-concurrency=1 auth-flow.test.mjs" },
+  "scripts": { "test": "node --test --test-concurrency=1 test.mjs", "start": "node demo.mjs", "start:online": "node server.mjs", "test:online": "node --test --test-concurrency=1 online.test.mjs", "test:auth": "node --test --test-concurrency=1 auth-flow.test.mjs", "test:proxy": "node --test --test-concurrency=1 proxy.test.mjs" },
   "dependencies": { "pg": "8.23.1", "jose": "6.2.13" },
   "devDependencies": { "@embedded-postgres/windows-x64": "18.4.0-beta.17" }
 }

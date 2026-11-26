@@ -28,8 +28,13 @@ export function createHttpServer({ service, verify, hooks = {}, config = {}, ses
         const json = (status, value) => res.writeHead(status, { ...headers, 'Content-Type': 'application/json' }).end(JSON.stringify(value));
         try {
             const origin = online ? config.origin : 'http://127.0.0.1:' + server.address().port, authority = new URL(origin).host;
+            if (online && (req.rawHeaders.filter((_, i) => i % 2 === 0 && req.rawHeaders[i].toLowerCase() === 'host').length !== 1
+                || !req.url.startsWith('/') || req.url.startsWith('//') || req.url.includes('\\'))) fail(400, 'PEDIDO_INVALIDO');
             if (req.headers.host !== authority) fail(403, 'HOST_RECUSADO');
-            if (online && !req.socket.encrypted && !(config.trustedProxy?.(req.socket.remoteAddress) && req.headers['x-forwarded-proto'] === 'https')) fail(403, 'HTTPS_OBRIGATORIO');
+            // Render: origem fixa do ambiente; a borda exige TLS e a porta interna nao e publica.
+            // Nao inferir protocolo/host/IP de X-Forwarded-* nesse modo.
+            if (online && !req.socket.encrypted && !config.renderEdge
+                && !(config.trustedProxy?.(req.socket.remoteAddress) && req.headers['x-forwarded-proto'] === 'https')) fail(403, 'HTTPS_OBRIGATORIO');
             if (req.headers.origin && req.headers.origin !== origin) fail(403, 'ORIGEM_RECUSADA');
             if (online && req.method !== 'GET' && req.headers.origin !== origin) fail(403, 'ORIGEM_OBRIGATORIA');
             if (req.url.startsWith('/api/')) limited(req.socket.remoteAddress + ':api', config.limits?.api || 240);

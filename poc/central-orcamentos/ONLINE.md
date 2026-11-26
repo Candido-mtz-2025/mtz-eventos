@@ -62,7 +62,11 @@ MTZ na UI. Nao foi introduzida deducao de 20% para outras empresas.
    sslrootcert, sslkey, sslcert ou options na URL: poderiam substituir o objeto
    TLS do driver. rejectUnauthorized permanece true; configurar PG_CA_FILE
    se a CA do provedor nao estiver no trust store. Validar DNS/cadeia reais.
-4. TLS da API: certificado/chave diretos OU proxy de terminacao HTTPS com CIDRs
+4. Render Free, uma instancia e hostname nativo: usar DEPLOYMENT_TARGET=render,
+   sem TRUSTED_PROXY_CIDRS e sem certificado/chave TLS na API. A origem vem
+   exclusivamente dos metadados do Render e os headers forwarded sao ignorados.
+   Garantias, limites e procedimento exato em [RENDER.md](RENDER.md).
+   Fora desse modo, TLS da API: certificado/chave diretos OU proxy com CIDRs
    de origem documentados em TRUSTED_PROXY_CIDRS e acesso direto ao backend
    bloqueado pela hospedagem. Nunca usar 0.0.0.0/0, ::/0 ou confiar genericamente
    em X-Forwarded-Proto. Se a hospedagem nao permitir comprovar esses controles,

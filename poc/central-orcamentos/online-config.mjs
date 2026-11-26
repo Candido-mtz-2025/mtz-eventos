@@ -11,10 +11,24 @@ export function postgresConfig(connectionString, ca) {
 }
 export function loadOnlineConfig(env) {
     if (env.APP_ENV !== 'homologation') invalid();
+    const target = env.DEPLOYMENT_TARGET || 'direct', renderEdge = target === 'render';
+    if (!['direct', 'render'].includes(target)) invalid();
+    let renderOrigin;
+    if (renderEdge) {
+        let external;
+        try { external = new URL(env.RENDER_EXTERNAL_URL); } catch { invalid(); }
+        if (env.RENDER !== 'true' || env.RENDER_SERVICE_TYPE !== 'web' || !env.PORT
+            || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.onrender\.com$/.test(env.RENDER_EXTERNAL_HOSTNAME || '')
+            || external.protocol !== 'https:' || external.hostname !== env.RENDER_EXTERNAL_HOSTNAME || external.port
+            || external.username || external.password || external.pathname !== '/' || external.search || external.hash
+            || env.TLS_CERT_FILE || env.TLS_KEY_FILE || env.TRUSTED_PROXY_CIDRS?.trim()) invalid();
+        renderOrigin = external.origin;
+    }
     let origin, supabase;
-    try { origin = new URL(env.PUBLIC_ORIGIN); supabase = new URL(env.SUPABASE_URL); } catch { invalid(); }
+    try { origin = new URL(env.PUBLIC_ORIGIN || renderOrigin); supabase = new URL(env.SUPABASE_URL); } catch { invalid(); }
     for (const u of [origin, supabase]) if (u.protocol !== 'https:' || u.pathname !== '/' || u.search || u.hash || u.username || u.password
         || isIP(u.hostname) || u.hostname === 'localhost' || u.hostname.endsWith('.github.io')) invalid();
+    if (renderEdge && origin.origin !== renderOrigin) invalid();
     const algorithms = (env.SUPABASE_JWT_ALGORITHMS || '').split(',').map(x => x.trim());
     if (!algorithms.length || algorithms.some(a => !['RS256', 'ES256'].includes(a)) || !env.SUPABASE_AUDIENCE
         || !env.SUPABASE_PUBLISHABLE_KEY?.startsWith('sb_publishable_')) invalid();
@@ -22,7 +36,7 @@ export function loadOnlineConfig(env) {
     if (!/^orc_app(?:\.[a-z0-9-]+)?$/.test(decodeURIComponent(new URL(env.DATABASE_URL).username))) invalid();
     const port = Number(env.PORT || 3000); if (!Number.isSafeInteger(port) || port < 1 || port > 65535) invalid();
     const cidrs = (env.TRUSTED_PROXY_CIDRS || '').split(',').map(x => x.trim()).filter(Boolean);
-    if (Boolean(env.TLS_CERT_FILE) !== Boolean(env.TLS_KEY_FILE) || (!env.TLS_CERT_FILE && !cidrs.length)) invalid();
+    if (Boolean(env.TLS_CERT_FILE) !== Boolean(env.TLS_KEY_FILE) || (!renderEdge && !env.TLS_CERT_FILE && !cidrs.length)) invalid();
     const proxies = new BlockList();
     for (const cidr of cidrs) {
         const [address, prefix] = cidr.split('/'), family = isIP(address);
@@ -30,7 +44,7 @@ export function loadOnlineConfig(env) {
         proxies.addSubnet(address, Number(prefix), family === 4 ? 'ipv4' : 'ipv6');
     }
     const issuer = supabase.origin + '/auth/v1';
-    return Object.freeze({ mode: 'online', origin: origin.origin, supabaseUrl: supabase.origin, issuer,
+    return Object.freeze({ mode: 'online', renderEdge, origin: origin.origin, supabaseUrl: supabase.origin, issuer,
         jwksUrl: issuer + '/.well-known/jwks.json', audience: env.SUPABASE_AUDIENCE, algorithms,
         publishableKey: env.SUPABASE_PUBLISHABLE_KEY, database, port,
         caFile: env.PG_CA_FILE || null, tlsCertFile: env.TLS_CERT_FILE || null, tlsKeyFile: env.TLS_KEY_FILE || null,
