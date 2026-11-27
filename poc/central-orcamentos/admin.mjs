@@ -5,6 +5,20 @@ import { randomUUID } from 'node:crypto';
 import { postgresConfig } from './online-config.mjs';
 import { exportLogicalBackup, restoreLogicalBackup } from './backup.mjs';
 import { canonical, genesis, ids } from './fixture.mjs';
+export async function applySchema(pool, { password, privateSchemaConfirmed } = {}) {
+    if (privateSchemaConfirmed !== true) throw Error('CONFIRMAR_ORC_FORA_DA_DATA_API');
+    if (typeof password !== 'string' || password.length < 24) throw Error('SENHA_OPERACIONAL_FORTE_NECESSARIA');
+    const db = await pool.connect();
+    try {
+        await db.query('BEGIN');
+        if ((await db.query("SELECT to_regnamespace('orc') AS schema")).rows[0].schema) throw Error('SCHEMA_JA_EXISTE_NAO_SOBRESCREVER');
+        if ((await db.query("SELECT 1 FROM pg_roles WHERE rolname IN ('orc_owner','orc_app')")).rowCount) throw Error('ROLES_JA_EXISTEM_NAO_REUTILIZAR');
+        await db.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
+        const sql = (await db.query("SELECT format('ALTER ROLE orc_app LOGIN PASSWORD %L',$1::text) AS sql", [password])).rows[0].sql;
+        await db.query(sql); await db.query('COMMIT');
+    } catch (e) { await db.query('ROLLBACK').catch(() => {}); throw e; }
+    finally { db.release(); }
+}
 export async function seedHostedDemo(pool, issuer, members) {
     if (new URL(issuer).protocol !== 'https:' || !Array.isArray(members) || members.length !== 3
         || new Set(members.map(m => m.subject)).size !== 3 || members.some(m => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(m.subject)
@@ -36,16 +50,7 @@ async function run() {
     const pool = new pg.Pool(connection);
     try {
         if (command === 'apply-schema') {
-            if (!env.ORC_APP_PASSWORD || env.ORC_APP_PASSWORD.length < 24) throw Error('SENHA_OPERACIONAL_FORTE_NECESSARIA');
-            const db = await pool.connect();
-            try {
-                await db.query('BEGIN');
-                if ((await db.query("SELECT to_regnamespace('orc') AS schema")).rows[0].schema) throw Error('SCHEMA_JA_EXISTE_NAO_SOBRESCREVER');
-                await db.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'));
-                const sql = (await db.query("SELECT format('ALTER ROLE orc_app LOGIN PASSWORD %L',$1::text) AS sql", [env.ORC_APP_PASSWORD])).rows[0].sql;
-                await db.query(sql); await db.query('COMMIT');
-            } catch (e) { await db.query('ROLLBACK').catch(() => {}); throw e; }
-            finally { db.release(); }
+            await applySchema(pool, { password: env.ORC_APP_PASSWORD, privateSchemaConfirmed: env.CONFIRM_ORC_NOT_EXPOSED === 'yes' });
         } else if (command === 'seed-demo') {
             const marker = (await pool.query("SELECT obj_description('orc'::regnamespace,'pg_namespace') AS marker")).rows[0].marker;
             if (marker !== 'mtz-homologation-synthetic-only-v1') throw Error('DESTINO_NAO_HOMOLOGACAO');

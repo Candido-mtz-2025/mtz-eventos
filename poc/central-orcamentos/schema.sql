@@ -1,8 +1,36 @@
+-- Aplicar em transacao unica pelo comando administrativo, nunca pela API.
+DO $$ DECLARE schemas text; BEGIN
+  FOR schemas IN
+    SELECT current_setting('pgrst.db_schemas',true)
+    UNION ALL
+    SELECT substring(config FROM length('pgrst.db_schemas=')+1)
+    FROM pg_db_role_setting s CROSS JOIN LATERAL unnest(s.setconfig) AS config
+    WHERE (s.setdatabase=0 OR s.setdatabase=(SELECT oid FROM pg_database WHERE datname=current_database()))
+      AND config LIKE 'pgrst.db_schemas=%'
+  LOOP
+    IF schemas ~* '(^|,)\s*"?orc"?\s*(,|$)' THEN RAISE EXCEPTION 'ORC_EXPOSTO_NA_DATA_API'; END IF;
+  END LOOP;
+END $$;
+-- Nao herdar SET/INHERIT automaticos de configuracoes do criador (PG16+).
+DO $$ BEGIN
+  IF current_setting('server_version_num')::int >= 160000 THEN
+    PERFORM set_config('createrole_self_grant','',true);
+  END IF;
+END $$;
 CREATE ROLE orc_owner NOLOGIN NOSUPERUSER NOBYPASSRLS;
 CREATE ROLE orc_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+-- Somente SET temporario; nao acrescentar ADMIN nem heranca de privilegios.
+DO $$ BEGIN
+  IF current_setting('server_version_num')::int >= 160000 THEN
+    EXECUTE 'GRANT orc_owner TO CURRENT_USER WITH SET TRUE';
+    EXECUTE 'GRANT orc_owner TO CURRENT_USER WITH INHERIT FALSE';
+  ELSE
+    EXECUTE 'GRANT orc_owner TO CURRENT_USER';
+  END IF;
+END $$;
 CREATE SCHEMA orc AUTHORIZATION orc_owner;
-COMMENT ON SCHEMA orc IS 'mtz-homologation-synthetic-only-v1';
 SET ROLE orc_owner;
+COMMENT ON SCHEMA orc IS 'mtz-homologation-synthetic-only-v1';
 CREATE TABLE orc.companies (
   id uuid PRIMARY KEY, name text NOT NULL, policy text,
   genesis_text text NOT NULL CHECK(jsonb_typeof(genesis_text::jsonb)='object')
@@ -73,11 +101,30 @@ DO $$ DECLARE t text; BEGIN
     EXECUTE format('CREATE POLICY tenant_member ON orc.%I USING(tenant_id=orc.tenant() AND EXISTS(SELECT 1 FROM orc.members m WHERE m.tenant_id=orc.tenant() AND m.user_id=orc.actor() AND m.active AND ''ler_propostas''=ANY(m.permissions))) WITH CHECK(tenant_id=orc.tenant() AND EXISTS(SELECT 1 FROM orc.members m WHERE m.tenant_id=orc.tenant() AND m.user_id=orc.actor() AND m.active AND (''criar_proposta''=ANY(m.permissions) OR ''editar_proposta''=ANY(m.permissions))))',t);
   END LOOP;
 END $$;
-RESET ROLE;
+REVOKE ALL ON SCHEMA orc FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA orc FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA orc FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA orc FROM PUBLIC;
+-- EXECUTE de PUBLIC e um default global; REVOKE so por schema nao o remove.
+ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA orc REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA orc REVOKE ALL ON SEQUENCES FROM PUBLIC;
+DO $$ DECLARE api_role text; BEGIN
+  FOR api_role IN SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated','authenticator','service_role') LOOP
+    EXECUTE format('REVOKE ALL ON SCHEMA orc FROM %I',api_role);
+    EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA orc FROM %I',api_role);
+    EXECUTE format('REVOKE ALL ON ALL FUNCTIONS IN SCHEMA orc FROM %I',api_role);
+    EXECUTE format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA orc FROM %I',api_role);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM %I',api_role);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA orc REVOKE ALL ON TABLES FROM %I',api_role);
+    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA orc REVOKE ALL ON SEQUENCES FROM %I',api_role);
+  END LOOP;
+END $$;
 GRANT USAGE ON SCHEMA orc TO orc_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA orc TO orc_app;
 GRANT SELECT ON orc.companies,orc.members,orc.state,orc.journal,orc.receipts,orc.audit TO orc_app;
 GRANT UPDATE(revision,snapshot_text) ON orc.state TO orc_app;
 GRANT INSERT ON orc.journal,orc.receipts,orc.audit TO orc_app;
 -- Sem UPDATE/DELETE de journal, recibos, auditoria, politicas, membros ou usuarios.
+RESET ROLE;
+REVOKE orc_owner FROM CURRENT_USER;

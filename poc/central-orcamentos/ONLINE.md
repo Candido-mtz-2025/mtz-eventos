@@ -79,9 +79,14 @@ MTZ na UI. Nao foi introduzida deducao de 20% para outras empresas.
    na API se o provisionamento for recusado.
 6. No banco novo, vazio e autorizado, preparar esquema explicitamente:
 
+   A instalacao agora exige confirmacao de que orc nao esta exposto pela Data
+   API e remove a participacao temporaria em orc_owner. Procedimento completo,
+   limites administrativos e recuperacao em [SCHEMA.md](SCHEMA.md).
+
 ```powershell
 $env:APP_ENV='homologation'
 $env:CONFIRM_SYNTHETIC_ADMIN='yes'
+$env:CONFIRM_ORC_NOT_EXPOSED='yes' # Somente apos conferir Exposed schemas no painel.
 # Definir credenciais administrativas somente neste processo protegido.
 node admin.mjs apply-schema
 # Arquivo privado com tres objetos {"subject":"UUID_REAL_DO_AUTH_DE_TESTE"}.
